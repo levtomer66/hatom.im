@@ -39,9 +39,10 @@ const CoffeeReviewCard: React.FC<CoffeeReviewCardProps> = ({ review, onDelete, o
         setIsDeleting(true);
         setDeleteError(null);
         await onDelete(review.id);
-      } catch (error) {
+      } catch (deletedError) {
         setDeleteError('שגיאה במחיקת הביקורת');
         setIsDeleting(false);
+        console.error('Error deleting coffee review:', deletedError);
       }
     }
   };

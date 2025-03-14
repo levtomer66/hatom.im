@@ -18,7 +18,13 @@ interface TreeNode {
   key?: string;
   type?: string;
   styleClass?: string;
-  data?: any;
+  data?: {
+    name: string;
+    id: number;
+    parentId?: number | null;
+    childCount?: number;
+    [key: string]: unknown;
+  };
   children?: TreeNode[];
   style?: React.CSSProperties;
   expanded?: boolean;
@@ -135,6 +141,7 @@ const FamilyTreePrime: React.FC = () => {
         data: {
           id: node.id,
           name: node.name,
+          parentId: node.parentId,
           childCount: children.length
         },
         children: children.length > 0 ? children.map(child => buildNode(child)) : []
@@ -198,7 +205,7 @@ const FamilyTreePrime: React.FC = () => {
       const newName = prompt('Edit dog name:', node.data.name);
       if (newName && newName !== node.data.name) {
         const updatedData = familyData.map(item => 
-          item.id === node.data.id ? { ...item, name: newName } : item
+          item.id === node.data!.id ? { ...item, name: newName } : item
         );
         setFamilyData(updatedData);
         
@@ -223,7 +230,7 @@ const FamilyTreePrime: React.FC = () => {
         <div className="node-header">
           <h3 style={{ margin: 0, textAlign: 'center', direction: 'rtl' }}>{node.data.name}</h3>
         </div>
-        {node.data.childCount > 0 && (
+        {node.data.childCount && node.data.childCount > 0 && (
           <div className="node-footer" style={{ marginTop: '8px', fontSize: '0.875rem' }}>
             {/* {node.data.childCount} {node.data.childCount === 1 ? 'child' : 'children'} */}
           </div>
@@ -415,7 +422,7 @@ const FamilyTreePrime: React.FC = () => {
       <div className="instructions bg-amber-100 p-4 rounded-lg mb-6 print:hidden">
         <p className="text-amber-800">
           <span className="font-bold">Instructions:</span> Click on a dog to edit its name.
-          Use the "+" button to add a new dog to the family tree.
+          Use the &quot;+&quot; button to add a new dog to the family tree.
         </p>
       </div>
 

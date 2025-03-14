@@ -103,13 +103,6 @@ const RemoveButton = styled(Button)`
   }
 `;
 
-const CollapseButton = styled(Button)`
-  background-color: #3b82f6;
-  &:hover {
-    background-color: #2563eb;
-  }
-`;
-
 const FamilyTreeOrgChart: React.FC = () => {
   const [familyData, setFamilyData] = useState<FamilyMember[]>([]);
   const [editingNode, setEditingNode] = useState<number | null>(null);
@@ -414,7 +407,7 @@ const FamilyTreeOrgChart: React.FC = () => {
       <div className="instructions bg-amber-100 p-4 rounded-lg mb-6 print:hidden">
         <p className="text-amber-800">
           <span className="font-bold">Instructions:</span> Click on a dog to expand/collapse its children. 
-          Double-click to edit a dog's name. Use the + button to add a new dog and the × button to remove a dog and all its descendants.
+          Double-click to edit a dog&apos;s name. Use the + button to add a new dog and the × button to remove a dog and all its descendants.
         </p>
       </div>
 

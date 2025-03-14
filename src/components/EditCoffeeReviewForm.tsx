@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef } from 'react';
 import RatingStars from './RatingStars';
 import Image from 'next/image';
 import { CoffeeReview } from '@/types/coffee';

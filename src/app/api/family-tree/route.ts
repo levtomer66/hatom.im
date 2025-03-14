@@ -1,14 +1,14 @@
 import { NextResponse } from 'next/server';
 import clientPromise from '@/lib/mongodb';
 import { FamilyMember } from '@/models/FamilyMember';
+import fs from 'fs';
+import path from 'path';
 
 // GET handler to retrieve family tree data
 export async function GET() {
 
   // Try to read from the file first
   try {
-    const fs = require('fs');
-    const path = require('path');
     const filePath = path.join(process.cwd(), 'src','data', 'family-tree.json');
 
     if (fs.existsSync(filePath)) {

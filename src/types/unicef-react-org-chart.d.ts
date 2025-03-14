@@ -20,6 +20,10 @@ declare module '@unicef/react-org-chart' {
       children?: TreeNode[];
     }
   
+    interface ChartConfig {
+      [key: string]: unknown;
+    }
+  
     interface OrgChartProps {
       tree: TreeNode;
       downloadImageId?: string;
@@ -27,8 +31,8 @@ declare module '@unicef/react-org-chart' {
       zoomInId?: string;
       zoomOutId?: string;
       zoomExtentId?: string;
-      onConfigChange?: (config: any) => void;
-      loadConfig?: (d: any) => any;
+      onConfigChange?: (config: ChartConfig) => void;
+      loadConfig?: (d: ChartConfig) => ChartConfig;
       loadParent?: (personData: Person) => Promise<TreeNode>;
       loadChildren?: (personData: Person) => Promise<TreeNode[]>;
       loadImage?: (personData: Person) => Promise<string>;
