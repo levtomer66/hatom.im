@@ -5,16 +5,13 @@ import {
   deleteCoffeeReview 
 } from '@/models/CoffeeReview';
 
-interface RouteParams {
-  params: {
-    id: string;
-  };
-}
-
 // GET handler to retrieve a single coffee review by ID
-export async function GET(request: NextRequest, { params }: RouteParams) {
+export async function GET(
+  request: NextRequest,
+  context: { params: Promise<{ id: string }> }
+) {
   try {
-    const { id } = params;
+    const { id } = await context.params;
     const review = await getCoffeeReviewById(id);
     
     if (!review) {
@@ -35,9 +32,12 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 }
 
 // PATCH handler to update a coffee review
-export async function PATCH(request: NextRequest, { params }: RouteParams) {
+export async function PATCH(
+  request: NextRequest,
+  context: { params: Promise<{ id: string }> }
+) {
   try {
-    const { id } = params;
+    const { id } = await context.params;
     const data = await request.json();
     
     // Validate rating ranges if provided
@@ -75,9 +75,12 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 }
 
 // DELETE handler to delete a coffee review
-export async function DELETE(request: NextRequest, { params }: RouteParams) {
+export async function DELETE(
+  request: NextRequest,
+  context: { params: Promise<{ id: string }> }
+) {
   try {
-    const { id } = params;
+    const { id } = await context.params;
     const success = await deleteCoffeeReview(id);
     
     if (!success) {
