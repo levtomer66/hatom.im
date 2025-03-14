@@ -36,7 +36,7 @@ export default function Home() {
             <h2 className="feature-title">שמות האוליבון</h2>
             <p>כל שמות האוליבון לעולם ועד</p>
             <Link href="/family-tree" className="mt-4 inline-block text-amber-600 hover:text-amber-800">
-              צפה בשמות האוליבון →
+              ← צפה בשמות האוליבון
             </Link>
           </div>
           
@@ -45,7 +45,7 @@ export default function Home() {
             <h2 className="feature-title">מקפקפים</h2>
             <p>ביקורות על קפה מאת תמית ותומרינדי</p>
             <Link href="/mekafkefim" className="mt-4 inline-block text-amber-600 hover:text-amber-800">
-              צפה במקפקפים →
+              ← צפה במקפקפים
             </Link>
           </div>
           

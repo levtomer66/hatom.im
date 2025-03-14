@@ -6,7 +6,65 @@
   --accent-color: #ffbe0b;
   --background-color: #f7f7f7;
   --text-color: #333333;
+  
+  /* RTL margin and padding values */
+  --margin-1: 0.25rem;
+  --margin-2: 0.5rem;
+  --margin-3: 0.75rem;
+  --margin-4: 1rem;
+  --margin-5: 1.25rem;
+  --margin-6: 1.5rem;
+  
+  --padding-1: 0.25rem;
+  --padding-2: 0.5rem;
+  --padding-3: 0.75rem;
+  --padding-4: 1rem;
+  --padding-5: 1.25rem;
+  --padding-6: 1.5rem;
 }
+
+/* RTL specific styles */
+html[dir="rtl"] {
+  text-align: right;
+}
+
+html[dir="rtl"] .navbar-container,
+html[dir="rtl"] .navbar-links {
+  flex-direction: row-reverse;
+}
+
+html[dir="rtl"] .birthday-features {
+  direction: rtl;
+}
+
+/* RTL specific margins and paddings */
+html[dir="rtl"] .mr-1 { margin-right: 0; margin-left: var(--margin-1); }
+html[dir="rtl"] .mr-2 { margin-right: 0; margin-left: var(--margin-2); }
+html[dir="rtl"] .mr-3 { margin-right: 0; margin-left: var(--margin-3); }
+html[dir="rtl"] .mr-4 { margin-right: 0; margin-left: var(--margin-4); }
+html[dir="rtl"] .mr-5 { margin-right: 0; margin-left: var(--margin-5); }
+html[dir="rtl"] .mr-6 { margin-right: 0; margin-left: var(--margin-6); }
+
+html[dir="rtl"] .ml-1 { margin-left: 0; margin-right: var(--margin-1); }
+html[dir="rtl"] .ml-2 { margin-left: 0; margin-right: var(--margin-2); }
+html[dir="rtl"] .ml-3 { margin-left: 0; margin-right: var(--margin-3); }
+html[dir="rtl"] .ml-4 { margin-left: 0; margin-right: var(--margin-4); }
+html[dir="rtl"] .ml-5 { margin-left: 0; margin-right: var(--margin-5); }
+html[dir="rtl"] .ml-6 { margin-left: 0; margin-right: var(--margin-6); }
+
+html[dir="rtl"] .pr-1 { padding-right: 0; padding-left: var(--padding-1); }
+html[dir="rtl"] .pr-2 { padding-right: 0; padding-left: var(--padding-2); }
+html[dir="rtl"] .pr-3 { padding-right: 0; padding-left: var(--padding-3); }
+html[dir="rtl"] .pr-4 { padding-right: 0; padding-left: var(--padding-4); }
+html[dir="rtl"] .pr-5 { padding-right: 0; padding-left: var(--padding-5); }
+html[dir="rtl"] .pr-6 { padding-right: 0; padding-left: var(--padding-6); }
+
+html[dir="rtl"] .pl-1 { padding-left: 0; padding-right: var(--padding-1); }
+html[dir="rtl"] .pl-2 { padding-left: 0; padding-right: var(--padding-2); }
+html[dir="rtl"] .pl-3 { padding-left: 0; padding-right: var(--padding-3); }
+html[dir="rtl"] .pl-4 { padding-left: 0; padding-right: var(--padding-4); }
+html[dir="rtl"] .pl-5 { padding-left: 0; padding-right: var(--padding-5); }
+html[dir="rtl"] .pl-6 { padding-left: 0; padding-right: var(--padding-6); }
 
 body {
   margin: 0;

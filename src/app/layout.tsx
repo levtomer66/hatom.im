@@ -1,7 +1,10 @@
 import './globals.css';
-import { Inter } from 'next/font/google';
+import { Rubik } from 'next/font/google';
 
-const inter = Inter({ subsets: ['latin'] });
+const rubik = Rubik({ 
+  subsets: ['latin', 'hebrew'],
+  display: 'swap',
+});
 
 export const metadata = {
   title: 'יום הולדת לתומיתילו',
@@ -14,8 +17,8 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en">
-      <body className={inter.className}>
+    <html lang="he" dir="rtl">
+      <body className={rubik.className}>
         {children}
       </body>
     </html>

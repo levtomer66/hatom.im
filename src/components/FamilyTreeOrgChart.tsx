@@ -24,6 +24,7 @@ const StyledNode = styled.div`
   min-width: 150px;
   position: relative;
   transition: all 0.3s;
+  direction: rtl;
   
   &:hover {
     border-color: #78350f;
@@ -66,6 +67,7 @@ const StyledTreeNode = styled(TreeNode)`
 
 const StyledTree = styled(Tree)`
   text-align: center;
+  direction: ltr; /* Keep the tree structure LTR for proper layout */
 `;
 
 const ButtonGroup = styled.div`
@@ -310,7 +312,7 @@ const FamilyTreeOrgChart: React.FC = () => {
                 <NodeTitle>
                   {node.name}
                   {hasChildren && (
-                    <span className="ml-2 text-amber-600 text-xs">
+                    <span className="mr-2 text-amber-600 text-xs">
                       {isCollapsed ? "▼" : "▲"}
                     </span>
                   )}
@@ -337,7 +339,7 @@ const FamilyTreeOrgChart: React.FC = () => {
                   e.stopPropagation();
                   handleAddMember(node.id);
                 }}
-                title="Add Child"
+                title="הוסף ילד"
               >
                 +
               </AddButton>
@@ -346,7 +348,7 @@ const FamilyTreeOrgChart: React.FC = () => {
                   e.stopPropagation();
                   handleRemoveMember(node.id);
                 }}
-                title="Remove"
+                title="הסר"
               >
                 ×
               </RemoveButton>
@@ -363,57 +365,57 @@ const FamilyTreeOrgChart: React.FC = () => {
   const treeData = buildTree(familyData);
 
   return (
-    <div className="family-tree-container p-8 max-w-full overflow-auto print:p-0 bg-amber-50 min-h-screen">
+    <div className="family-tree-container p-8 max-w-full overflow-auto print:p-0 bg-amber-50 min-h-screen" dir="rtl">
       <div className="controls mb-6 print:hidden">
-        <h1 className="text-3xl font-bold text-amber-900 mb-4 flex items-center">
-          <span className="mr-2">🐕</span>
-          כל שמות האוליבון
+        <h1 className="text-3xl font-bold text-amber-900 mb-4 flex items-center justify-center">
           <span className="ml-2">🐕</span>
+          כל שמות האוליבון
+          <span className="mr-2">🐕</span>
         </h1>
-        <div className="flex flex-wrap gap-4">
+        <div className="flex flex-wrap gap-4 justify-center">
           {familyData.length === 0 && (
             <button 
               onClick={() => handleAddMember(null)}
               className="bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 rounded-lg flex items-center"
             >
-              <span className="mr-2">🐶</span>
-              Add Root Dog
+              <span className="ml-2">🐶</span>
+              הוסף כלב ראשי
             </button>
           )}
           <button 
             onClick={saveTree}
             className="bg-amber-800 hover:bg-amber-900 text-white px-4 py-2 rounded-lg flex items-center"
           >
-            <span className="mr-2">💾</span>
-            Save Family Tree
+            <span className="ml-2">💾</span>
+            שמור עץ משפחה
           </button>
           <button 
             onClick={() => window.print()}
             className="bg-amber-700 hover:bg-amber-800 text-white px-4 py-2 rounded-lg flex items-center"
           >
-            <span className="mr-2">🖨️</span>
-            Print Poster
+            <span className="ml-2">🖨️</span>
+            הדפס פוסטר
           </button>
           <button 
             onClick={downloadAsImage}
             className="bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 rounded-lg flex items-center"
           >
-            <span className="mr-2">📷</span>
-            Download as Image
+            <span className="ml-2">📷</span>
+            הורד כתמונה
           </button>
         </div>
       </div>
 
-      <div className="instructions bg-amber-100 p-4 rounded-lg mb-6 print:hidden">
+      <div className="instructions bg-amber-100 p-4 rounded-lg mb-6 print:hidden text-right">
         <p className="text-amber-800">
-          <span className="font-bold">Instructions:</span> Click on a dog to expand/collapse its children. 
-          Double-click to edit a dog&apos;s name. Use the + button to add a new dog and the × button to remove a dog and all its descendants.
+          <span className="font-bold">הוראות:</span> לחץ פעמיים על שם כדי לערוך, לחץ פעם אחת כדי לפתוח/לסגור ענפים
         </p>
       </div>
 
       <div 
         ref={treeContainerRef}
         className="tree-wrapper bg-white p-8 rounded-xl shadow-xl print:bg-white print:shadow-none border-4 border-amber-200 overflow-x-auto"
+        dir="ltr" /* Keep the tree structure LTR for proper layout */
       >
         <div className="min-w-max flex justify-center">
           {treeData.length > 0 ? (
@@ -421,19 +423,19 @@ const FamilyTreeOrgChart: React.FC = () => {
               lineWidth={'2px'}
               lineColor={'#92400e'}
               lineBorderRadius={'10px'}
-              label={<div className="text-amber-800 font-bold mb-4">Family Tree</div>}
+              label={<div className="text-amber-800 font-bold mb-4" dir="rtl">עץ משפחה</div>}
             >
               {treeData.map(rootNode => renderTreeNode(rootNode))}
             </StyledTree>
           ) : (
-            <div className="text-center">
-              <p className="text-amber-800 text-lg mb-4">No dogs in the family tree yet! 🐾</p>
+            <div className="text-center" dir="rtl">
+              <p className="text-amber-800 text-lg mb-4">אין עדיין כלבים בעץ המשפחה! 🐾</p>
               <button 
                 onClick={() => handleAddMember(null)}
                 className="bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 rounded-lg flex items-center mx-auto"
               >
-                <span className="mr-2">🐶</span>
-                Add First Dog
+                <span className="ml-2">🐶</span>
+                הוסף כלב ראשון
               </button>
             </div>
           )}

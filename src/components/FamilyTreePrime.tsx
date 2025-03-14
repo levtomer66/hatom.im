@@ -35,6 +35,7 @@ const ButtonGroup = styled.div`
   display: flex;
   gap: 1rem;
   margin-bottom: 1rem;
+  justify-content: center;
 `;
 
 const Button = styled.button`
@@ -52,7 +53,7 @@ const Button = styled.button`
   }
   
   span {
-    margin-right: 0.5rem;
+    margin-left: 0.5rem;
   }
 `;
 
@@ -67,6 +68,7 @@ const StyledOrgChart = styled.div`
       border-radius: 8px;
       position: relative;
       transition: all 0.3s;
+      direction: rtl;
       
       &:hover {
         transform: translateY(-2px);
@@ -154,7 +156,7 @@ const FamilyTreePrime: React.FC = () => {
   // Function to add a new family member
   const handleAddMember = async (parentId: number | null): Promise<void> => {
     const newId = Math.max(...familyData.map(item => item.id), 0) + 1;
-    const newName = prompt('Enter name for new dog:');
+    const newName = prompt('הכנס שם לכלב חדש:');
     
     if (!newName) return; // User canceled
     
@@ -192,17 +194,17 @@ const FamilyTreePrime: React.FC = () => {
         throw new Error('Failed to save tree');
       }
       
-      alert('Family tree saved successfully!');
+      alert('עץ המשפחה נשמר בהצלחה!');
     } catch (error) {
       console.error('Error saving tree:', error);
-      alert('Failed to save tree. Check console for details.');
+      alert('שגיאה בשמירת העץ. בדוק את הקונסול לפרטים נוספים.');
     }
   };
 
   // Function to handle node selection
   const handleNodeSelect = (node: TreeNode) => {
     if (node && node.data) {
-      const newName = prompt('Edit dog name:', node.data.name);
+      const newName = prompt('ערוך שם כלב:', node.data.name);
       if (newName && newName !== node.data.name) {
         const updatedData = familyData.map(item => 
           item.id === node.data!.id ? { ...item, name: newName } : item
@@ -293,7 +295,7 @@ const FamilyTreePrime: React.FC = () => {
       loadingMessage.style.color = 'white';
       loadingMessage.style.borderRadius = '8px';
       loadingMessage.style.zIndex = '9999';
-      loadingMessage.textContent = 'Preparing poster image... This may take a moment.';
+      loadingMessage.textContent = 'מכין תמונת פוסטר... זה עשוי לקחת זמן מה.';
       document.body.appendChild(loadingMessage);
 
       // Get the chart element
@@ -334,7 +336,7 @@ const FamilyTreePrime: React.FC = () => {
         const finalWidth = Math.round(actualWidth * scale);
         const finalHeight = Math.round(actualHeight * scale);
         
-        loadingMessage.textContent = 'Generating high-resolution poster image... This may take a moment.';
+        loadingMessage.textContent = 'מייצר תמונת פוסטר באיכות גבוהה... זה עשוי לקחת זמן מה.';
         
         // Use html-to-image with the calculated dimensions
         toPng(chartElement, { 
@@ -371,7 +373,7 @@ const FamilyTreePrime: React.FC = () => {
           })
           .catch((error) => {
             console.error('Error generating poster image:', error);
-            alert('Failed to generate poster image. The image might be too large. Please try again with a smaller size.');
+            alert('שגיאה בייצור תמונת הפוסטר. ייתכן שהתמונה גדולה מדי. נסה שוב עם גודל קטן יותר.');
             
             // Restore original styles
             chartElement.style.overflow = originalOverflow;
@@ -390,43 +392,43 @@ const FamilyTreePrime: React.FC = () => {
   };
 
   return (
-    <div className="family-tree-container p-8 max-w-full overflow-auto print:p-0 bg-amber-50 min-h-screen">
+    <div className="family-tree-container p-8 max-w-full overflow-auto print:p-0 bg-amber-50 min-h-screen" dir="rtl">
       <div className="controls mb-6 print:hidden">
-        <h1 className="text-3xl font-bold text-amber-900 mb-4 flex items-center">
-          <span className="mr-2">🐕</span>
-          כל שמות האוליבון
+        <h1 className="text-3xl font-bold text-amber-900 mb-4 flex items-center justify-center">
           <span className="ml-2">🐕</span>
+          כל שמות האוליבון
+          <span className="mr-2">🐕</span>
         </h1>
         <ButtonGroup>
           {familyData.length === 0 && (
             <Button onClick={() => handleAddMember(null)}>
               <span>🐶</span>
-              Add Root Dog
+              הוסף כלב ראשי
             </Button>
           )}
           <Button onClick={() => saveTree()}>
             <span>💾</span>
-            Save Family Tree
+            שמור עץ משפחה
           </Button>
           <Button onClick={() => window.print()}>
             <span>🖨️</span>
-            Print Poster
+            הדפס פוסטר
           </Button>
           <Button onClick={downloadChartAsImage}>
             <span>📷</span>
-            Download Image
+            הורד כתמונה
           </Button>
         </ButtonGroup>
       </div>
 
-      <div className="instructions bg-amber-100 p-4 rounded-lg mb-6 print:hidden">
+      <div className="instructions bg-amber-100 p-4 rounded-lg mb-6 print:hidden text-right">
         <p className="text-amber-800">
-          <span className="font-bold">Instructions:</span> Click on a dog to edit its name.
-          Use the &quot;+&quot; button to add a new dog to the family tree.
+          <span className="font-bold">הוראות:</span> לחץ על כלב כדי לערוך את שמו.
+          השתמש בכפתור &quot;+&quot; כדי להוסיף כלב חדש לעץ המשפחה.
         </p>
       </div>
 
-      <div ref={chartRef} className="tree-wrapper bg-white p-8 rounded-xl shadow-xl print:bg-white print:shadow-none border-4 border-amber-200 overflow-x-auto">
+      <div ref={chartRef} className="tree-wrapper bg-white p-8 rounded-xl shadow-xl print:bg-white print:shadow-none border-4 border-amber-200 overflow-x-auto" dir="ltr">
         <StyledOrgChart>
           {treeData.length > 0 ? (
             <OrganizationChart
@@ -443,11 +445,11 @@ const FamilyTreePrime: React.FC = () => {
               className="org-chart"
             />
           ) : (
-            <div className="text-center">
-              <p className="text-amber-800 text-lg mb-4">No dogs in the family tree yet! 🐾</p>
+            <div className="text-center" dir="rtl">
+              <p className="text-amber-800 text-lg mb-4">אין עדיין כלבים בעץ המשפחה! 🐾</p>
               <Button onClick={() => handleAddMember(null)}>
                 <span>🐶</span>
-                Add First Dog
+                הוסף כלב ראשון
               </Button>
             </div>
           )}
