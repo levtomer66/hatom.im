@@ -1,0 +1,46 @@
+{
+  "name": "hatom-family-tree",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "@tailwindcss/forms": "^0.5.9",
+    "@types/styled-components": "^5.1.34",
+    "@types/uuid": "^10.0.0",
+    "autoprefixer": "^10.4.20",
+    "html-to-image": "^1.11.13",
+    "mongodb": "^6.14.2",
+    "mongoose": "^8.12.1",
+    "next": "15.2.2",
+    "primeicons": "^7.0.0",
+    "primereact": "^10.9.3",
+    "react": "^19.0.0",
+    "react-confetti": "^6.4.0",
+    "react-d3-tree": "^3.6.6",
+    "react-dom": "^19.0.0",
+    "react-icons": "^5.5.0",
+    "react-organizational-chart": "^2.2.1",
+    "styled-components": "^6.1.15",
+    "tailwind-merge": "^2.6.0",
+    "tailwindcss": "^3.4.17",
+    "tailwindcss-animate": "^1.0.7",
+    "uuid": "^11.1.0"
+  },
+  "devDependencies": {
+    "@eslint/eslintrc": "^3",
+    "@tailwindcss/postcss": "^4.0.13",
+    "@types/node": "^20.17.24",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "autoprefixer": "^10.4.21",
+    "eslint": "^9",
+    "eslint-config-next": "15.2.2",
+    "tailwindcss": "^4",
+    "typescript": "^5"
+  }
+}

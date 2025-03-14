@@ -1,0 +1,312 @@
+[
+    {
+        "id": 1,
+        "name": "אוליבר",
+        "parentId": null
+    },
+    {
+        "id": 8,
+        "name": "אולי",
+        "parentId": 1
+    },
+    {
+        "id": 9,
+        "name": "אוליאל",
+        "parentId": 8
+    },
+    {
+        "id": 10,
+        "name": "אוליבון",
+        "parentId": 8
+    },
+    {
+        "id": 11,
+        "name": "בון",
+        "parentId": 10
+    },
+    {
+        "id": 12,
+        "name": "בונן",
+        "parentId": 11
+    },
+    {
+        "id": 13,
+        "name": "רבון",
+        "parentId": 11
+    },
+    {
+        "id": 14,
+        "name": "רבונים",
+        "parentId": 13
+    },
+    {
+        "id": 16,
+        "name": "רבן",
+        "parentId": 13
+    },
+    {
+        "id": 17,
+        "name": "אולייאל",
+        "parentId": 9
+    },
+    {
+        "id": 18,
+        "name": "אולן",
+        "parentId": 8
+    },
+    {
+        "id": 19,
+        "name": "אונן",
+        "parentId": 8
+    },
+    {
+        "id": 20,
+        "name": "רבינוחול",
+        "parentId": 13
+    },
+    {
+        "id": 21,
+        "name": "נוחול",
+        "parentId": 20
+    },
+    {
+        "id": 22,
+        "name": "חולם",
+        "parentId": 21
+    },
+    {
+        "id": 27,
+        "name": "פיתוחל",
+        "parentId": 22
+    },
+    {
+        "id": 29,
+        "name": "פיתוחאק",
+        "parentId": 27
+    },
+    {
+        "id": 30,
+        "name": "חלם",
+        "parentId": 22
+    },
+    {
+        "id": 31,
+        "name": "חלם חמודות",
+        "parentId": 30
+    },
+    {
+        "id": 32,
+        "name": "פוצחלם",
+        "parentId": 30
+    },
+    {
+        "id": 33,
+        "name": "פוצלחם",
+        "parentId": 30
+    },
+    {
+        "id": 34,
+        "name": "פיצח",
+        "parentId": 32
+    },
+    {
+        "id": 35,
+        "name": "פיצחתם",
+        "parentId": 32
+    },
+    {
+        "id": 36,
+        "name": "אולנים",
+        "parentId": 18
+    },
+    {
+        "id": 37,
+        "name": "אוננים",
+        "parentId": 19
+    },
+    {
+        "id": 38,
+        "name": "ללולי",
+        "parentId": 17
+    },
+    {
+        "id": 39,
+        "name": "לרולי",
+        "parentId": 38
+    },
+    {
+        "id": 40,
+        "name": "לאלע(ה)",
+        "parentId": 39
+    },
+    {
+        "id": 41,
+        "name": "נפתול",
+        "parentId": 1
+    },
+    {
+        "id": 42,
+        "name": "נפתולי",
+        "parentId": 41
+    },
+    {
+        "id": 43,
+        "name": "נאפתא",
+        "parentId": 42
+    },
+    {
+        "id": 44,
+        "name": "פוצחלם נאפתא",
+        "parentId": 32
+    },
+    {
+        "id": 45,
+        "name": "לוטננט נאפתא",
+        "parentId": 43
+    },
+    {
+        "id": 46,
+        "name": "פוצחלם חרטא",
+        "parentId": 32
+    },
+    {
+        "id": 47,
+        "name": "חרטא",
+        "parentId": 43
+    },
+    {
+        "id": 48,
+        "name": "לוטננט חרטא",
+        "parentId": 47
+    },
+    {
+        "id": 49,
+        "name": "פרקטאל",
+        "parentId": 29
+    },
+    {
+        "id": 50,
+        "name": "פרוקטאל",
+        "parentId": 29
+    },
+    {
+        "id": 51,
+        "name": "ניפעל",
+        "parentId": 49
+    },
+    {
+        "id": 52,
+        "name": "ללורי",
+        "parentId": 38
+    },
+    {
+        "id": 54,
+        "name": "בוניקי",
+        "parentId": 11
+    },
+    {
+        "id": 55,
+        "name": "מלכישוע",
+        "parentId": 1
+    },
+    {
+        "id": 56,
+        "name": "מלכיש עונא",
+        "parentId": 55
+    },
+    {
+        "id": 57,
+        "name": "מרכושי",
+        "parentId": 55
+    },
+    {
+        "id": 58,
+        "name": "הבונים",
+        "parentId": 14
+    },
+    {
+        "id": 59,
+        "name": "בונקי",
+        "parentId": 54
+    },
+    {
+        "id": 60,
+        "name": "חבקוק",
+        "parentId": 59
+    },
+    {
+        "id": 61,
+        "name": "קוק-חבאב",
+        "parentId": 60
+    },
+    {
+        "id": 62,
+        "name": "רבוני",
+        "parentId": 13
+    },
+    {
+        "id": 63,
+        "name": "טונהבין",
+        "parentId": 62
+    },
+    {
+        "id": 64,
+        "name": "ממוטה צעירה",
+        "parentId": 1
+    },
+    {
+        "id": 68,
+        "name": "פיתחתם",
+        "parentId": 27
+    },
+    {
+        "id": 71,
+        "name": "תינוקיבון",
+        "parentId": 11
+    },
+    {
+        "id": 72,
+        "name": "נוחוליהו",
+        "parentId": 20
+    },
+    {
+        "id": 73,
+        "name": "רבוניקו",
+        "parentId": 62
+    },
+    {
+        "id": 74,
+        "name": "מאמאני",
+        "parentId": 64
+    },
+    {
+        "id": 75,
+        "name": "מאמאנים",
+        "parentId": 74
+    },
+    {
+        "id": 76,
+        "name": "אוליי",
+        "parentId": 9
+    },
+    {
+        "id": 77,
+        "name": "אוליי-תרקוד",
+        "parentId": 76
+    },
+    {
+        "id": 78,
+        "name": "נאפתיקו",
+        "parentId": 43
+    },
+    {
+        "id": 79,
+        "name": "פוצחי-לפלף",
+        "parentId": 32
+    },
+    {
+        "id": 80,
+        "name": "לפוף",
+        "parentId": 79
+    }
+]
