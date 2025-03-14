@@ -17,10 +17,10 @@ export default function FamilyTreeOrgChartPage() {
           <h1 className="text-xl font-bold">Dog Family Tree</h1>
           <div className="flex space-x-4">
             <Link href="/" className="hover:underline">
-              Home
+              בית
             </Link>
             <Link href="/family-tree/org-chart" className="font-bold underline">
-              Org Chart View
+              שמות האוליבון
             </Link>
             <Link href="/family-tree/prime" className="hover:underline">
               PrimeReact View

@@ -394,7 +394,7 @@ const FamilyTreePrime: React.FC = () => {
       <div className="controls mb-6 print:hidden">
         <h1 className="text-3xl font-bold text-amber-900 mb-4 flex items-center">
           <span className="mr-2">🐕</span>
-          משפחת אוליבר - עץ משפחת הכלבים
+          כל שמות האוליבון
           <span className="ml-2">🐕</span>
         </h1>
         <ButtonGroup>

@@ -20,19 +20,19 @@ const Navbar: React.FC = () => {
             href="/" 
             className={`navbar-link ${pathname === '/' ? 'text-yellow-300' : ''}`}
           >
-            Home
+            בית
           </Link>
           <Link 
             href="/family-tree" 
             className={`navbar-link ${pathname === '/family-tree' ? 'text-yellow-300' : ''}`}
           >
-            Family Tree
+            שמות האוליבון
           </Link>
           <Link 
             href="/mekafkefim" 
             className={`navbar-link ${pathname === '/mekafkefim' ? 'text-yellow-300' : ''}`}
           >
-            ☕ Mekafkefim
+            ☕ מקפקפים
           </Link>
           {/* More links can be added here */}
         </div>
