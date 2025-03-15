@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Tree, TreeNode } from 'react-organizational-chart';
 import styled from 'styled-components';
 
@@ -110,41 +110,6 @@ const StyledTree = styled(Tree)`
   }
 `;
 
-const ButtonGroup = styled.div`
-  display: flex;
-  justify-content: center;
-  margin-top: 4px;
-  gap: 4px;
-`;
-
-const Button = styled.button`
-  border: none;
-  border-radius: 4px;
-  width: 28px;
-  height: 28px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: white;
-  font-weight: bold;
-  cursor: pointer;
-  transition: background-color 0.2s;
-`;
-
-const AddButton = styled(Button)`
-  background-color: #0ea5e9;
-  &:hover {
-    background-color: #0284c7;
-  }
-`;
-
-const RemoveButton = styled(Button)`
-  background-color: #ef4444;
-  &:hover {
-    background-color: #dc2626;
-  }
-`;
-
 const FamilyTreeOrgChart: React.FC = () => {
   const [familyData, setFamilyData] = useState<FamilyMember[]>([]);
   const [editingNode, setEditingNode] = useState<number | null>(null);
@@ -163,14 +128,19 @@ const FamilyTreeOrgChart: React.FC = () => {
   }, []);
 
   // Function to build the tree structure from flat data
-  const buildTree = (items: FamilyMember[], parentId: number | null = null): TreeNodeData[] => {
-    return items
-      .filter(item => item.parentId === parentId)
-      .map(item => ({
-        ...item,
-        children: buildTree(items, item.id)
-      }));
-  };
+  const buildTree = useCallback((items: FamilyMember[], parentId: number | null = null): TreeNodeData[] => {
+    // Create a recursive function inside the callback to avoid dependency issues
+    const buildTreeRecursive = (items: FamilyMember[], currentParentId: number | null): TreeNodeData[] => {
+      return items
+        .filter(item => item.parentId === currentParentId)
+        .map(item => ({
+          ...item,
+          children: buildTreeRecursive(items, item.id)
+        }));
+    };
+    
+    return buildTreeRecursive(items, parentId);
+  }, []);
 
   // Function to add a new family member
   const handleAddMember = (parentId: number | null): void => {
@@ -399,7 +369,7 @@ const FamilyTreeOrgChart: React.FC = () => {
       
       setCollapsedNodes(nodesToCollapse);
     }
-  }, []); // Only run once on initial load
+  }, [familyData, buildTree]); // Add missing dependencies
 
   // Recursive component to render a tree node
   const renderTreeNode = (node: TreeNodeData) => {
@@ -514,7 +484,7 @@ const FamilyTreeOrgChart: React.FC = () => {
                       {node.name}
                       {hasChildren && (
                         <span className="ml-2 text-gray-400 text-xs">
-                          {isCollapsed ? "▼" : "▲"}
+                          {isCollapsed ? '▼' : '▲'}
                         </span>
                       )}
                     </NodeTitle>
@@ -643,7 +613,7 @@ const FamilyTreeOrgChart: React.FC = () => {
           {isEditMode ? (
             <span> Use the Add Child and Remove buttons to modify the tree structure.</span>
           ) : (
-            <span> Click "Enter Edit Mode" to show add/remove options.</span>
+            <span> Click &quot;Enter Edit Mode&quot; to show add/remove options.</span>
           )}
         </p>
       </div>
