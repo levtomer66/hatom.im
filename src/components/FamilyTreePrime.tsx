@@ -318,9 +318,11 @@ const FamilyTreePrime: React.FC = () => {
       
       // Give the browser a moment to apply these style changes
       setTimeout(() => {
-        // Calculate dimensions for a poster with a 3:4 aspect ratio (30x40 inches)
-        const posterWidth = 3000; // 30 inches at 100 DPI
-        const posterHeight = 4000; // 40 inches at 100 DPI
+        // Calculate dimensions for a poster with a 50x70cm size
+        // Using 100 DPI (dots per inch) for high quality
+        // 1 inch = 2.54 cm, so 50cm = 19.69 inches, 70cm = 27.56 inches
+        const posterWidth = Math.round(50 * 100 / 2.54); // 50cm at 100 DPI
+        const posterHeight = Math.round(70 * 100 / 2.54); // 70cm at 100 DPI
         
         // Get the actual dimensions of the chart after style changes
         const actualWidth = chartElement.scrollWidth;

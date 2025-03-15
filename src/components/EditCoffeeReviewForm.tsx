@@ -21,12 +21,20 @@ const EditCoffeeReviewForm: React.FC<EditCoffeeReviewFormProps> = ({
   const [foodRating, setFoodRating] = useState(review.foodRating);
   const [atmosphereRating, setAtmosphereRating] = useState(review.atmosphereRating);
   const [priceRating, setPriceRating] = useState(review.priceRating);
+  const [photoData, setPhotoData] = useState<string | undefined>(review.photoData);
+  const [photoType, setPhotoType] = useState<string | undefined>(review.photoType);
+  const [photoName, setPhotoName] = useState<string | undefined>(review.photoName);
+  const [photoSize, setPhotoSize] = useState<number | undefined>(review.photoSize);
   const [photoUrl, setPhotoUrl] = useState(review.photoUrl || '');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(review.photoUrl || null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(
+    review.photoData 
+      ? `/api/coffee-reviews/${review.id}/image` 
+      : (review.photoUrl || null)
+  );
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
@@ -61,6 +69,10 @@ const EditCoffeeReviewForm: React.FC<EditCoffeeReviewFormProps> = ({
           atmosphereRating,
           priceRating,
           photoUrl: photoUrl || undefined,
+          photoData,
+          photoType,
+          photoName,
+          photoSize,
         }),
       });
       
@@ -79,7 +91,7 @@ const EditCoffeeReviewForm: React.FC<EditCoffeeReviewFormProps> = ({
     }
   };
 
-  const handleFileUpload = async (file: File) => {
+  const handleFileProcess = async (file: File) => {
     try {
       setUploadError(null);
       setIsUploading(true);
@@ -88,25 +100,32 @@ const EditCoffeeReviewForm: React.FC<EditCoffeeReviewFormProps> = ({
       const objectUrl = URL.createObjectURL(file);
       setPreviewUrl(objectUrl);
       
-      // Create form data for the file upload
-      const formData = new FormData();
-      formData.append('file', file);
+      // Convert file to base64
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        if (e.target?.result) {
+          // Get the base64 string (remove the data URL prefix)
+          const base64String = e.target.result.toString();
+          const base64Data = base64String.split(',')[1]; // Remove the "data:image/jpeg;base64," part
+          
+          // Store the image data
+          setPhotoData(base64Data);
+          setPhotoType(file.type);
+          setPhotoName(file.name);
+          setPhotoSize(file.size);
+          
+          // Clear the old URL if there was one
+          setPhotoUrl('');
+        }
+      };
+      reader.onerror = () => {
+        setUploadError('שגיאה בקריאת הקובץ');
+        setPreviewUrl(null);
+      };
+      reader.readAsDataURL(file);
       
-      // Upload the file
-      const response = await fetch('/api/upload', {
-        method: 'POST',
-        body: formData,
-      });
-      
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'שגיאה בהעלאת התמונה');
-      }
-      
-      const data = await response.json();
-      setPhotoUrl(data.url);
     } catch (err) {
-      setUploadError(err instanceof Error ? err.message : 'שגיאה בהעלאת התמונה');
+      setUploadError(err instanceof Error ? err.message : 'שגיאה בעיבוד התמונה');
       setPreviewUrl(null);
     } finally {
       setIsUploading(false);
@@ -116,7 +135,7 @@ const EditCoffeeReviewForm: React.FC<EditCoffeeReviewFormProps> = ({
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      handleFileUpload(file);
+      handleFileProcess(file);
     }
   };
   
@@ -128,6 +147,17 @@ const EditCoffeeReviewForm: React.FC<EditCoffeeReviewFormProps> = ({
     cameraInputRef.current?.click();
   };
   
+  const removeImage = () => {
+    setPreviewUrl(null);
+    setPhotoData(undefined);
+    setPhotoType(undefined);
+    setPhotoName(undefined);
+    setPhotoSize(undefined);
+    setPhotoUrl('');
+    if (fileInputRef.current) fileInputRef.current.value = '';
+    if (cameraInputRef.current) cameraInputRef.current.value = '';
+  };
+
   return (
     <div className="bg-white rounded-lg shadow-lg p-6 border-2 border-amber-100">
       <h2 className="text-2xl font-bold text-amber-900 mb-6 text-center">עריכת ביקורת קפה</h2>
@@ -189,10 +219,7 @@ const EditCoffeeReviewForm: React.FC<EditCoffeeReviewFormProps> = ({
               />
               <button
                 type="button"
-                onClick={() => {
-                  setPreviewUrl(null);
-                  setPhotoUrl('');
-                }}
+                onClick={removeImage}
                 className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
                 aria-label="Remove image"
               >

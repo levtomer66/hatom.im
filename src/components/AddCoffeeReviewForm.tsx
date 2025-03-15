@@ -14,7 +14,10 @@ const AddCoffeeReviewForm: React.FC<AddCoffeeReviewFormProps> = ({ onSuccess }) 
   const [foodRating, setFoodRating] = useState(0);
   const [atmosphereRating, setAtmosphereRating] = useState(0);
   const [priceRating, setPriceRating] = useState(0);
-  const [photoUrl, setPhotoUrl] = useState('');
+  const [photoData, setPhotoData] = useState<string | undefined>(undefined);
+  const [photoType, setPhotoType] = useState<string | undefined>(undefined);
+  const [photoName, setPhotoName] = useState<string | undefined>(undefined);
+  const [photoSize, setPhotoSize] = useState<number | undefined>(undefined);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
@@ -53,7 +56,10 @@ const AddCoffeeReviewForm: React.FC<AddCoffeeReviewFormProps> = ({ onSuccess }) 
           foodRating,
           atmosphereRating,
           priceRating,
-          photoUrl: photoUrl || undefined,
+          photoData,
+          photoType,
+          photoName,
+          photoSize,
         }),
       });
       
@@ -68,7 +74,10 @@ const AddCoffeeReviewForm: React.FC<AddCoffeeReviewFormProps> = ({ onSuccess }) 
       setFoodRating(0);
       setAtmosphereRating(0);
       setPriceRating(0);
-      setPhotoUrl('');
+      setPhotoData(undefined);
+      setPhotoType(undefined);
+      setPhotoName(undefined);
+      setPhotoSize(undefined);
       setPreviewUrl(null);
       
       // Notify parent component
@@ -81,7 +90,7 @@ const AddCoffeeReviewForm: React.FC<AddCoffeeReviewFormProps> = ({ onSuccess }) 
     }
   };
 
-  const handleFileUpload = async (file: File) => {
+  const handleFileProcess = async (file: File) => {
     try {
       setUploadError(null);
       setIsUploading(true);
@@ -90,25 +99,29 @@ const AddCoffeeReviewForm: React.FC<AddCoffeeReviewFormProps> = ({ onSuccess }) 
       const objectUrl = URL.createObjectURL(file);
       setPreviewUrl(objectUrl);
       
-      // Create form data for the file upload
-      const formData = new FormData();
-      formData.append('file', file);
+      // Convert file to base64
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        if (e.target?.result) {
+          // Get the base64 string (remove the data URL prefix)
+          const base64String = e.target.result.toString();
+          const base64Data = base64String.split(',')[1]; // Remove the "data:image/jpeg;base64," part
+          
+          // Store the image data
+          setPhotoData(base64Data);
+          setPhotoType(file.type);
+          setPhotoName(file.name);
+          setPhotoSize(file.size);
+        }
+      };
+      reader.onerror = () => {
+        setUploadError('שגיאה בקריאת הקובץ');
+        setPreviewUrl(null);
+      };
+      reader.readAsDataURL(file);
       
-      // Upload the file
-      const response = await fetch('/api/upload', {
-        method: 'POST',
-        body: formData,
-      });
-      
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'שגיאה בהעלאת התמונה');
-      }
-      
-      const data = await response.json();
-      setPhotoUrl(data.url);
     } catch (err) {
-      setUploadError(err instanceof Error ? err.message : 'שגיאה בהעלאת התמונה');
+      setUploadError(err instanceof Error ? err.message : 'שגיאה בעיבוד התמונה');
       setPreviewUrl(null);
     } finally {
       setIsUploading(false);
@@ -118,7 +131,7 @@ const AddCoffeeReviewForm: React.FC<AddCoffeeReviewFormProps> = ({ onSuccess }) 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      handleFileUpload(file);
+      handleFileProcess(file);
     }
   };
   
@@ -130,6 +143,16 @@ const AddCoffeeReviewForm: React.FC<AddCoffeeReviewFormProps> = ({ onSuccess }) 
     cameraInputRef.current?.click();
   };
   
+  const removeImage = () => {
+    setPreviewUrl(null);
+    setPhotoData(undefined);
+    setPhotoType(undefined);
+    setPhotoName(undefined);
+    setPhotoSize(undefined);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+    if (cameraInputRef.current) cameraInputRef.current.value = '';
+  };
+
   return (
     <div className="bg-white rounded-lg shadow-lg p-6 border-2 border-amber-100">
       <h2 className="text-2xl font-bold text-amber-900 mb-6 text-center">הוספת ביקורת קפה חדשה</h2>
@@ -191,10 +214,7 @@ const AddCoffeeReviewForm: React.FC<AddCoffeeReviewFormProps> = ({ onSuccess }) 
               />
               <button
                 type="button"
-                onClick={() => {
-                  setPreviewUrl(null);
-                  setPhotoUrl('');
-                }}
+                onClick={removeImage}
                 className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
                 aria-label="Remove image"
               >

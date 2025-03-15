@@ -6,6 +6,10 @@ export interface CoffeeReview {
   atmosphereRating: number;
   priceRating: number;
   photoUrl?: string;
+  photoData?: string; // Base64 encoded image data
+  photoType?: string; // Image MIME type
+  photoName?: string; // Original filename
+  photoSize?: number; // Size in bytes
   createdAt: string;
   updatedAt: string;
 }
@@ -17,4 +21,8 @@ export interface CreateCoffeeReviewDto {
   atmosphereRating: number;
   priceRating: number;
   photoUrl?: string;
+  photoData?: string; // Base64 encoded image data
+  photoType?: string; // Image MIME type
+  photoName?: string; // Original filename
+  photoSize?: number; // Size in bytes
 } 

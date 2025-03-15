@@ -7,6 +7,8 @@ interface FamilyMember {
   id: number;
   name: string;
   parentId: number | null;
+  photo?: string; // Optional photo URL
+  title?: string; // Optional title/role
 }
 
 interface TreeNodeData extends FamilyMember {
@@ -16,72 +18,110 @@ interface TreeNodeData extends FamilyMember {
 // Styled components for the org chart
 const StyledNode = styled.div`
   padding: 12px;
-  border-radius: 8px;
+  border-radius: 4px;
   display: inline-block;
-  border: 2px solid #92400e;
-  background-color: #fef3c7;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-  min-width: 150px;
+  border: 1px solid #e5e7eb;
+  background-color: white;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+  min-width: 160px;
   position: relative;
-  transition: all 0.3s;
-  direction: rtl;
+  transition: all 0.2s;
+  text-align: center;
   
   &:hover {
-    border-color: #78350f;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
     transform: translateY(-2px);
-    box-shadow: 0 6px 8px rgba(0, 0, 0, 0.15);
   }
-  
-  // Dog ears
-  &::before, &::after {
-    content: '';
-    position: absolute;
-    width: 20px;
-    height: 20px;
-    background-color: #92400e;
-    border-radius: 50%;
-    top: -10px;
-  }
-  
-  &::before {
-    left: -10px;
-  }
-  
-  &::after {
-    right: -10px;
-  }
+`;
+
+const PhotoContainer = styled.div`
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background-color: #f3f4f6;
+  margin: 0 auto 8px;
+  overflow: hidden;
+  border: 2px solid #e5e7eb;
+`;
+
+const Photo = styled.img`
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+`;
+
+const DefaultPhoto = styled.div`
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2rem;
+  color: #9ca3af;
 `;
 
 const NodeTitle = styled.h3`
   margin: 0;
-  font-weight: bold;
-  color: #78350f;
-  font-size: 1.125rem;
+  font-weight: 600;
+  color: #111827;
+  font-size: 1rem;
   text-align: center;
-  direction: rtl;
+`;
+
+const NodeSubtitle = styled.p`
+  margin: 4px 0 0;
+  color: #6b7280;
+  font-size: 0.875rem;
+  text-align: center;
 `;
 
 const StyledTreeNode = styled(TreeNode)`
-  padding-top: 15px;
+  padding-top: 10px;
+  
+  /* Fix for broken lines */
+  .oc-tree-node-line {
+    height: 10px !important;
+  }
+  
+  .oc-tree-node-children {
+    margin-top: 0 !important;
+  }
 `;
 
 const StyledTree = styled(Tree)`
   text-align: center;
-  direction: ltr; /* Keep the tree structure LTR for proper layout */
+  
+  /* Fix for broken lines */
+  .oc-tree {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  
+  .oc-tree-node {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  
+  .oc-tree-node-children {
+    display: flex;
+    margin-top: 0;
+  }
 `;
 
 const ButtonGroup = styled.div`
   display: flex;
   justify-content: center;
-  margin-top: 6px;
+  margin-top: 4px;
   gap: 4px;
 `;
 
 const Button = styled.button`
   border: none;
-  border-radius: 50%;
-  width: 24px;
-  height: 24px;
+  border-radius: 4px;
+  width: 28px;
+  height: 28px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -92,9 +132,9 @@ const Button = styled.button`
 `;
 
 const AddButton = styled(Button)`
-  background-color: #22c55e;
+  background-color: #0ea5e9;
   &:hover {
-    background-color: #16a34a;
+    background-color: #0284c7;
   }
 `;
 
@@ -109,6 +149,7 @@ const FamilyTreeOrgChart: React.FC = () => {
   const [familyData, setFamilyData] = useState<FamilyMember[]>([]);
   const [editingNode, setEditingNode] = useState<number | null>(null);
   const [newNodeName, setNewNodeName] = useState<string>('');
+  const [newNodeTitle, setNewNodeTitle] = useState<string>('');
   const [collapsedNodes, setCollapsedNodes] = useState<Set<number>>(new Set());
   const treeContainerRef = useRef<HTMLDivElement>(null);
 
@@ -136,12 +177,14 @@ const FamilyTreeOrgChart: React.FC = () => {
     const newMember: FamilyMember = {
       id: newId,
       name: '',
-      parentId: parentId
+      parentId: parentId,
+      title: ''
     };
 
     setFamilyData([...familyData, newMember]);
     setEditingNode(newId);
     setNewNodeName('');
+    setNewNodeTitle('');
   };
 
   // Function to save the edited name
@@ -152,9 +195,9 @@ const FamilyTreeOrgChart: React.FC = () => {
         handleRemoveMember(editingNode);
       }
     } else {
-      // Update the node name
+      // Update the node name and title
       setFamilyData(familyData.map(item => 
-        item.id === editingNode ? { ...item, name: newNodeName } : item
+        item.id === editingNode ? { ...item, name: newNodeName, title: newNodeTitle } : item
       ));
     }
     setEditingNode(null);
@@ -284,6 +327,7 @@ const FamilyTreeOrgChart: React.FC = () => {
       if (!isEditing) {
         setEditingNode(node.id);
         setNewNodeName(node.name);
+        setNewNodeTitle(node.title || '');
       }
     };
 
@@ -291,46 +335,57 @@ const FamilyTreeOrgChart: React.FC = () => {
       <StyledTreeNode
         key={node.id}
         label={
-          <div>
+          <div style={{ margin: '0 4px' }}>
             <StyledNode 
               onClick={handleNodeClick}
               onDoubleClick={handleNodeDoubleClick}
             >
-              {isEditing ? (
-                <input
-                  type="text"
-                  value={newNodeName}
-                  onChange={(e) => setNewNodeName(e.target.value)}
-                  onBlur={handleSaveName}
-                  onKeyDown={handleKeyPress}
-                  className="bg-transparent border-b-2 border-amber-600 focus:outline-none w-full text-center"
-                  dir="rtl"
-                  autoFocus
-                  onClick={(e) => e.stopPropagation()} // Prevent click from bubbling
-                />
-              ) : (
-                <NodeTitle>
-                  {node.name}
-                  {hasChildren && (
-                    <span className="mr-2 text-amber-600 text-xs">
-                      {isCollapsed ? "▼" : "▲"}
-                    </span>
-                  )}
-                </NodeTitle>
-              )}
+              <PhotoContainer>
+                {node.photo ? (
+                  <Photo src={node.photo} alt={node.name} />
+                ) : (
+                  <DefaultPhoto>🐕</DefaultPhoto>
+                )}
+              </PhotoContainer>
               
-              {/* Dog nose */}
-              <div style={{
-                position: 'absolute',
-                bottom: '-8px',
-                left: '50%',
-                transform: 'translateX(-50%)',
-                width: '16px',
-                height: '16px',
-                backgroundColor: '#451a03',
-                borderRadius: '50%',
-                zIndex: 1
-              }}></div>
+              {isEditing ? (
+                <div>
+                  <input
+                    type="text"
+                    value={newNodeName}
+                    onChange={(e) => setNewNodeName(e.target.value)}
+                    onBlur={handleSaveName}
+                    onKeyDown={handleKeyPress}
+                    className="bg-transparent border-b border-gray-300 focus:outline-none focus:border-blue-500 w-full text-center mb-2"
+                    placeholder="Name"
+                    dir="rtl"
+                    autoFocus
+                    onClick={(e) => e.stopPropagation()} // Prevent click from bubbling
+                  />
+                  <input
+                    type="text"
+                    value={newNodeTitle}
+                    onChange={(e) => setNewNodeTitle(e.target.value)}
+                    onKeyDown={handleKeyPress}
+                    className="bg-transparent border-b border-gray-300 focus:outline-none focus:border-blue-500 w-full text-center text-sm"
+                    placeholder="Title/Description"
+                    dir="rtl"
+                    onClick={(e) => e.stopPropagation()} // Prevent click from bubbling
+                  />
+                </div>
+              ) : (
+                <>
+                  <NodeTitle>
+                    {node.name}
+                    {hasChildren && (
+                      <span className="ml-2 text-gray-400 text-xs">
+                        {isCollapsed ? "▼" : "▲"}
+                      </span>
+                    )}
+                  </NodeTitle>
+                  {node.title && <NodeSubtitle>{node.title}</NodeSubtitle>}
+                </>
+              )}
             </StyledNode>
             
             <ButtonGroup>
@@ -339,7 +394,7 @@ const FamilyTreeOrgChart: React.FC = () => {
                   e.stopPropagation();
                   handleAddMember(node.id);
                 }}
-                title="הוסף ילד"
+                title="Add Child"
               >
                 +
               </AddButton>
@@ -348,7 +403,7 @@ const FamilyTreeOrgChart: React.FC = () => {
                   e.stopPropagation();
                   handleRemoveMember(node.id);
                 }}
-                title="הסר"
+                title="Remove"
               >
                 ×
               </RemoveButton>
@@ -365,98 +420,80 @@ const FamilyTreeOrgChart: React.FC = () => {
   const treeData = buildTree(familyData);
 
   return (
-    <div className="family-tree-container p-8 max-w-full overflow-auto print:p-0 bg-amber-50 min-h-screen" dir="rtl">
-      <div className="controls mb-6 print:hidden">
-        <h1 className="text-3xl font-bold text-amber-900 mb-4 flex items-center justify-center">
-          <span className="ml-2">🐕</span>
-          כל שמות האוליבון
-          <span className="mr-2">🐕</span>
+    <div className="family-tree-container p-8 max-w-full overflow-auto print:p-0 bg-gray-50 min-h-screen">
+      <div className="controls mb-8 print:hidden">
+        <h1 className="text-3xl font-bold text-gray-800 mb-4 text-center">
+          Family Tree
         </h1>
         <div className="flex flex-wrap gap-4 justify-center">
           {familyData.length === 0 && (
             <button 
               onClick={() => handleAddMember(null)}
-              className="bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 rounded-lg flex items-center"
+              className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-md flex items-center"
             >
-              <span className="ml-2">🐶</span>
-              הוסף כלב ראשי
+              <span className="mr-2">+</span>
+              Add Root Member
             </button>
           )}
           <button 
             onClick={saveTree}
-            className="bg-amber-800 hover:bg-amber-900 text-white px-4 py-2 rounded-lg flex items-center"
+            className="bg-gray-800 hover:bg-gray-900 text-white px-4 py-2 rounded-md flex items-center"
           >
-            <span className="ml-2">💾</span>
-            שמור עץ משפחה
+            <span className="mr-2">💾</span>
+            Save Tree
           </button>
           <button 
             onClick={() => window.print()}
-            className="bg-amber-700 hover:bg-amber-800 text-white px-4 py-2 rounded-lg flex items-center"
+            className="bg-gray-700 hover:bg-gray-800 text-white px-4 py-2 rounded-md flex items-center"
           >
-            <span className="ml-2">🖨️</span>
-            הדפס פוסטר
+            <span className="mr-2">🖨️</span>
+            Print
           </button>
           <button 
             onClick={downloadAsImage}
-            className="bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 rounded-lg flex items-center"
+            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md flex items-center"
           >
-            <span className="ml-2">📷</span>
-            הורד כתמונה
+            <span className="mr-2">📷</span>
+            Download as Image
           </button>
         </div>
       </div>
 
-      <div className="instructions bg-amber-100 p-4 rounded-lg mb-6 print:hidden text-right">
-        <p className="text-amber-800">
-          <span className="font-bold">הוראות:</span> לחץ פעמיים על שם כדי לערוך, לחץ פעם אחת כדי לפתוח/לסגור ענפים
+      <div className="instructions bg-blue-50 p-4 rounded-md mb-6 print:hidden text-center">
+        <p className="text-blue-800">
+          <span className="font-bold">Instructions:</span> Double-click on a name to edit, single-click to expand/collapse branches
         </p>
       </div>
 
       <div 
         ref={treeContainerRef}
-        className="tree-wrapper bg-white p-8 rounded-xl shadow-xl print:bg-white print:shadow-none border-4 border-amber-200 overflow-x-auto"
-        dir="ltr" /* Keep the tree structure LTR for proper layout */
+        className="tree-wrapper bg-white p-8 rounded-md shadow-md print:bg-white print:shadow-none border border-gray-200 overflow-x-auto"
       >
         <div className="min-w-max flex justify-center">
           {treeData.length > 0 ? (
             <StyledTree
-              lineWidth={'2px'}
-              lineColor={'#92400e'}
-              lineBorderRadius={'10px'}
-              label={<div className="text-amber-800 font-bold mb-4" dir="rtl">עץ משפחה</div>}
+              lineWidth={'1px'}
+              lineColor={'#d1d5db'}
+              lineBorderRadius={'0px'}
+              nodePadding={'2px'}
+              lineHeight={'10px'}
+              label={<div className="text-gray-500 font-medium mb-2">Organization Chart</div>}
             >
               {treeData.map(rootNode => renderTreeNode(rootNode))}
             </StyledTree>
           ) : (
-            <div className="text-center" dir="rtl">
-              <p className="text-amber-800 text-lg mb-4">אין עדיין כלבים בעץ המשפחה! 🐾</p>
+            <div className="text-center">
+              <p className="text-gray-500 text-lg mb-4">No members in the family tree yet!</p>
               <button 
                 onClick={() => handleAddMember(null)}
-                className="bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 rounded-lg flex items-center mx-auto"
+                className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-md flex items-center mx-auto"
               >
-                <span className="ml-2">🐶</span>
-                הוסף כלב ראשון
+                <span className="mr-2">+</span>
+                Add First Member
               </button>
             </div>
           )}
         </div>
-      </div>
-
-      {/* Paw print decorations */}
-      <div className="paw-prints print:hidden">
-        {[...Array(10)].map((_, i) => (
-          <div 
-            key={i} 
-            className="paw-print text-amber-800/20 text-5xl absolute"
-            style={{
-              top: `${Math.random() * 100}%`,
-              left: `${Math.random() * 100}%`,
-              transform: `rotate(${Math.random() * 360}deg)`
-            }}
-          >
-            🐾
-          </div>
-        ))}
       </div>
 
       <style jsx>{`
@@ -471,14 +508,30 @@ const FamilyTreeOrgChart: React.FC = () => {
             border: none;
           }
         }
-        .paw-prints {
-          position: fixed;
-          top: 0;
-          left: 0;
-          width: 100%;
-          height: 100%;
-          z-index: -1;
-          pointer-events: none;
+      `}</style>
+      
+      {/* Global styles to fix the org chart lines */}
+      <style jsx global>{`
+        .oc-tree {
+          padding: 10px 0;
+        }
+        
+        .oc-tree-node {
+          padding: 0;
+        }
+        
+        .oc-tree-node-children {
+          margin-top: 0 !important;
+          padding-top: 10px;
+        }
+        
+        .oc-tree-node-line {
+          height: 10px !important;
+        }
+        
+        /* Reduce spacing between siblings */
+        .oc-hierarchy {
+          gap: 5px !important;
         }
       `}</style>
     </div>
