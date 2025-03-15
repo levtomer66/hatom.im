@@ -118,6 +118,7 @@ const FamilyTreeOrgChart: React.FC = () => {
   const [collapsedNodes, setCollapsedNodes] = useState<Set<number>>(new Set());
   const [isEditMode, setIsEditMode] = useState<boolean>(false);
   const treeContainerRef = useRef<HTMLDivElement>(null);
+  const operationInProgressRef = useRef<boolean>(false);
 
   useEffect(() => {
     // Fetch the family tree data
@@ -144,6 +145,9 @@ const FamilyTreeOrgChart: React.FC = () => {
 
   // Function to add a new family member
   const handleAddMember = (parentId: number | null): void => {
+    // Set operation flag to prevent unwanted state resets
+    operationInProgressRef.current = true;
+    
     const newId = Math.max(...familyData.map(item => item.id), 0) + 1;
     const newMember: FamilyMember = {
       id: newId,
@@ -152,39 +156,34 @@ const FamilyTreeOrgChart: React.FC = () => {
       title: ''
     };
 
-    // First, get the current state of collapsed nodes
-    const currentCollapsedNodes = new Set(collapsedNodes);
+    // Create a deep copy of the current collapsed nodes to preserve state
+    const currentCollapsedNodes = new Set([...collapsedNodes]);
     
     // Add the new member to the family data
     setFamilyData(prevData => [...prevData, newMember]);
     
-    // Ensure the parent node is expanded to show the new child
-    // but maintain the collapsed state of all other nodes
+    // If the parent exists, ensure it's expanded to show the new child
+    if (parentId !== null) {
+      currentCollapsedNodes.delete(parentId);
+    }
+    
+    // Update collapsed nodes state with our preserved copy
     setCollapsedNodes(currentCollapsedNodes);
     
-    // Then in a separate update, just expand the parent if it exists
+    // Set the new node to edit mode and scroll to it
+    setEditingNode(newId);
+    setNewNodeName('');
+    setNewNodeTitle('');
+    
+    // Scroll to the new node after a short delay to ensure DOM is updated
     setTimeout(() => {
-      if (parentId !== null) {
-        setCollapsedNodes(prev => {
-          const newCollapsed = new Set(prev);
-          newCollapsed.delete(parentId);
-          return newCollapsed;
-        });
+      const newNodeElement = document.getElementById(`node-${newId}`);
+      if (newNodeElement) {
+        newNodeElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
       }
-      
-      // Set the new node to edit mode
-      setEditingNode(newId);
-      setNewNodeName('');
-      setNewNodeTitle('');
-      
-      // Scroll to the new node
-      setTimeout(() => {
-        const newNodeElement = document.getElementById(`node-${newId}`);
-        if (newNodeElement) {
-          newNodeElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }
-      }, 100);
-    }, 0);
+      // Reset operation flag
+      operationInProgressRef.current = false;
+    }, 100);
   };
 
   // Function to save the edited name
@@ -214,6 +213,12 @@ const FamilyTreeOrgChart: React.FC = () => {
 
   // Function to remove a family member and all their descendants
   const handleRemoveMember = (id: number): void => {
+    // Set operation flag to prevent unwanted state resets
+    operationInProgressRef.current = true;
+    
+    // Create a deep copy of the current collapsed nodes to preserve state
+    const currentCollapsedNodes = new Set([...collapsedNodes]);
+    
     // Get all descendant IDs recursively
     const getDescendantIds = (parentId: number): number[] => {
       const directChildren = familyData.filter(item => item.parentId === parentId);
@@ -223,12 +228,27 @@ const FamilyTreeOrgChart: React.FC = () => {
     };
 
     const idsToRemove = getDescendantIds(id);
-    setFamilyData(familyData.filter(item => !idsToRemove.includes(item.id)));
+    
+    // Remove the nodes from the family data
+    setFamilyData(prevData => prevData.filter(item => !idsToRemove.includes(item.id)));
+    
+    // Remove the deleted nodes from the collapsed nodes set
+    idsToRemove.forEach(nodeId => {
+      currentCollapsedNodes.delete(nodeId);
+    });
+    
+    // Update collapsed nodes state with our preserved copy
+    setCollapsedNodes(currentCollapsedNodes);
     
     // If we're removing the node being edited, clear the editing state
     if (editingNode === id) {
       setEditingNode(null);
     }
+    
+    // Reset operation flag after a short delay
+    setTimeout(() => {
+      operationInProgressRef.current = false;
+    }, 100);
   };
 
   // Function to get siblings of a node (nodes with the same parent)
@@ -337,39 +357,45 @@ const FamilyTreeOrgChart: React.FC = () => {
     }
   };
 
-  // Initialize collapsed nodes when family data is loaded
+  // Initialize collapsed nodes when family data is loaded - only on initial load
   useEffect(() => {
+    // Skip initialization if an operation is in progress
+    if (operationInProgressRef.current) return;
+    
     if (familyData.length > 0) {
-      // Initially collapse all nodes that have children
-      const nodesToCollapse = new Set<number>();
-      
-      // Function to process a node and its children - collapse ALL nodes with children
-      const processNode = (node: TreeNodeData) => {
-        // Collapse all nodes with children
-        if (node.children.length > 0) {
-          nodesToCollapse.add(node.id);
-        }
+      // Only initialize if collapsedNodes is empty (first load)
+      if (collapsedNodes.size === 0) {
+        // Initially collapse all nodes that have children
+        const nodesToCollapse = new Set<number>();
         
-        // Process all children
-        node.children.forEach(child => {
-          processNode(child);
+        // Function to process a node and its children - collapse ALL nodes with children
+        const processNode = (node: TreeNodeData) => {
+          // Collapse all nodes with children
+          if (node.children.length > 0) {
+            nodesToCollapse.add(node.id);
+          }
+          
+          // Process all children
+          node.children.forEach(child => {
+            processNode(child);
+          });
+        };
+        
+        // Build the tree and process all nodes
+        const tree = buildTree(familyData);
+        tree.forEach(rootNode => {
+          processNode(rootNode);
         });
-      };
-      
-      // Build the tree and process all nodes
-      const tree = buildTree(familyData);
-      tree.forEach(rootNode => {
-        processNode(rootNode);
-      });
-      
-      // Don't collapse the root nodes
-      tree.forEach(rootNode => {
-        nodesToCollapse.delete(rootNode.id);
-      });
-      
-      setCollapsedNodes(nodesToCollapse);
+        
+        // Don't collapse the root nodes
+        tree.forEach(rootNode => {
+          nodesToCollapse.delete(rootNode.id);
+        });
+        
+        setCollapsedNodes(nodesToCollapse);
+      }
     }
-  }, [familyData, buildTree]); // Add missing dependencies
+  }, [familyData, buildTree, collapsedNodes.size]); // Only run when familyData changes and collapsedNodes is empty
 
   // Recursive component to render a tree node
   const renderTreeNode = (node: TreeNodeData) => {
@@ -396,22 +422,6 @@ const FamilyTreeOrgChart: React.FC = () => {
         setNewNodeName(node.name);
         setNewNodeTitle(node.title || '');
       }
-    };
-
-    // Handler for adding a child node
-    const handleAddClick = (e: React.MouseEvent) => {
-      e.stopPropagation();
-      e.preventDefault();
-      handleAddMember(node.id);
-      return false;
-    };
-
-    // Handler for removing a node
-    const handleRemoveClick = (e: React.MouseEvent) => {
-      e.stopPropagation();
-      e.preventDefault();
-      handleRemoveMember(node.id);
-      return false;
     };
 
     // Prevent any click on the node container from propagating
@@ -495,26 +505,58 @@ const FamilyTreeOrgChart: React.FC = () => {
                   {isEditMode && (
                     <div 
                       className="button-container mt-2"
-                      onClick={(e) => { e.stopPropagation(); }}
+                      onClick={(e) => { 
+                        e.stopPropagation(); 
+                        e.preventDefault();
+                        if (e.nativeEvent) {
+                          e.nativeEvent.stopImmediatePropagation();
+                          e.nativeEvent.preventDefault();
+                        }
+                      }}
                     >
-                      <button
-                        className="bg-blue-500 hover:bg-blue-600 text-white rounded-md px-2 py-1 text-sm mr-2"
-                        onClick={handleAddClick}
-                        onMouseDown={(e) => { e.stopPropagation(); }}
-                        onMouseUp={(e) => { e.stopPropagation(); }}
-                        type="button"
+                      {/* Use a div wrapper with onClick instead of a button to avoid event bubbling issues */}
+                      <div
+                        className="add-button bg-blue-500 hover:bg-blue-600 text-white rounded-md px-2 py-1 text-sm mr-2 cursor-pointer"
+                        onClick={(e) => {
+                          // Stop all event propagation
+                          e.stopPropagation();
+                          e.preventDefault();
+                          if (e.nativeEvent) {
+                            e.nativeEvent.stopImmediatePropagation();
+                            e.nativeEvent.preventDefault();
+                          }
+                          
+                          // Use requestAnimationFrame to ensure we're outside the current render cycle
+                          requestAnimationFrame(() => {
+                            handleAddMember(node.id);
+                          });
+                          
+                          return false;
+                        }}
                       >
                         Add Child
-                      </button>
-                      <button
-                        className="bg-red-500 hover:bg-red-600 text-white rounded-md px-2 py-1 text-sm"
-                        onClick={handleRemoveClick}
-                        onMouseDown={(e) => { e.stopPropagation(); }}
-                        onMouseUp={(e) => { e.stopPropagation(); }}
-                        type="button"
+                      </div>
+                      <div
+                        className="remove-button bg-red-500 hover:bg-red-600 text-white rounded-md px-2 py-1 text-sm cursor-pointer"
+                        onClick={(e) => {
+                          // Stop all event propagation
+                          e.stopPropagation();
+                          e.preventDefault();
+                          if (e.nativeEvent) {
+                            e.nativeEvent.stopImmediatePropagation();
+                            e.nativeEvent.preventDefault();
+                          }
+                          
+                          // Use requestAnimationFrame to ensure we're outside the current render cycle
+                          requestAnimationFrame(() => {
+                            handleRemoveMember(node.id);
+                          });
+                          
+                          return false;
+                        }}
                       >
                         Remove
-                      </button>
+                      </div>
                     </div>
                   )}
                 </div>
@@ -539,6 +581,7 @@ const FamilyTreeOrgChart: React.FC = () => {
       margin-top: 8px;
       position: relative;
       z-index: 10;
+      pointer-events: auto;
     }
     
     .edit-container {
@@ -553,11 +596,20 @@ const FamilyTreeOrgChart: React.FC = () => {
       width: 100%;
     }
     
-    /* Ensure buttons are clickable */
-    button {
+    /* Style for button-like divs */
+    .add-button, .remove-button {
+      display: inline-block;
+      text-align: center;
       position: relative;
       z-index: 20;
       cursor: pointer;
+      pointer-events: auto;
+      user-select: none;
+    }
+    
+    /* Prevent click events from bubbling through buttons */
+    .button-container div {
+      isolation: isolate;
     }
   `;
 
