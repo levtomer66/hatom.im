@@ -151,6 +151,7 @@ const FamilyTreeOrgChart: React.FC = () => {
   const [newNodeName, setNewNodeName] = useState<string>('');
   const [newNodeTitle, setNewNodeTitle] = useState<string>('');
   const [collapsedNodes, setCollapsedNodes] = useState<Set<number>>(new Set());
+  const [isEditMode, setIsEditMode] = useState<boolean>(false);
   const treeContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -181,10 +182,39 @@ const FamilyTreeOrgChart: React.FC = () => {
       title: ''
     };
 
-    setFamilyData([...familyData, newMember]);
-    setEditingNode(newId);
-    setNewNodeName('');
-    setNewNodeTitle('');
+    // First, get the current state of collapsed nodes
+    const currentCollapsedNodes = new Set(collapsedNodes);
+    
+    // Add the new member to the family data
+    setFamilyData(prevData => [...prevData, newMember]);
+    
+    // Ensure the parent node is expanded to show the new child
+    // but maintain the collapsed state of all other nodes
+    setCollapsedNodes(currentCollapsedNodes);
+    
+    // Then in a separate update, just expand the parent if it exists
+    setTimeout(() => {
+      if (parentId !== null) {
+        setCollapsedNodes(prev => {
+          const newCollapsed = new Set(prev);
+          newCollapsed.delete(parentId);
+          return newCollapsed;
+        });
+      }
+      
+      // Set the new node to edit mode
+      setEditingNode(newId);
+      setNewNodeName('');
+      setNewNodeTitle('');
+      
+      // Scroll to the new node
+      setTimeout(() => {
+        const newNodeElement = document.getElementById(`node-${newId}`);
+        if (newNodeElement) {
+          newNodeElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 100);
+    }, 0);
   };
 
   // Function to save the edited name
@@ -224,17 +254,43 @@ const FamilyTreeOrgChart: React.FC = () => {
 
     const idsToRemove = getDescendantIds(id);
     setFamilyData(familyData.filter(item => !idsToRemove.includes(item.id)));
+    
+    // If we're removing the node being edited, clear the editing state
+    if (editingNode === id) {
+      setEditingNode(null);
+    }
+  };
+
+  // Function to get siblings of a node (nodes with the same parent)
+  const getSiblingIds = (nodeId: number): number[] => {
+    const node = familyData.find(item => item.id === nodeId);
+    if (!node) return [];
+    
+    return familyData
+      .filter(item => item.parentId === node.parentId && item.id !== nodeId)
+      .map(item => item.id);
   };
 
   // Function to toggle collapse state of a node
   const toggleCollapse = (id: number): void => {
     setCollapsedNodes(prevCollapsed => {
       const newCollapsed = new Set(prevCollapsed);
-      if (newCollapsed.has(id)) {
+      const isCurrentlyCollapsed = newCollapsed.has(id);
+      
+      if (isCurrentlyCollapsed) {
+        // If the node is currently collapsed, expand it and collapse its siblings
         newCollapsed.delete(id);
+        
+        // Get all siblings and collapse them
+        const siblingIds = getSiblingIds(id);
+        siblingIds.forEach(siblingId => {
+          newCollapsed.add(siblingId);
+        });
       } else {
+        // If the node is currently expanded, collapse it
         newCollapsed.add(id);
       }
+      
       return newCollapsed;
     });
   };
@@ -311,19 +367,60 @@ const FamilyTreeOrgChart: React.FC = () => {
     }
   };
 
+  // Initialize collapsed nodes when family data is loaded
+  useEffect(() => {
+    if (familyData.length > 0) {
+      // Initially collapse all nodes that have children
+      const nodesToCollapse = new Set<number>();
+      
+      // Function to process a node and its children - collapse ALL nodes with children
+      const processNode = (node: TreeNodeData) => {
+        // Collapse all nodes with children
+        if (node.children.length > 0) {
+          nodesToCollapse.add(node.id);
+        }
+        
+        // Process all children
+        node.children.forEach(child => {
+          processNode(child);
+        });
+      };
+      
+      // Build the tree and process all nodes
+      const tree = buildTree(familyData);
+      tree.forEach(rootNode => {
+        processNode(rootNode);
+      });
+      
+      // Don't collapse the root nodes
+      tree.forEach(rootNode => {
+        nodesToCollapse.delete(rootNode.id);
+      });
+      
+      setCollapsedNodes(nodesToCollapse);
+    }
+  }, []); // Only run once on initial load
+
   // Recursive component to render a tree node
   const renderTreeNode = (node: TreeNodeData) => {
     const isEditing = editingNode === node.id;
     const isCollapsed = collapsedNodes.has(node.id);
     const hasChildren = node.children.length > 0;
 
-    const handleNodeClick = () => {
-      if (hasChildren) {
+    // Separate handler specifically for the photo container
+    const handlePhotoClick = (e: React.MouseEvent) => {
+      e.stopPropagation();
+      
+      // Only allow expand/collapse when not in edit mode
+      if (hasChildren && !isEditing) {
         toggleCollapse(node.id);
       }
     };
 
-    const handleNodeDoubleClick = () => {
+    // Handler for clicking on the name/title area
+    const handleNameClick = (e: React.MouseEvent) => {
+      e.stopPropagation();
+      
       if (!isEditing) {
         setEditingNode(node.id);
         setNewNodeName(node.name);
@@ -331,16 +428,45 @@ const FamilyTreeOrgChart: React.FC = () => {
       }
     };
 
+    // Handler for adding a child node
+    const handleAddClick = (e: React.MouseEvent) => {
+      e.stopPropagation();
+      e.preventDefault();
+      handleAddMember(node.id);
+      return false;
+    };
+
+    // Handler for removing a node
+    const handleRemoveClick = (e: React.MouseEvent) => {
+      e.stopPropagation();
+      e.preventDefault();
+      handleRemoveMember(node.id);
+      return false;
+    };
+
+    // Prevent any click on the node container from propagating
+    const preventPropagation = (e: React.MouseEvent) => {
+      e.stopPropagation();
+    };
+
     return (
       <StyledTreeNode
         key={node.id}
         label={
-          <div style={{ margin: '0 4px' }}>
-            <StyledNode 
-              onClick={handleNodeClick}
-              onDoubleClick={handleNodeDoubleClick}
-            >
-              <PhotoContainer>
+          <div 
+            id={`node-${node.id}`} 
+            style={{ margin: '0 4px' }} 
+            onClick={preventPropagation}
+          >
+            <StyledNode onClick={preventPropagation}>
+              {/* Photo container - only this should trigger expand/collapse */}
+              <PhotoContainer 
+                onClick={handlePhotoClick}
+                style={{ 
+                  cursor: hasChildren ? 'pointer' : 'default',
+                  opacity: isEditing ? 0.7 : 1 // Slightly dim the photo when in edit mode
+                }}
+              >
                 {node.photo ? (
                   <Photo src={node.photo} alt={node.name} />
                 ) : (
@@ -349,7 +475,11 @@ const FamilyTreeOrgChart: React.FC = () => {
               </PhotoContainer>
               
               {isEditing ? (
-                <div>
+                // Edit mode content
+                <div 
+                  onClick={preventPropagation}
+                  className="edit-container"
+                >
                   <input
                     type="text"
                     value={newNodeName}
@@ -360,7 +490,7 @@ const FamilyTreeOrgChart: React.FC = () => {
                     placeholder="Name"
                     dir="rtl"
                     autoFocus
-                    onClick={(e) => e.stopPropagation()} // Prevent click from bubbling
+                    onClick={preventPropagation}
                   />
                   <input
                     type="text"
@@ -370,44 +500,56 @@ const FamilyTreeOrgChart: React.FC = () => {
                     className="bg-transparent border-b border-gray-300 focus:outline-none focus:border-blue-500 w-full text-center text-sm"
                     placeholder="Title/Description"
                     dir="rtl"
-                    onClick={(e) => e.stopPropagation()} // Prevent click from bubbling
+                    onClick={preventPropagation}
                   />
                 </div>
               ) : (
-                <>
-                  <NodeTitle>
-                    {node.name}
-                    {hasChildren && (
-                      <span className="ml-2 text-gray-400 text-xs">
-                        {isCollapsed ? "▼" : "▲"}
-                      </span>
-                    )}
-                  </NodeTitle>
-                  {node.title && <NodeSubtitle>{node.title}</NodeSubtitle>}
-                </>
+                // Normal view - name/title with edit buttons if in edit mode
+                <div className="node-content">
+                  <div 
+                    onClick={handleNameClick} 
+                    style={{ cursor: 'pointer' }}
+                  >
+                    <NodeTitle>
+                      {node.name}
+                      {hasChildren && (
+                        <span className="ml-2 text-gray-400 text-xs">
+                          {isCollapsed ? "▼" : "▲"}
+                        </span>
+                      )}
+                    </NodeTitle>
+                    {node.title && <NodeSubtitle>{node.title}</NodeSubtitle>}
+                  </div>
+                  
+                  {/* Action buttons - only shown when global edit mode is active */}
+                  {isEditMode && (
+                    <div 
+                      className="button-container mt-2"
+                      onClick={(e) => { e.stopPropagation(); }}
+                    >
+                      <button
+                        className="bg-blue-500 hover:bg-blue-600 text-white rounded-md px-2 py-1 text-sm mr-2"
+                        onClick={handleAddClick}
+                        onMouseDown={(e) => { e.stopPropagation(); }}
+                        onMouseUp={(e) => { e.stopPropagation(); }}
+                        type="button"
+                      >
+                        Add Child
+                      </button>
+                      <button
+                        className="bg-red-500 hover:bg-red-600 text-white rounded-md px-2 py-1 text-sm"
+                        onClick={handleRemoveClick}
+                        onMouseDown={(e) => { e.stopPropagation(); }}
+                        onMouseUp={(e) => { e.stopPropagation(); }}
+                        type="button"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  )}
+                </div>
               )}
             </StyledNode>
-            
-            <ButtonGroup>
-              <AddButton 
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleAddMember(node.id);
-                }}
-                title="Add Child"
-              >
-                +
-              </AddButton>
-              <RemoveButton 
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleRemoveMember(node.id);
-                }}
-                title="Remove"
-              >
-                ×
-              </RemoveButton>
-            </ButtonGroup>
           </div>
         }
       >
@@ -419,22 +561,43 @@ const FamilyTreeOrgChart: React.FC = () => {
   // Build the tree structure
   const treeData = buildTree(familyData);
 
+  // Add some additional styles to ensure buttons work correctly
+  const additionalStyles = `
+    .button-container {
+      display: flex;
+      justify-content: center;
+      margin-top: 8px;
+      position: relative;
+      z-index: 10;
+    }
+    
+    .edit-container {
+      position: relative;
+      z-index: 5;
+    }
+    
+    .node-content {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      width: 100%;
+    }
+    
+    /* Ensure buttons are clickable */
+    button {
+      position: relative;
+      z-index: 20;
+      cursor: pointer;
+    }
+  `;
+
   return (
     <div className="family-tree-container p-8 max-w-full overflow-auto print:p-0 bg-gray-50 min-h-screen">
       <div className="controls mb-8 print:hidden">
         <h1 className="text-3xl font-bold text-gray-800 mb-4 text-center">
           Family Tree
         </h1>
-        <div className="flex flex-wrap gap-4 justify-center">
-          {familyData.length === 0 && (
-            <button 
-              onClick={() => handleAddMember(null)}
-              className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-md flex items-center"
-            >
-              <span className="mr-2">+</span>
-              Add Root Member
-            </button>
-          )}
+        <div className="flex flex-wrap gap-4 justify-center mb-4">
           <button 
             onClick={saveTree}
             className="bg-gray-800 hover:bg-gray-900 text-white px-4 py-2 rounded-md flex items-center"
@@ -442,6 +605,7 @@ const FamilyTreeOrgChart: React.FC = () => {
             <span className="mr-2">💾</span>
             Save Tree
           </button>
+          
           <button 
             onClick={() => window.print()}
             className="bg-gray-700 hover:bg-gray-800 text-white px-4 py-2 rounded-md flex items-center"
@@ -449,6 +613,7 @@ const FamilyTreeOrgChart: React.FC = () => {
             <span className="mr-2">🖨️</span>
             Print
           </button>
+          
           <button 
             onClick={downloadAsImage}
             className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md flex items-center"
@@ -456,12 +621,30 @@ const FamilyTreeOrgChart: React.FC = () => {
             <span className="mr-2">📷</span>
             Download as Image
           </button>
+          
+          <button 
+            onClick={() => setIsEditMode(!isEditMode)}
+            className={`px-4 py-2 rounded-md flex items-center ${
+              isEditMode 
+                ? 'bg-indigo-600 hover:bg-indigo-700 text-white' 
+                : 'bg-gray-200 hover:bg-gray-300 text-gray-800'
+            }`}
+          >
+            <span className="mr-2">{isEditMode ? '✓' : '✏️'}</span>
+            {isEditMode ? 'Exit Edit Mode' : 'Enter Edit Mode'}
+          </button>
         </div>
       </div>
 
       <div className="instructions bg-blue-50 p-4 rounded-md mb-6 print:hidden text-center">
         <p className="text-blue-800">
-          <span className="font-bold">Instructions:</span> Double-click on a name to edit, single-click to expand/collapse branches
+          <span className="font-bold">Instructions:</span> 
+          Click on a photo to expand/collapse branches. Click on a name to edit it. 
+          {isEditMode ? (
+            <span> Use the Add Child and Remove buttons to modify the tree structure.</span>
+          ) : (
+            <span> Click "Enter Edit Mode" to show add/remove options.</span>
+          )}
         </p>
       </div>
 
@@ -486,7 +669,7 @@ const FamilyTreeOrgChart: React.FC = () => {
               <p className="text-gray-500 text-lg mb-4">No members in the family tree yet!</p>
               <button 
                 onClick={() => handleAddMember(null)}
-                className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-md flex items-center mx-auto"
+                className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-md flex items-center mx-auto"
               >
                 <span className="mr-2">+</span>
                 Add First Member
@@ -533,6 +716,9 @@ const FamilyTreeOrgChart: React.FC = () => {
         .oc-hierarchy {
           gap: 5px !important;
         }
+        
+        /* Additional styles for button handling */
+        ${additionalStyles}
       `}</style>
     </div>
   );
