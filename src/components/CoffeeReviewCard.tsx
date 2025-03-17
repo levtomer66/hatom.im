@@ -10,9 +10,10 @@ interface CoffeeReviewCardProps {
   review: CoffeeReview;
   onDelete: (id: string) => Promise<void>;
   onUpdate: () => void;
+  rank?: number;
 }
 
-const CoffeeReviewCard: React.FC<CoffeeReviewCardProps> = ({ review, onDelete, onUpdate }) => {
+const CoffeeReviewCard: React.FC<CoffeeReviewCardProps> = ({ review, onDelete, onUpdate, rank }) => {
   const [imageError, setImageError] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -32,6 +33,17 @@ const CoffeeReviewCard: React.FC<CoffeeReviewCardProps> = ({ review, onDelete, o
     month: 'long',
     day: 'numeric'
   });
+
+  // Get medal emoji based on rank
+  const getMedal = (rank?: number) => {
+    if (!rank) return null;
+    switch (rank) {
+      case 1: return '🥇';
+      case 2: return '🥈';
+      case 3: return '🥉';
+      default: return null;
+    }
+  };
 
   const handleDelete = async () => {
     if (window.confirm('האם אתה בטוח שברצונך למחוק ביקורת זו?')) {
@@ -70,6 +82,13 @@ const CoffeeReviewCard: React.FC<CoffeeReviewCardProps> = ({ review, onDelete, o
   
   return (
     <div className="bg-white rounded-lg shadow-lg overflow-hidden transition-transform duration-300 hover:transform hover:scale-102 border-2 border-amber-100 relative">
+      {/* Medal */}
+      {rank && rank <= 3 && (
+        <div className="absolute top-2 right-2 z-10 text-4xl">
+          {getMedal(rank)}
+        </div>
+      )}
+      
       {/* Action buttons */}
       <div className="absolute top-2 left-2 flex space-x-2 z-10">
         <button
