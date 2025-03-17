@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useRef } from 'react';
-import RatingStars from './RatingStars';
+import { RatingStars, ScaleBar } from './RatingStars';
 import Image from 'next/image';
 
 interface AddCoffeeReviewFormProps {
@@ -267,40 +267,49 @@ const AddCoffeeReviewForm: React.FC<AddCoffeeReviewFormProps> = ({ onSuccess }) 
         <div className="space-y-4">
           <h3 className="text-lg font-semibold text-amber-800 text-right">דירוג</h3>
           
-          <div className="flex justify-between items-center">
-            <RatingStars 
+          <div className="space-y-4">
+            <ScaleBar 
               rating={coffeeRating} 
-              editable={true} 
-              onChange={setCoffeeRating} 
+              onChange={setCoffeeRating}
+              label="קפה"
             />
-            <span className="text-amber-700 font-medium">קפה:</span>
-          </div>
-          
-          <div className="flex justify-between items-center">
-            <RatingStars 
+            <ScaleBar 
               rating={foodRating} 
-              editable={true} 
-              onChange={setFoodRating} 
+              onChange={setFoodRating}
+              label="אוכל"
             />
-            <span className="text-amber-700 font-medium">אוכל:</span>
-          </div>
-          
-          <div className="flex justify-between items-center">
-            <RatingStars 
+            <ScaleBar 
               rating={atmosphereRating} 
-              editable={true} 
-              onChange={setAtmosphereRating} 
+              onChange={setAtmosphereRating}
+              label="אווירה"
             />
-            <span className="text-amber-700 font-medium">אווירה:</span>
-          </div>
-          
-          <div className="flex justify-between items-center">
-            <RatingStars 
+            <ScaleBar 
               rating={priceRating} 
-              editable={true} 
-              onChange={setPriceRating} 
+              onChange={setPriceRating}
+              label="מחיר"
             />
-            <span className="text-amber-700 font-medium">מחיר:</span>
+          </div>
+
+          <div className="mt-6 space-y-2">
+            <div className="flex justify-between items-center">
+              <span className="text-amber-700">קפה:</span>
+              <RatingStars rating={coffeeRating} size="sm" />
+            </div>
+            
+            <div className="flex justify-between items-center">
+              <span className="text-amber-700">אוכל:</span>
+              <RatingStars rating={foodRating} size="sm" />
+            </div>
+            
+            <div className="flex justify-between items-center">
+              <span className="text-amber-700">אווירה:</span>
+              <RatingStars rating={atmosphereRating} size="sm" />
+            </div>
+            
+            <div className="flex justify-between items-center">
+              <span className="text-amber-700">מחיר:</span>
+              <RatingStars rating={priceRating} size="sm" />
+            </div>
           </div>
         </div>
         
