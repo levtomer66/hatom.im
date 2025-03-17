@@ -34,6 +34,12 @@ const Navbar: React.FC = () => {
           >
             ☕ מקפקפים
           </Link>
+          <Link 
+            href="/greeting" 
+            className={`navbar-link ${pathname === '/greeting' ? 'text-yellow-300' : ''}`}
+          >
+            🎈 ברכה
+          </Link>
           {/* More links can be added here */}
         </div>
       </div>
