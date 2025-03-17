@@ -534,7 +534,7 @@ const FamilyTreeOrgChart: React.FC = () => {
                           return false;
                         }}
                       >
-                        Add Child
+                        הוסף ילד
                       </div>
                       <div
                         className="remove-button bg-red-500 hover:bg-red-600 text-white rounded-md px-2 py-1 text-sm cursor-pointer"
@@ -555,7 +555,7 @@ const FamilyTreeOrgChart: React.FC = () => {
                           return false;
                         }}
                       >
-                        Remove
+                        הסר
                       </div>
                     </div>
                   )}
