@@ -7,17 +7,13 @@ interface RatingStarsProps {
   maxRating?: number;
   size?: 'sm' | 'md' | 'lg';
   color?: string;
-  editable?: boolean;
-  onChange?: (rating: number) => void;
 }
 
 const RatingStars: React.FC<RatingStarsProps> = ({
   rating,
-  maxRating = 5,
+  maxRating = 10,
   size = 'md',
-  color = '#ffbe0b',
-  editable = false,
-  onChange
+  color = '#ffbe0b'
 }) => {
   // Determine star size based on the size prop
   const starSizes = {
@@ -28,28 +24,20 @@ const RatingStars: React.FC<RatingStarsProps> = ({
   
   const starSize = starSizes[size];
   
-  // Handle star click for editable ratings
-  const handleStarClick = (selectedRating: number) => {
-    if (editable && onChange) {
-      onChange(selectedRating);
-    }
-  };
-  
   return (
     <div className="flex items-center">
       {[...Array(maxRating)].map((_, index) => {
         const starValue = index + 1;
         const isFilled = starValue <= rating;
+        const isHalfFilled = starValue - 0.5 <= rating && starValue > rating;
         
         return (
           <span
             key={index}
-            className={`${starSize} ${editable ? 'cursor-pointer' : ''} transition-colors duration-200`}
-            style={{ color: isFilled ? color : '#d1d5db' }}
-            onClick={() => handleStarClick(starValue)}
-            onMouseEnter={editable ? () => {} : undefined}
+            className={`${starSize} transition-colors duration-200 relative`}
+            style={{ color: isFilled || isHalfFilled ? color : '#d1d5db' }}
           >
-            ★
+            {isHalfFilled ? '☆' : '★'}
           </span>
         );
       })}
@@ -57,4 +45,35 @@ const RatingStars: React.FC<RatingStarsProps> = ({
   );
 };
 
-export default RatingStars; 
+interface ScaleBarProps {
+  rating: number;
+  onChange: (rating: number) => void;
+  label?: string;
+}
+
+const ScaleBar: React.FC<ScaleBarProps> = ({ rating, onChange, label }) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = parseFloat(e.target.value);
+    // Round to nearest 0.5
+    const roundedValue = Math.round(value * 2) / 2;
+    onChange(roundedValue);
+  };
+
+  return (
+    <div className="flex items-center gap-4">
+      {label && <span className="text-amber-700 min-w-[60px]">{label}:</span>}
+      <input
+        type="range"
+        min="1"
+        max="10"
+        step="0.5"
+        value={rating}
+        onChange={handleChange}
+        className="w-full h-2 bg-amber-200 rounded-lg appearance-none cursor-pointer"
+      />
+      <span className="text-amber-600 min-w-[40px] text-right">{rating.toFixed(1)}</span>
+    </div>
+  );
+};
+
+export { RatingStars, ScaleBar }; 

@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import Image from 'next/image';
 import { CoffeeReview } from '@/types/coffee';
-import RatingStars from './RatingStars';
+import { RatingStars } from './RatingStars';
 import EditCoffeeReviewForm from './EditCoffeeReviewForm';
 
 interface CoffeeReviewCardProps {
@@ -127,28 +127,40 @@ const CoffeeReviewCard: React.FC<CoffeeReviewCardProps> = ({ review, onDelete, o
           <span className="text-lg font-semibold text-amber-800 mr-2">
             {averageRating.toFixed(1)}
           </span>
-          <RatingStars rating={Math.round(averageRating)} size="sm" />
+          <RatingStars rating={averageRating} size="sm" />
         </div>
         
         <div className="space-y-2 mb-4">
           <div className="flex justify-between items-center">
             <span className="text-amber-700">קפה:</span>
-            <RatingStars rating={review.coffeeRating} size="sm" />
+            <div className="flex items-center">
+              <span className="text-sm text-amber-600 mr-2">{review.coffeeRating.toFixed(1)}</span>
+              <RatingStars rating={review.coffeeRating} size="sm" />
+            </div>
           </div>
           
           <div className="flex justify-between items-center">
             <span className="text-amber-700">אוכל:</span>
-            <RatingStars rating={review.foodRating} size="sm" />
+            <div className="flex items-center">
+              <span className="text-sm text-amber-600 mr-2">{review.foodRating.toFixed(1)}</span>
+              <RatingStars rating={review.foodRating} size="sm" />
+            </div>
           </div>
           
           <div className="flex justify-between items-center">
             <span className="text-amber-700">אווירה:</span>
-            <RatingStars rating={review.atmosphereRating} size="sm" />
+            <div className="flex items-center">
+              <span className="text-sm text-amber-600 mr-2">{review.atmosphereRating.toFixed(1)}</span>
+              <RatingStars rating={review.atmosphereRating} size="sm" />
+            </div>
           </div>
           
           <div className="flex justify-between items-center">
             <span className="text-amber-700">מחיר:</span>
-            <RatingStars rating={review.priceRating} size="sm" />
+            <div className="flex items-center">
+              <span className="text-sm text-amber-600 mr-2">{review.priceRating.toFixed(1)}</span>
+              <RatingStars rating={review.priceRating} size="sm" />
+            </div>
           </div>
         </div>
         

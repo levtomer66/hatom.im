@@ -44,12 +44,12 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    // Validate rating ranges (1-5)
+    // Validate rating ranges (1-10 with 0.5 increments)
     if ([data.coffeeRating, data.foodRating, data.atmosphereRating, data.priceRating].some(
-      rating => rating < 1 || rating > 5
+      rating => rating < 1 || rating > 10 || !Number.isInteger(rating * 2)
     )) {
       return NextResponse.json(
-        { error: 'Ratings must be between 1 and 5' },
+        { error: 'Ratings must be between 1 and 10 with 0.5 increments' },
         { status: 400 }
       );
     }

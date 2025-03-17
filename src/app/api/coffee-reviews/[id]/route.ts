@@ -48,9 +48,9 @@ export async function PATCH(
       data.priceRating
     ].filter(rating => rating !== undefined);
     
-    if (ratings.some(rating => rating < 1 || rating > 5)) {
+    if (ratings.some(rating => rating < 1 || rating > 10 || !Number.isInteger(rating * 2))) {
       return NextResponse.json(
-        { error: 'Ratings must be between 1 and 5' },
+        { error: 'Ratings must be between 1 and 10 with 0.5 increments' },
         { status: 400 }
       );
     }

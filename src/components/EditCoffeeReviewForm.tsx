@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useRef } from 'react';
-import RatingStars from './RatingStars';
+import { RatingStars, ScaleBar } from './RatingStars';
 import Image from 'next/image';
 import { CoffeeReview } from '@/types/coffee';
 
@@ -58,7 +58,7 @@ const EditCoffeeReviewForm: React.FC<EditCoffeeReviewFormProps> = ({
       setIsSubmitting(true);
       
       const response = await fetch(`/api/coffee-reviews/${review.id}`, {
-        method: 'PUT',
+        method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
         },
@@ -77,7 +77,7 @@ const EditCoffeeReviewForm: React.FC<EditCoffeeReviewFormProps> = ({
       });
       
       if (!response.ok) {
-        const errorData = await response.json();
+        const errorData = await response.json().catch(() => ({ error: 'שגיאה בעדכון הביקורת' }));
         throw new Error(errorData.error || 'שגיאה בעדכון הביקורת');
       }
       
@@ -160,7 +160,7 @@ const EditCoffeeReviewForm: React.FC<EditCoffeeReviewFormProps> = ({
 
   return (
     <div className="bg-white rounded-lg shadow-lg p-6 border-2 border-amber-100">
-      <h2 className="text-2xl font-bold text-amber-900 mb-6 text-center">עריכת ביקורת קפה</h2>
+      <h2 className="text-2xl font-bold text-amber-900 mb-6 text-center">עריכת ביקורת</h2>
       
       {error && (
         <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4 text-right">
@@ -272,48 +272,57 @@ const EditCoffeeReviewForm: React.FC<EditCoffeeReviewFormProps> = ({
         <div className="space-y-4">
           <h3 className="text-lg font-semibold text-amber-800 text-right">דירוג</h3>
           
-          <div className="flex justify-between items-center">
-            <RatingStars 
+          <div className="space-y-4">
+            <ScaleBar 
               rating={coffeeRating} 
-              editable={true} 
-              onChange={setCoffeeRating} 
+              onChange={setCoffeeRating}
+              label="קפה"
             />
-            <span className="text-amber-700 font-medium">קפה:</span>
-          </div>
-          
-          <div className="flex justify-between items-center">
-            <RatingStars 
+            <ScaleBar 
               rating={foodRating} 
-              editable={true} 
-              onChange={setFoodRating} 
+              onChange={setFoodRating}
+              label="אוכל"
             />
-            <span className="text-amber-700 font-medium">אוכל:</span>
-          </div>
-          
-          <div className="flex justify-between items-center">
-            <RatingStars 
+            <ScaleBar 
               rating={atmosphereRating} 
-              editable={true} 
-              onChange={setAtmosphereRating} 
+              onChange={setAtmosphereRating}
+              label="אווירה"
             />
-            <span className="text-amber-700 font-medium">אווירה:</span>
-          </div>
-          
-          <div className="flex justify-between items-center">
-            <RatingStars 
+            <ScaleBar 
               rating={priceRating} 
-              editable={true} 
-              onChange={setPriceRating} 
+              onChange={setPriceRating}
+              label="מחיר"
             />
-            <span className="text-amber-700 font-medium">מחיר:</span>
+          </div>
+
+          <div className="mt-6 space-y-2">
+            <div className="flex justify-between items-center">
+              <span className="text-amber-700">קפה:</span>
+              <RatingStars rating={coffeeRating} size="sm" />
+            </div>
+            
+            <div className="flex justify-between items-center">
+              <span className="text-amber-700">אוכל:</span>
+              <RatingStars rating={foodRating} size="sm" />
+            </div>
+            
+            <div className="flex justify-between items-center">
+              <span className="text-amber-700">אווירה:</span>
+              <RatingStars rating={atmosphereRating} size="sm" />
+            </div>
+            
+            <div className="flex justify-between items-center">
+              <span className="text-amber-700">מחיר:</span>
+              <RatingStars rating={priceRating} size="sm" />
+            </div>
           </div>
         </div>
         
-        <div className="flex justify-center space-x-4">
+        <div className="flex justify-center gap-4">
           <button
             type="button"
             onClick={onCancel}
-            className="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-6 rounded-lg transition-colors duration-200"
+            className="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-6 rounded-lg transition-colors duration-200"
           >
             ביטול
           </button>
@@ -322,7 +331,7 @@ const EditCoffeeReviewForm: React.FC<EditCoffeeReviewFormProps> = ({
             disabled={isSubmitting}
             className="bg-amber-600 hover:bg-amber-700 text-white font-bold py-2 px-6 rounded-lg transition-colors duration-200 disabled:opacity-50"
           >
-            {isSubmitting ? 'שומר...' : 'עדכן ביקורת'}
+            {isSubmitting ? 'שומר...' : 'שמור שינויים'}
           </button>
         </div>
       </form>
