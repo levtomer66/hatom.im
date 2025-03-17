@@ -16,17 +16,12 @@ const Navbar: React.FC = () => {
           </Link>
         </div>
         <div className="navbar-links">
-          <Link 
-            href="/" 
-            className={`navbar-link ${pathname === '/' ? 'text-yellow-300' : ''}`}
-          >
-            בית
-          </Link>
+          
           <Link 
             href="/family-tree" 
             className={`navbar-link ${pathname === '/family-tree' ? 'text-yellow-300' : ''}`}
           >
-            שמות האוליבון
+            🐶 שמות האוליבון 
           </Link>
           <Link 
             href="/mekafkefim" 
@@ -35,11 +30,17 @@ const Navbar: React.FC = () => {
             ☕ מקפקפים
           </Link>
           <Link 
+            href="/" 
+            className={`navbar-link ${pathname === '/' ? 'text-yellow-300' : ''}`}
+          >
+            🏠 בית 
+          </Link>
+          {/* <Link 
             href="/greeting" 
             className={`navbar-link ${pathname === '/greeting' ? 'text-yellow-300' : ''}`}
           >
             🎈 ברכה
-          </Link>
+          </Link> */}
           {/* More links can be added here */}
         </div>
       </div>

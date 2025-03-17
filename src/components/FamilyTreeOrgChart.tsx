@@ -617,7 +617,7 @@ const FamilyTreeOrgChart: React.FC = () => {
     <div className="family-tree-container p-8 max-w-full overflow-auto print:p-0 bg-gray-50 min-h-screen">
       <div className="controls mb-8 print:hidden">
         <h1 className="text-3xl font-bold text-gray-800 mb-4 text-center">
-          Family Tree
+          שמות האוליבון
         </h1>
         <div className="flex flex-wrap gap-4 justify-center mb-4">
           <button 
@@ -625,7 +625,7 @@ const FamilyTreeOrgChart: React.FC = () => {
             className="bg-gray-800 hover:bg-gray-900 text-white px-4 py-2 rounded-md flex items-center"
           >
             <span className="mr-2">💾</span>
-            Save Tree
+            שמירה
           </button>
           
           <button 
@@ -633,7 +633,7 @@ const FamilyTreeOrgChart: React.FC = () => {
             className="bg-gray-700 hover:bg-gray-800 text-white px-4 py-2 rounded-md flex items-center"
           >
             <span className="mr-2">🖨️</span>
-            Print
+            הדפס
           </button>
           
           <button 
@@ -641,7 +641,7 @@ const FamilyTreeOrgChart: React.FC = () => {
             className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md flex items-center"
           >
             <span className="mr-2">📷</span>
-            Download as Image
+            הורד כתמונה
           </button>
           
           <button 
@@ -653,19 +653,19 @@ const FamilyTreeOrgChart: React.FC = () => {
             }`}
           >
             <span className="mr-2">{isEditMode ? '✓' : '✏️'}</span>
-            {isEditMode ? 'Exit Edit Mode' : 'Enter Edit Mode'}
+            {isEditMode ? 'צא ממצב עריכה' : 'הכנס למצב עריכה'}
           </button>
         </div>
       </div>
 
       <div className="instructions bg-blue-50 p-4 rounded-md mb-6 print:hidden text-center">
         <p className="text-blue-800">
-          <span className="font-bold">Instructions:</span> 
-          Click on a photo to expand/collapse branches. Click on a name to edit it. 
+          <span className="font-bold">הוראות:</span> 
+          לחצו על תמונה כדי להרחיב/לכווץ תחתונים. לחצו על שם כדי לערוך אותו. 
           {isEditMode ? (
-            <span> Use the Add Child and Remove buttons to modify the tree structure.</span>
+            <span> השימוש בכפתורים להוספת ילד ולהסרת ילד.</span>
           ) : (
-            <span> Click &quot;Enter Edit Mode&quot; to show add/remove options.</span>
+            <span> לחצו על &quot;הכנס למצב עריכה&quot; כדי להציג אפשרויות הוספה והסרה.</span>
           )}
         </p>
       </div>
@@ -682,19 +682,19 @@ const FamilyTreeOrgChart: React.FC = () => {
               lineBorderRadius={'0px'}
               nodePadding={'2px'}
               lineHeight={'10px'}
-              label={<div className="text-gray-500 font-medium mb-2">Organization Chart</div>}
+              label={<div className="text-gray-500 font-medium mb-2">משפחת הבונים</div>}
             >
               {treeData.map(rootNode => renderTreeNode(rootNode))}
             </StyledTree>
           ) : (
             <div className="text-center">
-              <p className="text-gray-500 text-lg mb-4">No members in the family tree yet!</p>
+              <p className="text-gray-500 text-lg mb-4">אין שמות בעץ המשפחה עדיין!</p>
               <button 
                 onClick={() => handleAddMember(null)}
                 className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-md flex items-center mx-auto"
               >
                 <span className="mr-2">+</span>
-                Add First Member
+                הוספת שם ראשון
               </button>
             </div>
           )}
