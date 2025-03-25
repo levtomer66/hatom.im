@@ -59,7 +59,7 @@ export default function Home() {
         
         <div className="mt-12 text-center">
           <h2 className="text-2xl font-bold mb-4">עוד בהמשך!</h2>
-          <p> עובדים על מספר פיצ׳רים נוספים כדי לחגג את יום הולדת שמח של תומיתילו.</p>
+          {/* <p> עובדים על מספר פיצ׳רים נוספים כדי לחגג את יום הולדת שמח של תומיתילו.</p> */}
         </div>
       </div>
     </>
