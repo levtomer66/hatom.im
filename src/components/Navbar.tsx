@@ -12,7 +12,7 @@ const Navbar: React.FC = () => {
       <div className="navbar-container">
         <div className="navbar-logo">
           <Link href="/">
-            🎂 התומ.ים
+          👰‍♀️🤵‍♂️  התומ.ים 
           </Link>
         </div>
         <div className="navbar-links">

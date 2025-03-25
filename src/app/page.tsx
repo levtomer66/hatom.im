@@ -4,6 +4,7 @@ import React from 'react';
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import Navbar from '@/components/Navbar';
+import CountdownTimer from '@/components/CountdownTimer';
 
 // Use dynamic import for the confetti component to avoid SSR issues
 const PeriodicConfetti = dynamic(() => import('@/components/PeriodicConfetti'), {
@@ -18,8 +19,8 @@ export default function Home() {
       
       <div className="birthday-container">
         <div className="birthday-hero">
-          <h1 className="birthday-title">יום הולדת שמח לתומיתילו! 🎉</h1>
-          <p className="birthday-subtitle">חוגגים לתומיתילו יום הולדת!!!</p>
+          <h1 className="birthday-title">תומים המתחתנים ! 👰‍♀️🤵‍♂️</h1>
+          <CountdownTimer />
           <div className="flex flex-wrap justify-center gap-4 mt-6">
             <Link href="/family-tree">
               <button className="birthday-button">שמות האוליבון 🐕</button>
