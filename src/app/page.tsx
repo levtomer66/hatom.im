@@ -44,7 +44,7 @@ export default function Home() {
           <div className="feature-card">
             <div className="feature-icon">☕</div>
             <h2 className="feature-title">מקפקפים</h2>
-            <p>ביקורות על קפה מאת תמית ותומרינדי</p>
+            <p>ביקורות על קפה מאת תומית ותומרינדי</p>
             <Link href="/mekafkefim" className="mt-4 inline-block text-amber-600 hover:text-amber-800">
               ← צפה במקפקפים
             </Link>
