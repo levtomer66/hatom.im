@@ -40,15 +40,26 @@ export async function PATCH(
     const { id } = await context.params;
     const data = await request.json();
     
-    // Validate rating ranges if provided
-    const ratings = [
-      data.coffeeRating, 
-      data.foodRating, 
-      data.atmosphereRating, 
-      data.priceRating
+    // Validate Tom's rating ranges if provided
+    const tomRatings = [
+      data.tomCoffeeRating, 
+      data.tomFoodRating, 
+      data.tomAtmosphereRating, 
+      data.tomPriceRating
+    ].filter(rating => rating !== undefined);
+
+    // Validate Tomer's rating ranges if provided
+    const tomerRatings = [
+      data.tomerCoffeeRating, 
+      data.tomerFoodRating, 
+      data.tomerAtmosphereRating, 
+      data.tomerPriceRating
     ].filter(rating => rating !== undefined);
     
-    if (ratings.some(rating => rating < 1 || rating > 10 || !Number.isInteger(rating * 2))) {
+    // Combine for validation
+    const allRatings = [...tomRatings, ...tomerRatings];
+    
+    if (allRatings.some(rating => rating < 1 || rating > 10 || !Number.isInteger(rating * 2))) {
       return NextResponse.json(
         { error: 'Ratings must be between 1 and 10 with 0.5 increments' },
         { status: 400 }

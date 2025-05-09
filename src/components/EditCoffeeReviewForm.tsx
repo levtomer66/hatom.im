@@ -17,15 +17,23 @@ const EditCoffeeReviewForm: React.FC<EditCoffeeReviewFormProps> = ({
   onCancel 
 }) => {
   const [placeName, setPlaceName] = useState(review.placeName);
-  const [coffeeRating, setCoffeeRating] = useState(review.coffeeRating);
-  const [foodRating, setFoodRating] = useState(review.foodRating);
-  const [atmosphereRating, setAtmosphereRating] = useState(review.atmosphereRating);
-  const [priceRating, setPriceRating] = useState(review.priceRating);
+  // Tom's ratings
+  const [tomCoffeeRating, setTomCoffeeRating] = useState(review.tomCoffeeRating);
+  const [tomFoodRating, setTomFoodRating] = useState(review.tomFoodRating);
+  const [tomAtmosphereRating, setTomAtmosphereRating] = useState(review.tomAtmosphereRating);
+  const [tomPriceRating, setTomPriceRating] = useState(review.tomPriceRating);
+  // Tomer's ratings
+  const [tomerCoffeeRating, setTomerCoffeeRating] = useState(review.tomerCoffeeRating);
+  const [tomerFoodRating, setTomerFoodRating] = useState(review.tomerFoodRating);
+  const [tomerAtmosphereRating, setTomerAtmosphereRating] = useState(review.tomerAtmosphereRating);
+  const [tomerPriceRating, setTomerPriceRating] = useState(review.tomerPriceRating);
+  // Image fields
   const [photoData, setPhotoData] = useState<string | undefined>(review.photoData);
   const [photoType, setPhotoType] = useState<string | undefined>(review.photoType);
   const [photoName, setPhotoName] = useState<string | undefined>(review.photoName);
   const [photoSize, setPhotoSize] = useState<number | undefined>(review.photoSize);
   const [photoUrl, setPhotoUrl] = useState(review.photoUrl || '');
+  
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
@@ -35,6 +43,8 @@ const EditCoffeeReviewForm: React.FC<EditCoffeeReviewFormProps> = ({
       ? `/api/coffee-reviews/${review.id}/image` 
       : (review.photoUrl || null)
   );
+  // Active tab for the form
+  const [activeTab, setActiveTab] = useState<'tom' | 'tomer'>('tom');
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
@@ -49,8 +59,17 @@ const EditCoffeeReviewForm: React.FC<EditCoffeeReviewFormProps> = ({
       return;
     }
     
-    if (coffeeRating === 0 || foodRating === 0 || atmosphereRating === 0 || priceRating === 0) {
-      setError('יש לדרג את כל הקטגוריות');
+    // Validate Tom's ratings
+    if (tomCoffeeRating === 0 || tomFoodRating === 0 || tomAtmosphereRating === 0 || tomPriceRating === 0) {
+      setError('יש לדרג את כל הקטגוריות עבור תום');
+      setActiveTab('tom');
+      return;
+    }
+    
+    // Validate Tomer's ratings
+    if (tomerCoffeeRating === 0 || tomerFoodRating === 0 || tomerAtmosphereRating === 0 || tomerPriceRating === 0) {
+      setError('יש לדרג את כל הקטגוריות עבור תומר');
+      setActiveTab('tomer');
       return;
     }
     
@@ -64,10 +83,17 @@ const EditCoffeeReviewForm: React.FC<EditCoffeeReviewFormProps> = ({
         },
         body: JSON.stringify({
           placeName,
-          coffeeRating,
-          foodRating,
-          atmosphereRating,
-          priceRating,
+          // Tom's ratings
+          tomCoffeeRating,
+          tomFoodRating,
+          tomAtmosphereRating,
+          tomPriceRating,
+          // Tomer's ratings
+          tomerCoffeeRating,
+          tomerFoodRating,
+          tomerAtmosphereRating,
+          tomerPriceRating,
+          // Image data
           photoUrl: photoUrl || undefined,
           photoData,
           photoType,
@@ -156,6 +182,83 @@ const EditCoffeeReviewForm: React.FC<EditCoffeeReviewFormProps> = ({
     setPhotoUrl('');
     if (fileInputRef.current) fileInputRef.current.value = '';
     if (cameraInputRef.current) cameraInputRef.current.value = '';
+  };
+
+  // Render ratings form for a specific reviewer
+  const renderRatingForm = (reviewer: 'tom' | 'tomer') => {
+    const displayName = reviewer === 'tom' ? 'תום' : 'תומר';
+    
+    // Select the appropriate state setters based on the reviewer
+    const setCoffeeRating = reviewer === 'tom' ? setTomCoffeeRating : setTomerCoffeeRating;
+    const setFoodRating = reviewer === 'tom' ? setTomFoodRating : setTomerFoodRating;
+    const setAtmosphereRating = reviewer === 'tom' ? setTomAtmosphereRating : setTomerAtmosphereRating;
+    const setPriceRating = reviewer === 'tom' ? setTomPriceRating : setTomerPriceRating;
+    
+    // Select the appropriate state values based on the reviewer
+    const coffeeRating = reviewer === 'tom' ? tomCoffeeRating : tomerCoffeeRating;
+    const foodRating = reviewer === 'tom' ? tomFoodRating : tomerFoodRating;
+    const atmosphereRating = reviewer === 'tom' ? tomAtmosphereRating : tomerAtmosphereRating;
+    const priceRating = reviewer === 'tom' ? tomPriceRating : tomerPriceRating;
+    
+    return (
+      <div>
+        <h3 className="text-xl font-bold text-amber-800 mb-4 text-center">הדירוג של {displayName}</h3>
+        
+        <div className="space-y-4 mb-6">
+          <div>
+            <ScaleBar
+              label="קפה"
+              rating={coffeeRating}
+              onChange={setCoffeeRating}
+            />
+            {coffeeRating > 0 && (
+              <div className="mt-1 flex justify-end">
+                <RatingStars rating={coffeeRating} size="sm" />
+              </div>
+            )}
+          </div>
+          
+          <div>
+            <ScaleBar
+              label="אוכל"
+              rating={foodRating}
+              onChange={setFoodRating}
+            />
+            {foodRating > 0 && (
+              <div className="mt-1 flex justify-end">
+                <RatingStars rating={foodRating} size="sm" />
+              </div>
+            )}
+          </div>
+          
+          <div>
+            <ScaleBar
+              label="אווירה"
+              rating={atmosphereRating}
+              onChange={setAtmosphereRating}
+            />
+            {atmosphereRating > 0 && (
+              <div className="mt-1 flex justify-end">
+                <RatingStars rating={atmosphereRating} size="sm" />
+              </div>
+            )}
+          </div>
+          
+          <div>
+            <ScaleBar
+              label="מחיר"
+              rating={priceRating}
+              onChange={setPriceRating}
+            />
+            {priceRating > 0 && (
+              <div className="mt-1 flex justify-end">
+                <RatingStars rating={priceRating} size="sm" />
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
   };
 
   return (
@@ -253,85 +356,63 @@ const EditCoffeeReviewForm: React.FC<EditCoffeeReviewFormProps> = ({
               type="button"
               onClick={triggerCameraInput}
               disabled={isUploading}
-              className="bg-amber-500 hover:bg-amber-600 text-white font-medium py-2 px-4 rounded-md transition-colors duration-200 disabled:opacity-50 flex items-center"
+              className="bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-4 rounded-md transition-colors duration-200 disabled:opacity-50 flex items-center"
             >
               <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 ml-2" viewBox="0 0 20 20" fill="currentColor">
                 <path fillRule="evenodd" d="M4 5a2 2 0 00-2 2v8a2 2 0 002 2h12a2 2 0 002-2V7a2 2 0 00-2-2h-1.586a1 1 0 01-.707-.293l-1.121-1.121A2 2 0 0011.172 3H8.828a2 2 0 00-1.414.586L6.293 4.707A1 1 0 015.586 5H4zm6 9a3 3 0 100-6 3 3 0 000 6z" clipRule="evenodd" />
               </svg>
-              צילום תמונה
+              {isUploading ? 'מעלה...' : 'צילום תמונה'}
             </button>
           </div>
-          
-          {!previewUrl && (
-            <div className="mt-2 text-right text-sm text-gray-500">
-              העלה תמונה מהמכשיר שלך או צלם תמונה חדשה
-            </div>
-          )}
         </div>
         
-        <div className="space-y-4">
-          <h3 className="text-lg font-semibold text-amber-800 text-right">דירוג</h3>
-          
-          <div className="space-y-4">
-            <ScaleBar 
-              rating={coffeeRating} 
-              onChange={setCoffeeRating}
-              label="קפה"
-            />
-            <ScaleBar 
-              rating={foodRating} 
-              onChange={setFoodRating}
-              label="אוכל"
-            />
-            <ScaleBar 
-              rating={atmosphereRating} 
-              onChange={setAtmosphereRating}
-              label="אווירה"
-            />
-            <ScaleBar 
-              rating={priceRating} 
-              onChange={setPriceRating}
-              label="מחיר"
-            />
-          </div>
-
-          <div className="mt-6 space-y-2">
-            <div className="flex justify-between items-center">
-              <span className="text-amber-700">קפה:</span>
-              <RatingStars rating={coffeeRating} size="sm" />
-            </div>
-            
-            <div className="flex justify-between items-center">
-              <span className="text-amber-700">אוכל:</span>
-              <RatingStars rating={foodRating} size="sm" />
-            </div>
-            
-            <div className="flex justify-between items-center">
-              <span className="text-amber-700">אווירה:</span>
-              <RatingStars rating={atmosphereRating} size="sm" />
-            </div>
-            
-            <div className="flex justify-between items-center">
-              <span className="text-amber-700">מחיר:</span>
-              <RatingStars rating={priceRating} size="sm" />
-            </div>
-          </div>
+        {/* Rating tabs */}
+        <div className="flex border-b border-amber-200 mb-4">
+          <button
+            type="button"
+            className={`py-2 px-4 font-medium ${activeTab === 'tom' ? 'text-amber-700 border-b-2 border-amber-500' : 'text-amber-500 hover:text-amber-600'}`}
+            onClick={() => setActiveTab('tom')}
+          >
+            תום
+          </button>
+          <button
+            type="button"
+            className={`py-2 px-4 font-medium ${activeTab === 'tomer' ? 'text-amber-700 border-b-2 border-amber-500' : 'text-amber-500 hover:text-amber-600'}`}
+            onClick={() => setActiveTab('tomer')}
+          >
+            תומר
+          </button>
         </div>
         
-        <div className="flex justify-center gap-4">
+        {/* Display ratings form based on active tab */}
+        {activeTab === 'tom' && renderRatingForm('tom')}
+        {activeTab === 'tomer' && renderRatingForm('tomer')}
+        
+        <div className="flex justify-between mt-6">
           <button
             type="button"
             onClick={onCancel}
-            className="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-6 rounded-lg transition-colors duration-200"
+            className="bg-gray-300 hover:bg-gray-400 text-gray-800 font-medium py-2 px-6 rounded-md transition-colors duration-200"
           >
             ביטול
           </button>
+          
           <button
             type="submit"
             disabled={isSubmitting}
-            className="bg-amber-600 hover:bg-amber-700 text-white font-bold py-2 px-6 rounded-lg transition-colors duration-200 disabled:opacity-50"
+            className="bg-amber-600 hover:bg-amber-700 text-white font-bold py-2 px-6 rounded-md transition-colors duration-200 disabled:opacity-50 flex items-center"
           >
-            {isSubmitting ? 'שומר...' : 'שמור שינויים'}
+            {isSubmitting ? (
+              <>
+                <svg className="animate-spin h-5 w-5 ml-2 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                מעדכן...
+              </>
+            ) : (
+              'שמור שינויים'
+            )}
           </button>
         </div>
       </form>

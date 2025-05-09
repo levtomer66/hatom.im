@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import Image from 'next/image';
-import { CoffeeReview } from '@/types/coffee';
+import { CoffeeReview, CombinedReviewScores, ReviewerScores } from '@/types/coffee';
 import { RatingStars } from './RatingStars';
 import EditCoffeeReviewForm from './EditCoffeeReviewForm';
 
@@ -18,14 +18,43 @@ const CoffeeReviewCard: React.FC<CoffeeReviewCardProps> = ({ review, onDelete, o
   const [isEditing, setIsEditing] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<'overview' | 'tom' | 'tomer'>('overview');
   
-  // Calculate average rating
-  const averageRating = (
-    review.coffeeRating + 
-    review.foodRating + 
-    review.atmosphereRating + 
-    review.priceRating
-  ) / 4;
+  // Calculate review scores
+  const getReviewerScores = (prefix: 'tom' | 'tomer'): ReviewerScores => {
+    // Ensure ratings exist or provide fallbacks
+    const coffeeRating = review[`${prefix}CoffeeRating`] ?? 0;
+    const foodRating = review[`${prefix}FoodRating`] ?? 0;
+    const atmosphereRating = review[`${prefix}AtmosphereRating`] ?? 0;
+    const priceRating = review[`${prefix}PriceRating`] ?? 0;
+    
+    const averageRating = (coffeeRating + foodRating + atmosphereRating + priceRating) / 4;
+    
+    return {
+      coffeeRating,
+      foodRating,
+      atmosphereRating,
+      priceRating,
+      averageRating
+    };
+  };
+  
+  // Get scores for Tom and Tomer
+  const tomScores = getReviewerScores('tom');
+  const tomerScores = getReviewerScores('tomer');
+  
+  // Calculate combined/average scores
+  const combinedScores: CombinedReviewScores = {
+    tom: tomScores,
+    tomer: tomerScores,
+    average: {
+      coffeeRating: (tomScores.coffeeRating + tomerScores.coffeeRating) / 2,
+      foodRating: (tomScores.foodRating + tomerScores.foodRating) / 2,
+      atmosphereRating: (tomScores.atmosphereRating + tomerScores.atmosphereRating) / 2,
+      priceRating: (tomScores.priceRating + tomerScores.priceRating) / 2,
+      totalAverage: (tomScores.averageRating + tomerScores.averageRating) / 2
+    }
+  };
   
   // Format date
   const formattedDate = new Date(review.createdAt).toLocaleDateString('he-IL', {
@@ -70,6 +99,112 @@ const CoffeeReviewCard: React.FC<CoffeeReviewCardProps> = ({ review, onDelete, o
   const handleUpdateSuccess = () => {
     setIsEditing(false);
     onUpdate();
+  };
+  
+  // Render ratings for a reviewer
+  const renderReviewerRatings = (reviewer: 'tom' | 'tomer', scores: ReviewerScores) => {
+    const displayName = reviewer === 'tom' ? 'תום' : 'תומר';
+    
+    return (
+      <div className="space-y-2 mb-4">
+        <div className="flex justify-between items-center">
+          <span className="text-amber-700">קפה:</span>
+          <div className="flex items-center">
+            <span className="text-sm text-amber-600 mr-2">{scores.coffeeRating.toFixed(1)}</span>
+            <RatingStars rating={scores.coffeeRating} size="sm" />
+          </div>
+        </div>
+        
+        <div className="flex justify-between items-center">
+          <span className="text-amber-700">אוכל:</span>
+          <div className="flex items-center">
+            <span className="text-sm text-amber-600 mr-2">{scores.foodRating.toFixed(1)}</span>
+            <RatingStars rating={scores.foodRating} size="sm" />
+          </div>
+        </div>
+        
+        <div className="flex justify-between items-center">
+          <span className="text-amber-700">אווירה:</span>
+          <div className="flex items-center">
+            <span className="text-sm text-amber-600 mr-2">{scores.atmosphereRating.toFixed(1)}</span>
+            <RatingStars rating={scores.atmosphereRating} size="sm" />
+          </div>
+        </div>
+        
+        <div className="flex justify-between items-center">
+          <span className="text-amber-700">מחיר:</span>
+          <div className="flex items-center">
+            <span className="text-sm text-amber-600 mr-2">{scores.priceRating.toFixed(1)}</span>
+            <RatingStars rating={scores.priceRating} size="sm" />
+          </div>
+        </div>
+        
+        <div className="flex justify-between items-center mt-3 pt-2 border-t border-amber-100">
+          <span className="text-amber-800 font-medium">ממוצע {displayName}:</span>
+          <div className="flex items-center">
+            <span className="text-sm font-bold text-amber-700 mr-2">{scores.averageRating.toFixed(1)}</span>
+            <RatingStars rating={scores.averageRating} size="sm" />
+          </div>
+        </div>
+      </div>
+    );
+  };
+  
+  // Render overview/combined ratings
+  const renderOverviewRatings = () => {
+    return (
+      <div className="space-y-2 mb-4">
+        <div className="flex justify-between items-center">
+          <span className="text-amber-700">קפה:</span>
+          <div className="flex items-center">
+            <span className="text-sm text-amber-600 mr-2">{combinedScores.average.coffeeRating.toFixed(1)}</span>
+            <RatingStars rating={combinedScores.average.coffeeRating} size="sm" />
+          </div>
+        </div>
+        
+        <div className="flex justify-between items-center">
+          <span className="text-amber-700">אוכל:</span>
+          <div className="flex items-center">
+            <span className="text-sm text-amber-600 mr-2">{combinedScores.average.foodRating.toFixed(1)}</span>
+            <RatingStars rating={combinedScores.average.foodRating} size="sm" />
+          </div>
+        </div>
+        
+        <div className="flex justify-between items-center">
+          <span className="text-amber-700">אווירה:</span>
+          <div className="flex items-center">
+            <span className="text-sm text-amber-600 mr-2">{combinedScores.average.atmosphereRating.toFixed(1)}</span>
+            <RatingStars rating={combinedScores.average.atmosphereRating} size="sm" />
+          </div>
+        </div>
+        
+        <div className="flex justify-between items-center">
+          <span className="text-amber-700">מחיר:</span>
+          <div className="flex items-center">
+            <span className="text-sm text-amber-600 mr-2">{combinedScores.average.priceRating.toFixed(1)}</span>
+            <RatingStars rating={combinedScores.average.priceRating} size="sm" />
+          </div>
+        </div>
+        
+        <div className="grid grid-cols-2 gap-4 mt-4 pt-3 border-t border-amber-100">
+          <div className="flex flex-col items-center">
+            <span className="text-amber-800 font-medium mb-1">תום</span>
+            <div className="flex items-center">
+              <span className="text-sm font-bold text-amber-700 mr-1">{tomScores.averageRating.toFixed(1)}</span>
+              <RatingStars rating={tomScores.averageRating} size="xs" />
+            </div>
+          </div>
+          
+          <div className="flex flex-col items-center">
+            <span className="text-amber-800 font-medium mb-1">תומר</span>
+            <div className="flex items-center">
+              <span className="text-sm font-bold text-amber-700 mr-1">{tomerScores.averageRating.toFixed(1)}</span>
+              <RatingStars rating={tomerScores.averageRating} size="xs" />
+            </div>
+          </div>
+        </div>
+      </div>
+    );
   };
   
   if (isEditing) {
@@ -144,44 +279,37 @@ const CoffeeReviewCard: React.FC<CoffeeReviewCardProps> = ({ review, onDelete, o
         
         <div className="flex items-center mb-4">
           <span className="text-lg font-semibold text-amber-800 mr-2">
-            {averageRating.toFixed(1)}
+            {combinedScores.average.totalAverage.toFixed(1)}
           </span>
-          <RatingStars rating={averageRating} size="sm" />
+          <RatingStars rating={combinedScores.average.totalAverage} size="sm" />
         </div>
         
-        <div className="space-y-2 mb-4">
-          <div className="flex justify-between items-center">
-            <span className="text-amber-700">קפה:</span>
-            <div className="flex items-center">
-              <span className="text-sm text-amber-600 mr-2">{review.coffeeRating.toFixed(1)}</span>
-              <RatingStars rating={review.coffeeRating} size="sm" />
-            </div>
-          </div>
-          
-          <div className="flex justify-between items-center">
-            <span className="text-amber-700">אוכל:</span>
-            <div className="flex items-center">
-              <span className="text-sm text-amber-600 mr-2">{review.foodRating.toFixed(1)}</span>
-              <RatingStars rating={review.foodRating} size="sm" />
-            </div>
-          </div>
-          
-          <div className="flex justify-between items-center">
-            <span className="text-amber-700">אווירה:</span>
-            <div className="flex items-center">
-              <span className="text-sm text-amber-600 mr-2">{review.atmosphereRating.toFixed(1)}</span>
-              <RatingStars rating={review.atmosphereRating} size="sm" />
-            </div>
-          </div>
-          
-          <div className="flex justify-between items-center">
-            <span className="text-amber-700">מחיר:</span>
-            <div className="flex items-center">
-              <span className="text-sm text-amber-600 mr-2">{review.priceRating.toFixed(1)}</span>
-              <RatingStars rating={review.priceRating} size="sm" />
-            </div>
-          </div>
+        {/* Review Tabs */}
+        <div className="flex border-b border-amber-200 mb-4">
+          <button 
+            className={`py-2 px-4 font-medium ${activeTab === 'overview' ? 'text-amber-700 border-b-2 border-amber-500' : 'text-amber-500 hover:text-amber-600'}`}
+            onClick={() => setActiveTab('overview')}
+          >
+            סיכום
+          </button>
+          <button 
+            className={`py-2 px-4 font-medium ${activeTab === 'tom' ? 'text-amber-700 border-b-2 border-amber-500' : 'text-amber-500 hover:text-amber-600'}`}
+            onClick={() => setActiveTab('tom')}
+          >
+            תום
+          </button>
+          <button 
+            className={`py-2 px-4 font-medium ${activeTab === 'tomer' ? 'text-amber-700 border-b-2 border-amber-500' : 'text-amber-500 hover:text-amber-600'}`}
+            onClick={() => setActiveTab('tomer')}
+          >
+            תומר
+          </button>
         </div>
+        
+        {/* Display ratings based on active tab */}
+        {activeTab === 'overview' && renderOverviewRatings()}
+        {activeTab === 'tom' && renderReviewerRatings('tom', tomScores)}
+        {activeTab === 'tomer' && renderReviewerRatings('tomer', tomerScores)}
         
         <div className="text-right text-sm text-gray-500 mt-4">
           נוסף בתאריך: {formattedDate}

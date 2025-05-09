@@ -5,7 +5,7 @@ import React from 'react';
 interface RatingStarsProps {
   rating: number;
   maxRating?: number;
-  size?: 'sm' | 'md' | 'lg';
+  size?: 'xs' | 'sm' | 'md' | 'lg';
   color?: string;
 }
 
@@ -17,6 +17,7 @@ const RatingStars: React.FC<RatingStarsProps> = ({
 }) => {
   // Determine star size based on the size prop
   const starSizes = {
+    xs: 'text-base',
     sm: 'text-lg',
     md: 'text-2xl',
     lg: 'text-3xl'

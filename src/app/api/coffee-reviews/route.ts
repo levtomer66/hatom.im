@@ -2,19 +2,30 @@ import { NextRequest, NextResponse } from 'next/server';
 import { CreateCoffeeReviewDto } from '@/types/coffee';
 import { 
   getAllCoffeeReviews, 
-  createCoffeeReview 
+  createCoffeeReview
 } from '@/models/CoffeeReview';
 
 // GET handler to retrieve all coffee reviews
 export async function GET() {
   try {
+    // Get all reviews
     const reviews = await getAllCoffeeReviews();
     
-    // Sort by average rating (coffee, food, atmosphere, price)
+    // Sort by average combined rating
     const sortedReviews = reviews.sort((a, b) => {
-      const avgA = (a.coffeeRating + a.foodRating + a.atmosphereRating + a.priceRating) / 4;
-      const avgB = (b.coffeeRating + b.foodRating + b.atmosphereRating + b.priceRating) / 4;
-      return avgB - avgA; // Descending order
+      // Calculate Tom's average for each review
+      const tomAvgA = (a.tomCoffeeRating + a.tomFoodRating + a.tomAtmosphereRating + a.tomPriceRating) / 4;
+      const tomAvgB = (b.tomCoffeeRating + b.tomFoodRating + b.tomAtmosphereRating + b.tomPriceRating) / 4;
+      
+      // Calculate Tomer's average for each review
+      const tomerAvgA = (a.tomerCoffeeRating + a.tomerFoodRating + a.tomerAtmosphereRating + a.tomerPriceRating) / 4;
+      const tomerAvgB = (b.tomerCoffeeRating + b.tomerFoodRating + b.tomerAtmosphereRating + b.tomerPriceRating) / 4;
+      
+      // Calculate combined average for each review
+      const combinedAvgA = (tomAvgA + tomerAvgA) / 2;
+      const combinedAvgB = (tomAvgB + tomerAvgB) / 2;
+      
+      return combinedAvgB - combinedAvgA; // Descending order
     });
     
     return NextResponse.json(sortedReviews);
@@ -32,21 +43,50 @@ export async function POST(request: NextRequest) {
   try {
     const data: CreateCoffeeReviewDto = await request.json();
     
-    // Validate required fields
+    // Validate required fields for Tom
     if (!data.placeName || 
-        typeof data.coffeeRating !== 'number' || 
-        typeof data.foodRating !== 'number' || 
-        typeof data.atmosphereRating !== 'number' || 
-        typeof data.priceRating !== 'number') {
+        typeof data.tomCoffeeRating !== 'number' || 
+        typeof data.tomFoodRating !== 'number' || 
+        typeof data.tomAtmosphereRating !== 'number' || 
+        typeof data.tomPriceRating !== 'number') {
       return NextResponse.json(
-        { error: 'Missing required fields' },
+        { error: 'Missing required Tom rating fields' },
         { status: 400 }
       );
     }
     
-    // Validate rating ranges (1-10 with 0.5 increments)
-    if ([data.coffeeRating, data.foodRating, data.atmosphereRating, data.priceRating].some(
-      rating => rating < 1 || rating > 10 || !Number.isInteger(rating * 2)
+    // Validate required fields for Tomer
+    if (typeof data.tomerCoffeeRating !== 'number' || 
+        typeof data.tomerFoodRating !== 'number' || 
+        typeof data.tomerAtmosphereRating !== 'number' || 
+        typeof data.tomerPriceRating !== 'number') {
+      return NextResponse.json(
+        { error: 'Missing required Tomer rating fields' },
+        { status: 400 }
+      );
+    }
+    
+    // Validate rating ranges (1-10 with 0.5 increments) for Tom
+    const tomRatings = [
+      data.tomCoffeeRating, 
+      data.tomFoodRating, 
+      data.tomAtmosphereRating, 
+      data.tomPriceRating
+    ];
+    
+    // Validate rating ranges (1-10 with 0.5 increments) for Tomer
+    const tomerRatings = [
+      data.tomerCoffeeRating, 
+      data.tomerFoodRating, 
+      data.tomerAtmosphereRating, 
+      data.tomerPriceRating
+    ];
+    
+    // Combine ratings for validation
+    const allRatings = [...tomRatings, ...tomerRatings];
+    
+    if (allRatings.some(rating => 
+      rating < 1 || rating > 10 || !Number.isInteger(rating * 2)
     )) {
       return NextResponse.json(
         { error: 'Ratings must be between 1 and 10 with 0.5 increments' },
