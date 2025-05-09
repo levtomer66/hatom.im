@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import Navbar from '@/components/Navbar';
 import CoffeeReviewCard from '@/components/CoffeeReviewCard';
 import AddCoffeeReviewForm from '@/components/AddCoffeeReviewForm';
-import { CoffeeReview, CombinedReviewScores } from '@/types/coffee';
+import { CoffeeReview } from '@/types/coffee';
 
 export default function MekafkefimPage() {
   const [reviews, setReviews] = useState<CoffeeReview[]>([]);
