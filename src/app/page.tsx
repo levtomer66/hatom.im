@@ -28,6 +28,9 @@ export default function Home() {
             <Link href="/mekafkefim">
               <button className="birthday-button">מקפקפים ☕</button>
             </Link>
+            <Link href="/workout">
+              <button className="birthday-button">המפלצתומים 💪</button>
+            </Link>
           </div>
         </div>
         
@@ -47,6 +50,15 @@ export default function Home() {
             <p>ביקורות על קפה מאת תומית ותומרינדי</p>
             <Link href="/mekafkefim" className="mt-4 inline-block text-amber-600 hover:text-amber-800">
               ← צפה במקפקפים
+            </Link>
+          </div>
+          
+          <div className="feature-card">
+            <div className="feature-icon">💪</div>
+            <h2 className="feature-title">המפלצתומים</h2>
+            <p>מעקב אימונים לתום ותומר</p>
+            <Link href="/workout" className="mt-4 inline-block text-amber-600 hover:text-amber-800">
+              ← לאימון
             </Link>
           </div>
           
