@@ -30,6 +30,12 @@ const Navbar: React.FC = () => {
             ☕ מקפקפים
           </Link>
           <Link 
+            href="/instomit" 
+            className={`navbar-link ${pathname === '/instomit' ? 'text-yellow-300' : ''}`}
+          >
+            📹 InsTomit
+          </Link>
+          <Link 
             href="/" 
             className={`navbar-link ${pathname === '/' ? 'text-yellow-300' : ''}`}
           >
