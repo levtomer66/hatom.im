@@ -31,6 +31,9 @@ export default function Home() {
             <Link href="/instomit">
               <button className="birthday-button">InsTomit 📹</button>
             </Link>
+            <Link href="/workout">
+              <button className="birthday-button">המפלצתומים 💪</button>
+            </Link>
           </div>
         </div>
         
@@ -59,6 +62,12 @@ export default function Home() {
             <p>סרטונים קצרים של התומים - כמו טיקטוק!</p>
             <Link href="/instomit" className="mt-4 inline-block text-amber-600 hover:text-amber-800">
               ← צפה ב-InsTomit
+            </Link>
+            <div className="feature-icon">💪</div>
+            <h2 className="feature-title">המפלצתומים</h2>
+            <p>מעקב אימונים לתום ותומר</p>
+            <Link href="/workout" className="mt-4 inline-block text-amber-600 hover:text-amber-800">
+              ← לאימון
             </Link>
           </div>
           

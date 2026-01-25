@@ -36,6 +36,12 @@ const Navbar: React.FC = () => {
             📹 InsTomit
           </Link>
           <Link 
+            href="/workout" 
+            className={`navbar-link ${pathname?.startsWith('/workout') ? 'text-yellow-300' : ''}`}
+          >
+            💪 המפלצתומים
+          </Link>
+          <Link 
             href="/" 
             className={`navbar-link ${pathname === '/' ? 'text-yellow-300' : ''}`}
           >
