@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import mongoose from 'mongoose';
 import WorkoutModel from '@/models/Workout';
-import { UserId, ExerciseHistoryEntry } from '@/types/workout';
+import { UserId, ExerciseHistoryEntry, WorkoutSet } from '@/types/workout';
 
 // Connect to MongoDB using mongoose
 async function connectDB() {
@@ -11,16 +11,31 @@ async function connectDB() {
   await mongoose.connect(uri);
 }
 
-// Check if an entry is completed (all 3 sets have 10+ reps)
-function isCompleted(entry: ExerciseHistoryEntry): boolean {
-  return (
-    entry.set1Reps !== null &&
-    entry.set1Reps >= 10 &&
-    entry.set2Reps !== null &&
-    entry.set2Reps >= 10 &&
-    entry.set3Reps !== null &&
-    entry.set3Reps >= 10
-  );
+// Check if exercise is completed (ALL sets at highest weight have > 8 reps)
+function isCompleted(sets: WorkoutSet[]): boolean {
+  const validSets = sets.filter(s => s.kg !== null && s.kg > 0 && s.reps !== null);
+  if (validSets.length === 0) return false;
+  
+  const highestKg = Math.max(...validSets.map(s => s.kg as number));
+  const setsAtHighestWeight = validSets.filter(s => s.kg === highestKg);
+  
+  // All sets at highest weight must have > 8 reps
+  return setsAtHighestWeight.every(s => (s.reps as number) > 8);
+}
+
+// Get highest weight from sets
+function getHighestKg(sets: WorkoutSet[]): number {
+  const validKgs = sets.filter(s => s.kg !== null && s.kg > 0).map(s => s.kg as number);
+  return validKgs.length > 0 ? Math.max(...validKgs) : 0;
+}
+
+// Get total reps at highest weight
+function getTotalRepsAtHighest(sets: WorkoutSet[]): number {
+  const highestKg = getHighestKg(sets);
+  if (highestKg === 0) return 0;
+  return sets
+    .filter(s => s.kg === highestKg)
+    .reduce((sum, s) => sum + (s.reps || 0), 0);
 }
 
 // GET /api/workout/exercises/history?userId=tom&exerciseId=bench-press
@@ -39,7 +54,6 @@ export async function GET(request: NextRequest) {
       );
     }
     
-    // Build query - if exerciseId provided, filter for that exercise
     const matchCondition: Record<string, unknown> = { userId };
     
     const workouts = await WorkoutModel.find(matchCondition)
@@ -56,16 +70,18 @@ export async function GET(request: NextRequest) {
           continue;
         }
         
+        const sets = exercise.sets || [];
+        const hasData = sets.some(s => s.kg !== null || s.reps !== null);
+        
         // Only include entries that have some data
-        if (exercise.scaleKg !== null || exercise.set1Reps !== null) {
+        if (hasData) {
           historyEntries.push({
             date: workout.date,
-            scaleKg: exercise.scaleKg || 0,
-            set1Reps: exercise.set1Reps,
-            set2Reps: exercise.set2Reps,
-            set3Reps: exercise.set3Reps,
+            order: exercise.order || 0,  // Include exercise order in workout
+            sets,
             workoutId: workout._id.toString(),
             isPB: false, // Will be calculated below
+            isCompleted: isCompleted(sets),
           });
         }
       }
@@ -73,27 +89,27 @@ export async function GET(request: NextRequest) {
     
     // Sort entries for PB determination
     const sortByPBCriteria = (a: ExerciseHistoryEntry, b: ExerciseHistoryEntry) => {
-      if (b.scaleKg !== a.scaleKg) return b.scaleKg - a.scaleKg;
+      const aHighestKg = getHighestKg(a.sets);
+      const bHighestKg = getHighestKg(b.sets);
+      if (bHighestKg !== aHighestKg) return bHighestKg - aHighestKg;
       
-      const aTotalReps = (a.set1Reps || 0) + (a.set2Reps || 0) + (a.set3Reps || 0);
-      const bTotalReps = (b.set1Reps || 0) + (b.set2Reps || 0) + (b.set3Reps || 0);
+      const aTotalReps = getTotalRepsAtHighest(a.sets);
+      const bTotalReps = getTotalRepsAtHighest(b.sets);
       if (bTotalReps !== aTotalReps) return bTotalReps - aTotalReps;
       
       return new Date(b.date).getTime() - new Date(a.date).getTime();
     };
     
     // Find PB: prefer highest completed, fall back to highest overall
-    const completedEntries = historyEntries.filter(e => isCompleted(e) && e.scaleKg > 0);
-    const allEntriesWithWeight = historyEntries.filter(e => e.scaleKg > 0);
+    const completedEntries = historyEntries.filter(e => e.isCompleted && getHighestKg(e.sets) > 0);
+    const allEntriesWithWeight = historyEntries.filter(e => getHighestKg(e.sets) > 0);
     
     let pbEntry: ExerciseHistoryEntry | null = null;
     
     if (completedEntries.length > 0) {
-      // Sort completed entries and take the best
       completedEntries.sort(sortByPBCriteria);
       pbEntry = completedEntries[0];
     } else if (allEntriesWithWeight.length > 0) {
-      // No completions, use highest weight
       allEntriesWithWeight.sort(sortByPBCriteria);
       pbEntry = allEntriesWithWeight[0];
     }
@@ -101,18 +117,18 @@ export async function GET(request: NextRequest) {
     // Mark the PB entry
     if (pbEntry) {
       const pbIndex = historyEntries.findIndex(
-        e => e.date === pbEntry!.date && 
-             e.scaleKg === pbEntry!.scaleKg && 
-             e.workoutId === pbEntry!.workoutId
+        e => e.date === pbEntry!.date && e.workoutId === pbEntry!.workoutId
       );
       if (pbIndex >= 0) {
         historyEntries[pbIndex].isPB = true;
       }
     }
     
-    // Sort final results by date (most recent first) then by weight
+    // Sort final results by highest weight then by date
     historyEntries.sort((a, b) => {
-      if (b.scaleKg !== a.scaleKg) return b.scaleKg - a.scaleKg;
+      const aHighestKg = getHighestKg(a.sets);
+      const bHighestKg = getHighestKg(b.sets);
+      if (bHighestKg !== aHighestKg) return bHighestKg - aHighestKg;
       return new Date(b.date).getTime() - new Date(a.date).getTime();
     });
     

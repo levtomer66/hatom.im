@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { WorkoutExercise, PersonalBest, ExerciseDefinition, isExerciseCompleted } from '@/types/workout';
+import { WorkoutExercise, WorkoutSet, PersonalBest, ExerciseDefinition, isExerciseCompleted, getHighestWeight, MIN_SETS, MAX_SETS, formatRepsDisplay } from '@/types/workout';
 import { getExerciseById } from '@/data/exercise-library';
 
 interface ExerciseCardProps {
@@ -28,30 +28,22 @@ export default function ExerciseCard({
   const isEditable = mode === 'edit';
   
   // Check if form has any data filled
-  const hasData = exercise.scaleKg !== null || 
-    exercise.set1Reps !== null || 
-    exercise.set2Reps !== null || 
-    exercise.set3Reps !== null;
+  const hasData = exercise.sets.some(s => s.kg !== null || s.reps !== null);
   
-  // Track if card is expanded for editing
-  const [isExpanded, setIsExpanded] = useState(!hasData);
+  // Track if card is expanded for editing - always start collapsed
+  const [isExpanded, setIsExpanded] = useState(false);
   
   // Refs for keyboard navigation and focus tracking
   const cardRef = useRef<HTMLDivElement>(null);
-  const scaleRef = useRef<HTMLInputElement>(null);
-  const set1Ref = useRef<HTMLInputElement>(null);
-  const set2Ref = useRef<HTMLInputElement>(null);
-  const set3Ref = useRef<HTMLInputElement>(null);
+  const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
   
   // Handle focus out - collapse when losing focus if has data
   const handleFocusOut = useCallback((e: FocusEvent) => {
-    // Check if the new focus target is still within this card
     const relatedTarget = e.relatedTarget as Node | null;
     if (cardRef.current && relatedTarget && cardRef.current.contains(relatedTarget)) {
-      return; // Still within card, don't collapse
+      return;
     }
     
-    // Collapse if has data
     if (hasData && isEditable) {
       setIsExpanded(false);
     }
@@ -66,117 +58,155 @@ export default function ExerciseCard({
     return () => card.removeEventListener('focusout', handleFocusOut);
   }, [handleFocusOut, isEditable]);
   
-  // Auto-focus on Scale input when card expands
+  // Auto-focus on first KG input when card expands
   useEffect(() => {
-    if (isExpanded && isEditable && scaleRef.current) {
-      // Small delay to ensure the DOM is ready
+    if (isExpanded && isEditable && inputRefs.current[0]) {
       setTimeout(() => {
-        scaleRef.current?.focus();
+        inputRefs.current[0]?.focus();
       }, 50);
     }
   }, [isExpanded, isEditable]);
   
-  // Calculate current total reps
-  const currentTotalReps = (exercise.set1Reps || 0) + (exercise.set2Reps || 0) + (exercise.set3Reps || 0);
+  // Calculate current highest weight and total reps at that weight
+  const highestKg = getHighestWeight(exercise);
+  const currentRepsAtHighest = exercise.sets
+    .filter(s => s.kg === highestKg && s.kg !== null && s.reps !== null)
+    .map(s => s.reps as number);
+  const totalRepsAtHighest = currentRepsAtHighest.reduce((sum, r) => sum + r, 0);
   
-  // Check if current exercise matches or beats PB (same or higher weight with same or more reps)
-  const isPBMatch = pb && 
-    exercise.scaleKg !== null &&
-    exercise.scaleKg >= pb.scaleKg &&
-    currentTotalReps >= pb.totalReps;
+  // Check if current exercise matches or beats PB
+  const isPBMatch = pb && pb.completedKg !== null &&
+    highestKg >= pb.completedKg &&
+    totalRepsAtHighest >= pb.completedReps.reduce((sum, r) => sum + r, 0);
 
-  // Calculate recommended scale (+2.5kg from last completed)
-  const recommendedScale = pb?.lastCompletedKg ? pb.lastCompletedKg + 2.5 : null;
-
-  const handleNumberChange = (
-    field: 'scaleKg' | 'set1Reps' | 'set2Reps' | 'set3Reps',
-    value: string,
-    nextRef?: React.RefObject<HTMLInputElement | null> | null
-  ) => {
-    if (!onUpdate) return;
+  // Get recommended scale from PB
+  const recommendedScale = pb?.recommendedKg ?? null;
+  
+  // Format PB display - show completed PB or current working weight
+  const getPBDisplay = () => {
+    if (!pb) return null;
     
-    // For scale (KG), allow float values
-    if (field === 'scaleKg') {
-      // Allow empty, digits, and one decimal point
-      if (value !== '' && !/^\d*\.?\d*$/.test(value)) return;
-      
-      const numValue = value === '' ? null : parseFloat(value);
-      if (value !== '' && numValue !== null && (isNaN(numValue) || numValue < 0 || numValue > 999)) return;
-      
-      onUpdate({
-        ...exercise,
-        [field]: numValue,
-      });
-      
-      // Auto-jump when 3+ digits entered (before decimal)
-      const integerPart = value.split('.')[0];
-      if (integerPart.length >= 3 && !value.includes('.') && nextRef?.current) {
-        setTimeout(() => nextRef.current?.focus(), 0);
-      }
-      return;
+    if (pb.completedKg !== null) {
+      // Show completed PB
+      return {
+        label: 'PB',
+        kg: pb.completedKg,
+        reps: formatRepsDisplay(pb.completedReps),
+      };
     }
     
-    // For reps, limit to 2 digits (0-99)
+    // No completed PB - show current working weight
+    return {
+      label: 'Working',
+      kg: pb.currentKg,
+      reps: formatRepsDisplay(pb.currentReps),
+    };
+  };
+  
+  const pbDisplay = getPBDisplay();
+
+  // Handle set count change (2-5 sets)
+  const handleSetCountChange = (newCount: number) => {
+    if (!onUpdate) return;
+    if (newCount < MIN_SETS || newCount > MAX_SETS) return;
+    
+    const currentSets = [...exercise.sets];
+    let newSets: WorkoutSet[];
+    
+    if (newCount > currentSets.length) {
+      // Add new sets
+      newSets = [
+        ...currentSets,
+        ...Array.from({ length: newCount - currentSets.length }, () => ({ kg: null, reps: null }))
+      ];
+    } else {
+      // Remove sets from the end
+      newSets = currentSets.slice(0, newCount);
+    }
+    
+    onUpdate({ ...exercise, sets: newSets });
+  };
+
+  const handleKgChange = (setIndex: number, value: string) => {
+    if (!onUpdate) return;
+    
+    if (value !== '' && !/^\d*\.?\d*$/.test(value)) return;
+    
+    const numValue = value === '' ? null : parseFloat(value);
+    if (value !== '' && numValue !== null && (isNaN(numValue) || numValue < 0 || numValue > 999)) return;
+    
+    const newSets = [...exercise.sets];
+    newSets[setIndex] = { ...newSets[setIndex], kg: numValue };
+    onUpdate({ ...exercise, sets: newSets });
+    
+    // Auto-jump when 3+ digits entered (before decimal)
+    const integerPart = value.split('.')[0];
+    const nextRefIndex = setIndex * 2 + 1; // Index of reps input for same set
+    if (integerPart.length >= 3 && !value.includes('.') && inputRefs.current[nextRefIndex]) {
+      setTimeout(() => inputRefs.current[nextRefIndex]?.focus(), 0);
+    }
+  };
+
+  const handleRepsChange = (setIndex: number, value: string) => {
+    if (!onUpdate) return;
+    
     if (value.length > 2) return;
     
     const numValue = value === '' ? null : parseInt(value, 10);
     if (value !== '' && (isNaN(numValue as number) || (numValue as number) < 0)) return;
     if (numValue !== null && numValue > 99) return;
     
-    onUpdate({
-      ...exercise,
-      [field]: numValue,
-    });
+    const newSets = [...exercise.sets];
+    newSets[setIndex] = { ...newSets[setIndex], reps: numValue };
+    onUpdate({ ...exercise, sets: newSets });
     
-    // Auto-jump to next field when 2 digits reached for reps
-    if (value.length === 2 && nextRef?.current) {
-      setTimeout(() => nextRef.current?.focus(), 0);
+    // Auto-jump to next set's KG field when 2 digits reached
+    const nextRefIndex = (setIndex + 1) * 2; // Index of kg input for next set
+    if (value.length === 2 && inputRefs.current[nextRefIndex]) {
+      setTimeout(() => inputRefs.current[nextRefIndex]?.focus(), 0);
     }
   };
 
   const handleNotesChange = (value: string) => {
     if (!onUpdate) return;
-    onUpdate({
-      ...exercise,
-      notes: value,
-    });
+    onUpdate({ ...exercise, notes: value });
   };
 
-  // Handle Enter/Next key to move to next input
   const handleKeyDown = (
     e: React.KeyboardEvent<HTMLInputElement>,
-    nextRef: React.RefObject<HTMLInputElement | null> | null
+    nextRefIndex: number | null
   ) => {
     if (e.key === 'Enter') {
       e.preventDefault();
-      if (nextRef?.current) {
-        nextRef.current.focus();
+      if (nextRefIndex !== null && inputRefs.current[nextRefIndex]) {
+        inputRefs.current[nextRefIndex]?.focus();
       } else {
-        // Last field - blur to hide keyboard
         (e.target as HTMLInputElement).blur();
       }
     }
   };
 
-  // Apply recommended scale
+  // Apply recommended scale to all sets
   const applyRecommendedScale = () => {
     if (!onUpdate || !recommendedScale) return;
-    onUpdate({
-      ...exercise,
-      scaleKg: recommendedScale,
-    });
+    const newSets = exercise.sets.map(s => ({ ...s, kg: recommendedScale }));
+    onUpdate({ ...exercise, sets: newSets });
   };
 
-  // Collapsed view for exercises with data (when not expanded)
-  if (hasData && isEditable && !isExpanded) {
-    // Format the stats display
-    const scaleDisplay = exercise.scaleKg !== null ? `${exercise.scaleKg}kg` : '-';
-    const repsDisplay = [
-      exercise.set1Reps ?? '-',
-      exercise.set2Reps ?? '-', 
-      exercise.set3Reps ?? '-'
-    ].join('/');
+  // Format summary for collapsed view
+  const formatSummary = () => {
+    const setsWithData = exercise.sets.filter(s => s.kg !== null || s.reps !== null);
+    if (setsWithData.length === 0) return '-';
     
+    return exercise.sets.map((s) => {
+      const kg = s.kg !== null ? `${s.kg}kg` : '-';
+      const reps = s.reps !== null ? `${s.reps}` : '-';
+      return `${kg}×${reps}`;
+    }).join(' | ');
+  };
+
+  // Collapsed view for all non-expanded cards in edit mode
+  if (isEditable && !isExpanded) {
     return (
       <div 
         className={`workout-card workout-card-collapsed ${isCompleted ? 'workout-card-completed' : ''}`}
@@ -197,7 +227,7 @@ export default function ExerciseCard({
           <div className="exercise-collapsed-info">
             <span className="exercise-collapsed-name">{exerciseDef?.name || exercise.exerciseId}</span>
             <span className="exercise-collapsed-stats">
-              {scaleDisplay} • {repsDisplay}
+              {hasData ? formatSummary() : 'Tap to log sets'}
             </span>
           </div>
           {isCompleted && <div className="exercise-collapsed-badge">✓</div>}
@@ -242,12 +272,12 @@ export default function ExerciseCard({
           <div className="exercise-card-name">
             {exerciseDef?.name || exercise.exerciseId}
           </div>
-          {pb && (
+          {pbDisplay && (
             <div className="exercise-card-pb">
-              🥇 PB: {pb.scaleKg}kg ({pb.totalReps} reps)
+              {pbDisplay.label === 'PB' ? '🥇' : '💪'} {pbDisplay.label}: {pbDisplay.kg}kg ({pbDisplay.reps})
             </div>
           )}
-          {isEditable && recommendedScale && !exercise.scaleKg && (
+          {isEditable && recommendedScale && !hasData && (
             <div className="exercise-card-recommended" onClick={applyRecommendedScale}>
               💡 Recommended: {recommendedScale}kg
             </div>
@@ -272,72 +302,68 @@ export default function ExerciseCard({
       {/* Compact form layout for editing */}
       {isEditable ? (
         <div className="exercise-form-compact">
-          <div className="exercise-form-row">
-            <div className="exercise-form-field exercise-form-field-scale">
-              <label>KG</label>
-              <input
-                ref={scaleRef}
-                type="number"
-                inputMode="decimal"
-                enterKeyHint="next"
-                className="workout-input workout-input-number"
-                value={exercise.scaleKg ?? ''}
-                onChange={(e) => handleNumberChange('scaleKg', e.target.value, set1Ref)}
-                onKeyDown={(e) => handleKeyDown(e, set1Ref)}
-                placeholder={recommendedScale ? `${recommendedScale}` : '0'}
-                min="0"
-                max="999"
-                step="0.5"
-              />
+          {/* Set count tuner */}
+          <div className="set-count-tuner">
+            <span className="set-count-label">Sets:</span>
+            <div className="set-count-controls">
+              <button 
+                className="set-count-btn"
+                onClick={() => handleSetCountChange(exercise.sets.length - 1)}
+                disabled={exercise.sets.length <= MIN_SETS}
+              >
+                −
+              </button>
+              <span className="set-count-value">{exercise.sets.length}</span>
+              <button 
+                className="set-count-btn"
+                onClick={() => handleSetCountChange(exercise.sets.length + 1)}
+                disabled={exercise.sets.length >= MAX_SETS}
+              >
+                +
+              </button>
             </div>
-            <div className="exercise-form-field">
-              <label>Set 1</label>
-              <input
-                ref={set1Ref}
-                type="number"
-                inputMode="numeric"
-                enterKeyHint="next"
-                className="workout-input workout-input-number"
-                value={exercise.set1Reps ?? ''}
-                onChange={(e) => handleNumberChange('set1Reps', e.target.value, set2Ref)}
-                onKeyDown={(e) => handleKeyDown(e, set2Ref)}
-                placeholder="reps"
-                min="0"
-                max="99"
-              />
-            </div>
-            <div className="exercise-form-field">
-              <label>Set 2</label>
-              <input
-                ref={set2Ref}
-                type="number"
-                inputMode="numeric"
-                enterKeyHint="next"
-                className="workout-input workout-input-number"
-                value={exercise.set2Reps ?? ''}
-                onChange={(e) => handleNumberChange('set2Reps', e.target.value, set3Ref)}
-                onKeyDown={(e) => handleKeyDown(e, set3Ref)}
-                placeholder="reps"
-                min="0"
-                max="99"
-              />
-            </div>
-            <div className="exercise-form-field">
-              <label>Set 3</label>
-              <input
-                ref={set3Ref}
-                type="number"
-                inputMode="numeric"
-                enterKeyHint="done"
-                className="workout-input workout-input-number"
-                value={exercise.set3Reps ?? ''}
-                onChange={(e) => handleNumberChange('set3Reps', e.target.value, null)}
-                onKeyDown={(e) => handleKeyDown(e, null)}
-                placeholder="reps"
-                min="0"
-                max="99"
-              />
-            </div>
+          </div>
+
+          {/* Sets grid - each set has its own KG and Reps */}
+          <div className="exercise-sets-grid">
+            {exercise.sets.map((set, setIndex) => (
+              <div key={setIndex} className="exercise-set-row-edit">
+                <div className="set-number">Set {setIndex + 1}</div>
+                <div className="exercise-form-field">
+                  <label>KG</label>
+                  <input
+                    ref={(el) => { inputRefs.current[setIndex * 2] = el; }}
+                    type="number"
+                    inputMode="decimal"
+                    enterKeyHint="next"
+                    className="workout-input workout-input-number"
+                    value={set.kg ?? ''}
+                    onChange={(e) => handleKgChange(setIndex, e.target.value)}
+                    onKeyDown={(e) => handleKeyDown(e, setIndex * 2 + 1)}
+                    placeholder={recommendedScale ? `${recommendedScale}` : '0'}
+                    min="0"
+                    max="999"
+                    step="0.5"
+                  />
+                </div>
+                <div className="exercise-form-field">
+                  <label>Reps</label>
+                  <input
+                    ref={(el) => { inputRefs.current[setIndex * 2 + 1] = el; }}
+                    type="number"
+                    inputMode="numeric"
+                    enterKeyHint={setIndex === exercise.sets.length - 1 ? 'done' : 'next'}
+                    className="workout-input workout-input-number"
+                    value={set.reps ?? ''}
+                    onChange={(e) => handleRepsChange(setIndex, e.target.value)}
+                    onKeyDown={(e) => handleKeyDown(e, setIndex < exercise.sets.length - 1 ? (setIndex + 1) * 2 : null)}
+                    placeholder="reps"
+                    min="0"
+                    max="99"
+                  />
+                </div>
+              </div>
+            ))}
           </div>
           
           {/* Notes - optional, always available */}
@@ -352,24 +378,14 @@ export default function ExerciseCard({
       ) : (
         /* Read-only view */
         <div className="exercise-sets">
-          <div className="exercise-set-row">
-            <span className="exercise-set-label">Scale (KG)</span>
-            <span style={{ fontWeight: 700, fontSize: '18px' }}>
-              {exercise.scaleKg ?? '-'} kg
-            </span>
-          </div>
-          <div className="exercise-set-row">
-            <span className="exercise-set-label">Set 1</span>
-            <span>{exercise.set1Reps ?? '-'} reps</span>
-          </div>
-          <div className="exercise-set-row">
-            <span className="exercise-set-label">Set 2</span>
-            <span>{exercise.set2Reps ?? '-'} reps</span>
-          </div>
-          <div className="exercise-set-row">
-            <span className="exercise-set-label">Set 3</span>
-            <span>{exercise.set3Reps ?? '-'} reps</span>
-          </div>
+          {exercise.sets.map((set, i) => (
+            <div key={i} className="exercise-set-row">
+              <span className="exercise-set-label">Set {i + 1}</span>
+              <span>
+                {set.kg ?? '-'} kg × {set.reps ?? '-'} reps
+              </span>
+            </div>
+          ))}
           {exercise.notes && (
             <div className="exercise-set-row" style={{ marginTop: '8px' }}>
               <span className="exercise-set-label">Notes</span>
@@ -384,7 +400,7 @@ export default function ExerciseCard({
       {/* Completion badge */}
       {isCompleted && !isEditable && (
         <div className="completion-badge">
-          ✓ Completed at {exercise.scaleKg}kg ({exercise.set1Reps}/{exercise.set2Reps}/{exercise.set3Reps} reps)
+          ✓ Completed at {highestKg}kg
         </div>
       )}
     </div>

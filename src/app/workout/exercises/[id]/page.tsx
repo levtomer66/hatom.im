@@ -198,40 +198,57 @@ export default function ExerciseDetailPage() {
               </div>
               {pb && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  <div 
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '8px',
-                      padding: '8px 12px',
-                      backgroundColor: 'var(--workout-gold-dim)',
-                      borderRadius: '8px',
-                      border: '1px solid var(--workout-gold)',
-                    }}
-                  >
-                    <span style={{ fontSize: '20px' }}>🥇</span>
-                    <span style={{ fontWeight: 700, color: 'var(--workout-gold)' }}>
-                      PB: {pb.scaleKg}kg ({pb.totalReps} reps)
-                    </span>
-                  </div>
-                  {pb.lastCompletedKg && (
+                  {pb.completedKg !== null ? (
                     <div 
                       style={{
                         display: 'inline-flex',
                         alignItems: 'center',
-                        gap: '6px',
-                        padding: '6px 10px',
-                        backgroundColor: 'rgba(251, 191, 36, 0.15)',
-                        borderRadius: '6px',
-                        fontSize: '14px',
+                        gap: '8px',
+                        padding: '8px 12px',
+                        backgroundColor: 'var(--workout-gold-dim)',
+                        borderRadius: '8px',
+                        border: '1px solid var(--workout-gold)',
                       }}
                     >
-                      <span>💡</span>
-                      <span style={{ color: 'var(--workout-accent)' }}>
-                        Next recommended: <strong>{pb.lastCompletedKg + 2.5}kg</strong>
+                      <span style={{ fontSize: '20px' }}>🥇</span>
+                      <span style={{ fontWeight: 700, color: 'var(--workout-gold)' }}>
+                        PB: {pb.completedKg}kg ({pb.completedReps.join('×')})
+                      </span>
+                    </div>
+                  ) : (
+                    <div 
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        padding: '8px 12px',
+                        backgroundColor: 'var(--workout-bg-secondary)',
+                        borderRadius: '8px',
+                        border: '1px solid var(--workout-border)',
+                      }}
+                    >
+                      <span style={{ fontSize: '20px' }}>💪</span>
+                      <span style={{ fontWeight: 700, color: 'var(--workout-text-secondary)' }}>
+                        Working: {pb.currentKg}kg ({pb.currentReps.join('×')})
                       </span>
                     </div>
                   )}
+                  <div 
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      padding: '6px 10px',
+                      backgroundColor: 'rgba(251, 191, 36, 0.15)',
+                      borderRadius: '6px',
+                      fontSize: '14px',
+                    }}
+                  >
+                    <span>💡</span>
+                    <span style={{ color: 'var(--workout-accent)' }}>
+                      Next recommended: <strong>{pb.recommendedKg}kg</strong>
+                    </span>
+                  </div>
                 </div>
               )}
             </div>
@@ -251,35 +268,61 @@ export default function ExerciseDetailPage() {
             <div className="empty-state-text">No records yet for this exercise</div>
           </div>
         ) : (
-          <div className="workout-card" style={{ padding: 0, overflow: 'hidden' }}>
-            <table className="records-table">
-              <thead>
-                <tr>
-                  <th>Date</th>
-                  <th>KG</th>
-                  <th>S1</th>
-                  <th>S2</th>
-                  <th>S3</th>
-                </tr>
-              </thead>
-              <tbody>
-                {history.map((entry, index) => (
-                  <tr key={index} className={entry.isPB ? 'pb-row' : ''}>
-                    <td style={{ textAlign: 'left', paddingLeft: '12px' }}>
-                      {entry.isPB && <span style={{ marginRight: '4px' }}>🥇</span>}
-                      {new Date(entry.date).toLocaleDateString('en-US', {
-                        month: 'short',
-                        day: 'numeric',
-                      })}
-                    </td>
-                    <td>{entry.scaleKg}</td>
-                    <td>{entry.set1Reps ?? '-'}</td>
-                    <td>{entry.set2Reps ?? '-'}</td>
-                    <td>{entry.set3Reps ?? '-'}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            {history.map((entry, index) => (
+              <div 
+                key={index}
+                className={`workout-card ${entry.isPB ? 'workout-card-pb' : ''} ${entry.isCompleted ? 'workout-card-completed' : ''}`}
+                style={{ padding: '12px' }}
+              >
+                <div style={{ 
+                  display: 'flex', 
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  marginBottom: '8px',
+                }}>
+                  <div style={{ fontWeight: 600 }}>
+                    {entry.isPB && <span style={{ marginRight: '4px' }}>🥇</span>}
+                    {new Date(entry.date).toLocaleDateString('en-US', {
+                      weekday: 'short',
+                      month: 'short',
+                      day: 'numeric',
+                    })}
+                  </div>
+                  {entry.isCompleted && (
+                    <span style={{ 
+                      fontSize: '12px', 
+                      color: 'var(--workout-green)',
+                      fontWeight: 600,
+                    }}>
+                      ✓ Completed
+                    </span>
+                  )}
+                </div>
+                <div style={{ 
+                  display: 'flex', 
+                  gap: '8px',
+                  flexWrap: 'wrap',
+                }}>
+                  {entry.sets.map((set, setIndex) => (
+                    <div 
+                      key={setIndex}
+                      style={{
+                        padding: '6px 10px',
+                        backgroundColor: 'var(--workout-bg-secondary)',
+                        borderRadius: '6px',
+                        fontSize: '13px',
+                      }}
+                    >
+                      <span style={{ color: 'var(--workout-text-secondary)' }}>S{setIndex + 1}: </span>
+                      <span style={{ fontWeight: 600 }}>
+                        {set.kg ?? '-'}kg × {set.reps ?? '-'}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
           </div>
         )}
       </div>

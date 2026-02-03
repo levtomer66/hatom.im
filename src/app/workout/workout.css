@@ -412,6 +412,98 @@
   min-height: auto;
 }
 
+/* Set count tuner */
+.set-count-tuner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background-color: var(--workout-bg-secondary);
+  border-radius: 8px;
+  margin-bottom: 8px;
+}
+
+.set-count-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--workout-text-secondary);
+}
+
+.set-count-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.set-count-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background-color: var(--workout-bg-card);
+  border: 1px solid var(--workout-border);
+  color: var(--workout-text);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  font-weight: 600;
+  transition: all 0.15s;
+}
+
+.set-count-btn:hover:not(:disabled) {
+  background-color: var(--workout-bg-card-hover);
+  border-color: var(--workout-green);
+}
+
+.set-count-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.set-count-value {
+  font-size: 18px;
+  font-weight: 700;
+  min-width: 24px;
+  text-align: center;
+}
+
+/* Sets grid for editing */
+.exercise-sets-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.exercise-set-row-edit {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  background-color: var(--workout-bg-secondary);
+  border-radius: 8px;
+}
+
+.exercise-set-row-edit .set-number {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--workout-text-secondary);
+  min-width: 40px;
+}
+
+.exercise-set-row-edit .exercise-form-field {
+  flex: 1;
+}
+
+.exercise-set-row-edit .exercise-form-field label {
+  font-size: 10px;
+}
+
+.exercise-set-row-edit .exercise-form-field input {
+  font-size: 16px;
+  padding: 8px 4px;
+}
+
 /* Collapsed completed card */
 .workout-card-collapsed {
   padding: 10px 12px;
@@ -551,12 +643,46 @@
   z-index: 10;
 }
 
+/* Category filter buttons (Push/Pull/Legs) */
+.category-filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.category-filter-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  border: 2px solid var(--workout-border);
+  border-radius: 20px;
+  background-color: var(--workout-bg-secondary);
+  color: var(--workout-text-secondary);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.category-filter-btn:active {
+  transform: scale(0.95);
+}
+
+.category-filter-btn.active {
+  background-color: var(--workout-green-dim);
+  border-color: var(--workout-green);
+  color: var(--workout-green);
+}
+
 /* Muscle filter buttons */
 .muscle-filter-row {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
-  margin-top: 12px;
+  margin-top: 10px;
 }
 
 .muscle-filter-btn {
@@ -576,9 +702,9 @@
 }
 
 .muscle-filter-btn.active {
-  background-color: var(--workout-accent);
-  border-color: var(--workout-accent);
-  color: var(--workout-bg);
+  background-color: var(--workout-blue);
+  border-color: var(--workout-blue);
+  color: white;
 }
 
 .exercise-picker-grid {

@@ -7,14 +7,15 @@ import Header from '@/components/workout/Header';
 import BottomNav from '@/components/workout/BottomNav';
 import ExerciseCard from '@/components/workout/ExerciseCard';
 import ExercisePicker from '@/components/workout/ExercisePicker';
-import WorkoutTypeSelector from '@/components/workout/WorkoutTypeSelector';
+import TemplateSelector from '@/components/workout/TemplateSelector';
+import TemplateEditor from '@/components/workout/TemplateEditor';
 import { 
   Workout, 
   WorkoutExercise, 
-  WorkoutType, 
+  WorkoutTemplate,
   PersonalBest,
-  WORKOUT_TYPES,
-  ExerciseDefinition 
+  ExerciseDefinition,
+  createDefaultSets,
 } from '@/types/workout';
 import { EXERCISE_LIBRARY } from '@/data/exercise-library';
 import { v4 as uuidv4 } from 'uuid';
@@ -24,7 +25,10 @@ export default function WorkoutsPage() {
   
   // State
   const [activeWorkout, setActiveWorkout] = useState<Workout | null>(null);
-  const [showTypeSelector, setShowTypeSelector] = useState(false);
+  const [templates, setTemplates] = useState<WorkoutTemplate[]>([]);
+  const [showTemplateSelector, setShowTemplateSelector] = useState(false);
+  const [showTemplateEditor, setShowTemplateEditor] = useState(false);
+  const [editingTemplate, setEditingTemplate] = useState<WorkoutTemplate | null>(null);
   const [showExercisePicker, setShowExercisePicker] = useState(false);
   const [personalBests, setPersonalBests] = useState<Record<string, PersonalBest>>({});
   const [customExercises, setCustomExercises] = useState<ExerciseDefinition[]>([]);
@@ -67,6 +71,21 @@ export default function WorkoutsPage() {
       }
     } catch (error) {
       console.error('Error fetching custom exercises:', error);
+    }
+  }, [currentUser]);
+
+  // Fetch workout templates
+  const fetchTemplates = useCallback(async () => {
+    if (!currentUser) return;
+    
+    try {
+      const res = await fetch(`/api/workout/templates?userId=${currentUser.id}`);
+      if (res.ok) {
+        const data = await res.json();
+        setTemplates(data);
+      }
+    } catch (error) {
+      console.error('Error fetching templates:', error);
     }
   }, [currentUser]);
 
@@ -126,8 +145,9 @@ export default function WorkoutsPage() {
     
     fetchPersonalBests();
     fetchCustomExercises();
+    fetchTemplates();
     checkAndResumeWorkout();
-  }, [isLoading, fetchPersonalBests, fetchCustomExercises, checkAndResumeWorkout]);
+  }, [isLoading, fetchPersonalBests, fetchCustomExercises, fetchTemplates, checkAndResumeWorkout]);
 
   // Auto-save workout changes
   const saveWorkout = useCallback(async (workout: Workout) => {
@@ -158,28 +178,69 @@ export default function WorkoutsPage() {
     return () => clearTimeout(timeoutId);
   }, [activeWorkout, saveWorkout]);
 
-  // Start new workout
-  const startWorkout = async (workoutType: WorkoutType) => {
+  // Start new workout from template
+  const startWorkoutFromTemplate = async (template: WorkoutTemplate) => {
     if (!currentUser) return;
     
     try {
+      // Create exercises from template's exercise IDs with order
+      const exercises: WorkoutExercise[] = template.exerciseIds.map((exerciseId, index) => ({
+        id: uuidv4(),
+        exerciseId,
+        order: index + 1,  // 1-based order
+        sets: createDefaultSets(),
+        notes: '',
+        photos: [],
+      }));
+
       const res = await fetch('/api/workout/workouts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           userId: currentUser.id,
-          workoutType,
+          templateId: template.id,
+          workoutName: template.name,
           date: new Date().toISOString().split('T')[0],
         }),
       });
       
       if (res.ok) {
         const workout = await res.json();
+        // Add the exercises from the template
+        workout.exercises = exercises;
         setActiveWorkout(workout);
         setHasInProgressWorkout(true);
+        setShowTemplateSelector(false);
       }
     } catch (error) {
       console.error('Error starting workout:', error);
+    }
+  };
+
+  // Handle template save (create or update)
+  const handleTemplateSave = (template: WorkoutTemplate) => {
+    setTemplates(prev => {
+      const existing = prev.findIndex(t => t.id === template.id);
+      if (existing >= 0) {
+        const updated = [...prev];
+        updated[existing] = template;
+        return updated;
+      }
+      return [template, ...prev];
+    });
+  };
+
+  // Handle template delete
+  const handleTemplateDelete = async (template: WorkoutTemplate) => {
+    try {
+      const res = await fetch(`/api/workout/templates/${template.id}`, {
+        method: 'DELETE',
+      });
+      if (res.ok) {
+        setTemplates(prev => prev.filter(t => t.id !== template.id));
+      }
+    } catch (error) {
+      console.error('Error deleting template:', error);
     }
   };
 
@@ -198,13 +259,14 @@ export default function WorkoutsPage() {
   const addExercises = (exerciseDefs: ExerciseDefinition[]) => {
     if (!activeWorkout) return;
     
-    const newExercises: WorkoutExercise[] = exerciseDefs.map(def => ({
+    // Start order from current exercise count + 1
+    const startOrder = activeWorkout.exercises.length + 1;
+    
+    const newExercises: WorkoutExercise[] = exerciseDefs.map((def, index) => ({
       id: uuidv4(),
       exerciseId: def.id,
-      scaleKg: null,
-      set1Reps: null,
-      set2Reps: null,
-      set3Reps: null,
+      order: startOrder + index,  // Continues from current order
+      sets: createDefaultSets(),  // Creates 3 sets by default
       notes: '',
       photos: [],
     }));
@@ -246,15 +308,10 @@ export default function WorkoutsPage() {
     return <LoginScreen />;
   }
 
-  // Get workout type info
-  const workoutTypeInfo = activeWorkout 
-    ? WORKOUT_TYPES.find(t => t.id === activeWorkout.workoutType)
-    : null;
-
   return (
     <main className="workout-main">
       <Header 
-        title={activeWorkout ? `${workoutTypeInfo?.icon || ''} ${workoutTypeInfo?.label || 'Workout'}` : 'Workouts'} 
+        title={activeWorkout ? `🏋️ ${activeWorkout.workoutName}` : 'Workouts'} 
       />
       
       <div className="workout-page">
@@ -268,13 +325,15 @@ export default function WorkoutsPage() {
             <p style={{ color: 'var(--workout-text-secondary)', marginBottom: '32px' }}>
               {hasInProgressWorkout 
                 ? 'You have an in-progress workout. It will auto-resume.'
-                : 'Start a new workout session'}
+                : templates.length > 0 
+                  ? 'Select a workout to start training'
+                  : 'Create your first workout to get started'}
             </p>
             <button 
               className="workout-btn workout-btn-primary workout-btn-large"
-              onClick={() => setShowTypeSelector(true)}
+              onClick={() => setShowTemplateSelector(true)}
             >
-              Start New Workout
+              {templates.length > 0 ? 'Start Workout' : 'Create Workout'}
             </button>
             <p style={{ 
               color: 'var(--workout-text-muted)', 
@@ -358,13 +417,35 @@ export default function WorkoutsPage() {
       <BottomNav />
 
       {/* Modals */}
-      <WorkoutTypeSelector
-        isOpen={showTypeSelector}
-        onClose={() => setShowTypeSelector(false)}
-        onSelect={(type) => {
-          startWorkout(type);
-          setShowTypeSelector(false);
+      <TemplateSelector
+        isOpen={showTemplateSelector}
+        templates={templates}
+        exerciseMap={exerciseMap}
+        onClose={() => setShowTemplateSelector(false)}
+        onSelect={(template) => {
+          startWorkoutFromTemplate(template);
         }}
+        onEdit={(template) => {
+          setEditingTemplate(template);
+          setShowTemplateSelector(false);
+          setShowTemplateEditor(true);
+        }}
+        onDelete={handleTemplateDelete}
+        onCreateNew={() => {
+          setEditingTemplate(null);
+          setShowTemplateSelector(false);
+          setShowTemplateEditor(true);
+        }}
+      />
+
+      <TemplateEditor
+        isOpen={showTemplateEditor}
+        template={editingTemplate}
+        onClose={() => {
+          setShowTemplateEditor(false);
+          setEditingTemplate(null);
+        }}
+        onSave={handleTemplateSave}
       />
 
       {activeWorkout && (
@@ -372,7 +453,6 @@ export default function WorkoutsPage() {
           isOpen={showExercisePicker}
           onClose={() => setShowExercisePicker(false)}
           onSelect={addExercises}
-          workoutType={activeWorkout.workoutType}
           excludeIds={activeWorkout.exercises.map(e => e.exerciseId)}
         />
       )}

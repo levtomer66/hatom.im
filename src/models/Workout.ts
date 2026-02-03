@@ -1,17 +1,21 @@
 import mongoose, { Schema, Document, Model } from 'mongoose';
-import { Workout, WorkoutExercise, UserId, WorkoutType } from '@/types/workout';
+import { Workout, WorkoutExercise, WorkoutSet, UserId } from '@/types/workout';
 
 // Mongoose document interface
 export interface WorkoutDocument extends Omit<Workout, '_id' | 'id'>, Document {}
+
+// Sub-schema for workout sets
+const WorkoutSetSchema = new Schema<WorkoutSet>({
+  kg: { type: Number, default: null },
+  reps: { type: Number, default: null },
+}, { _id: false });
 
 // Sub-schema for workout exercises
 const WorkoutExerciseSchema = new Schema<WorkoutExercise>({
   id: { type: String, required: true },
   exerciseId: { type: String, required: true },
-  scaleKg: { type: Number, default: null },
-  set1Reps: { type: Number, default: null },
-  set2Reps: { type: Number, default: null },
-  set3Reps: { type: Number, default: null },
+  order: { type: Number, required: true, default: 1 },  // Position in workout
+  sets: { type: [WorkoutSetSchema], default: [] },
   notes: { type: String, default: '' },
   photos: { type: [String], default: [] },
 }, { _id: false });
@@ -24,10 +28,15 @@ const WorkoutSchema = new Schema<WorkoutDocument>({
     enum: ['tom', 'tomer'] as UserId[],
     index: true,
   },
-  workoutType: { 
+  templateId: {
+    type: String,
+    default: null,
+    index: true,
+  },
+  workoutName: { 
     type: String, 
     required: true,
-    enum: ['pull', 'push', 'legs', 'calisthenics', 'full-body', 'upper-body', 'lower-body'] as WorkoutType[],
+    default: 'Workout',
   },
   date: { 
     type: String, 

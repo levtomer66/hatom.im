@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import mongoose from 'mongoose';
-import WorkoutModel from '@/models/Workout';
+import WorkoutTemplateModel from '@/models/WorkoutTemplate';
 import { UserId } from '@/types/workout';
 
 // Connect to MongoDB using mongoose
@@ -11,7 +11,7 @@ async function connectDB() {
   await mongoose.connect(uri);
 }
 
-// GET /api/workout/workouts?userId=tom
+// GET /api/workout/templates?userId=tom
 export async function GET(request: NextRequest) {
   try {
     await connectDB();
@@ -26,38 +26,37 @@ export async function GET(request: NextRequest) {
       );
     }
     
-    const workouts = await WorkoutModel.find({ userId })
-      .sort({ date: -1, createdAt: -1 })
+    const templates = await WorkoutTemplateModel.find({ userId })
+      .sort({ updatedAt: -1 })
       .lean();
     
     // Transform _id to id
-    const transformedWorkouts = workouts.map(w => ({
-      ...w,
-      id: w._id.toString(),
+    const transformedTemplates = templates.map(t => ({
+      ...t,
+      id: t._id.toString(),
       _id: undefined,
     }));
     
-    return NextResponse.json(transformedWorkouts);
+    return NextResponse.json(transformedTemplates);
   } catch (error) {
-    console.error('Error fetching workouts:', error);
+    console.error('Error fetching templates:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch workouts' },
+      { error: 'Failed to fetch templates' },
       { status: 500 }
     );
   }
 }
 
-// POST /api/workout/workouts
+// POST /api/workout/templates
 export async function POST(request: NextRequest) {
   try {
     await connectDB();
     
     const body = await request.json();
-    const { userId, templateId, workoutName, date } = body as {
+    const { userId, name, exerciseIds } = body as {
       userId: UserId;
-      templateId?: string;
-      workoutName: string;
-      date: string;
+      name: string;
+      exerciseIds?: string[];
     };
     
     if (!userId || !['tom', 'tomer'].includes(userId)) {
@@ -67,31 +66,28 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    if (!workoutName) {
+    if (!name || !name.trim()) {
       return NextResponse.json(
-        { error: 'workoutName is required' },
+        { error: 'Template name is required' },
         { status: 400 }
       );
     }
     
-    const workout = new WorkoutModel({
+    const template = new WorkoutTemplateModel({
       userId,
-      templateId: templateId || null,
-      workoutName,
-      date: date || new Date().toISOString().split('T')[0],
-      exercises: [],
-      isCompleted: false,
+      name: name.trim(),
+      exerciseIds: exerciseIds || [],
     });
     
-    await workout.save();
+    await template.save();
     
-    const result = workout.toJSON();
+    const result = template.toJSON();
     
     return NextResponse.json(result, { status: 201 });
   } catch (error) {
-    console.error('Error creating workout:', error);
+    console.error('Error creating template:', error);
     return NextResponse.json(
-      { error: 'Failed to create workout' },
+      { error: 'Failed to create template' },
       { status: 500 }
     );
   }
