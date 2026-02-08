@@ -38,15 +38,25 @@ export default function ExerciseCard({
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
   
   // Handle focus out - collapse when losing focus if has data
+  // Use a small delay to allow click events on buttons within the card to complete
   const handleFocusOut = useCallback((e: FocusEvent) => {
     const relatedTarget = e.relatedTarget as Node | null;
+    
+    // If focus is moving to another element within the card, don't collapse
     if (cardRef.current && relatedTarget && cardRef.current.contains(relatedTarget)) {
       return;
     }
     
-    if (hasData && isEditable) {
-      setIsExpanded(false);
-    }
+    // Use setTimeout to allow click events to complete before collapsing
+    // This prevents the card from collapsing when clicking +/- buttons
+    setTimeout(() => {
+      // Check if focus is still outside the card after the timeout
+      if (cardRef.current && !cardRef.current.contains(document.activeElement)) {
+        if (hasData && isEditable) {
+          setIsExpanded(false);
+        }
+      }
+    }, 100);
   }, [hasData, isEditable]);
   
   // Set up focus out listener

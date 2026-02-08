@@ -19,7 +19,18 @@ export type WorkoutType =
   | 'calisthenics' 
   | 'full-body' 
   | 'upper-body' 
-  | 'lower-body';
+  | 'lower-body'
+  // Muscle groups
+  | 'chest'
+  | 'triceps'
+  | 'shoulders'
+  | 'back'
+  | 'biceps'
+  | 'quads'
+  | 'hamstrings'
+  | 'glutes'
+  | 'calves'
+  | 'abs';
 
 // Exercise filter categories for the picker
 export const EXERCISE_FILTER_CATEGORIES: { id: WorkoutType; label: string; icon: string }[] = [
@@ -28,8 +39,17 @@ export const EXERCISE_FILTER_CATEGORIES: { id: WorkoutType; label: string; icon:
   { id: 'legs', label: 'Legs', icon: '🦵' },
   { id: 'calisthenics', label: 'Calisthenics', icon: '🤸' },
   { id: 'full-body', label: 'Full Body', icon: '🔥' },
-  { id: 'upper-body', label: 'Upper Body', icon: '👆' },
-  { id: 'lower-body', label: 'Lower Body', icon: '👇' },
+  // Muscle groups
+  { id: 'chest', label: 'Chest', icon: '🫁' },
+  { id: 'back', label: 'Back', icon: '🔙' },
+  { id: 'shoulders', label: 'Shoulders', icon: '🎯' },
+  { id: 'biceps', label: 'Biceps', icon: '💪' },
+  { id: 'triceps', label: 'Triceps', icon: '🦾' },
+  { id: 'quads', label: 'Quads', icon: '🦵' },
+  { id: 'hamstrings', label: 'Hamstrings', icon: '🦿' },
+  { id: 'glutes', label: 'Glutes', icon: '🍑' },
+  { id: 'calves', label: 'Calves', icon: '🦶' },
+  { id: 'abs', label: 'Abs', icon: '🎽' },
 ];
 
 // Legacy WORKOUT_TYPES kept for backwards compatibility
@@ -43,12 +63,25 @@ export type ExerciseCategory =
   | 'calisthenics' 
   | 'upper-body' 
   | 'lower-body' 
-  | 'full-body';
+  | 'full-body'
+  // Muscle groups
+  | 'chest'
+  | 'triceps'
+  | 'shoulders'
+  | 'back'
+  | 'biceps'
+  | 'quads'
+  | 'hamstrings'
+  | 'glutes'
+  | 'calves'
+  | 'abs';
 
 // Exercise library definition
 export interface ExerciseDefinition {
   id: string;
   name: string;
+  hebrewName?: string;   // Hebrew name for search (not displayed)
+  description?: string;  // Short description shown under exercise name
   categories: ExerciseCategory[];
   defaultPhoto?: string;
   isCustom?: boolean;
