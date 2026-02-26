@@ -105,7 +105,7 @@ export interface WorkoutExercise {
 
 // Default number of sets for new exercises
 export const DEFAULT_NUM_SETS = 3;
-export const MIN_SETS = 2;
+export const MIN_SETS = 1;
 export const MAX_SETS = 5;
 
 // Workout Template - reusable workout configuration

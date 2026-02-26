@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { WorkoutExercise, WorkoutSet, PersonalBest, ExerciseDefinition, isExerciseCompleted, getHighestWeight, MIN_SETS, MAX_SETS, formatRepsDisplay } from '@/types/workout';
 import { getExerciseById } from '@/data/exercise-library';
 
@@ -37,36 +37,23 @@ export default function ExerciseCard({
   const cardRef = useRef<HTMLDivElement>(null);
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
   
-  // Handle focus out - collapse when losing focus if has data
-  // Use a small delay to allow click events on buttons within the card to complete
-  const handleFocusOut = useCallback((e: FocusEvent) => {
-    const relatedTarget = e.relatedTarget as Node | null;
-    
-    // If focus is moving to another element within the card, don't collapse
-    if (cardRef.current && relatedTarget && cardRef.current.contains(relatedTarget)) {
-      return;
-    }
-    
-    // Use setTimeout to allow click events to complete before collapsing
-    // This prevents the card from collapsing when clicking +/- buttons
-    setTimeout(() => {
-      // Check if focus is still outside the card after the timeout
-      if (cardRef.current && !cardRef.current.contains(document.activeElement)) {
-        if (hasData && isEditable) {
-          setIsExpanded(false);
-        }
-      }
-    }, 100);
-  }, [hasData, isEditable]);
-  
-  // Set up focus out listener
+  // Collapse when clicking/tapping outside the card
   useEffect(() => {
-    const card = cardRef.current;
-    if (!card || !isEditable) return;
+    if (!isExpanded || !isEditable) return;
     
-    card.addEventListener('focusout', handleFocusOut);
-    return () => card.removeEventListener('focusout', handleFocusOut);
-  }, [handleFocusOut, isEditable]);
+    const handleClickOutside = (e: MouseEvent | TouchEvent) => {
+      if (cardRef.current && !cardRef.current.contains(e.target as Node)) {
+        setIsExpanded(false);
+      }
+    };
+    
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('touchstart', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('touchstart', handleClickOutside);
+    };
+  }, [isExpanded, isEditable]);
   
   // Auto-focus on first KG input when card expands
   useEffect(() => {
@@ -92,28 +79,21 @@ export default function ExerciseCard({
   // Get recommended scale from PB
   const recommendedScale = pb?.recommendedKg ?? null;
   
-  // Format PB display - show completed PB or current working weight
-  const getPBDisplay = () => {
-    if (!pb) return null;
-    
-    if (pb.completedKg !== null) {
-      // Show completed PB
-      return {
-        label: 'PB',
-        kg: pb.completedKg,
-        reps: formatRepsDisplay(pb.completedReps),
-      };
-    }
-    
-    // No completed PB - show current working weight
-    return {
-      label: 'Working',
+  // Build PB + latest attempt display info
+  const pbInfo = pb ? {
+    completed: pb.completedKg !== null ? {
+      kg: pb.completedKg,
+      reps: formatRepsDisplay(pb.completedReps),
+    } : null,
+    latest: {
       kg: pb.currentKg,
       reps: formatRepsDisplay(pb.currentReps),
-    };
-  };
-  
-  const pbDisplay = getPBDisplay();
+    },
+    // Don't show latest separately if it's the same as the completed PB
+    showLatest: pb.completedKg === null ||
+      pb.currentKg !== pb.completedKg ||
+      formatRepsDisplay(pb.currentReps) !== formatRepsDisplay(pb.completedReps),
+  } : null;
 
   // Handle set count change (2-5 sets)
   const handleSetCountChange = (newCount: number) => {
@@ -282,9 +262,18 @@ export default function ExerciseCard({
           <div className="exercise-card-name">
             {exerciseDef?.name || exercise.exerciseId}
           </div>
-          {pbDisplay && (
-            <div className="exercise-card-pb">
-              {pbDisplay.label === 'PB' ? '🥇' : '💪'} {pbDisplay.label}: {pbDisplay.kg}kg ({pbDisplay.reps})
+          {pbInfo && (
+            <div className="exercise-card-pb-container">
+              {pbInfo.completed ? (
+                <span className="exercise-card-pb">
+                  🥇 PB: {pbInfo.completed.kg}kg ({pbInfo.completed.reps})
+                </span>
+              ) : null}
+              {pbInfo.showLatest && (
+                <span className="exercise-card-latest">
+                  💪 Last: {pbInfo.latest.kg}kg ({pbInfo.latest.reps})
+                </span>
+              )}
             </div>
           )}
           {isEditable && recommendedScale && !hasData && (

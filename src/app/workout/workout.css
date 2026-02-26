@@ -274,6 +274,13 @@
   margin-bottom: 4px;
 }
 
+.exercise-card-pb-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  align-items: center;
+}
+
 .exercise-card-pb {
   display: inline-flex;
   align-items: center;
@@ -281,6 +288,15 @@
   font-size: 13px;
   color: var(--workout-gold);
   font-weight: 600;
+}
+
+.exercise-card-latest {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--workout-text-secondary);
+  font-weight: 500;
 }
 
 .exercise-card-recommended {
