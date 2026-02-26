@@ -61,6 +61,22 @@ const sampleVideos = [
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   },
+  {
+    youtubeUrl: 'https://youtube.com/shorts/OqgddZOzZ24',
+    title: 'סרטון מגניב',
+    likes: 10,
+    comments: [],
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    youtubeUrl: 'https://www.youtube.com/shorts/kuTA0KAvTAE',
+    title: 'קרסים ממש ממש מגניבים',
+    likes: 10,
+    comments: [],
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  }
 ];
 
 async function seedVideos() {
@@ -73,14 +89,18 @@ async function seedVideos() {
     const db = client.db();
     const collection = db.collection('videos');
     
-    // Check if videos already exist
     const existingCount = await collection.countDocuments();
+    const reseed = process.env.RESEED === '1' || process.env.RESEED === 'true';
     if (existingCount > 0) {
-      console.log(`Found ${existingCount} existing videos. Skipping seed.`);
-      console.log('To reseed, delete existing videos first.');
-      return;
+      if (!reseed) {
+        console.log(`Found ${existingCount} existing videos. Skipping seed.`);
+        console.log('To reseed, run: RESEED=1 node scripts/seed-instomit-videos.js');
+        return;
+      }
+      const deleteResult = await collection.deleteMany({});
+      console.log(`Deleted ${deleteResult.deletedCount} existing videos for reseed.`);
     }
-    
+
     // Insert sample videos
     const result = await collection.insertMany(sampleVideos);
     console.log(`Successfully inserted ${result.insertedCount} sample videos!`);
