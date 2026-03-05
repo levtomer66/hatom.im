@@ -197,9 +197,9 @@ export const EXERCISE_LIBRARY: ExerciseDefinition[] = [
   },
   {
     id: 'close-grip-lat-pulldown',
-    name: 'Close Grip Lat Pull Down',
+    name: 'Narrow Grip Lat Pull Down',
     hebrewName: 'מתח עליון אחיזה צרה',
-    description: 'Close grip cable pulldown for lats',
+    description: 'Narrow grip cable pulldown for lats',
     categories: ['pull', 'back'],
     defaultPhoto: pexels(4164587), // Lat pulldown
   },
@@ -266,8 +266,16 @@ export const EXERCISE_LIBRARY: ExerciseDefinition[] = [
   {
     id: 'bayesian-curl',
     name: 'Single-Arm Bayesian Cable Curl',
-    hebrewName: 'ביספס בייסיאן כבל',
+    hebrewName: 'ביספס בייסיאן כבל יד אחת',
     description: 'Cable curl with arm behind body',
+    categories: ['pull', 'biceps'],
+    defaultPhoto: pexels(4164766), // Cable curl
+  },
+  {
+    id: 'double-arm-bayesian-curl',
+    name: 'Double-Arm Bayesian Curl',
+    hebrewName: 'ביספס בייסיאן כבל שתי ידיים',
+    description: 'Cable curl with both arms behind body',
     categories: ['pull', 'biceps'],
     defaultPhoto: pexels(4164766), // Cable curl
   },
