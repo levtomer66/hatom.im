@@ -228,6 +228,14 @@ export const EXERCISE_LIBRARY: ExerciseDefinition[] = [
     defaultPhoto: pexels(4164587), // Lat workout
   },
   {
+    id: 'dumbell-pullover',
+    name: 'Dumbell Pullover',
+    hebrewName: 'פולאובר משקולת',
+    description: 'Dumbell pullover',
+    categories: ['pull', 'back', 'chest'],
+    defaultPhoto: pexels(4162438), // Dumbell workout
+  },
+  {
     id: 'reverse-pec-deck',
     name: 'Reverse Pec Deck',
     hebrewName: 'פק דק הפוך',
@@ -282,6 +290,14 @@ export const EXERCISE_LIBRARY: ExerciseDefinition[] = [
   {
     id: 'bicep-dumbbell-curl',
     name: 'Single-Arm Dumbbell Curl',
+    hebrewName: 'ביספס משקולת יד אחת',
+    description: 'Standing alternating dumbbell curl',
+    categories: ['pull', 'biceps'],
+    defaultPhoto: pexels(4162438), // Dumbbell curl
+  },
+  {
+    id: 'double-arm-bicep-dumbbell-curl',
+    name: 'Double-Arm Dumbbell Curl',
     hebrewName: 'ביספס משקולת יד אחת',
     description: 'Standing alternating dumbbell curl',
     categories: ['pull', 'biceps'],
@@ -513,8 +529,8 @@ export const EXERCISE_LIBRARY: ExerciseDefinition[] = [
     defaultPhoto: pexels(4162487), // Abs workout
   },
   {
-    id: 'cable-crunch',
-    name: 'Cable Crunch',
+    id: 'ab-cable-crunch',
+    name: 'Abdominal Cable Crunch',
     hebrewName: 'כפיפות בטן כבל',
     description: 'Kneeling cable ab crunch',
     categories: ['full-body', 'abs'],
@@ -555,6 +571,14 @@ export const EXERCISE_LIBRARY: ExerciseDefinition[] = [
     description: 'Overhand grip pull-up',
     categories: ['calisthenics', 'pull', 'back', 'biceps'],
     defaultPhoto: pexels(4162451), // Pull-up bar
+  },
+  {
+    id: 'pull-up-machine',
+    name: 'Pull-Up Machine',
+    hebrewName: 'מכונת מתח',
+    description: 'Machine pull-up',
+    categories: ['calisthenics', 'pull', 'back'],
+    defaultPhoto: pexels(4162451), // Pull-up machine
   },
   {
     id: 'parallels',
