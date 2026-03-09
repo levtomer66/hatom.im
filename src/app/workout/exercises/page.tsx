@@ -233,12 +233,17 @@ export default function ExercisesPage() {
                         {exercise.name}
                       </div>
                       <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
-                        {pb && (
+                        {pb && pb.completedKg !== null && (
                           <span style={{ fontSize: '13px', color: 'var(--workout-gold)' }}>
-                            🥇 {pb.scaleKg}kg
+                            🥇 {pb.completedKg}kg: {pb.completedReps.join('×')}
                           </span>
                         )}
-                        {pb?.lastCompletedKg && (
+                        {pb && pb.completedKg === null && (
+                          <span style={{ fontSize: '13px', color: 'var(--workout-text-secondary)' }}>
+                            💪 {pb.currentKg}kg: {pb.currentReps.join('×')}
+                          </span>
+                        )}
+                        {pb && (
                           <span style={{ 
                             fontSize: '12px', 
                             color: 'var(--workout-accent)',
@@ -246,7 +251,7 @@ export default function ExercisesPage() {
                             padding: '2px 6px',
                             borderRadius: '4px',
                           }}>
-                            Next: {pb.lastCompletedKg + 2.5}kg
+                            Next: {pb.recommendedKg}kg
                           </span>
                         )}
                         {exercise.isCustom && (

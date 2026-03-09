@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
-import { ExerciseDefinition, WorkoutType, getFilterCategoriesForWorkoutType } from '@/types/workout';
+import { ExerciseDefinition, ExerciseCategory, EXERCISE_FILTER_CATEGORIES } from '@/types/workout';
 import { EXERCISE_LIBRARY } from '@/data/exercise-library';
 import { useWorkoutUser } from '@/context/WorkoutUserContext';
 import AddExerciseForm from './AddExerciseForm';
@@ -36,7 +36,6 @@ interface ExercisePickerProps {
   isOpen: boolean;
   onClose: () => void;
   onSelect: (exercises: ExerciseDefinition[]) => void;
-  workoutType: WorkoutType;
   excludeIds?: string[];
 }
 
@@ -44,7 +43,6 @@ export default function ExercisePicker({
   isOpen,
   onClose,
   onSelect,
-  workoutType,
   excludeIds = [],
 }: ExercisePickerProps) {
   const { currentUser } = useWorkoutUser();
@@ -53,6 +51,7 @@ export default function ExercisePicker({
   const [customExercises, setCustomExercises] = useState<ExerciseDefinition[]>([]);
   const [showAddForm, setShowAddForm] = useState(false);
   const [muscleFilters, setMuscleFilters] = useState<Set<string>>(new Set());
+  const [categoryFilters, setCategoryFilters] = useState<Set<ExerciseCategory>>(new Set());
 
   // Fetch custom exercises
   const fetchCustomExercises = useCallback(async () => {
@@ -93,19 +92,32 @@ export default function ExercisePicker({
     });
   };
 
-  // Filter exercises based on workout type, muscle filters, and search
+  // Toggle category filter (Push/Pull/Legs)
+  const toggleCategoryFilter = (categoryId: ExerciseCategory) => {
+    setCategoryFilters(prev => {
+      const next = new Set(prev);
+      if (next.has(categoryId)) {
+        next.delete(categoryId);
+      } else {
+        next.add(categoryId);
+      }
+      return next;
+    });
+  };
+
+  // Filter exercises based on category filters, muscle filters, and search
   const filteredExercises = useMemo(() => {
-    const categories = getFilterCategoriesForWorkoutType(workoutType);
-    
     return allExercises.filter(exercise => {
       // Exclude already added exercises
       if (excludeIds.includes(exercise.id)) return false;
       
-      // Filter by category - exercise must have at least one matching category
-      const matchesCategory = exercise.categories.some(cat => 
-        categories.includes(cat)
-      );
-      if (!matchesCategory) return false;
+      // Filter by category (Push/Pull/Legs) - if any selected
+      if (categoryFilters.size > 0) {
+        const matchesCategory = exercise.categories.some(cat => 
+          categoryFilters.has(cat)
+        );
+        if (!matchesCategory) return false;
+      }
       
       // Filter by muscle group (if any selected)
       if (muscleFilters.size > 0) {
@@ -121,7 +133,7 @@ export default function ExercisePicker({
       
       return true;
     });
-  }, [workoutType, search, excludeIds, allExercises, muscleFilters]);
+  }, [search, excludeIds, allExercises, muscleFilters, categoryFilters]);
 
   // Sort: custom exercises first, then alphabetically
   const sortedExercises = useMemo(() => {
@@ -152,6 +164,7 @@ export default function ExercisePicker({
     setSelectedIds(new Set());
     setSearch('');
     setMuscleFilters(new Set());
+    setCategoryFilters(new Set());
     onClose();
   };
 
@@ -159,6 +172,7 @@ export default function ExercisePicker({
     setSelectedIds(new Set());
     setSearch('');
     setMuscleFilters(new Set());
+    setCategoryFilters(new Set());
     onClose();
   };
 
@@ -199,6 +213,20 @@ export default function ExercisePicker({
                 >
                   + New
                 </button>
+              </div>
+              
+              {/* Category filters (Push/Pull/Legs) */}
+              <div className="category-filter-row">
+                {EXERCISE_FILTER_CATEGORIES.slice(0, 4).map(category => (
+                  <button
+                    key={category.id}
+                    className={`category-filter-btn ${categoryFilters.has(category.id) ? 'active' : ''}`}
+                    onClick={() => toggleCategoryFilter(category.id)}
+                  >
+                    <span>{category.icon}</span>
+                    <span>{category.label}</span>
+                  </button>
+                ))}
               </div>
               
               {/* Muscle group filters */}

@@ -6,7 +6,7 @@ import { useWorkoutUser } from '@/context/WorkoutUserContext';
 import LoginScreen from '@/components/workout/LoginScreen';
 import Header from '@/components/workout/Header';
 import BottomNav from '@/components/workout/BottomNav';
-import { Workout, WORKOUT_TYPES } from '@/types/workout';
+import { Workout } from '@/types/workout';
 
 export default function HistoryPage() {
   const router = useRouter();
@@ -139,7 +139,6 @@ export default function HistoryPage() {
                 </h3>
                 
                 {inProgressWorkouts.map(workout => {
-                  const typeInfo = WORKOUT_TYPES.find(t => t.id === workout.workoutType);
                   const exerciseCount = workout.exercises.length;
                   
                   return (
@@ -161,7 +160,7 @@ export default function HistoryPage() {
                           onClick={() => router.push(`/workout/history/${workout.id}`)}
                         >
                           <div className="history-item-type">
-                            {typeInfo?.icon} {typeInfo?.label || workout.workoutType}
+                            🏋️ {workout.workoutName}
                           </div>
                           <div className="history-item-date">
                             {new Date(workout.date).toLocaleDateString('en-US', {
@@ -232,7 +231,6 @@ export default function HistoryPage() {
                       </h4>
                       
                       {monthWorkouts.map(workout => {
-                        const typeInfo = WORKOUT_TYPES.find(t => t.id === workout.workoutType);
                         const exerciseCount = workout.exercises.length;
                         
                         return (
@@ -246,7 +244,7 @@ export default function HistoryPage() {
                             >
                               <div className="history-item-info">
                                 <div className="history-item-type">
-                                  {typeInfo?.icon} {typeInfo?.label || workout.workoutType}
+                                  🏋️ {workout.workoutName}
                                 </div>
                                 <div className="history-item-date">
                                   {new Date(workout.date).toLocaleDateString('en-US', {

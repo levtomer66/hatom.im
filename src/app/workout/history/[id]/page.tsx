@@ -7,7 +7,7 @@ import LoginScreen from '@/components/workout/LoginScreen';
 import Header from '@/components/workout/Header';
 import BottomNav from '@/components/workout/BottomNav';
 import ExerciseCard from '@/components/workout/ExerciseCard';
-import { Workout, PersonalBest, ExerciseDefinition, WORKOUT_TYPES } from '@/types/workout';
+import { Workout, PersonalBest, ExerciseDefinition } from '@/types/workout';
 import { EXERCISE_LIBRARY } from '@/data/exercise-library';
 
 export default function WorkoutDetailPage() {
@@ -125,12 +125,10 @@ export default function WorkoutDetailPage() {
     );
   }
 
-  const typeInfo = WORKOUT_TYPES.find(t => t.id === workout.workoutType);
-
   return (
     <main className="workout-main">
       <Header 
-        title={`${typeInfo?.icon || ''} ${typeInfo?.label || 'Workout'}`} 
+        title={`🏋️ ${workout.workoutName}`} 
         showBack 
         onBack={() => router.back()} 
       />
