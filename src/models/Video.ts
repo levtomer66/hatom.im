@@ -9,6 +9,7 @@ const COLLECTION_NAME = 'videos';
 // MongoDB document type (internal use)
 interface VideoDocument extends Omit<Video, 'id'> {
   _id?: ObjectId;
+  order?: number;
 }
 
 // Get the collection
@@ -18,10 +19,10 @@ export async function getVideosCollection() {
   return db.collection<VideoDocument>(COLLECTION_NAME);
 }
 
-// Get all videos
+// Get all videos sorted by order (then by createdAt as fallback)
 export async function getAllVideos(): Promise<Video[]> {
   const collection = await getVideosCollection();
-  const videos = await collection.find({}).sort({ createdAt: -1 }).toArray();
+  const videos = await collection.find({}).sort({ order: 1, createdAt: -1 }).toArray();
   
   return videos.map(video => ({
     ...video,
@@ -58,6 +59,7 @@ export async function createVideo(data: CreateVideoDto): Promise<Video> {
   const newVideo: Omit<VideoDocument, '_id'> = {
     youtubeUrl: data.youtubeUrl,
     title: data.title || '',
+    username: data.username || '',
     likes: 0,
     comments: [],
     createdAt: now,

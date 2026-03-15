@@ -11,6 +11,18 @@ interface LikeButtonProps {
   isLoading?: boolean;
 }
 
+function formatCount(n: number): string {
+  if (n >= 1_000_000) {
+    const val = n / 1_000_000;
+    return val % 1 === 0 ? `${val}M` : `${val.toFixed(1)}M`;
+  }
+  if (n >= 1_000) {
+    const val = n / 1_000;
+    return val % 1 === 0 ? `${val}K` : `${val.toFixed(1)}K`;
+  }
+  return String(n);
+}
+
 const LikeButton: React.FC<LikeButtonProps> = ({ 
   likes, 
   isLiked, 
@@ -39,7 +51,6 @@ const LikeButton: React.FC<LikeButtonProps> = ({
             <FaRegHeart className="w-8 h-8 text-white drop-shadow-lg" />
           )}
           
-          {/* Heart burst animation on like */}
           {isLiked && (
             <motion.div
               initial={{ scale: 0, opacity: 1 }}
@@ -59,7 +70,7 @@ const LikeButton: React.FC<LikeButtonProps> = ({
         animate={{ y: 0, opacity: 1 }}
         className="text-white text-sm font-semibold drop-shadow-lg"
       >
-        {likes}
+        {formatCount(likes)}
       </motion.span>
     </button>
   );

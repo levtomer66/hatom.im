@@ -7,7 +7,6 @@ import { Video, Comment } from '@/types/video';
 import LikeButton from './LikeButton';
 import CommentsPanel from './CommentsPanel';
 
-// Extend Window interface for YouTube IFrame API
 declare global {
   interface Window {
     YT: typeof YT;
@@ -22,7 +21,6 @@ interface VideoCardProps {
   onToggleMute: () => void;
 }
 
-// Extract YouTube video ID from various URL formats
 const extractYouTubeId = (url: string): string | null => {
   const patterns = [
     /(?:youtube\.com\/shorts\/)([a-zA-Z0-9_-]{11})/,
@@ -30,7 +28,6 @@ const extractYouTubeId = (url: string): string | null => {
     /(?:youtu\.be\/)([a-zA-Z0-9_-]{11})/,
     /(?:youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/,
   ];
-
   for (const pattern of patterns) {
     const match = url.match(pattern);
     if (match) return match[1];
@@ -38,34 +35,37 @@ const extractYouTubeId = (url: string): string | null => {
   return null;
 };
 
-// Load YouTube IFrame API script once
-let apiLoaded = false;
-let apiReady = false;
-const apiReadyCallbacks: (() => void)[] = [];
-
-const loadYouTubeAPI = (): Promise<void> => {
-  return new Promise((resolve) => {
-    if (apiReady) {
+// YouTube IFrame API loader (singleton)
+let ytApiReady = false;
+const ytApiPromise = new Promise<void>((resolve) => {
+  if (typeof window === 'undefined') return;
+  
+  const check = () => {
+    if (window.YT && window.YT.Player) {
+      ytApiReady = true;
       resolve();
       return;
     }
-
-    apiReadyCallbacks.push(resolve);
-
-    if (!apiLoaded) {
-      apiLoaded = true;
+    // Load script if not loaded yet
+    if (!document.querySelector('script[src*="youtube.com/iframe_api"]')) {
       const tag = document.createElement('script');
       tag.src = 'https://www.youtube.com/iframe_api';
-      const firstScriptTag = document.getElementsByTagName('script')[0];
-      firstScriptTag.parentNode?.insertBefore(tag, firstScriptTag);
-
-      window.onYouTubeIframeAPIReady = () => {
-        apiReady = true;
-        apiReadyCallbacks.forEach((cb) => cb());
-      };
+      document.head.appendChild(tag);
     }
-  });
-};
+    const prev = window.onYouTubeIframeAPIReady;
+    window.onYouTubeIframeAPIReady = () => {
+      prev?.();
+      ytApiReady = true;
+      resolve();
+    };
+  };
+  
+  if (document.readyState === 'complete') {
+    check();
+  } else {
+    window.addEventListener('load', check, { once: true });
+  }
+});
 
 const VideoCard: React.FC<VideoCardProps> = ({ video, isActive, isMuted, onToggleMute }) => {
   const [likes, setLikes] = useState(video.likes);
@@ -74,44 +74,58 @@ const VideoCard: React.FC<VideoCardProps> = ({ video, isActive, isMuted, onToggl
   const [comments, setComments] = useState<Comment[]>(video.comments);
   const [isCommentsOpen, setIsCommentsOpen] = useState(false);
   const [isCommentsLoading, setIsCommentsLoading] = useState(false);
-  const [playerReady, setPlayerReady] = useState(false);
-  
-  const playerContainerRef = useRef<HTMLDivElement>(null);
+
+  const wrapperRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<YT.Player | null>(null);
+  const playerReadyRef = useRef(false);
   const videoId = extractYouTubeId(video.youtubeUrl);
 
-  // Store isActive in a ref so we can access it in onReady callback
-  const isActiveRef = useRef(isActive);
-  const isMutedRef = useRef(isMuted);
-  
+  const propsRef = useRef({ isActive, isMuted });
+  propsRef.current = { isActive, isMuted };
+
+  const destroyPlayer = useCallback(() => {
+    if (playerRef.current) {
+      try { playerRef.current.destroy(); } catch { /* ok */ }
+      playerRef.current = null;
+      playerReadyRef.current = false;
+    }
+    if (wrapperRef.current) {
+      wrapperRef.current.innerHTML = '';
+    }
+  }, []);
+
+  // Only ONE player exists at a time across the entire feed.
+  // Create when active, destroy when not.
   useEffect(() => {
-    isActiveRef.current = isActive;
-  }, [isActive]);
-  
-  useEffect(() => {
-    isMutedRef.current = isMuted;
-  }, [isMuted]);
+    if (!videoId || !isActive || !wrapperRef.current) {
+      destroyPlayer();
+      return;
+    }
 
-  // Initialize YouTube player
-  useEffect(() => {
-    if (!videoId) return;
+    // Already have a ready player for this video - just ensure it's playing
+    if (playerRef.current && playerReadyRef.current) {
+      try { playerRef.current.playVideo(); } catch { /* ok */ }
+      return;
+    }
 
-    let isMounted = true;
+    // If a player is still initializing, bail out
+    if (playerRef.current) return;
 
-    const initPlayer = async () => {
-      await loadYouTubeAPI();
-      
-      if (!isMounted || !playerContainerRef.current) return;
+    let destroyed = false;
 
-      // Create a unique ID for the player container
-      const playerId = `youtube-player-${video.id}`;
-      playerContainerRef.current.id = playerId;
+    ytApiPromise.then(() => {
+      if (destroyed || !wrapperRef.current) return;
 
-      playerRef.current = new window.YT.Player(playerId, {
-        videoId: videoId,
+      const container = wrapperRef.current;
+      container.innerHTML = '';
+      const el = document.createElement('div');
+      container.appendChild(el);
+
+      const player = new window.YT.Player(el, {
+        videoId,
         playerVars: {
-          autoplay: 0,   // Don't autoplay - we control this manually
-          mute: 1,       // Start muted (required for autoplay to work)
+          autoplay: 1,
+          mute: propsRef.current.isMuted ? 1 : 0,
           loop: 1,
           playlist: videoId,
           controls: 0,
@@ -120,78 +134,61 @@ const VideoCard: React.FC<VideoCardProps> = ({ video, isActive, isMuted, onToggl
           showinfo: 0,
           playsinline: 1,
           enablejsapi: 1,
+          iv_load_policy: 3,
           origin: window.location.origin,
         },
         events: {
           onReady: () => {
-            if (isMounted) {
-              setPlayerReady(true);
-              
-              // Apply initial mute state
-              if (!isMutedRef.current && playerRef.current) {
-                playerRef.current.unMute();
-              }
-              
-              // If this video is active, start playing
-              if (isActiveRef.current && playerRef.current) {
-                playerRef.current.playVideo();
-              }
-            }
+            if (destroyed) return;
+            playerReadyRef.current = true;
+            try { player.playVideo(); } catch { /* ok */ }
           },
           onStateChange: (event) => {
-            // When video ends and this is the active video, restart it (loop)
-            if (event.data === window.YT.PlayerState.ENDED && isActiveRef.current) {
-              playerRef.current?.seekTo(0, true);
-              playerRef.current?.playVideo();
+            if (destroyed) return;
+            if (event.data === window.YT.PlayerState.ENDED) {
+              try {
+                player.seekTo(0, true);
+                player.playVideo();
+              } catch { /* ok */ }
+            }
+            // Safety net: resume if YouTube auto-pauses
+            if (event.data === window.YT.PlayerState.PAUSED && propsRef.current.isActive) {
+              setTimeout(() => {
+                if (propsRef.current.isActive && playerReadyRef.current && !destroyed) {
+                  try { player.playVideo(); } catch { /* ok */ }
+                }
+              }, 300);
             }
           },
         },
       });
-    };
 
-    initPlayer();
+      playerRef.current = player;
+    });
 
     return () => {
-      isMounted = false;
-      if (playerRef.current) {
-        playerRef.current.destroy();
-        playerRef.current = null;
-      }
+      destroyed = true;
+      destroyPlayer();
     };
-  }, [videoId, video.id]);
+  }, [videoId, isActive, destroyPlayer]);
 
-  // Control playback based on isActive
+  // Mute/unmute
   useEffect(() => {
-    if (!playerReady || !playerRef.current) return;
+    if (!playerRef.current || !playerReadyRef.current) return;
+    try {
+      if (isMuted) {
+        playerRef.current.mute();
+      } else {
+        playerRef.current.unMute();
+      }
+    } catch { /* ok */ }
+  }, [isMuted]);
 
-    if (isActive) {
-      // Play this video
-      playerRef.current.playVideo();
-    } else {
-      // Pause and reset to beginning when scrolling away
-      playerRef.current.pauseVideo();
-      playerRef.current.seekTo(0, true);
-    }
-  }, [isActive, playerReady]);
-
-  // Control mute state
-  useEffect(() => {
-    if (!playerReady || !playerRef.current) return;
-
-    if (isMuted) {
-      playerRef.current.mute();
-    } else {
-      playerRef.current.unMute();
-    }
-  }, [isMuted, playerReady]);
-
-  // Check if user has already liked this video (from localStorage)
   useEffect(() => {
     const likedVideos = JSON.parse(localStorage.getItem('instomit-liked-videos') || '[]');
     setIsLiked(likedVideos.includes(video.id));
   }, [video.id]);
 
-  // Update local state when video prop changes
   useEffect(() => {
     setLikes(video.likes);
     setComments(video.comments);
@@ -199,41 +196,26 @@ const VideoCard: React.FC<VideoCardProps> = ({ video, isActive, isMuted, onToggl
 
   const handleToggleLike = useCallback(async () => {
     if (isLikeLoading) return;
-
     setIsLikeLoading(true);
     const wasLiked = isLiked;
-
-    // Optimistic update
     setIsLiked(!wasLiked);
     setLikes(prev => wasLiked ? prev - 1 : prev + 1);
-
     try {
       const response = await fetch(`/api/instomit/videos/${video.id}/like`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: wasLiked ? 'unlike' : 'like' }),
       });
-
       if (!response.ok) throw new Error('Failed to toggle like');
-
       const data = await response.json();
       setLikes(data.likes);
-
-      // Update localStorage
       const likedVideos = JSON.parse(localStorage.getItem('instomit-liked-videos') || '[]');
       if (wasLiked) {
-        localStorage.setItem(
-          'instomit-liked-videos',
-          JSON.stringify(likedVideos.filter((id: string) => id !== video.id))
-        );
+        localStorage.setItem('instomit-liked-videos', JSON.stringify(likedVideos.filter((id: string) => id !== video.id)));
       } else {
-        localStorage.setItem(
-          'instomit-liked-videos',
-          JSON.stringify([...likedVideos, video.id])
-        );
+        localStorage.setItem('instomit-liked-videos', JSON.stringify([...likedVideos, video.id]));
       }
     } catch (error) {
-      // Revert optimistic update on error
       console.error('Error toggling like:', error);
       setIsLiked(wasLiked);
       setLikes(prev => wasLiked ? prev + 1 : prev - 1);
@@ -245,7 +227,6 @@ const VideoCard: React.FC<VideoCardProps> = ({ video, isActive, isMuted, onToggl
   const handleOpenComments = useCallback(async () => {
     setIsCommentsOpen(true);
     setIsCommentsLoading(true);
-
     try {
       const response = await fetch(`/api/instomit/videos/${video.id}/comments`);
       if (response.ok) {
@@ -265,22 +246,21 @@ const VideoCard: React.FC<VideoCardProps> = ({ video, isActive, isMuted, onToggl
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name, text }),
     });
-
     if (!response.ok) throw new Error('Failed to add comment');
-
     const newComment = await response.json();
     setComments(prev => [...prev, newComment]);
   }, [video.id]);
 
   return (
     <div className="video-card relative w-full h-full bg-black flex items-center justify-center snap-start snap-always overflow-hidden">
-      {/* YouTube Player Container */}
       {videoId ? (
-        <div className="absolute inset-0 flex items-center justify-center">
-          <div 
-            ref={playerContainerRef}
-            className="video-iframe"
-          />
+        <div className="absolute inset-0">
+          <div ref={wrapperRef} className="video-iframe" />
+          {!isActive && (
+            <div className="absolute inset-0 bg-black/80 flex items-center justify-center">
+              <div className="w-12 h-12 rounded-full bg-white/10" />
+            </div>
+          )}
         </div>
       ) : (
         <div className="text-white text-center p-4">
@@ -289,18 +269,15 @@ const VideoCard: React.FC<VideoCardProps> = ({ video, isActive, isMuted, onToggl
         </div>
       )}
 
-      {/* Overlay gradient for better text visibility */}
       <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent pointer-events-none z-[2]" />
 
-      {/* Right side actions - positioned for mobile with safe area */}
       <div className="absolute left-3 sm:left-4 bottom-24 sm:bottom-32 flex flex-col items-center gap-5 sm:gap-6 z-10 pb-safe">
-        {/* Sound toggle button */}
         <button
           onClick={onToggleMute}
           className="flex flex-col items-center gap-1 transition-transform active:scale-90"
           aria-label={isMuted ? 'Enable sound' : 'Mute'}
         >
-          <motion.div 
+          <motion.div
             whileTap={{ scale: 1.2 }}
             className={`p-2 rounded-full ${isMuted ? 'bg-white/20' : 'bg-purple-500'}`}
           >
@@ -333,16 +310,14 @@ const VideoCard: React.FC<VideoCardProps> = ({ video, isActive, isMuted, onToggl
         </button>
       </div>
 
-      {/* Bottom caption/title - with safe area padding for iPhone */}
-      {video.title && (
+      {video.username && (
         <div className="absolute bottom-4 sm:bottom-6 right-3 sm:right-4 left-16 sm:left-20 z-10 pb-safe">
-          <p className="text-white text-sm sm:text-base font-medium drop-shadow-lg line-clamp-2">
-            {video.title}
+          <p className="text-white text-sm sm:text-base font-bold drop-shadow-lg" dir="ltr">
+            {video.username}
           </p>
         </div>
       )}
 
-      {/* Comments Panel */}
       <CommentsPanel
         isOpen={isCommentsOpen}
         onClose={() => setIsCommentsOpen(false)}

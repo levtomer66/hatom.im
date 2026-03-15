@@ -11,6 +11,7 @@ export interface Video {
   id: string;
   youtubeUrl: string;      // YouTube Shorts URL or regular YouTube URL
   title?: string;          // Optional title/caption
+  username?: string;       // Original creator's username
   likes: number;
   comments: Comment[];
   createdAt: string;
@@ -21,6 +22,7 @@ export interface Video {
 export interface CreateVideoDto {
   youtubeUrl: string;
   title?: string;
+  username?: string;
 }
 
 // DTO for adding a comment

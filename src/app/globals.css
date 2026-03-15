@@ -232,43 +232,35 @@ body {
   background: #000;
 }
 
-/* YouTube iframe/player styling for vertical videos (9:16 aspect ratio like Shorts) */
-.video-iframe,
-.video-iframe iframe {
+/* YouTube iframe/player - fill entire screen */
+.video-iframe {
   position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  /* For vertical video (9:16), we need to cover the full height */
+  top: 0;
+  left: 0;
   width: 100%;
   height: 100%;
-  min-height: 100%;
 }
 
-/* Mobile-first: Optimize for vertical videos on phones */
-@media (max-width: 768px) {
-  .video-iframe,
-  .video-iframe iframe {
-    /* Scale up to cover the screen while maintaining aspect ratio */
-    width: 100vw;
-    height: 100dvh;
-    min-width: 100%;
-    min-height: 100%;
-    /* Scale up to fill - videos will be cropped on sides if needed */
-    transform: translate(-50%, -50%) scale(1.2);
-  }
+.video-iframe iframe {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
 }
 
-/* Larger screens: center the video */
-@media (min-width: 769px) {
-  .video-iframe {
-    /* On desktop, show more of the video */
-    width: auto;
-    height: 100%;
-    aspect-ratio: 9/16;
-    max-width: 100%;
-    transform: translate(-50%, -50%);
-  }
+/* Hide YouTube's top info bar (title, channel, share) by clipping it */
+.video-card .video-iframe {
+  /* Slight oversize + negative offset hides the top YouTube overlay */
+  top: -60px;
+  height: calc(100% + 120px);
+}
+
+.video-card .video-iframe iframe {
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
 }
 
 /* Safe area padding for iPhone notch and home indicator */
