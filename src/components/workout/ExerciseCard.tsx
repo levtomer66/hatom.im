@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { WorkoutExercise, WorkoutSet, PersonalBest, ExerciseDefinition, ExerciseHistoryEntry, isExerciseCompleted, getHighestWeight, MIN_SETS, MAX_SETS, formatRepsDisplay } from '@/types/workout';
+import { WorkoutExercise, WorkoutSet, PersonalBest, ExerciseDefinition, ExerciseHistoryEntry, isExerciseCompleted, getHighestWeight, MIN_SETS, MAX_SETS } from '@/types/workout';
 import { getExerciseById } from '@/data/exercise-library';
 import { useWorkoutUser } from '@/context/WorkoutUserContext';
 
