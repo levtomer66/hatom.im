@@ -3,86 +3,128 @@
 import React from 'react';
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
+import { motion } from 'framer-motion';
+import { FaDog, FaCoffee, FaVideo, FaDumbbell, FaCamera } from 'react-icons/fa';
 import Navbar from '@/components/Navbar';
 import CountdownTimer from '@/components/CountdownTimer';
 
-// Use dynamic import for the confetti component to avoid SSR issues
-const PeriodicConfetti = dynamic(() => import('@/components/PeriodicConfetti'), {
+const GoldSparkles = dynamic(() => import('@/components/PeriodicConfetti'), {
   ssr: false,
 });
+
+const features = [
+  {
+    icon: FaDog,
+    title: 'שמות האוליבון',
+    description: 'כל שמות האוליבון לעולם ועד',
+    href: '/family-tree',
+    linkText: 'צפה בשמות האוליבון',
+  },
+  {
+    icon: FaCoffee,
+    title: 'מקפקפים',
+    description: 'ביקורות על קפה מאת תומית ותומרינדי',
+    href: '/mekafkefim',
+    linkText: 'צפה במקפקפים',
+  },
+  {
+    icon: FaVideo,
+    title: 'InsTomit',
+    description: 'סרטונים קצרים של התומים',
+    href: '/instomit',
+    linkText: 'צפה ב-InsTomit',
+  },
+  {
+    icon: FaDumbbell,
+    title: 'המפלצתומים',
+    description: 'מעקב אימונים לתום ותומר',
+    href: '/workout',
+    linkText: 'לאימון',
+  },
+  {
+    icon: FaCamera,
+    title: 'Wedding',
+    description: 'Coming soon',
+    href: '#',
+    linkText: '',
+  },
+];
+
+const heroButtons = [
+  { href: '/family-tree', label: 'שמות האוליבון', icon: FaDog },
+  { href: '/mekafkefim', label: 'מקפקפים', icon: FaCoffee },
+  { href: '/instomit', label: 'InsTomit', icon: FaVideo },
+  { href: '/workout', label: 'המפלצתומים', icon: FaDumbbell },
+];
+
+const containerVariants = {
+  hidden: {},
+  visible: {
+    transition: { staggerChildren: 0.12 },
+  },
+};
+
+const cardVariants = {
+  hidden: { opacity: 0, y: 30 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.5, ease: 'easeOut' },
+  },
+};
 
 export default function Home() {
   return (
     <>
       <Navbar />
-      <PeriodicConfetti interval={20000} duration={6000} />
-      
+      <GoldSparkles />
+
       <div className="birthday-container">
-        <div className="birthday-hero">
-          <h1 className="birthday-title">תומים המתחתנים ! 👰‍♀️🤵‍♂️</h1>
+        <motion.div
+          className="birthday-hero"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.7, ease: 'easeOut' }}
+        >
+          <h1 className="birthday-title">התומ.ים מתחתנים</h1>
+          <div className="gold-divider" />
           <CountdownTimer />
-          <div className="flex flex-wrap justify-center gap-4 mt-6">
-            <Link href="/family-tree">
-              <button className="birthday-button">שמות האוליבון 🐕</button>
-            </Link>
-            <Link href="/mekafkefim">
-              <button className="birthday-button">מקפקפים ☕</button>
-            </Link>
-            <Link href="/instomit">
-              <button className="birthday-button">InsTomit 📹</button>
-            </Link>
-            <Link href="/workout">
-              <button className="birthday-button">המפלצתומים 💪</button>
-            </Link>
+
+          <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: '0.75rem', marginTop: '1.5rem' }}>
+            {heroButtons.map(({ href, label, icon: Icon }) => (
+              <Link key={href} href={href}>
+                <button className="birthday-button">
+                  <Icon />
+                  {label}
+                </button>
+              </Link>
+            ))}
           </div>
-        </div>
-        
-        <div className="birthday-features">
-          <div className="feature-card">
-            <div className="feature-icon">🐕</div>
-            <h2 className="feature-title">שמות האוליבון</h2>
-            <p>כל שמות האוליבון לעולם ועד</p>
-            <Link href="/family-tree" className="mt-4 inline-block text-amber-600 hover:text-amber-800">
-              ← צפה בשמות האוליבון
-            </Link>
-          </div>
-          
-          <div className="feature-card">
-            <div className="feature-icon">☕</div>
-            <h2 className="feature-title">מקפקפים</h2>
-            <p>ביקורות על קפה מאת תומית ותומרינדי</p>
-            <Link href="/mekafkefim" className="mt-4 inline-block text-amber-600 hover:text-amber-800">
-              ← צפה במקפקפים
-            </Link>
-          </div>
-          
-          <div className="feature-card">
-            <div className="feature-icon">📹</div>
-            <h2 className="feature-title">InsTomit</h2>
-            <p>סרטונים קצרים של התומים - כמו טיקטוק!</p>
-            <Link href="/instomit" className="mt-4 inline-block text-amber-600 hover:text-amber-800">
-              ← צפה ב-InsTomit
-            </Link>
-            <div className="feature-icon">💪</div>
-            <h2 className="feature-title">המפלצתומים</h2>
-            <p>מעקב אימונים לתום ותומר</p>
-            <Link href="/workout" className="mt-4 inline-block text-amber-600 hover:text-amber-800">
-              ← לאימון
-            </Link>
-          </div>
-          
-          <div className="feature-card">
-            <div className="feature-icon">📸</div>
-            <h2 className="feature-title">Wedding</h2>
-            <p>Coming soon! Wedding Features</p>
-          </div>
-        </div>
-        
-        <div className="mt-12 text-center">
-          <h2 className="text-2xl font-bold mb-4">עוד בהמשך!</h2>
-          {/* <p> עובדים על מספר פיצ׳רים נוספים כדי לחגג את יום הולדת שמח של תומיתילו.</p> */}
-        </div>
+        </motion.div>
+
+        <motion.div
+          className="birthday-features"
+          variants={containerVariants}
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true, margin: '-50px' }}
+        >
+          {features.map(({ icon: Icon, title, description, href, linkText }) => (
+            <motion.div key={title} className="feature-card" variants={cardVariants}>
+              <div className="feature-icon">
+                <Icon />
+              </div>
+              <h2 className="feature-title">{title}</h2>
+              <p className="feature-description">{description}</p>
+              {linkText && (
+                <Link href={href} className="feature-link">
+                  {linkText} ←
+                </Link>
+              )}
+            </motion.div>
+          ))}
+        </motion.div>
       </div>
     </>
   );
-} 
+}

@@ -3,61 +3,45 @@
 import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { FaDog, FaCoffee, FaVideo, FaDumbbell, FaHome } from 'react-icons/fa';
+
+const navItems = [
+  { href: '/family-tree', label: 'שמות האוליבון', icon: FaDog },
+  { href: '/mekafkefim', label: 'מקפקפים', icon: FaCoffee },
+  { href: '/instomit', label: 'InsTomit', icon: FaVideo },
+  { href: '/workout', label: 'המפלצתומים', icon: FaDumbbell },
+  { href: '/', label: 'בית', icon: FaHome, exact: true },
+];
 
 const Navbar: React.FC = () => {
   const pathname = usePathname();
-  
+
+  const isActive = (href: string, exact?: boolean) => {
+    if (exact) return pathname === href;
+    return pathname === href || pathname?.startsWith(href + '/');
+  };
+
   return (
     <nav className="navbar">
       <div className="navbar-container">
         <div className="navbar-logo">
-          <Link href="/">
-          👰‍♀️🤵‍♂️  התומ.ים 
-          </Link>
+          <Link href="/">התומ.ים</Link>
         </div>
         <div className="navbar-links">
-          
-          <Link 
-            href="/family-tree" 
-            className={`navbar-link ${pathname === '/family-tree' ? 'text-yellow-300' : ''}`}
-          >
-            🐶 שמות האוליבון 
-          </Link>
-          <Link 
-            href="/mekafkefim" 
-            className={`navbar-link ${pathname === '/mekafkefim' ? 'text-yellow-300' : ''}`}
-          >
-            ☕ מקפקפים
-          </Link>
-          <Link 
-            href="/instomit" 
-            className={`navbar-link ${pathname === '/instomit' ? 'text-yellow-300' : ''}`}
-          >
-            📹 InsTomit
-          </Link>
-          <Link 
-            href="/workout" 
-            className={`navbar-link ${pathname?.startsWith('/workout') ? 'text-yellow-300' : ''}`}
-          >
-            💪 המפלצתומים
-          </Link>
-          <Link 
-            href="/" 
-            className={`navbar-link ${pathname === '/' ? 'text-yellow-300' : ''}`}
-          >
-            🏠 בית 
-          </Link>
-          {/* <Link 
-            href="/greeting" 
-            className={`navbar-link ${pathname === '/greeting' ? 'text-yellow-300' : ''}`}
-          >
-            🎈 ברכה
-          </Link> */}
-          {/* More links can be added here */}
+          {navItems.map(({ href, label, icon: Icon, exact }) => (
+            <Link
+              key={href}
+              href={href}
+              className={`navbar-link ${isActive(href, exact) ? 'active' : ''}`}
+            >
+              <Icon style={{ display: 'inline', verticalAlign: '-2px', marginLeft: '4px' }} />
+              {label}
+            </Link>
+          ))}
         </div>
       </div>
     </nav>
   );
 };
 
-export default Navbar; 
+export default Navbar;

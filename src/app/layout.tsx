@@ -8,8 +8,8 @@ const rubik = Rubik({
 });
 
 export const metadata: Metadata = {
-  title: 'יום הולדת לתומיתילו',
-  description: 'יום הולדת לתומיתילו',
+  title: 'התומ.ים',
+  description: 'התומ.ים — תומר ותומית',
 }
 
 // Viewport configuration for mobile compatibility
@@ -18,7 +18,7 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
-  viewportFit: 'cover', // Enable safe area insets for iPhone
+  viewportFit: 'cover',
 }
 
 export default function RootLayout({

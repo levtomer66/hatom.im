@@ -1,11 +1,20 @@
 @import "tailwindcss";
 
 :root {
-  --primary-color: #ff6b6b;
-  --secondary-color: #4ecdc4;
-  --accent-color: #ffbe0b;
-  --background-color: #f7f7f7;
-  --text-color: #333333;
+  --primary-color: #c9a84c;
+  --secondary-color: #1a1f35;
+  --accent-color: #e8d5a3;
+  --background-color: #0a0e1a;
+  --text-color: #f0ece2;
+  --text-muted: rgba(240, 236, 226, 0.55);
+  --gold: #c9a84c;
+  --gold-light: #e8d5a3;
+  --gold-glow: rgba(201, 168, 76, 0.3);
+  --glass-bg: rgba(255, 255, 255, 0.03);
+  --glass-border: rgba(201, 168, 76, 0.12);
+  --glass-hover-border: rgba(201, 168, 76, 0.3);
+  --navy-light: #111628;
+  --navy-mid: #0f1322;
   
   /* RTL margin and padding values */
   --margin-1: 0.25rem;
@@ -75,10 +84,15 @@ body {
 }
 
 .navbar {
-  background-color: var(--primary-color);
-  color: white;
-  padding: 1rem;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  background: rgba(10, 14, 26, 0.7);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  color: var(--text-color);
+  padding: 0.85rem 1rem;
+  border-bottom: 1px solid var(--glass-border);
 }
 
 .navbar-container {
@@ -90,8 +104,15 @@ body {
 }
 
 .navbar-logo {
-  font-size: 1.5rem;
-  font-weight: bold;
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: var(--gold);
+  letter-spacing: 0.02em;
+}
+
+.navbar-logo a {
+  color: inherit;
+  text-decoration: none;
 }
 
 .navbar-links {
@@ -100,98 +121,164 @@ body {
 }
 
 .navbar-link {
-  color: white;
+  color: var(--text-muted);
   text-decoration: none;
   font-weight: 500;
-  transition: all 0.2s ease;
+  font-size: 0.95rem;
+  transition: color 0.25s ease;
+  position: relative;
 }
 
 .navbar-link:hover {
-  color: var(--accent-color);
+  color: var(--gold-light);
+}
+
+.navbar-link.active {
+  color: var(--gold);
+}
+
+.navbar-link.active::after {
+  content: '';
+  position: absolute;
+  bottom: -6px;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--gold);
+  border-radius: 1px;
 }
 
 .birthday-container {
-  max-width: 1200px;
+  max-width: 1100px;
   margin: 0 auto;
   padding: 2rem;
 }
 
 .birthday-hero {
   text-align: center;
-  padding: 4rem 2rem;
-  background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
-  border-radius: 1rem;
-  margin-bottom: 2rem;
-  color: white;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  padding: 5rem 2rem 4rem;
+  background: radial-gradient(ellipse at 50% 0%, rgba(201, 168, 76, 0.08) 0%, transparent 60%),
+              linear-gradient(180deg, var(--navy-light) 0%, var(--background-color) 100%);
+  border-radius: 1.25rem;
+  margin-bottom: 2.5rem;
+  color: var(--text-color);
+  border: 1px solid var(--glass-border);
+  position: relative;
+  overflow: hidden;
 }
 
 .birthday-title {
-  font-size: 3rem;
-  margin-bottom: 1rem;
-  animation: bounce 2s infinite;
+  font-size: 2.75rem;
+  margin-bottom: 0.5rem;
+  font-weight: 800;
+  background: linear-gradient(135deg, var(--gold) 0%, var(--gold-light) 50%, var(--gold) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  letter-spacing: 0.01em;
 }
 
 .birthday-subtitle {
-  font-size: 1.5rem;
+  font-size: 1.25rem;
   margin-bottom: 2rem;
+  color: var(--text-muted);
 }
 
 .birthday-button {
-  background-color: var(--accent-color);
-  color: var(--text-color);
+  background: linear-gradient(135deg, var(--gold) 0%, var(--gold-light) 100%);
+  color: #0a0e1a;
   border: none;
-  padding: 0.75rem 1.5rem;
-  border-radius: 0.5rem;
-  font-size: 1rem;
-  font-weight: bold;
+  padding: 0.7rem 1.4rem;
+  border-radius: 0.6rem;
+  font-size: 0.9rem;
+  font-weight: 700;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.25s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
 }
 
 .birthday-button:hover {
-  transform: scale(1.05);
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px var(--gold-glow);
 }
 
 .birthday-features {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-  gap: 2rem;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 1.5rem;
   margin-top: 3rem;
 }
 
 .feature-card {
-  background-color: white;
+  background: var(--glass-bg);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   border-radius: 1rem;
-  padding: 2rem;
+  padding: 2rem 1.5rem;
   text-align: center;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-  transition: all 0.3s ease;
+  border: 1px solid var(--glass-border);
+  transition: all 0.35s ease;
 }
 
 .feature-card:hover {
-  transform: translateY(-10px);
-  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+  border-color: var(--glass-hover-border);
+  box-shadow: 0 0 30px rgba(201, 168, 76, 0.06);
+  transform: translateY(-4px);
 }
 
 .feature-icon {
-  font-size: 3rem;
-  margin-bottom: 1rem;
-  color: var(--primary-color);
+  font-size: 2rem;
+  margin-bottom: 0.75rem;
+  color: var(--gold);
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .feature-title {
-  font-size: 1.5rem;
-  margin-bottom: 1rem;
+  font-size: 1.2rem;
+  margin-bottom: 0.5rem;
+  font-weight: 700;
+  color: var(--text-color);
 }
 
-@keyframes bounce {
-  0%, 100% {
-    transform: translateY(0);
+.feature-description {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.feature-link {
+  display: inline-block;
+  margin-top: 1rem;
+  color: var(--gold);
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+.feature-link:hover {
+  color: var(--gold-light);
+}
+
+.gold-divider {
+  width: 60px;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--gold), transparent);
+  margin: 1.5rem auto;
+}
+
+@keyframes sparkle-float {
+  0% {
+    transform: translateY(0) scale(1);
+    opacity: 1;
   }
-  50% {
-    transform: translateY(-10px);
+  100% {
+    transform: translateY(-100vh) scale(0);
+    opacity: 0;
   }
 }
 
@@ -225,7 +312,7 @@ body {
 /* Video card full-screen styles */
 .video-card {
   height: 100vh;
-  height: 100dvh; /* Dynamic viewport height for mobile */
+  height: 100dvh;
   width: 100%;
   position: relative;
   overflow: hidden;
@@ -251,7 +338,6 @@ body {
 
 /* Hide YouTube's top info bar (title, channel, share) by clipping it */
 .video-card .video-iframe {
-  /* Slight oversize + negative offset hides the top YouTube overlay */
   top: -60px;
   height: calc(100% + 120px);
 }

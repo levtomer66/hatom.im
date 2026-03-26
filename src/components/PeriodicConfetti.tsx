@@ -1,80 +1,80 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import dynamic from 'next/dynamic';
+import React, { useState, useEffect, useCallback } from 'react';
 
-// Dynamically import Confetti to avoid SSR issues
-const Confetti = dynamic(() => import('react-confetti'), { ssr: false });
-
-interface PeriodicConfettiProps {
-  interval?: number; // Time in ms between confetti bursts
-  duration?: number; // Duration of each confetti burst in ms
+interface Particle {
+  id: number;
+  x: number;
+  size: number;
+  duration: number;
+  delay: number;
+  opacity: number;
+  color: string;
 }
 
-const PeriodicConfetti: React.FC<PeriodicConfettiProps> = ({
-  interval = 15000, // Default to 15 seconds between bursts
-  duration = 5000,  // Default to 5 seconds per burst
-}) => {
-  const [showConfetti, setShowConfetti] = useState<boolean>(false);
-  const [windowSize, setWindowSize] = useState<{ width: number; height: number }>({
-    width: 0,
-    height: 0,
-  });
+const GOLD_PALETTE = [
+  '#c9a84c',
+  '#e8d5a3',
+  '#d4b85a',
+  '#f0e6c8',
+  'rgba(255, 255, 255, 0.6)',
+];
 
-  // Set window size on client side
-  useEffect(() => {
-    const handleResize = () => {
-      setWindowSize({
-        width: window.innerWidth,
-        height: window.innerHeight,
-      });
-    };
+const GoldSparkles: React.FC = () => {
+  const [particles, setParticles] = useState<Particle[]>([]);
+  const [visible, setVisible] = useState(true);
 
-    // Initial size
-    handleResize();
-
-    // Add event listener
-    window.addEventListener('resize', handleResize);
-
-    // Clean up
-    return () => window.removeEventListener('resize', handleResize);
+  const generateParticles = useCallback(() => {
+    return Array.from({ length: 35 }, (_, i) => ({
+      id: i,
+      x: Math.random() * 100,
+      size: Math.random() * 4 + 2,
+      duration: Math.random() * 3 + 2.5,
+      delay: Math.random() * 1.5,
+      opacity: Math.random() * 0.7 + 0.3,
+      color: GOLD_PALETTE[Math.floor(Math.random() * GOLD_PALETTE.length)],
+    }));
   }, []);
 
-  // Periodic confetti effect
   useEffect(() => {
-    // Show confetti immediately on first load
-    setShowConfetti(true);
-    
-    const timer = setTimeout(() => {
-      setShowConfetti(false);
-    }, duration);
+    setParticles(generateParticles());
+    const fadeTimer = setTimeout(() => setVisible(false), 4500);
+    return () => clearTimeout(fadeTimer);
+  }, [generateParticles]);
 
-    // Set up interval for periodic confetti
-    const intervalId = setInterval(() => {
-      setShowConfetti(true);
-      
-      setTimeout(() => {
-        setShowConfetti(false);
-      }, duration);
-    }, interval);
+  if (!visible) return null;
 
-    // Clean up
-    return () => {
-      clearTimeout(timer);
-      clearInterval(intervalId);
-    };
-  }, [duration, interval]);
-
-  return showConfetti ? (
-    <Confetti
-      width={windowSize.width}
-      height={windowSize.height}
-      recycle={false}
-      numberOfPieces={200}
-      gravity={0.2}
-      colors={['#ff6b6b', '#ffbe0b', '#4ecdc4', '#7bdff2', '#f7b801', '#f18701']}
-    />
-  ) : null;
+  return (
+    <div
+      style={{
+        position: 'fixed',
+        inset: 0,
+        pointerEvents: 'none',
+        zIndex: 40,
+        overflow: 'hidden',
+        transition: 'opacity 1s ease-out',
+        opacity: visible ? 1 : 0,
+      }}
+    >
+      {particles.map((p) => (
+        <div
+          key={p.id}
+          style={{
+            position: 'absolute',
+            bottom: '-10px',
+            left: `${p.x}%`,
+            width: `${p.size}px`,
+            height: `${p.size}px`,
+            borderRadius: '50%',
+            background: p.color,
+            opacity: p.opacity,
+            boxShadow: `0 0 ${p.size * 2}px ${p.color}`,
+            animation: `sparkle-float ${p.duration}s ${p.delay}s ease-out forwards`,
+          }}
+        />
+      ))}
+    </div>
+  );
 };
 
-export default PeriodicConfetti; 
+export default GoldSparkles;
