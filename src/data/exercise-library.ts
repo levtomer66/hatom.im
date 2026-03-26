@@ -694,9 +694,19 @@ export const EXERCISE_LIBRARY: ExerciseDefinition[] = [
   // },
 ];
 
-// Helper to get exercise by ID
+// Merged/renamed exercise IDs → canonical ID they were folded into
+const EXERCISE_ID_ALIASES: Record<string, string> = {
+  'lat-pulldown': 'wide-grip-lat-pulldown',
+};
+
+// Resolve legacy exercise IDs to their canonical counterpart
+export function resolveExerciseId(id: string): string {
+  return EXERCISE_ID_ALIASES[id] ?? id;
+}
+
+// Helper to get exercise by ID (resolves legacy aliases)
 export function getExerciseById(id: string): ExerciseDefinition | undefined {
-  return EXERCISE_LIBRARY.find(e => e.id === id);
+  return EXERCISE_LIBRARY.find(e => e.id === resolveExerciseId(id));
 }
 
 // Helper to filter exercises by workout type categories

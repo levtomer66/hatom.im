@@ -1,749 +1,1083 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Tree, TreeNode } from 'react-organizational-chart';
-import styled from 'styled-components';
+'use client';
 
-// Define interfaces for our data structures
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+
 interface FamilyMember {
   id: number;
   name: string;
   parentId: number | null;
-  photo?: string; // Optional photo URL
-  title?: string; // Optional title/role
 }
 
-interface TreeNodeData extends FamilyMember {
-  children: TreeNodeData[];
+interface TreeNode {
+  id: number;
+  name: string;
+  parentId: number | null;
+  children: TreeNode[];
 }
 
-// Styled components for the org chart
-const StyledNode = styled.div`
-  padding: 12px;
-  border-radius: 4px;
-  display: inline-block;
-  border: 1px solid #e5e7eb;
-  background-color: white;
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
-  min-width: 160px;
-  position: relative;
-  transition: all 0.2s;
-  text-align: center;
-  
-  &:hover {
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
-    transform: translateY(-2px);
+function buildTree(items: FamilyMember[], parentId: number | null = null): TreeNode[] {
+  return items
+    .filter(item => item.parentId === parentId)
+    .map(item => ({
+      id: item.id,
+      name: item.name,
+      parentId: item.parentId,
+      children: buildTree(items, item.id),
+    }));
+}
+
+function countDescendants(node: TreeNode): number {
+  return node.children.reduce((acc, child) => acc + 1 + countDescendants(child), 0);
+}
+
+function collectAllIds(nodes: TreeNode[]): Set<number> {
+  const ids = new Set<number>();
+  const walk = (ns: TreeNode[]) => ns.forEach(n => { ids.add(n.id); walk(n.children); });
+  walk(nodes);
+  return ids;
+}
+
+function getAncestorIds(nodeId: number, members: FamilyMember[]): Set<number> {
+  const ids = new Set<number>();
+  let cur = members.find(m => m.id === nodeId);
+  while (cur?.parentId != null) {
+    ids.add(cur.parentId);
+    cur = members.find(m => m.id === cur!.parentId);
   }
-`;
-
-const PhotoContainer = styled.div`
-  width: 60px;
-  height: 60px;
-  border-radius: 50%;
-  background-color: #f3f4f6;
-  margin: 0 auto 8px;
-  overflow: hidden;
-  border: 2px solid #e5e7eb;
-`;
-
-const Photo = styled.img`
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-`;
-
-const DefaultPhoto = styled.div`
-  width: 100%;
-  height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 2rem;
-  color: #9ca3af;
-`;
-
-const NodeTitle = styled.h3`
-  margin: 0;
-  font-weight: 600;
-  color: #111827;
-  font-size: 1rem;
-  text-align: center;
-`;
-
-const NodeSubtitle = styled.p`
-  margin: 4px 0 0;
-  color: #6b7280;
-  font-size: 0.875rem;
-  text-align: center;
-`;
-
-const StyledTreeNode = styled(TreeNode)`
-  padding-top: 10px;
-  
-  /* Fix for broken lines */
-  .oc-tree-node-line {
-    height: 10px !important;
-  }
-  
-  .oc-tree-node-children {
-    margin-top: 0 !important;
-  }
-`;
-
-const StyledTree = styled(Tree)`
-  text-align: center;
-  
-  /* Fix for broken lines */
-  .oc-tree {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-  }
-  
-  .oc-tree-node {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-  }
-  
-  .oc-tree-node-children {
-    display: flex;
-    margin-top: 0;
-  }
-`;
+  return ids;
+}
 
 const FamilyTreeOrgChart: React.FC = () => {
   const [familyData, setFamilyData] = useState<FamilyMember[]>([]);
+  const [expandedNodes, setExpandedNodes] = useState<Set<number>>(new Set());
   const [editingNode, setEditingNode] = useState<number | null>(null);
-  const [newNodeName, setNewNodeName] = useState<string>('');
-  const [newNodeTitle, setNewNodeTitle] = useState<string>('');
-  const [collapsedNodes, setCollapsedNodes] = useState<Set<number>>(new Set());
-  const [isEditMode, setIsEditMode] = useState<boolean>(false);
-  const treeContainerRef = useRef<HTMLDivElement>(null);
-  const operationInProgressRef = useRef<boolean>(false);
+  const [editName, setEditName] = useState('');
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isLoading, setIsLoading] = useState(true);
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+  const treeRef = useRef<HTMLDivElement>(null);
+  const editInputRef = useRef<HTMLInputElement>(null);
+  const nextIdRef = useRef(100);
+
+  const showToast = useCallback((message: string, type: 'success' | 'error' = 'success') => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 3000);
+  }, []);
 
   useEffect(() => {
-    // Fetch the family tree data
     fetch('/api/family-tree')
-      .then(response => response.json())
-      .then(data => setFamilyData(data))
-      .catch(error => console.error('Error loading family tree data:', error));
+      .then(r => r.json())
+      .then((data: FamilyMember[]) => {
+        setFamilyData(data);
+        nextIdRef.current = Math.max(0, ...data.map(m => m.id)) + 1;
+        const roots = data.filter(m => m.parentId === null);
+        setExpandedNodes(new Set(roots.map(r => r.id)));
+        setIsLoading(false);
+      })
+      .catch(err => {
+        console.error('Error loading family tree:', err);
+        setIsLoading(false);
+      });
   }, []);
 
-  // Function to build the tree structure from flat data
-  const buildTree = useCallback((items: FamilyMember[], parentId: number | null = null): TreeNodeData[] => {
-    // Create a recursive function inside the callback to avoid dependency issues
-    const buildTreeRecursive = (items: FamilyMember[], currentParentId: number | null): TreeNodeData[] => {
-      return items
-        .filter(item => item.parentId === currentParentId)
-        .map(item => ({
-          ...item,
-          children: buildTreeRecursive(items, item.id)
-        }));
-    };
-    
-    return buildTreeRecursive(items, parentId);
-  }, []);
-
-  // Function to add a new family member
-  const handleAddMember = (parentId: number | null): void => {
-    // Set operation flag to prevent unwanted state resets
-    operationInProgressRef.current = true;
-    
-    const newId = Math.max(...familyData.map(item => item.id), 0) + 1;
-    const newMember: FamilyMember = {
-      id: newId,
-      name: '',
-      parentId: parentId,
-      title: ''
-    };
-
-    // Create a deep copy of the current collapsed nodes to preserve state
-    const currentCollapsedNodes = new Set([...collapsedNodes]);
-    
-    // Add the new member to the family data
-    setFamilyData(prevData => [...prevData, newMember]);
-    
-    // If the parent exists, ensure it's expanded to show the new child
-    if (parentId !== null) {
-      currentCollapsedNodes.delete(parentId);
+  useEffect(() => {
+    if (editingNode !== null && editInputRef.current) {
+      editInputRef.current.focus();
+      editInputRef.current.select();
     }
-    
-    // Update collapsed nodes state with our preserved copy
-    setCollapsedNodes(currentCollapsedNodes);
-    
-    // Set the new node to edit mode and scroll to it
-    setEditingNode(newId);
-    setNewNodeName('');
-    setNewNodeTitle('');
-    
-    // Scroll to the new node after a short delay to ensure DOM is updated
-    setTimeout(() => {
-      const newNodeElement = document.getElementById(`node-${newId}`);
-      if (newNodeElement) {
-        newNodeElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      }
-      // Reset operation flag
-      operationInProgressRef.current = false;
-    }, 100);
-  };
+  }, [editingNode]);
 
-  // Function to save the edited name
-  const handleSaveName = (): void => {
-    if (!newNodeName.trim()) {
-      // If name is empty, remove the node
-      if (editingNode !== null) {
-        handleRemoveMember(editingNode);
-      }
+  const treeData = useMemo(() => buildTree(familyData), [familyData]);
+
+  const matchingIds = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return null;
+    const matches = familyData.filter(m => m.name.toLowerCase().includes(q));
+    const ids = new Set<number>();
+    matches.forEach(m => {
+      ids.add(m.id);
+      getAncestorIds(m.id, familyData).forEach(id => ids.add(id));
+    });
+    return ids;
+  }, [searchQuery, familyData]);
+
+  useEffect(() => {
+    if (matchingIds && matchingIds.size > 0) {
+      setExpandedNodes(prev => {
+        const next = new Set(prev);
+        matchingIds.forEach(id => next.add(id));
+        return next;
+      });
+    }
+  }, [matchingIds]);
+
+  const toggleExpand = useCallback((id: number) => {
+    setExpandedNodes(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const expandAll = useCallback(() => setExpandedNodes(collectAllIds(treeData)), [treeData]);
+
+  const collapseAll = useCallback(() => {
+    setExpandedNodes(new Set(treeData.map(r => r.id)));
+  }, [treeData]);
+
+  const startEdit = useCallback((id: number, name: string) => {
+    setEditingNode(id);
+    setEditName(name);
+  }, []);
+
+  const saveEdit = useCallback(() => {
+    if (editingNode === null) return;
+    const trimmed = editName.trim();
+    if (!trimmed) {
+      setFamilyData(prev => {
+        const descIds = (pid: number): number[] => {
+          const kids = prev.filter(m => m.parentId === pid);
+          return [pid, ...kids.flatMap(k => descIds(k.id))];
+        };
+        return prev.filter(m => !new Set(descIds(editingNode)).has(m.id));
+      });
     } else {
-      // Update the node name and title
-      setFamilyData(familyData.map(item => 
-        item.id === editingNode ? { ...item, name: newNodeName, title: newNodeTitle } : item
-      ));
+      setFamilyData(prev =>
+        prev.map(m => (m.id === editingNode ? { ...m, name: trimmed } : m))
+      );
     }
     setEditingNode(null);
-  };
+  }, [editingNode, editName]);
 
-  // Function to handle key press in the edit input
-  const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>): void => {
-    if (e.key === 'Enter') {
-      handleSaveName();
-    } else if (e.key === 'Escape') {
-      setEditingNode(null);
-    }
-  };
-
-  // Function to remove a family member and all their descendants
-  const handleRemoveMember = (id: number): void => {
-    // Set operation flag to prevent unwanted state resets
-    operationInProgressRef.current = true;
-    
-    // Create a deep copy of the current collapsed nodes to preserve state
-    const currentCollapsedNodes = new Set([...collapsedNodes]);
-    
-    // Get all descendant IDs recursively
-    const getDescendantIds = (parentId: number): number[] => {
-      const directChildren = familyData.filter(item => item.parentId === parentId);
-      const childrenIds = directChildren.map(child => child.id);
-      const descendantIds = childrenIds.flatMap(childId => getDescendantIds(childId));
-      return [parentId, ...descendantIds];
-    };
-
-    const idsToRemove = getDescendantIds(id);
-    
-    // Remove the nodes from the family data
-    setFamilyData(prevData => prevData.filter(item => !idsToRemove.includes(item.id)));
-    
-    // Remove the deleted nodes from the collapsed nodes set
-    idsToRemove.forEach(nodeId => {
-      currentCollapsedNodes.delete(nodeId);
+  const cancelEdit = useCallback(() => {
+    if (editingNode === null) return;
+    setFamilyData(prev => {
+      const node = prev.find(m => m.id === editingNode);
+      if (node && !node.name.trim()) return prev.filter(m => m.id !== editingNode);
+      return prev;
     });
-    
-    // Update collapsed nodes state with our preserved copy
-    setCollapsedNodes(currentCollapsedNodes);
-    
-    // If we're removing the node being edited, clear the editing state
-    if (editingNode === id) {
-      setEditingNode(null);
+    setEditingNode(null);
+  }, [editingNode]);
+
+  const handleAddMember = useCallback((parentId: number | null) => {
+    const newId = nextIdRef.current++;
+    setFamilyData(prev => [...prev, { id: newId, name: '', parentId }]);
+    if (parentId !== null) {
+      setExpandedNodes(prev => new Set([...prev, parentId]));
     }
-    
-    // Reset operation flag after a short delay
-    setTimeout(() => {
-      operationInProgressRef.current = false;
-    }, 100);
-  };
+    setEditingNode(newId);
+    setEditName('');
+  }, []);
 
-  // Function to get siblings of a node (nodes with the same parent)
-  const getSiblingIds = (nodeId: number): number[] => {
-    const node = familyData.find(item => item.id === nodeId);
-    if (!node) return [];
-    
-    return familyData
-      .filter(item => item.parentId === node.parentId && item.id !== nodeId)
-      .map(item => item.id);
-  };
-
-  // Function to toggle collapse state of a node
-  const toggleCollapse = (id: number): void => {
-    setCollapsedNodes(prevCollapsed => {
-      const newCollapsed = new Set(prevCollapsed);
-      const isCurrentlyCollapsed = newCollapsed.has(id);
-      
-      if (isCurrentlyCollapsed) {
-        // If the node is currently collapsed, expand it and collapse its siblings
-        newCollapsed.delete(id);
-        
-        // Get all siblings and collapse them
-        const siblingIds = getSiblingIds(id);
-        siblingIds.forEach(siblingId => {
-          newCollapsed.add(siblingId);
-        });
-      } else {
-        // If the node is currently expanded, collapse it
-        newCollapsed.add(id);
-      }
-      
-      return newCollapsed;
+  const handleRemoveMember = useCallback((id: number) => {
+    if (!confirm('האם למחוק את השם הזה ואת כל הצאצאים שלו?')) return;
+    setFamilyData(prev => {
+      const descIds = (pid: number): number[] => {
+        const kids = prev.filter(m => m.parentId === pid);
+        return [pid, ...kids.flatMap(k => descIds(k.id))];
+      };
+      return prev.filter(m => !new Set(descIds(id)).has(m.id));
     });
-  };
+    setEditingNode(prev => (prev === id ? null : prev));
+  }, []);
 
-  // Function to download the tree as an image
-  const downloadAsImage = (): void => {
-    if (!treeContainerRef.current) return;
-    
-    // First, get all collapsed nodes and expand them temporarily
-    const tempCollapsedNodes = new Set(collapsedNodes);
-    setCollapsedNodes(new Set()); // Expand all nodes
-    
-    // Use setTimeout to ensure the DOM has updated with expanded nodes
-    setTimeout(() => {
-      import('html-to-image')
-        .then((htmlToImage) => {
-          // Set specific options for better quality and full capture
-          htmlToImage.toPng(treeContainerRef.current!, { 
-            quality: 1.0,
-            pixelRatio: 2,
-            width: treeContainerRef.current!.scrollWidth,
-            height: treeContainerRef.current!.scrollHeight,
-            style: {
-              transform: 'scale(1)',
-              transformOrigin: 'top left',
-              width: `${treeContainerRef.current!.scrollWidth}px`,
-              height: `${treeContainerRef.current!.scrollHeight}px`,
-            }
-          })
-            .then((dataUrl: string) => {
-              const link = document.createElement('a');
-              link.download = 'family-tree.png';
-              link.href = dataUrl;
-              link.click();
-              
-              // Restore collapsed nodes after download
-              setCollapsedNodes(tempCollapsedNodes);
-            })
-            .catch((error: Error) => {
-              console.error('Error generating image:', error);
-              alert('Failed to generate image. Check console for details.');
-              // Restore collapsed nodes if there's an error
-              setCollapsedNodes(tempCollapsedNodes);
-            });
-        })
-        .catch((error: Error) => {
-          console.error('Error loading html-to-image:', error);
-          alert('Failed to load image generation library.');
-          // Restore collapsed nodes if there's an error
-          setCollapsedNodes(tempCollapsedNodes);
-        });
-    }, 300); // Wait for DOM to update
-  };
-
-  // Function to save the tree data
-  const saveTree = async (): Promise<void> => {
+  const saveTree = useCallback(async () => {
     try {
-      const response = await fetch('/api/family-tree', {
+      const res = await fetch('/api/family-tree', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(familyData)
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(familyData),
       });
-      
-      if (!response.ok) {
-        throw new Error('Failed to save tree');
-      }
-      
-      alert('Family tree saved successfully!');
-    } catch (error) {
-      console.error('Error saving tree:', error);
-      alert('Failed to save tree. Check console for details.');
+      if (!res.ok) throw new Error('Save failed');
+      showToast('העץ נשמר בהצלחה!');
+    } catch {
+      showToast('שגיאה בשמירה', 'error');
     }
-  };
+  }, [familyData, showToast]);
 
-  // Initialize collapsed nodes when family data is loaded - only on initial load
-  useEffect(() => {
-    // Skip initialization if an operation is in progress
-    if (operationInProgressRef.current) return;
-    
-    if (familyData.length > 0) {
-      // Only initialize if collapsedNodes is empty (first load)
-      if (collapsedNodes.size === 0) {
-        // Initially collapse all nodes that have children
-        const nodesToCollapse = new Set<number>();
-        
-        // Function to process a node and its children - collapse ALL nodes with children
-        const processNode = (node: TreeNodeData) => {
-          // Collapse all nodes with children
-          if (node.children.length > 0) {
-            nodesToCollapse.add(node.id);
-          }
-          
-          // Process all children
-          node.children.forEach(child => {
-            processNode(child);
-          });
-        };
-        
-        // Build the tree and process all nodes
-        const tree = buildTree(familyData);
-        tree.forEach(rootNode => {
-          processNode(rootNode);
-        });
-        
-        // Don't collapse the root nodes
-        tree.forEach(rootNode => {
-          nodesToCollapse.delete(rootNode.id);
-        });
-        
-        setCollapsedNodes(nodesToCollapse);
-      }
+  const downloadAsImage = useCallback(async () => {
+    if (!treeRef.current) return;
+    const saved = new Set(expandedNodes);
+    setExpandedNodes(collectAllIds(treeData));
+    await new Promise(r => setTimeout(r, 600));
+    try {
+      const { toPng } = await import('html-to-image');
+      const url = await toPng(treeRef.current, {
+        quality: 1.0,
+        pixelRatio: 2,
+        backgroundColor: '#0a0e1a',
+      });
+      const a = document.createElement('a');
+      a.download = 'family-tree.png';
+      a.href = url;
+      a.click();
+      showToast('התמונה הורדה!');
+    } catch {
+      showToast('שגיאה בהורדת התמונה', 'error');
     }
-  }, [familyData, buildTree, collapsedNodes.size]); // Only run when familyData changes and collapsedNodes is empty
+    setExpandedNodes(saved);
+  }, [expandedNodes, treeData, showToast]);
 
-  // Recursive component to render a tree node
-  const renderTreeNode = (node: TreeNodeData) => {
-    const isEditing = editingNode === node.id;
-    const isCollapsed = collapsedNodes.has(node.id);
-    const hasChildren = node.children.length > 0;
+  const shouldShow = useCallback(
+    (id: number) => !matchingIds || matchingIds.has(id),
+    [matchingIds]
+  );
 
-    // Separate handler specifically for the photo container
-    const handlePhotoClick = (e: React.MouseEvent) => {
-      e.stopPropagation();
-      
-      // Only allow expand/collapse when not in edit mode
-      if (hasChildren && !isEditing) {
-        toggleCollapse(node.id);
-      }
-    };
+  const isSearchMatch = useCallback(
+    (id: number) => {
+      const q = searchQuery.trim().toLowerCase();
+      if (!q) return false;
+      const m = familyData.find(x => x.id === id);
+      return m ? m.name.toLowerCase().includes(q) : false;
+    },
+    [searchQuery, familyData]
+  );
 
-    // Handler for clicking on the name/title area
-    const handleNameClick = (e: React.MouseEvent) => {
-      e.stopPropagation();
-      
-      if (!isEditing) {
-        setEditingNode(node.id);
-        setNewNodeName(node.name);
-        setNewNodeTitle(node.title || '');
-      }
-    };
+  const renderNode = (
+    node: TreeNode,
+    isLast: boolean,
+    guides: boolean[]
+  ): React.ReactNode => {
+    if (!shouldShow(node.id)) return null;
 
-    // Prevent any click on the node container from propagating
-    const preventPropagation = (e: React.MouseEvent) => {
-      e.stopPropagation();
-    };
+    const expanded = expandedNodes.has(node.id);
+    const hasKids = node.children.length > 0;
+    const editing = editingNode === node.id;
+    const matched = isSearchMatch(node.id);
+    const desc = countDescendants(node);
+    const visibleKids = matchingIds
+      ? node.children.filter(c => shouldShow(c.id))
+      : node.children;
 
     return (
-      <StyledTreeNode
-        key={node.id}
-        label={
-          <div 
-            id={`node-${node.id}`} 
-            style={{ margin: '0 4px' }} 
-            onClick={preventPropagation}
-          >
-            <StyledNode onClick={preventPropagation}>
-              {/* Photo container - only this should trigger expand/collapse */}
-              <PhotoContainer 
-                onClick={handlePhotoClick}
-                style={{ 
-                  cursor: hasChildren ? 'pointer' : 'default',
-                  opacity: isEditing ? 0.7 : 1 // Slightly dim the photo when in edit mode
-                }}
-              >
-                {node.photo ? (
-                  <Photo src={node.photo} alt={node.name} />
-                ) : (
-                  <DefaultPhoto>🐕</DefaultPhoto>
-                )}
-              </PhotoContainer>
-              
-              {isEditing ? (
-                // Edit mode content
-                <div 
-                  onClick={preventPropagation}
-                  className="edit-container"
-                >
-                  <input
-                    type="text"
-                    value={newNodeName}
-                    onChange={(e) => setNewNodeName(e.target.value)}
-                    onBlur={handleSaveName}
-                    onKeyDown={handleKeyPress}
-                    className="bg-transparent border-b border-gray-300 focus:outline-none focus:border-blue-500 w-full text-center mb-2"
-                    placeholder="Name"
-                    dir="rtl"
-                    autoFocus
-                    onClick={preventPropagation}
-                  />
-                  <input
-                    type="text"
-                    value={newNodeTitle}
-                    onChange={(e) => setNewNodeTitle(e.target.value)}
-                    onKeyDown={handleKeyPress}
-                    className="bg-transparent border-b border-gray-300 focus:outline-none focus:border-blue-500 w-full text-center text-sm"
-                    placeholder="Title/Description"
-                    dir="rtl"
-                    onClick={preventPropagation}
-                  />
-                </div>
-              ) : (
-                // Normal view - name/title with edit buttons if in edit mode
-                <div className="node-content">
-                  <div 
-                    onClick={handleNameClick} 
-                    style={{ cursor: 'pointer' }}
-                  >
-                    <NodeTitle>
-                      {node.name}
-                      {hasChildren && (
-                        <span className="ml-2 text-gray-400 text-xs">
-                          {isCollapsed ? '▼' : '▲'}
-                        </span>
-                      )}
-                    </NodeTitle>
-                    {node.title && <NodeSubtitle>{node.title}</NodeSubtitle>}
-                  </div>
-                  
-                  {/* Action buttons - only shown when global edit mode is active */}
-                  {isEditMode && (
-                    <div 
-                      className="button-container mt-2"
-                      onClick={(e) => { 
-                        e.stopPropagation(); 
-                        e.preventDefault();
-                        if (e.nativeEvent) {
-                          e.nativeEvent.stopImmediatePropagation();
-                          e.nativeEvent.preventDefault();
-                        }
-                      }}
-                    >
-                      {/* Use a div wrapper with onClick instead of a button to avoid event bubbling issues */}
-                      <div
-                        className="add-button bg-blue-500 hover:bg-blue-600 text-white rounded-md px-2 py-1 text-sm mr-2 cursor-pointer"
-                        onClick={(e) => {
-                          // Stop all event propagation
-                          e.stopPropagation();
-                          e.preventDefault();
-                          if (e.nativeEvent) {
-                            e.nativeEvent.stopImmediatePropagation();
-                            e.nativeEvent.preventDefault();
-                          }
-                          
-                          // Use requestAnimationFrame to ensure we're outside the current render cycle
-                          requestAnimationFrame(() => {
-                            handleAddMember(node.id);
-                          });
-                          
-                          return false;
-                        }}
-                      >
-                        הוסף ילד
-                      </div>
-                      <div
-                        className="remove-button bg-red-500 hover:bg-red-600 text-white rounded-md px-2 py-1 text-sm cursor-pointer"
-                        onClick={(e) => {
-                          // Stop all event propagation
-                          e.stopPropagation();
-                          e.preventDefault();
-                          if (e.nativeEvent) {
-                            e.nativeEvent.stopImmediatePropagation();
-                            e.nativeEvent.preventDefault();
-                          }
-                          
-                          // Use requestAnimationFrame to ensure we're outside the current render cycle
-                          requestAnimationFrame(() => {
-                            handleRemoveMember(node.id);
-                          });
-                          
-                          return false;
-                        }}
-                      >
-                        הסר
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-            </StyledNode>
-          </div>
-        }
-      >
-        {!isCollapsed && node.children.map(childNode => renderTreeNode(childNode))}
-      </StyledTreeNode>
-    );
-  };
+      <div key={node.id} id={`ft-node-${node.id}`}>
+        {/* Row */}
+        <div
+          className={`ft-row${matched ? ' ft-row-match' : ''}${editing ? '' : ' ft-row-interactive'}`}
+          onClick={() => {
+            if (!editing && hasKids) toggleExpand(node.id);
+          }}
+        >
+          {/* Ancestor guide columns */}
+          {guides.map((show, i) => (
+            <div key={i} className="ft-guide">
+              {show && <div className="ft-guide-vline" />}
+            </div>
+          ))}
 
-  // Build the tree structure
-  const treeData = buildTree(familyData);
-
-  // Add some additional styles to ensure buttons work correctly
-  const additionalStyles = `
-    .button-container {
-      display: flex;
-      justify-content: center;
-      margin-top: 8px;
-      position: relative;
-      z-index: 10;
-      pointer-events: auto;
-    }
-    
-    .edit-container {
-      position: relative;
-      z-index: 5;
-    }
-    
-    .node-content {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      width: 100%;
-    }
-    
-    /* Style for button-like divs */
-    .add-button, .remove-button {
-      display: inline-block;
-      text-align: center;
-      position: relative;
-      z-index: 20;
-      cursor: pointer;
-      pointer-events: auto;
-      user-select: none;
-    }
-    
-    /* Prevent click events from bubbling through buttons */
-    .button-container div {
-      isolation: isolate;
-    }
-  `;
-
-  return (
-    <div className="family-tree-container p-8 max-w-full overflow-auto print:p-0 bg-gray-50 min-h-screen">
-      <div className="controls mb-8 print:hidden">
-        <h1 className="text-3xl font-bold text-gray-800 mb-4 text-center">
-          שמות האוליבון
-        </h1>
-        <div className="flex flex-wrap gap-4 justify-center mb-4">
-          <button 
-            onClick={saveTree}
-            className="bg-gray-800 hover:bg-gray-900 text-white px-4 py-2 rounded-md flex items-center"
-          >
-            <span className="mr-2">💾</span>
-            שמירה
-          </button>
-          
-          <button 
-            onClick={() => window.print()}
-            className="bg-gray-700 hover:bg-gray-800 text-white px-4 py-2 rounded-md flex items-center"
-          >
-            <span className="mr-2">🖨️</span>
-            הדפס
-          </button>
-          
-          <button 
-            onClick={downloadAsImage}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md flex items-center"
-          >
-            <span className="mr-2">📷</span>
-            הורד כתמונה
-          </button>
-          
-          <button 
-            onClick={() => setIsEditMode(!isEditMode)}
-            className={`px-4 py-2 rounded-md flex items-center ${
-              isEditMode 
-                ? 'bg-indigo-600 hover:bg-indigo-700 text-white' 
-                : 'bg-gray-200 hover:bg-gray-300 text-gray-800'
-            }`}
-          >
-            <span className="mr-2">{isEditMode ? '✓' : '✏️'}</span>
-            {isEditMode ? 'צא ממצב עריכה' : 'הכנס למצב עריכה'}
-          </button>
-        </div>
-      </div>
-
-      <div className="instructions bg-blue-50 p-4 rounded-md mb-6 print:hidden text-center">
-        <p className="text-blue-800">
-          <span className="font-bold">הוראות:</span> 
-          לחצו על תמונה כדי להרחיב/לכווץ תחתונים. לחצו על שם כדי לערוך אותו. 
-          {isEditMode ? (
-            <span> השימוש בכפתורים להוספת ילד ולהסרת ילד.</span>
-          ) : (
-            <span> לחצו על &quot;הכנס למצב עריכה&quot; כדי להציג אפשרויות הוספה והסרה.</span>
+          {/* This node's connector */}
+          {node.parentId !== null && (
+            <div className="ft-guide">
+              <div className={`ft-conn-v${isLast ? ' ft-conn-v-last' : ''}`} />
+              <div className="ft-conn-h" />
+            </div>
           )}
-        </p>
-      </div>
 
-      <div 
-        ref={treeContainerRef}
-        className="tree-wrapper bg-white p-8 rounded-md shadow-md print:bg-white print:shadow-none border border-gray-200 overflow-x-auto"
-      >
-        <div className="min-w-max flex justify-center">
-          {treeData.length > 0 ? (
-            <StyledTree
-              lineWidth={'1px'}
-              lineColor={'#d1d5db'}
-              lineBorderRadius={'0px'}
-              nodePadding={'2px'}
-              lineHeight={'10px'}
-              label={<div className="text-gray-500 font-medium mb-2">משפחת הבונים</div>}
-            >
-              {treeData.map(rootNode => renderTreeNode(rootNode))}
-            </StyledTree>
-          ) : (
-            <div className="text-center">
-              <p className="text-gray-500 text-lg mb-4">אין שמות בעץ המשפחה עדיין!</p>
-              <button 
-                onClick={() => handleAddMember(null)}
-                className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-md flex items-center mx-auto"
+          {/* Expand chevron */}
+          <div className="ft-expand">
+            {hasKids && (
+              <motion.svg
+                width="10"
+                height="10"
+                viewBox="0 0 10 10"
+                className="ft-chevron"
+                animate={{ rotate: expanded ? 90 : 180 }}
+                transition={{ duration: 0.15 }}
               >
-                <span className="mr-2">+</span>
-                הוספת שם ראשון
+                <path
+                  d="M3 1L7 5L3 9"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                />
+              </motion.svg>
+            )}
+          </div>
+
+          {/* Avatar */}
+          <div className="ft-avatar">🐕</div>
+
+          {/* Name */}
+          <div className="ft-name-area" dir="rtl">
+            {editing ? (
+              <input
+                ref={editInputRef}
+                type="text"
+                value={editName}
+                onChange={e => setEditName(e.target.value)}
+                onBlur={saveEdit}
+                onKeyDown={e => {
+                  if (e.key === 'Enter') saveEdit();
+                  if (e.key === 'Escape') cancelEdit();
+                }}
+                className="ft-name-input"
+                dir="rtl"
+                placeholder="שם..."
+                onClick={e => e.stopPropagation()}
+              />
+            ) : (
+              <span className={`ft-name${matched ? ' ft-name-hl' : ''}`}>
+                {node.name || '(ללא שם)'}
+              </span>
+            )}
+          </div>
+
+          {/* Descendant count */}
+          {desc > 0 && !editing && <span className="ft-badge">{desc}</span>}
+
+          {/* Edit actions */}
+          {isEditMode && !editing && (
+            <div className="ft-actions">
+              <button
+                className="ft-act"
+                onClick={e => {
+                  e.stopPropagation();
+                  startEdit(node.id, node.name);
+                }}
+                title="ערוך שם"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M17 3a2.85 2.85 0 114 4L7.5 20.5 2 22l1.5-5.5Z" /><path d="m15 5 4 4" /></svg>
+              </button>
+              <button
+                className="ft-act ft-act-add"
+                onClick={e => {
+                  e.stopPropagation();
+                  handleAddMember(node.id);
+                }}
+                title="הוסף ילד"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M12 5v14M5 12h14" /></svg>
+              </button>
+              <button
+                className="ft-act ft-act-del"
+                onClick={e => {
+                  e.stopPropagation();
+                  handleRemoveMember(node.id);
+                }}
+                title="מחק"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M18 6 6 18M6 6l12 12" /></svg>
               </button>
             </div>
           )}
         </div>
+
+        {/* Children */}
+        <AnimatePresence initial={false}>
+          {expanded && visibleKids.length > 0 && (
+            <motion.div
+              key={`kids-${node.id}`}
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.2, ease: [0.04, 0.62, 0.23, 0.98] }}
+              style={{ overflow: 'hidden' }}
+            >
+              {visibleKids.map((child, i) =>
+                renderNode(
+                  child,
+                  i === visibleKids.length - 1,
+                  node.parentId !== null ? [...guides, !isLast] : guides
+                )
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+    );
+  };
+
+  /* ── Loading skeleton ─────────────────────────────── */
+  if (isLoading) {
+    return (
+      <div className="ft-container">
+        <div className="ft-header">
+          <div className="ft-skel-title" />
+          <div className="ft-skel-subtitle" />
+        </div>
+        <div className="ft-tree">
+          {Array.from({ length: 10 }).map((_, i) => (
+            <div
+              key={i}
+              className="ft-skel-row"
+              style={{ paddingInlineStart: `${Math.min(i * 20, 100)}px` }}
+            >
+              <div className="ft-skel-circle" />
+              <div
+                className="ft-skel-bar"
+                style={{ width: `${60 + Math.random() * 80}px` }}
+              />
+            </div>
+          ))}
+        </div>
+        <style>{STYLES}</style>
+      </div>
+    );
+  }
+
+  const totalMembers = familyData.length;
+  const rootCount = treeData.length;
+  const matchCount = matchingIds
+    ? familyData.filter(m => m.name.toLowerCase().includes(searchQuery.trim().toLowerCase())).length
+    : null;
+
+  return (
+    <div className="ft-container">
+      {/* Toast */}
+      <AnimatePresence>
+        {toast && (
+          <motion.div
+            className={`ft-toast ${toast.type === 'error' ? 'ft-toast-err' : 'ft-toast-ok'}`}
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+          >
+            {toast.message}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Header */}
+      <div className="ft-header print-hide">
+        <h1 className="ft-title">שמות האוליבון</h1>
+        <p className="ft-subtitle">
+          {totalMembers} שמות · {rootCount} {rootCount === 1 ? 'שורש' : 'שורשים'}
+        </p>
+
+        {/* Search */}
+        <div className="ft-search-wrap">
+          <svg
+            className="ft-search-icon"
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+          >
+            <circle cx="11" cy="11" r="8" />
+            <path d="M21 21l-4.35-4.35" />
+          </svg>
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+            placeholder="חיפוש שם..."
+            className="ft-search"
+            dir="rtl"
+          />
+          {searchQuery && (
+            <button onClick={() => setSearchQuery('')} className="ft-search-clear">
+              ✕
+            </button>
+          )}
+        </div>
+        {matchCount !== null && (
+          <p className="ft-match-count">
+            {matchCount} {matchCount === 1 ? 'תוצאה' : 'תוצאות'}
+          </p>
+        )}
+
+        {/* Controls */}
+        <div className="ft-controls">
+          <button onClick={expandAll} className="ft-ctrl">
+            הרחב הכל
+          </button>
+          <button onClick={collapseAll} className="ft-ctrl">
+            כווץ הכל
+          </button>
+          <div className="ft-ctrl-div" />
+          <button onClick={saveTree} className="ft-ctrl ft-ctrl-gold">
+            💾 שמור
+          </button>
+          <button onClick={downloadAsImage} className="ft-ctrl">
+            📷 הורד כתמונה
+          </button>
+          <button
+            onClick={() => setIsEditMode(!isEditMode)}
+            className={`ft-ctrl ${isEditMode ? 'ft-ctrl-active' : ''}`}
+          >
+            {isEditMode ? '✓ סיום עריכה' : '✏️ עריכה'}
+          </button>
+        </div>
       </div>
 
-      <style jsx>{`
-        @media print {
-          .family-tree-container {
-            width: 100%;
-            height: 100%;
-            background-color: white;
-          }
-          .tree-wrapper {
-            width: 100%;
-            border: none;
-          }
-        }
-      `}</style>
-      
-      {/* Global styles to fix the org chart lines */}
-      <style jsx global>{`
-        .oc-tree {
-          padding: 10px 0;
-        }
-        
-        .oc-tree-node {
-          padding: 0;
-        }
-        
-        .oc-tree-node-children {
-          margin-top: 0 !important;
-          padding-top: 10px;
-        }
-        
-        .oc-tree-node-line {
-          height: 10px !important;
-        }
-        
-        /* Reduce spacing between siblings */
-        .oc-hierarchy {
-          gap: 5px !important;
-        }
-        
-        /* Additional styles for button handling */
-        ${additionalStyles}
-      `}</style>
+      {/* Tree */}
+      <div ref={treeRef} className="ft-tree">
+        {treeData.length > 0 ? (
+          treeData.map((root, i) =>
+            renderNode(root, i === treeData.length - 1, [])
+          )
+        ) : (
+          <div className="ft-empty">
+            <div className="ft-empty-icon">🐕</div>
+            <p>אין שמות בעץ המשפחה עדיין!</p>
+            {isEditMode && (
+              <button
+                className="ft-empty-btn"
+                onClick={() => handleAddMember(null)}
+              >
+                + הוסף שם ראשון
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+
+      <style>{STYLES}</style>
     </div>
   );
 };
 
-export default FamilyTreeOrgChart; 
+/* ── Styles ──────────────────────────────────────────── */
+
+const STYLES = `
+/* Container */
+.ft-container {
+  max-width: 820px;
+  margin: 0 auto;
+  padding: 1.5rem 1rem 3rem;
+}
+
+/* Header */
+.ft-header {
+  text-align: center;
+  margin-bottom: 1.5rem;
+}
+
+.ft-title {
+  font-size: 2rem;
+  font-weight: 800;
+  margin: 0 0 0.25rem;
+  background: linear-gradient(135deg, #c9a84c 0%, #e8d5a3 50%, #c9a84c 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.ft-subtitle {
+  color: rgba(240, 236, 226, 0.35);
+  font-size: 0.85rem;
+  margin: 0 0 1.25rem;
+}
+
+/* Search */
+.ft-search-wrap {
+  position: relative;
+  max-width: 380px;
+  margin: 0 auto 0.75rem;
+}
+
+.ft-search-icon {
+  position: absolute;
+  inset-inline-start: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: rgba(201, 168, 76, 0.35);
+  pointer-events: none;
+}
+
+.ft-search {
+  width: 100%;
+  padding: 0.6rem 2.5rem;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(201, 168, 76, 0.12);
+  border-radius: 0.75rem;
+  color: #f0ece2;
+  font-size: 0.875rem;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.ft-search:focus {
+  border-color: rgba(201, 168, 76, 0.35);
+}
+
+.ft-search::placeholder {
+  color: rgba(240, 236, 226, 0.25);
+}
+
+.ft-search-clear {
+  position: absolute;
+  inset-inline-end: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  color: rgba(240, 236, 226, 0.3);
+  cursor: pointer;
+  font-size: 0.8rem;
+  padding: 4px;
+  line-height: 1;
+}
+
+.ft-match-count {
+  color: rgba(201, 168, 76, 0.5);
+  font-size: 0.8rem;
+  margin: 0 0 0.75rem;
+}
+
+/* Controls */
+.ft-controls {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.ft-ctrl {
+  padding: 0.4rem 0.9rem;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 0.5rem;
+  color: rgba(240, 236, 226, 0.55);
+  font-size: 0.8rem;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.ft-ctrl:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(201, 168, 76, 0.2);
+  color: #f0ece2;
+}
+
+.ft-ctrl-gold {
+  border-color: rgba(201, 168, 76, 0.25);
+  color: #c9a84c;
+}
+
+.ft-ctrl-gold:hover {
+  background: rgba(201, 168, 76, 0.1);
+  border-color: rgba(201, 168, 76, 0.4);
+}
+
+.ft-ctrl-active {
+  background: rgba(201, 168, 76, 0.12);
+  border-color: rgba(201, 168, 76, 0.3);
+  color: #c9a84c;
+}
+
+.ft-ctrl-div {
+  width: 1px;
+  height: 20px;
+  background: rgba(255, 255, 255, 0.08);
+  margin: 0 0.15rem;
+}
+
+/* Tree panel */
+.ft-tree {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 1rem;
+  padding: 0.5rem 0.35rem;
+  min-height: 120px;
+}
+
+/* ── Node row ───────────────────────────────── */
+.ft-row {
+  display: flex;
+  align-items: center;
+  height: 2.75rem;
+  border-radius: 0.5rem;
+  margin: 1px 2px;
+  padding-inline-end: 8px;
+  transition: background-color 0.15s;
+  position: relative;
+}
+
+.ft-row-interactive {
+  cursor: pointer;
+}
+
+.ft-row-interactive:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.ft-row-match {
+  background: rgba(201, 168, 76, 0.06) !important;
+}
+
+/* ── Guide columns & connectors ─────────────── */
+.ft-guide {
+  width: 22px;
+  height: 2.75rem;
+  position: relative;
+  flex-shrink: 0;
+}
+
+.ft-guide-vline {
+  position: absolute;
+  inset-inline-start: 10px;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: rgba(201, 168, 76, 0.12);
+}
+
+.ft-conn-v {
+  position: absolute;
+  inset-inline-start: 10px;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: rgba(201, 168, 76, 0.12);
+}
+
+.ft-conn-v-last {
+  bottom: 50%;
+}
+
+.ft-conn-h {
+  position: absolute;
+  inset-inline-start: 10px;
+  top: 50%;
+  width: 12px;
+  height: 1px;
+  background: rgba(201, 168, 76, 0.12);
+}
+
+/* ── Expand chevron ─────────────────────────── */
+.ft-expand {
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.ft-chevron {
+  color: rgba(201, 168, 76, 0.35);
+  transition: color 0.15s;
+}
+
+.ft-row-interactive:hover .ft-chevron {
+  color: rgba(201, 168, 76, 0.65);
+}
+
+/* ── Avatar ─────────────────────────────────── */
+.ft-avatar {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: rgba(201, 168, 76, 0.07);
+  border: 1px solid rgba(201, 168, 76, 0.15);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-size: 0.9rem;
+  margin-inline-start: 2px;
+}
+
+/* ── Name ───────────────────────────────────── */
+.ft-name-area {
+  flex: 1;
+  min-width: 0;
+  margin-inline: 10px;
+}
+
+.ft-name {
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: rgba(240, 236, 226, 0.88);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: block;
+}
+
+.ft-name-hl {
+  color: #c9a84c;
+  font-weight: 600;
+}
+
+.ft-name-input {
+  width: 100%;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(201, 168, 76, 0.35);
+  border-radius: 6px;
+  padding: 3px 10px;
+  color: #f0ece2;
+  font-size: 0.9rem;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.ft-name-input:focus {
+  border-color: rgba(201, 168, 76, 0.55);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+/* ── Badge ──────────────────────────────────── */
+.ft-badge {
+  font-size: 0.7rem;
+  color: rgba(240, 236, 226, 0.3);
+  background: rgba(255, 255, 255, 0.04);
+  padding: 1px 8px;
+  border-radius: 10px;
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Action buttons ─────────────────────────── */
+.ft-actions {
+  display: flex;
+  gap: 2px;
+  opacity: 0;
+  transition: opacity 0.15s;
+  margin-inline-start: 4px;
+  flex-shrink: 0;
+}
+
+.ft-row:hover .ft-actions {
+  opacity: 1;
+}
+
+.ft-act {
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(240, 236, 226, 0.35);
+  transition: all 0.15s;
+  padding: 0;
+}
+
+.ft-act:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(240, 236, 226, 0.8);
+}
+
+.ft-act-add:hover {
+  color: #4ade80;
+  background: rgba(74, 222, 128, 0.1);
+}
+
+.ft-act-del:hover {
+  color: #f87171;
+  background: rgba(248, 113, 113, 0.1);
+}
+
+/* ── Empty state ────────────────────────────── */
+.ft-empty {
+  text-align: center;
+  padding: 3rem 1rem;
+  color: rgba(240, 236, 226, 0.35);
+}
+
+.ft-empty-icon {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+}
+
+.ft-empty-btn {
+  margin-top: 1rem;
+  padding: 0.55rem 1.5rem;
+  background: rgba(201, 168, 76, 0.12);
+  border: 1px solid rgba(201, 168, 76, 0.3);
+  border-radius: 0.6rem;
+  color: #c9a84c;
+  cursor: pointer;
+  font-size: 0.875rem;
+  font-family: inherit;
+  transition: all 0.2s;
+}
+
+.ft-empty-btn:hover {
+  background: rgba(201, 168, 76, 0.2);
+  border-color: rgba(201, 168, 76, 0.5);
+}
+
+/* ── Toast ──────────────────────────────────── */
+.ft-toast {
+  position: fixed;
+  top: 1.25rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 200;
+  padding: 0.65rem 1.5rem;
+  border-radius: 0.75rem;
+  font-size: 0.85rem;
+  font-weight: 500;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.ft-toast-ok {
+  background: rgba(74, 222, 128, 0.12);
+  border: 1px solid rgba(74, 222, 128, 0.25);
+  color: #4ade80;
+}
+
+.ft-toast-err {
+  background: rgba(248, 113, 113, 0.12);
+  border: 1px solid rgba(248, 113, 113, 0.25);
+  color: #f87171;
+}
+
+/* ── Loading skeletons ──────────────────────── */
+.ft-skel-title {
+  width: 200px;
+  height: 28px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.04);
+  margin: 0 auto 8px;
+  animation: ft-pulse 1.5s ease-in-out infinite;
+}
+
+.ft-skel-subtitle {
+  width: 120px;
+  height: 14px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.03);
+  margin: 0 auto 24px;
+  animation: ft-pulse 1.5s ease-in-out infinite;
+}
+
+.ft-skel-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+}
+
+.ft-skel-circle {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.04);
+  flex-shrink: 0;
+  animation: ft-pulse 1.5s ease-in-out infinite;
+}
+
+.ft-skel-bar {
+  height: 14px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.04);
+  animation: ft-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes ft-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+/* ── Mobile ─────────────────────────────────── */
+@media (max-width: 640px) {
+  .ft-container {
+    padding: 1rem 0.5rem 2rem;
+  }
+
+  .ft-title {
+    font-size: 1.5rem;
+  }
+
+  .ft-subtitle {
+    font-size: 0.8rem;
+  }
+
+  .ft-guide {
+    width: 18px;
+  }
+
+  .ft-guide-vline,
+  .ft-conn-v {
+    inset-inline-start: 8px;
+  }
+
+  .ft-conn-h {
+    inset-inline-start: 8px;
+    width: 10px;
+  }
+
+  .ft-avatar {
+    width: 26px;
+    height: 26px;
+    font-size: 0.8rem;
+  }
+
+  .ft-name {
+    font-size: 0.82rem;
+  }
+
+  .ft-row {
+    height: 2.5rem;
+  }
+
+  .ft-guide {
+    height: 2.5rem;
+  }
+
+  .ft-controls {
+    gap: 0.3rem;
+  }
+
+  .ft-ctrl {
+    padding: 0.35rem 0.7rem;
+    font-size: 0.75rem;
+  }
+
+  .ft-actions {
+    opacity: 1;
+  }
+
+  .ft-act {
+    width: 28px;
+    height: 28px;
+  }
+}
+
+/* ── Print ──────────────────────────────────── */
+.print-hide {
+  /* visible normally */
+}
+
+@media print {
+  .print-hide {
+    display: none !important;
+  }
+
+  .ft-tree {
+    background: white;
+    border: none;
+  }
+
+  .ft-name {
+    color: #111 !important;
+  }
+
+  .ft-guide-vline,
+  .ft-conn-v,
+  .ft-conn-h {
+    background: #d1d5db !important;
+  }
+
+  .ft-avatar {
+    background: #f3f4f6;
+    border-color: #e5e7eb;
+  }
+
+  .ft-badge {
+    color: #6b7280;
+    background: #f3f4f6;
+  }
+}
+`;
+
+export default FamilyTreeOrgChart;

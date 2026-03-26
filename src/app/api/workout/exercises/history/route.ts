@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import mongoose from 'mongoose';
 import WorkoutModel from '@/models/Workout';
 import { UserId, ExerciseHistoryEntry, WorkoutSet } from '@/types/workout';
+import { resolveExerciseId } from '@/data/exercise-library';
 
 // Connect to MongoDB using mongoose
 async function connectDB() {
@@ -65,8 +66,9 @@ export async function GET(request: NextRequest) {
     
     for (const workout of workouts) {
       for (const exercise of workout.exercises) {
-        // Filter by exerciseId if provided
-        if (exerciseId && exercise.exerciseId !== exerciseId) {
+        // Filter by exerciseId if provided (resolve aliases for merged exercises)
+        const resolvedId = resolveExerciseId(exercise.exerciseId);
+        if (exerciseId && resolvedId !== exerciseId) {
           continue;
         }
         

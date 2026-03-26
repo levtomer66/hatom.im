@@ -263,6 +263,32 @@
   flex-shrink: 0;
 }
 
+.exercise-card-photo-clickable {
+  cursor: pointer;
+  position: relative;
+  transition: opacity 0.15s;
+}
+
+.exercise-card-photo-clickable:active {
+  opacity: 0.7;
+}
+
+.exercise-card-photo-hint {
+  position: absolute;
+  bottom: -2px;
+  right: -2px;
+  font-size: 12px;
+  width: 20px;
+  height: 20px;
+  background-color: var(--workout-bg-card);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--workout-border);
+  line-height: 1;
+}
+
 .exercise-card-info {
   flex: 1;
   min-width: 0;

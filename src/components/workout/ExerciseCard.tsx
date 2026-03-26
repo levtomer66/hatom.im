@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useState, useRef, useEffect } from 'react';
-import { WorkoutExercise, WorkoutSet, PersonalBest, ExerciseDefinition, isExerciseCompleted, getHighestWeight, MIN_SETS, MAX_SETS, formatRepsDisplay } from '@/types/workout';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { WorkoutExercise, WorkoutSet, PersonalBest, ExerciseDefinition, ExerciseHistoryEntry, isExerciseCompleted, getHighestWeight, MIN_SETS, MAX_SETS, formatRepsDisplay } from '@/types/workout';
 import { getExerciseById } from '@/data/exercise-library';
+import { useWorkoutUser } from '@/context/WorkoutUserContext';
 
 interface ExerciseCardProps {
   exercise: WorkoutExercise;
@@ -22,6 +23,8 @@ export default function ExerciseCard({
   onUpdate,
   onRemove,
 }: ExerciseCardProps) {
+  const { currentUser } = useWorkoutUser();
+  
   // Use provided definition or fall back to library lookup
   const exerciseDef = exerciseDefinition || getExerciseById(exercise.exerciseId);
   const isCompleted = isExerciseCompleted(exercise);
@@ -33,9 +36,40 @@ export default function ExerciseCard({
   // Track if card is expanded for editing - always start collapsed
   const [isExpanded, setIsExpanded] = useState(false);
   
+  // History modal state
+  const [showHistory, setShowHistory] = useState(false);
+  const [history, setHistory] = useState<ExerciseHistoryEntry[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+  
   // Refs for keyboard navigation and focus tracking
   const cardRef = useRef<HTMLDivElement>(null);
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
+  
+  // Fetch exercise history when modal opens
+  const fetchHistory = useCallback(async () => {
+    if (!currentUser) return;
+    
+    setLoadingHistory(true);
+    try {
+      const res = await fetch(
+        `/api/workout/exercises/history?userId=${currentUser.id}&exerciseId=${exercise.exerciseId}`
+      );
+      if (res.ok) {
+        const data = await res.json();
+        setHistory(data);
+      }
+    } catch (error) {
+      console.error('Error fetching history:', error);
+    } finally {
+      setLoadingHistory(false);
+    }
+  }, [currentUser, exercise.exerciseId]);
+
+  const openHistory = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setShowHistory(true);
+    fetchHistory();
+  };
   
   // Collapse when clicking/tapping outside the card
   useEffect(() => {
@@ -78,22 +112,6 @@ export default function ExerciseCard({
 
   // Get recommended scale from PB
   const recommendedScale = pb?.recommendedKg ?? null;
-  
-  // Build PB + latest attempt display info
-  const pbInfo = pb ? {
-    completed: pb.completedKg !== null ? {
-      kg: pb.completedKg,
-      reps: formatRepsDisplay(pb.completedReps),
-    } : null,
-    latest: {
-      kg: pb.currentKg,
-      reps: formatRepsDisplay(pb.currentReps),
-    },
-    // Don't show latest separately if it's the same as the completed PB
-    showLatest: pb.completedKg === null ||
-      pb.currentKg !== pb.completedKg ||
-      formatRepsDisplay(pb.currentReps) !== formatRepsDisplay(pb.completedReps),
-  } : null;
 
   // Handle set count change (2-5 sets)
   const handleSetCountChange = (newCount: number) => {
@@ -243,7 +261,8 @@ export default function ExerciseCard({
       {/* Header */}
       <div className="exercise-card-header">
         <div 
-          className="exercise-card-photo"
+          className="exercise-card-photo exercise-card-photo-clickable"
+          onClick={openHistory}
           style={{
             backgroundImage: exerciseDef?.defaultPhoto 
               ? `url(${exerciseDef.defaultPhoto})` 
@@ -256,26 +275,13 @@ export default function ExerciseCard({
           }}
         >
           {!exerciseDef?.defaultPhoto && '🏋️'}
+          <span className="exercise-card-photo-hint">📊</span>
         </div>
         
         <div className="exercise-card-info">
           <div className="exercise-card-name">
             {exerciseDef?.name || exercise.exerciseId}
           </div>
-          {pbInfo && (
-            <div className="exercise-card-pb-container">
-              {pbInfo.completed ? (
-                <span className="exercise-card-pb">
-                  🥇 PB: {pbInfo.completed.kg}kg ({pbInfo.completed.reps})
-                </span>
-              ) : null}
-              {pbInfo.showLatest && (
-                <span className="exercise-card-latest">
-                  💪 Last: {pbInfo.latest.kg}kg ({pbInfo.latest.reps})
-                </span>
-              )}
-            </div>
-          )}
           {isEditable && recommendedScale && !hasData && (
             <div className="exercise-card-recommended" onClick={applyRecommendedScale}>
               💡 Recommended: {recommendedScale}kg
@@ -400,6 +406,89 @@ export default function ExerciseCard({
       {isCompleted && !isEditable && (
         <div className="completion-badge">
           ✓ Completed at {highestKg}kg
+        </div>
+      )}
+
+      {/* History modal */}
+      {showHistory && (
+        <div className="workout-modal-overlay" onClick={() => setShowHistory(false)}>
+          <div className="workout-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="workout-modal-header">
+              <span className="workout-modal-title">
+                📊 {exerciseDef?.name || exercise.exerciseId}
+              </span>
+              <button className="workout-modal-close" onClick={() => setShowHistory(false)}>
+                ✕
+              </button>
+            </div>
+            <div className="workout-modal-body">
+              {loadingHistory ? (
+                <div className="loading-spinner" />
+              ) : history.length === 0 ? (
+                <div className="empty-state">
+                  <div className="empty-state-icon">📊</div>
+                  <div className="empty-state-text">No records yet for this exercise</div>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  {history.map((entry, index) => (
+                    <div 
+                      key={index}
+                      className={`workout-card ${entry.isPB ? 'workout-card-pb' : ''} ${entry.isCompleted ? 'workout-card-completed' : ''}`}
+                      style={{ padding: '12px' }}
+                    >
+                      <div style={{ 
+                        display: 'flex', 
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        marginBottom: '8px',
+                      }}>
+                        <div style={{ fontWeight: 600 }}>
+                          {entry.isPB && <span style={{ marginRight: '4px' }}>🥇</span>}
+                          {new Date(entry.date).toLocaleDateString('en-US', {
+                            weekday: 'short',
+                            month: 'short',
+                            day: 'numeric',
+                          })}
+                        </div>
+                        {entry.isCompleted && (
+                          <span style={{ 
+                            fontSize: '12px', 
+                            color: 'var(--workout-green)',
+                            fontWeight: 600,
+                          }}>
+                            ✓ Completed
+                          </span>
+                        )}
+                      </div>
+                      <div style={{ 
+                        display: 'flex', 
+                        gap: '8px',
+                        flexWrap: 'wrap',
+                      }}>
+                        {entry.sets.map((set, setIndex) => (
+                          <div 
+                            key={setIndex}
+                            style={{
+                              padding: '6px 10px',
+                              backgroundColor: 'var(--workout-bg-secondary)',
+                              borderRadius: '6px',
+                              fontSize: '13px',
+                            }}
+                          >
+                            <span style={{ color: 'var(--workout-text-secondary)' }}>S{setIndex + 1}: </span>
+                            <span style={{ fontWeight: 600 }}>
+                              {set.kg ?? '-'}kg × {set.reps ?? '-'}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       )}
     </div>

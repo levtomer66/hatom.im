@@ -86,7 +86,7 @@ export default function Home() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.7, ease: 'easeOut' }}
         >
-          <h1 className="birthday-title">התומ.ים מתחתנים</h1>
+          <h1 className="birthday-title">💍 התומ.ים מתחתנים 💒</h1>
           <div className="gold-divider" />
           <CountdownTimer />
 

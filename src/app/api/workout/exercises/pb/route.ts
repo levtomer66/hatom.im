@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import mongoose from 'mongoose';
 import WorkoutModel from '@/models/Workout';
 import { UserId, PersonalBest, WorkoutSet } from '@/types/workout';
+import { resolveExerciseId } from '@/data/exercise-library';
 
 // Connect to MongoDB using mongoose
 async function connectDB() {
@@ -86,9 +87,11 @@ export async function GET(request: NextRequest) {
         const repsAtHighest = getRepsAtWeight(sets, highestKg);
         const completed = isCompleted(sets);
         
+        const exerciseId = resolveExerciseId(exercise.exerciseId);
+
         // Initialize candidate tracking for this exercise
-        if (!pbCandidates[exercise.exerciseId]) {
-          pbCandidates[exercise.exerciseId] = {
+        if (!pbCandidates[exerciseId]) {
+          pbCandidates[exerciseId] = {
             completedKg: null,
             completedReps: [],
             completedDate: null,
@@ -100,7 +103,7 @@ export async function GET(request: NextRequest) {
           };
         }
         
-        const candidate = pbCandidates[exercise.exerciseId];
+        const candidate = pbCandidates[exerciseId];
         
         // Track highest completed weight
         if (completed) {
