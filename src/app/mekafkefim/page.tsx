@@ -1,86 +1,39 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { Cormorant_Garamond, DM_Mono } from 'next/font/google';
 import Navbar from '@/components/Navbar';
 import CoffeeReviewCard from '@/components/CoffeeReviewCard';
 import AddCoffeeReviewForm from '@/components/AddCoffeeReviewForm';
 import { CoffeeReview } from '@/types/coffee';
+
+const cormorant = Cormorant_Garamond({ subsets: ['latin'], weight: ['300', '400', '600', '700'], style: ['normal', 'italic'] });
+const dmMono = DM_Mono({ subsets: ['latin'], weight: ['300', '400', '500'] });
 
 export default function MekafkefimPage() {
   const [reviews, setReviews] = useState<CoffeeReview[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
-  const [beanStyles, setBeanStyles] = useState<Array<{
-    top: string;
-    left: string;
-    transform: string;
-    opacity: number;
-  }>>([]);
-
-  // Generate random bean styles on client-side only
-  useEffect(() => {
-    const newBeanStyles = Array(15).fill(0).map(() => ({
-      top: `${Math.random() * 100}%`,
-      left: `${Math.random() * 100}%`,
-      transform: `rotate(${Math.random() * 360}deg)`,
-      opacity: 0.1 + Math.random() * 0.1
-    }));
-    setBeanStyles(newBeanStyles);
-  }, []);
-
-  // Fetch coffee reviews
   const fetchReviews = async () => {
     try {
       setIsLoading(true);
       const response = await fetch('/api/coffee-reviews');
-      
-      if (!response.ok) {
-        throw new Error('Failed to fetch coffee reviews');
-      }
-      
-      const data = await response.json();
-      setReviews(data);
+      if (!response.ok) throw new Error('Failed to fetch');
+      setReviews(await response.json());
     } catch (err) {
-      console.error('Error fetching reviews:', err);
-      setError('Failed to load coffee reviews. Please try again later.');
+      console.error(err);
+      setError('שגיאה בטעינת הביקורות');
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Load reviews on component mount
-  useEffect(() => {
-    fetchReviews();
-  }, []);
+  useEffect(() => { fetchReviews(); }, []);
 
-  // Handle successful review submission
-  const handleReviewAdded = () => {
-    setShowAddForm(false);
-    fetchReviews();
-  };
-
-  // Handle review deletion
   const handleDeleteReview = async (id: string) => {
-    try {
-      const response = await fetch(`/api/coffee-reviews/${id}`, {
-        method: 'DELETE',
-      });
-      
-      if (!response.ok) {
-        throw new Error('Failed to delete review');
-      }
-      
-      // Refresh the reviews list
-      fetchReviews();
-    } catch (err) {
-      console.error('Error deleting review:', err);
-      throw err;
-    }
-  };
-
-  // Handle review update
-  const handleUpdateReview = () => {
+    const response = await fetch(`/api/coffee-reviews/${id}`, { method: 'DELETE' });
+    if (!response.ok) throw new Error('Failed to delete');
     fetchReviews();
   };
 
@@ -90,109 +43,142 @@ export default function MekafkefimPage() {
   };
 
   const sortedReviews = [...reviews].sort((a, b) => {
-    const getAvgRating = (review: CoffeeReview) => {
-      const tomVals = [review.tomCoffeeRating ?? 0, review.tomFoodRating ?? 0, review.tomAtmosphereRating ?? 0, review.tomPriceRating ?? 0];
-      const tomerVals = [review.tomerCoffeeRating ?? 0, review.tomerFoodRating ?? 0, review.tomerAtmosphereRating ?? 0, review.tomerPriceRating ?? 0];
-      return nonZeroAvg([nonZeroAvg(tomVals), nonZeroAvg(tomerVals)].filter(v => v > 0));
+    const getAvg = (r: CoffeeReview) => {
+      const t = nonZeroAvg([r.tomCoffeeRating ?? 0, r.tomFoodRating ?? 0, r.tomAtmosphereRating ?? 0, r.tomPriceRating ?? 0]);
+      const tr = nonZeroAvg([r.tomerCoffeeRating ?? 0, r.tomerFoodRating ?? 0, r.tomerAtmosphereRating ?? 0, r.tomerPriceRating ?? 0]);
+      return nonZeroAvg([t, tr].filter(v => v > 0));
     };
-    return getAvgRating(b) - getAvgRating(a);
+    return getAvg(b) - getAvg(a);
   });
 
   return (
-    <div className="min-h-screen coffee-theme-bg">
+    <div style={{ minHeight: '100vh', background: '#0d0a05', color: '#ede5d5' }}>
       <Navbar />
-      
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+
+      <style>{`
+        @keyframes fadeUp {
+          from { opacity: 0; transform: translateY(20px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        .card-row { animation: fadeUp 0.5s ease forwards; opacity: 0; }
+      `}</style>
+
+      <div style={{ maxWidth: '860px', margin: '0 auto', padding: '60px 24px 120px' }}>
+
         {/* Header */}
-        <div className="text-center mb-12">
-          <h1 className="text-4xl font-bold text-amber-900 mb-4">מקפקפים ☕</h1>
-          <p className="text-xl text-amber-800 max-w-3xl mx-auto">
-            המדריך השלם לבתי הקפה הטובים ביותר - דירוגים, ביקורות והמלצות
-          </p>
-          
-          <button
-            onClick={() => setShowAddForm(!showAddForm)}
-            className="mt-6 bg-amber-600 hover:bg-amber-700 text-white font-bold py-3 px-6 rounded-lg transition-colors duration-200 flex items-center mx-auto"
-          >
-            {showAddForm ? 'סגור טופס' : '➕ הוסף ביקורת חדשה'}
-          </button>
-        </div>
-        
-        {/* Add Review Form */}
+        <header style={{ marginBottom: '72px', direction: 'rtl' }}>
+          <div style={{ borderBottom: '1px solid #1e1a15', paddingBottom: '40px' }}>
+            <p className={dmMono.className} style={{
+              fontSize: '10px', letterSpacing: '0.25em', textTransform: 'uppercase',
+              color: '#bf7030', marginBottom: '16px', margin: '0 0 16px 0'
+            }}>
+              coffee guide · tel aviv · tom & tomer
+            </p>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+              <div>
+                <h1 className={cormorant.className} style={{
+                  fontSize: 'clamp(3.5rem, 10vw, 7.5rem)', fontWeight: 700,
+                  lineHeight: 0.88, color: '#ede5d5', margin: 0, letterSpacing: '-0.02em'
+                }}>
+                  מקפקפים
+                </h1>
+                <p className={cormorant.className} style={{
+                  fontSize: '1.15rem', color: '#6a5e50', fontStyle: 'italic',
+                  marginTop: '14px', margin: '14px 0 0 0'
+                }}>
+                  המדריך השלם לבתי הקפה הטובים ביותר
+                </p>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '10px' }}>
+                <span style={{ fontSize: '5rem', opacity: 0.06, lineHeight: 1 }}>☕</span>
+                <button
+                  onClick={() => setShowAddForm(!showAddForm)}
+                  className={dmMono.className}
+                  style={{
+                    background: showAddForm ? '#bf7030' : 'none',
+                    border: '1px solid #bf7030',
+                    color: showAddForm ? '#0d0a05' : '#bf7030',
+                    cursor: 'pointer', padding: '8px 16px',
+                    fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase',
+                    transition: 'all 0.2s',
+                  }}
+                >
+                  {showAddForm ? '× סגור' : '+ הוסף ביקורת'}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Stats row */}
+          {!isLoading && reviews.length > 0 && (
+            <div style={{ display: 'flex', gap: '40px', paddingTop: '20px' }}>
+              {[
+                { label: 'CAFES REVIEWED', value: String(reviews.length) },
+                { label: 'HIGHEST RATED', value: sortedReviews[0]?.placeName || '—' },
+              ].map(({ label, value }) => (
+                <div key={label}>
+                  <p className={dmMono.className} style={{ fontSize: '9px', letterSpacing: '0.2em', color: '#3a3228', margin: '0 0 4px 0' }}>{label}</p>
+                  <p className={cormorant.className} style={{ fontSize: '1.1rem', color: '#7a6e5a', margin: 0 }}>{value}</p>
+                </div>
+              ))}
+            </div>
+          )}
+        </header>
+
+        {/* Add form */}
         {showAddForm && (
-          <div className="max-w-2xl mx-auto mb-12">
-            <AddCoffeeReviewForm onSuccess={handleReviewAdded} />
+          <div style={{ marginBottom: '48px', borderBottom: '1px solid #1e1a15', paddingBottom: '48px' }}>
+            <AddCoffeeReviewForm onSuccess={() => { setShowAddForm(false); fetchReviews(); }} />
           </div>
         )}
-        
-        {/* Reviews Grid */}
+
+        {/* Content */}
         {isLoading ? (
-          <div className="flex justify-center items-center py-12">
-            <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-amber-600"></div>
+          <div style={{ textAlign: 'center', padding: '80px 0', color: '#3a3228' }}>
+            <p className={dmMono.className} style={{ fontSize: '11px', letterSpacing: '0.2em' }}>LOADING...</p>
           </div>
         ) : error ? (
-          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded text-center max-w-2xl mx-auto">
-            {error}
-          </div>
+          <p style={{ color: '#8a3020', textAlign: 'center' }}>{error}</p>
         ) : sortedReviews.length === 0 ? (
-          <div className="text-center py-12">
-            <div className="text-6xl mb-4">☕</div>
-            <h3 className="text-2xl font-bold text-amber-800 mb-2">אין ביקורות עדיין</h3>
-            <p className="text-amber-700">היה הראשון להוסיף ביקורת על בית קפה!</p>
+          <div style={{ textAlign: 'center', padding: '80px 0' }}>
+            <p className={cormorant.className} style={{ fontSize: '1.5rem', color: '#3a3228', fontStyle: 'italic' }}>אין ביקורות עדיין</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          <div>
+            {/* Column headers */}
+            <div className={dmMono.className} style={{
+              display: 'flex', gap: '0', paddingBottom: '12px',
+              borderBottom: '1px solid #1e1a15', direction: 'rtl',
+              fontSize: '9px', letterSpacing: '0.2em', color: '#3a3228', textTransform: 'uppercase'
+            }}>
+              <div style={{ width: '80px' }}>#</div>
+              <div style={{ width: '140px', marginLeft: '24px' }}>תמונה</div>
+              <div style={{ flex: 1, paddingRight: '28px' }}>בית קפה</div>
+            </div>
+
             {sortedReviews.map((review, index) => (
-              <CoffeeReviewCard 
-                key={review.id} 
-                review={review} 
-                onDelete={handleDeleteReview}
-                onUpdate={handleUpdateReview}
-                rank={index + 1}
-              />
+              <div
+                key={review.id}
+                className="card-row"
+                style={{ animationDelay: `${index * 60}ms` }}
+              >
+                <CoffeeReviewCard
+                  review={review}
+                  onDelete={handleDeleteReview}
+                  onUpdate={fetchReviews}
+                  rank={index + 1}
+                />
+              </div>
             ))}
+
+            <div style={{ borderTop: '1px solid #1e1a15', paddingTop: '32px', marginTop: '8px', direction: 'rtl' }}>
+              <p className={dmMono.className} style={{ fontSize: '9px', letterSpacing: '0.2em', color: '#2a2318' }}>
+                {reviews.length} CAFES · SORTED BY COMBINED RATING · ZERO = NOT RATED
+              </p>
+            </div>
           </div>
         )}
       </div>
-      
-      {/* Coffee-themed decorative elements */}
-      <div className="coffee-beans">
-        {beanStyles.map((style, i) => (
-          <div 
-            key={i} 
-            className="coffee-bean"
-            style={style}
-          >
-            ☕
-          </div>
-        ))}
-      </div>
-      
-      <style jsx>{`
-        .coffee-theme-bg {
-          background-color: #f5f0e8;
-          background-image: radial-gradient(#d4b996 0.5px, transparent 0.5px), radial-gradient(#d4b996 0.5px, #f5f0e8 0.5px);
-          background-size: 20px 20px;
-          background-position: 0 0, 10px 10px;
-        }
-        
-        .coffee-beans {
-          position: fixed;
-          top: 0;
-          left: 0;
-          width: 100%;
-          height: 100%;
-          z-index: -1;
-          pointer-events: none;
-        }
-        
-        .coffee-bean {
-          position: absolute;
-          font-size: 2rem;
-          color: #6f4e37;
-          z-index: -1;
-        }
-      `}</style>
     </div>
   );
-} 
+}
