@@ -3,13 +3,15 @@
 import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { FaDog, FaCoffee, FaVideo, FaDumbbell, FaHome } from 'react-icons/fa';
+import { FaDog, FaCoffee, FaVideo, FaDumbbell, FaHome, FaRing, FaPlane } from 'react-icons/fa';
 
 const navItems = [
   { href: '/family-tree', label: 'שמות האוליבון', icon: FaDog },
   { href: '/mekafkefim', label: 'מקפקפים', icon: FaCoffee },
   { href: '/instomit', label: 'InsTomit', icon: FaVideo },
   { href: '/workout', label: 'המפלצתומים', icon: FaDumbbell },
+  { href: '/vegas-wedding-guide.html', label: 'מדריך חתונה', icon: FaRing },
+  { href: '/trip.html', label: 'מסלול הטיול', icon: FaPlane },
   { href: '/', label: 'בית', icon: FaHome, exact: true },
 ];
 

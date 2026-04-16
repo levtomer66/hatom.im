@@ -1,0 +1,1859 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vegas Wedding Guide — From Israel to "I Do"</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Inter:wght@300;400;500;600;700&display=swap');
+
+        :root {
+            --gold: #c9a96e;
+            --gold-light: #e8d5a8;
+            --gold-dark: #a07d3f;
+            --dark: #1a1a2e;
+            --darker: #0f0f1e;
+            --card-bg: #16162a;
+            --card-border: #2a2a4a;
+            --text: #e8e8f0;
+            --text-muted: #9898b8;
+            --success: #4ade80;
+            --accent-pink: #f472b6;
+            --accent-blue: #60a5fa;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--darker);
+            color: var(--text);
+            line-height: 1.7;
+            overflow-x: hidden;
+        }
+
+        .hero {
+            position: relative;
+            min-height: 45vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #1a1a2e 100%);
+            overflow: hidden;
+            padding: 50px 20px;
+        }
+
+        .hero::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(ellipse at center, rgba(201, 169, 110, 0.08) 0%, transparent 60%);
+            animation: shimmer 8s ease-in-out infinite;
+        }
+
+        @keyframes shimmer {
+            0%, 100% { transform: rotate(0deg); }
+            50% { transform: rotate(3deg); }
+        }
+
+        .hero-content { position: relative; z-index: 1; }
+
+        .hero h1 {
+            font-family: 'Playfair Display', serif;
+            font-size: clamp(2.2rem, 5vw, 4rem);
+            color: var(--gold);
+            margin-bottom: 12px;
+        }
+
+        .hero .subtitle {
+            font-size: 1.1rem;
+            color: var(--text-muted);
+            font-weight: 300;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .hero .flag-line { margin-top: 18px; font-size: 2rem; letter-spacing: 8px; }
+
+        .nav-tabs {
+            display: flex;
+            justify-content: center;
+            gap: 4px;
+            padding: 20px 20px 0;
+            background: var(--darker);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            flex-wrap: wrap;
+        }
+
+        .nav-tab {
+            padding: 12px 24px;
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-bottom: none;
+            border-radius: 12px 12px 0 0;
+            color: var(--text-muted);
+            cursor: pointer;
+            font-size: 0.9rem;
+            font-weight: 500;
+            transition: all 0.3s;
+        }
+
+        .nav-tab:hover { color: var(--gold-light); background: #1e1e38; }
+        .nav-tab.active {
+            background: var(--dark);
+            color: var(--gold);
+            border-color: var(--gold-dark);
+        }
+
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+
+        .content-area {
+            background: var(--dark);
+            border: 1px solid var(--card-border);
+            border-radius: 0 0 16px 16px;
+            margin: 0 auto 40px;
+            padding: 40px;
+            max-width: 1200px;
+        }
+
+        /* Phase Headers */
+        .phase { margin-bottom: 40px; }
+
+        .phase-header {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            margin-bottom: 24px;
+            padding-bottom: 12px;
+            border-bottom: 2px solid var(--card-border);
+        }
+
+        .phase-number {
+            width: 48px; height: 48px;
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-family: 'Playfair Display', serif;
+            font-size: 1.3rem; font-weight: 700;
+            flex-shrink: 0;
+        }
+
+        .phase-1 .phase-number { background: linear-gradient(135deg, #3b82f6, #1d4ed8); }
+        .phase-2 .phase-number { background: linear-gradient(135deg, #c9a96e, #a07d3f); }
+        .phase-3 .phase-number { background: linear-gradient(135deg, #4ade80, #16a34a); }
+
+        .phase-title { font-family: 'Playfair Display', serif; font-size: 1.6rem; color: var(--gold-light); }
+        .phase-subtitle { font-size: 0.85rem; color: var(--text-muted); }
+
+        /* To-Do Items */
+        .todo-item {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 12px;
+            padding: 20px 24px;
+            margin-bottom: 12px;
+            display: flex;
+            gap: 16px;
+            align-items: flex-start;
+            transition: all 0.3s;
+            cursor: pointer;
+        }
+
+        .todo-item:hover { border-color: var(--gold-dark); transform: translateX(4px); }
+        .todo-item.checked { opacity: 0.5; border-color: var(--success); }
+        .todo-item.checked .todo-title { text-decoration: line-through; color: var(--text-muted); }
+
+        .todo-checkbox {
+            width: 24px; height: 24px;
+            border-radius: 6px;
+            border: 2px solid var(--card-border);
+            display: flex; align-items: center; justify-content: center;
+            flex-shrink: 0; margin-top: 2px;
+            transition: all 0.3s; font-size: 14px;
+        }
+
+        .todo-item.checked .todo-checkbox { background: var(--success); border-color: var(--success); color: var(--darker); }
+
+        .todo-body { flex: 1; }
+        .todo-title { font-weight: 600; font-size: 1rem; margin-bottom: 4px; }
+        .todo-desc { font-size: 0.85rem; color: var(--text-muted); line-height: 1.6; }
+        .todo-meta { display: flex; gap: 12px; margin-top: 8px; flex-wrap: wrap; }
+
+        .todo-tag {
+            display: inline-flex; align-items: center; gap: 4px;
+            font-size: 0.75rem; padding: 3px 10px; border-radius: 20px; font-weight: 500;
+        }
+
+        .tag-time { background: rgba(96, 165, 250, 0.15); color: var(--accent-blue); }
+        .tag-cost { background: rgba(201, 169, 110, 0.15); color: var(--gold-light); }
+        .tag-tip { background: rgba(244, 114, 182, 0.15); color: var(--accent-pink); }
+        .tag-important { background: rgba(239, 68, 68, 0.15); color: #f87171; }
+
+        /* Chapel Cards */
+        .chapel-card {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 16px;
+            overflow: hidden;
+            margin-bottom: 28px;
+            transition: all 0.3s;
+        }
+
+        .chapel-card:hover { border-color: var(--gold-dark); box-shadow: 0 8px 32px rgba(0,0,0,0.3); }
+
+        .chapel-card-header {
+            padding: 24px 28px 20px;
+            border-bottom: 1px solid var(--card-border);
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            flex-wrap: wrap;
+            gap: 16px;
+        }
+
+        .chapel-header-left { flex: 1; min-width: 250px; }
+
+        .chapel-badge {
+            display: inline-block; padding: 3px 10px; border-radius: 20px;
+            font-size: 0.7rem; font-weight: 600; text-transform: uppercase;
+            letter-spacing: 0.5px; margin-bottom: 8px;
+        }
+
+        .badge-best-reviews { background: linear-gradient(135deg, #fbbf24, #f59e0b); color: #1a1a2e; }
+        .badge-best-international { background: linear-gradient(135deg, #60a5fa, #3b82f6); color: white; }
+        .badge-most-famous { background: linear-gradient(135deg, #f472b6, #ec4899); color: white; }
+        .badge-most-historic { background: linear-gradient(135deg, #a78bfa, #7c3aed); color: white; }
+        .badge-best-elvis { background: linear-gradient(135deg, #fb923c, #ea580c); color: white; }
+        .badge-best-themed { background: linear-gradient(135deg, #34d399, #059669); color: white; }
+        .badge-budget { background: linear-gradient(135deg, #94a3b8, #64748b); color: white; }
+
+        .chapel-name { font-family: 'Playfair Display', serif; font-size: 1.35rem; color: var(--gold); margin-bottom: 4px; }
+        .chapel-location { font-size: 0.8rem; color: var(--text-muted); }
+        .chapel-established { font-size: 0.75rem; color: var(--text-muted); margin-top: 2px; }
+
+        .chapel-rating { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
+        .stars { color: #fbbf24; font-size: 0.9rem; letter-spacing: 1px; }
+        .rating-number { font-weight: 700; font-size: 1.1rem; color: var(--gold-light); }
+        .review-count { font-size: 0.8rem; color: var(--text-muted); }
+
+        /* Distance Box */
+        .distance-box {
+            background: linear-gradient(135deg, rgba(96, 165, 250, 0.1), rgba(96, 165, 250, 0.03));
+            border: 1px solid rgba(96, 165, 250, 0.25);
+            border-radius: 12px;
+            padding: 14px 18px;
+            text-align: center;
+            min-width: 170px;
+        }
+
+        .distance-box .dist-label {
+            font-size: 0.65rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--accent-blue);
+            margin-bottom: 4px;
+        }
+
+        .distance-box .dist-miles {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--text);
+        }
+
+        .distance-box .dist-time {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            margin-top: 2px;
+        }
+
+        .distance-box .dist-direction {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            margin-top: 4px;
+        }
+
+        .directions-link {
+            display: inline-block;
+            margin-top: 8px;
+            font-size: 0.75rem;
+            color: var(--accent-blue);
+            text-decoration: none;
+            padding: 3px 10px;
+            border: 1px solid rgba(96, 165, 250, 0.3);
+            border-radius: 6px;
+            transition: all 0.3s;
+        }
+
+        .directions-link:hover {
+            background: rgba(96, 165, 250, 0.15);
+            border-color: var(--accent-blue);
+        }
+
+        /* Package Section */
+        .chapel-card-body { padding: 24px 28px; }
+
+        .packages-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 14px;
+            margin-top: 12px;
+        }
+
+        .package-card {
+            background: rgba(255,255,255, 0.02);
+            border: 1px solid var(--card-border);
+            border-radius: 10px;
+            padding: 16px 18px;
+            transition: all 0.3s;
+        }
+
+        .package-card:hover { border-color: var(--gold-dark); }
+
+        .package-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid var(--card-border);
+        }
+
+        .package-name { font-weight: 600; font-size: 0.9rem; color: var(--gold-light); }
+        .package-price { font-weight: 700; font-size: 1.05rem; color: var(--gold); }
+
+        .package-includes { list-style: none; padding: 0; }
+        .package-includes li {
+            font-size: 0.78rem;
+            color: var(--text-muted);
+            padding: 2px 0 2px 16px;
+            position: relative;
+            line-height: 1.5;
+        }
+        .package-includes li::before {
+            content: '+';
+            position: absolute;
+            left: 0;
+            color: var(--success);
+            font-weight: 700;
+        }
+
+        .package-not-included li::before {
+            content: '-';
+            color: #f87171;
+        }
+
+        .package-note {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            font-style: italic;
+            margin-top: 8px;
+            padding-top: 6px;
+            border-top: 1px dashed var(--card-border);
+        }
+
+        .section-label {
+            font-size: 0.78rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--text-muted);
+            margin: 20px 0 8px;
+            font-weight: 600;
+        }
+
+        .section-label:first-child { margin-top: 0; }
+
+        .chapel-highlights {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 16px;
+            padding-top: 16px;
+            border-top: 1px solid var(--card-border);
+        }
+
+        .highlight-tag {
+            font-size: 0.72rem;
+            padding: 4px 10px;
+            border-radius: 20px;
+            background: rgba(201, 169, 110, 0.1);
+            color: var(--gold-light);
+            border: 1px solid rgba(201, 169, 110, 0.15);
+        }
+
+        /* Map Section */
+        .map-section {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 16px;
+            overflow: hidden;
+            margin-bottom: 28px;
+        }
+
+        .map-header {
+            padding: 20px 28px;
+            border-bottom: 1px solid var(--card-border);
+        }
+
+        .map-header h3 {
+            font-family: 'Playfair Display', serif;
+            color: var(--gold);
+            font-size: 1.2rem;
+        }
+
+        .map-header p { font-size: 0.85rem; color: var(--text-muted); }
+
+        .map-container {
+            width: 100%;
+            height: 450px;
+            border: none;
+        }
+
+        .map-container iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+            filter: invert(0.9) hue-rotate(180deg) brightness(1.1) contrast(1.1);
+            border-radius: 0;
+        }
+
+        .distance-legend {
+            padding: 16px 28px;
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+            gap: 10px;
+            border-top: 1px solid var(--card-border);
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 0.8rem;
+            padding: 6px 0;
+        }
+
+        .legend-dot {
+            width: 10px; height: 10px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+
+        .legend-name { color: var(--text); font-weight: 500; }
+        .legend-dist { color: var(--text-muted); margin-left: auto; white-space: nowrap; }
+
+        /* Cost Summary */
+        .cost-summary {
+            background: linear-gradient(135deg, rgba(201, 169, 110, 0.1), rgba(201, 169, 110, 0.02));
+            border: 1px solid var(--gold-dark);
+            border-radius: 16px;
+            padding: 28px 32px;
+            margin-top: 32px;
+        }
+
+        .cost-summary h3 { font-family: 'Playfair Display', serif; color: var(--gold); font-size: 1.3rem; margin-bottom: 16px; }
+
+        .cost-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(201, 169, 110, 0.1);
+            font-size: 0.9rem;
+        }
+
+        .cost-row:last-child { border-bottom: none; }
+        .cost-row.total {
+            border-top: 2px solid var(--gold-dark);
+            margin-top: 8px; padding-top: 12px;
+            font-weight: 700; font-size: 1.05rem; color: var(--gold);
+        }
+
+        .cost-label { color: var(--text-muted); }
+        .cost-value { color: var(--text); font-weight: 500; }
+
+        .wait-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 12px;
+            margin-top: 16px;
+        }
+
+        .wait-card {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 10px;
+            padding: 16px;
+            text-align: center;
+        }
+
+        .wait-card .time-label { font-size: 0.8rem; color: var(--text-muted); margin-bottom: 6px; }
+        .wait-card .time-value { font-size: 1.4rem; font-weight: 700; }
+        .wait-short { color: var(--success); }
+        .wait-medium { color: #fbbf24; }
+        .wait-long { color: #f87171; }
+
+        .tip-card {
+            background: var(--card-bg);
+            border-left: 3px solid var(--gold);
+            border-radius: 0 10px 10px 0;
+            padding: 16px 20px;
+            margin-bottom: 10px;
+        }
+
+        .tip-card strong { color: var(--gold-light); }
+        .tip-card p { font-size: 0.88rem; color: var(--text-muted); margin-top: 4px; }
+
+        /* Progress Bar */
+        .progress-bar {
+            background: var(--card-bg);
+            border-radius: 12px;
+            padding: 16px 24px;
+            margin-bottom: 28px;
+            border: 1px solid var(--card-border);
+        }
+
+        .progress-label { display: flex; justify-content: space-between; font-size: 0.85rem; margin-bottom: 8px; }
+
+        .progress-track { height: 8px; background: var(--card-border); border-radius: 4px; overflow: hidden; }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--gold-dark), var(--gold), var(--gold-light));
+            border-radius: 4px;
+            transition: width 0.6s ease;
+            width: 0%;
+        }
+
+        /* Overview Table */
+        .overview-table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            margin-top: 20px;
+            font-size: 0.83rem;
+            border-radius: 12px;
+            overflow: hidden;
+            border: 1px solid var(--card-border);
+        }
+
+        .overview-table thead th {
+            background: rgba(201, 169, 110, 0.12);
+            color: var(--gold);
+            padding: 12px 12px;
+            text-align: left;
+            font-weight: 600;
+            font-size: 0.73rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            border-bottom: 2px solid var(--gold-dark);
+        }
+
+        .overview-table tbody td {
+            padding: 10px 12px;
+            border-bottom: 1px solid var(--card-border);
+            vertical-align: middle;
+        }
+
+        .overview-table tbody tr:last-child td { border-bottom: none; }
+        .overview-table tbody tr:hover { background: rgba(201, 169, 110, 0.04); }
+        .overview-table .hl { color: var(--gold-light); font-weight: 600; }
+
+        .footer {
+            text-align: center;
+            padding: 32px 20px;
+            color: var(--text-muted);
+            font-size: 0.8rem;
+        }
+
+        .footer .mazel { font-family: 'Playfair Display', serif; font-size: 1.4rem; color: var(--gold); margin-bottom: 8px; }
+
+        @media (max-width: 768px) {
+            .content-area { padding: 20px 16px; margin: 0 8px 30px; }
+            .packages-grid { grid-template-columns: 1fr; }
+            .nav-tab { padding: 8px 14px; font-size: 0.8rem; }
+            .chapel-card-header { flex-direction: column; }
+            .distance-box { width: 100%; }
+            .distance-legend { grid-template-columns: 1fr; }
+            .map-container { height: 300px; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="hero">
+    <div class="hero-content">
+        <div class="flag-line">&#x1f1ee;&#x1f1f1; &#x2708;&#xfe0f; &#x1f1fa;&#x1f1f8;</div>
+        <h1>Vegas Wedding Guide</h1>
+        <p class="subtitle">A complete step-by-step checklist for Israeli couples getting married in Las Vegas</p>
+    </div>
+</div>
+
+<div class="nav-tabs">
+    <div class="nav-tab active" onclick="switchTab('checklist')">Checklist</div>
+    <div class="nav-tab" onclick="switchTab('chapels')">Chapel Comparison</div>
+    <div class="nav-tab" onclick="switchTab('costs')">Costs & Tips</div>
+</div>
+
+<!-- ==================== TAB 1: CHECKLIST ==================== -->
+<div id="tab-checklist" class="tab-content active">
+<div class="content-area">
+
+    <div class="progress-bar">
+        <div class="progress-label">
+            <span>Wedding Progress</span>
+            <span id="progress-text">0 / 15 completed</span>
+        </div>
+        <div class="progress-track">
+            <div class="progress-fill" id="progress-fill"></div>
+        </div>
+    </div>
+
+    <!-- PHASE 1 -->
+    <div class="phase phase-1">
+        <div class="phase-header">
+            <div class="phase-number">1</div>
+            <div>
+                <div class="phase-title">Before the Trip</div>
+                <div class="phase-subtitle">Preparation from Israel</div>
+            </div>
+        </div>
+
+        <div class="todo-item checked" onclick="toggleTodo(this)">
+            <div class="todo-checkbox">&#10003;</div>
+            <div class="todo-body">
+                <div class="todo-title">Verify passports are valid (6+ months beyond travel date)</div>
+                <div class="todo-desc">Both partners need a valid Israeli passport. Renew at the Population and Immigration Authority if expiring soon.</div>
+                <div class="todo-meta">
+                    <span class="todo-tag tag-time">2-3 weeks if renewal needed</span>
+                    <span class="todo-tag tag-cost">~360 NIS/person (renewal)</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="todo-item checked" onclick="toggleTodo(this)">
+            <div class="todo-checkbox">&#10003;</div>
+            <div class="todo-body">
+                <div class="todo-title">Apply for ESTA (both partners)</div>
+                <div class="todo-desc">Israel is in the Visa Waiver Program. Apply at <strong>esta.cbp.dhs.gov</strong> &mdash; usually approved within minutes.</div>
+                <div class="todo-meta">
+                    <span class="todo-tag tag-time">Minutes to 72 hours</span>
+                    <span class="todo-tag tag-cost">$21 / person ($42 total)</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="todo-item checked" onclick="toggleTodo(this)">
+            <div class="todo-checkbox">&#10003;</div>
+            <div class="todo-body">
+                <div class="todo-title">Complete online marriage license pre-application</div>
+                <div class="todo-desc">Fill out the form at <strong>marriage.clarkcountynv.gov</strong> &mdash; save your confirmation number! Valid for 60 days. Lets you use the Express window.</div>
+                <div class="todo-meta">
+                    <span class="todo-tag tag-time">15 minutes</span>
+                    <span class="todo-tag tag-cost">Free</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="todo-item" onclick="toggleTodo(this)">
+            <div class="todo-checkbox"></div>
+            <div class="todo-body">
+                <div class="todo-title">Book a wedding chapel</div>
+                <div class="todo-desc">Choose and reserve your chapel in advance. See the Chapel Comparison tab for a full breakdown.</div>
+                <div class="todo-meta">
+                    <span class="todo-tag tag-time">15 minutes</span>
+                    <span class="todo-tag tag-cost">$100 deposit (some chapels)</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="todo-item" onclick="toggleTodo(this)">
+            <div class="todo-checkbox"></div>
+            <div class="todo-body">
+                <div class="todo-title">Book flights & accommodation</div>
+                <div class="todo-desc">Direct TLV &rarr; LAX or connecting through Europe to LAS. Book a hotel on/near the Strip.</div>
+                <div class="todo-meta">
+                    <span class="todo-tag tag-tip">Tip: Weekday ceremonies = shorter lines everywhere</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="todo-item" onclick="toggleTodo(this)">
+            <div class="todo-checkbox"></div>
+            <div class="todo-body">
+                <div class="todo-title">If previously married: prepare divorce documents</div>
+                <div class="todo-desc">Nevada won't ask for them, but Israel WILL when you register the marriage.</div>
+                <div class="todo-meta">
+                    <span class="todo-tag tag-important">Required for Israeli registration</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- PHASE 2 -->
+    <div class="phase phase-2">
+        <div class="phase-header">
+            <div class="phase-number">2</div>
+            <div>
+                <div class="phase-title">In Las Vegas</div>
+                <div class="phase-subtitle">License + Ceremony Day</div>
+            </div>
+        </div>
+
+        <div class="todo-item" onclick="toggleTodo(this)">
+            <div class="todo-checkbox"></div>
+            <div class="todo-body">
+                <div class="todo-title">Visit Clark County Marriage License Bureau &mdash; IN PERSON</div>
+                <div class="todo-desc">
+                    <strong>201 E. Clark Avenue, Las Vegas, NV 89101</strong><br>
+                    Open 8 AM &ndash; Midnight, 365 days/year. Both partners with passports. Bring your confirmation number for Express window.<br>
+                    <strong>Best times:</strong> Weekday mornings (8-10 AM), Sundays, Tuesdays, or late evenings (8 PM+).
+                </div>
+                <div class="todo-meta">
+                    <span class="todo-tag tag-time">30-60 min</span>
+                    <span class="todo-tag tag-cost">$102 cash / $105.29 card</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="todo-item" onclick="toggleTodo(this)">
+            <div class="todo-checkbox"></div>
+            <div class="todo-body">
+                <div class="todo-title">Wedding Ceremony at Chapel</div>
+                <div class="todo-desc">Bring your marriage license. The chapel provides witnesses. No waiting period &mdash; same day as license!</div>
+                <div class="todo-meta">
+                    <span class="todo-tag tag-time">15-30 min ceremony</span>
+                    <span class="todo-tag tag-cost">$99 &ndash; $2,500+</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="todo-item" onclick="toggleTodo(this)">
+            <div class="todo-checkbox"></div>
+            <div class="todo-body">
+                <div class="todo-title">Order certified copies of marriage certificate (3-4 copies)</div>
+                <div class="todo-desc">Clark County Recorder's Office (200 Lewis Ave). Can also order online.</div>
+                <div class="todo-meta">
+                    <span class="todo-tag tag-time">5-10 business days</span>
+                    <span class="todo-tag tag-cost">$10-15 per copy</span>
+                    <span class="todo-tag tag-important">Get 3-4 copies!</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="todo-item" onclick="toggleTodo(this)">
+            <div class="todo-checkbox"></div>
+            <div class="todo-body">
+                <div class="todo-title">Get Apostille from Nevada Secretary of State (optional &mdash; can do after return)</div>
+                <div class="todo-desc"><strong>Las Vegas office:</strong> 555 E. Washington Ave, Suite 5200. Same-day in person saves weeks.</div>
+                <div class="todo-meta">
+                    <span class="todo-tag tag-time">Same day in person</span>
+                    <span class="todo-tag tag-cost">~$20 per document</span>
+                    <span class="todo-tag tag-tip">Tip: Do this in Vegas!</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- PHASE 3 -->
+    <div class="phase phase-3">
+        <div class="phase-header">
+            <div class="phase-number">3</div>
+            <div>
+                <div class="phase-title">After Returning to Israel</div>
+                <div class="phase-subtitle">Making it Official at Home</div>
+            </div>
+        </div>
+
+        <div class="todo-item" onclick="toggleTodo(this)">
+            <div class="todo-checkbox"></div>
+            <div class="todo-body">
+                <div class="todo-title">Apostille (if not done in Vegas)</div>
+                <div class="todo-desc">Mail certificate to Nevada Secretary of State, or use an apostille service.</div>
+                <div class="todo-meta">
+                    <span class="todo-tag tag-time">2-4 weeks by mail</span>
+                    <span class="todo-tag tag-cost">$20 + service fee ($50-150)</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="todo-item" onclick="toggleTodo(this)">
+            <div class="todo-checkbox"></div>
+            <div class="todo-body">
+                <div class="todo-title">Notarized Hebrew translation of apostilled certificate</div>
+                <div class="todo-desc">Find a certified notarial translator in Israel. Must include the apostille.</div>
+                <div class="todo-meta">
+                    <span class="todo-tag tag-time">1-5 business days</span>
+                    <span class="todo-tag tag-cost">200-500 NIS</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="todo-item" onclick="toggleTodo(this)">
+            <div class="todo-checkbox"></div>
+            <div class="todo-body">
+                <div class="todo-title">Schedule appointment at Population Authority</div>
+                <div class="todo-desc">Book through the Population Authority website. Both spouses attend.</div>
+                <div class="todo-meta">
+                    <span class="todo-tag tag-time">2-4 weeks wait</span>
+                    <span class="todo-tag tag-cost">Free</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="todo-item" onclick="toggleTodo(this)">
+            <div class="todo-checkbox"></div>
+            <div class="todo-body">
+                <div class="todo-title">Register marriage at the Population Authority</div>
+                <div class="todo-desc">
+                    Bring: Original apostilled certificate + Hebrew translation + ID cards + passports + divorce docs (if applicable) + passport photos. Status changes to "married." No Rabbinate needed.
+                </div>
+                <div class="todo-meta">
+                    <span class="todo-tag tag-time">30-60 min</span>
+                    <span class="todo-tag tag-cost">Free</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="todo-item" onclick="toggleTodo(this)">
+            <div class="todo-checkbox"></div>
+            <div class="todo-body">
+                <div class="todo-title">Receive updated Teudat Zehut</div>
+                <div class="todo-desc">Updated ID cards arrive after processing. Full legal recognition.</div>
+                <div class="todo-meta">
+                    <span class="todo-tag tag-time">2-4 weeks</span>
+                    <span class="todo-tag tag-cost">Free</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+</div>
+
+<!-- ==================== TAB 2: CHAPEL COMPARISON ==================== -->
+<div id="tab-chapels" class="tab-content">
+<div class="content-area">
+
+    <h2 style="font-family: 'Playfair Display', serif; color: var(--gold); margin-bottom: 8px;">Chapel Comparison</h2>
+    <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 24px;">7 top-rated Las Vegas wedding chapels &mdash; full package details & distance from Bellagio.</p>
+
+    <!-- Quick Overview Table -->
+    <div style="overflow-x: auto; margin-bottom: 28px;">
+    <table class="overview-table">
+        <thead>
+            <tr>
+                <th>Chapel</th>
+                <th>Price Range</th>
+                <th>Rating</th>
+                <th>Reviews</th>
+                <th>From Bellagio</th>
+                <th>Best For</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr><td class="hl">Little Church of the West</td><td>$199 &ndash; $1,495</td><td class="hl">4.6</td><td>1,968</td><td>~1.5 mi / 5 min</td><td>Closest + Historic</td></tr>
+            <tr><td class="hl">Chapel of the Flowers</td><td>$195 &ndash; $2,099+</td><td class="hl">4.7</td><td>5,732</td><td>~3.5 mi / 9 min</td><td>International couples</td></tr>
+            <tr><td class="hl">A Little White Chapel</td><td>$150 &ndash; $695</td><td class="hl">4.4</td><td>2,367</td><td>~4.0 mi / 11 min</td><td>Most famous / drive-thru</td></tr>
+            <tr><td class="hl">Viva Las Vegas Chapel</td><td>$159 &ndash; $2,519</td><td class="hl">4.5</td><td>240+</td><td>~4.2 mi / 11 min</td><td>40+ themed weddings</td></tr>
+            <tr><td class="hl">The Little Vegas Chapel</td><td>$299 &ndash; $777</td><td class="hl">4.9</td><td>3,349</td><td>~4.5 mi / 11 min</td><td>Best reviewed & value</td></tr>
+            <tr><td class="hl">A Special Memory Chapel</td><td>$249 &ndash; $1,195</td><td class="hl">4.3</td><td>500+</td><td>~4.8 mi / 13 min</td><td>Budget-friendly</td></tr>
+            <tr><td class="hl">Graceland Chapel</td><td>$249 &ndash; $3,499</td><td class="hl">4.8</td><td>1,938</td><td>~5.0 mi / 14 min</td><td>Elvis weddings</td></tr>
+        </tbody>
+    </table>
+    </div>
+
+    <!-- MAP SECTION -->
+    <div class="map-section">
+        <div class="map-header">
+            <h3>Distance from Bellagio Hotel & Casino</h3>
+            <p>All chapels are within a 15-minute drive. Sorted by distance.</p>
+        </div>
+        <div class="map-container">
+            <iframe
+                src="https://www.google.com/maps/d/embed?mid=1&z=13&ll=36.135,-115.155&q=Bellagio+Hotel+Las+Vegas"
+                loading="lazy"
+                referrerpolicy="no-referrer-when-downgrade"
+                title="Chapel locations map"
+            ></iframe>
+        </div>
+        <div class="distance-legend">
+            <div class="legend-item">
+                <div class="legend-dot" style="background: #ef4444;"></div>
+                <span class="legend-name">Bellagio Hotel (start)</span>
+                <span class="legend-dist">3600 S Las Vegas Blvd</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-dot" style="background: #a78bfa;"></div>
+                <span class="legend-name">Little Church of the West</span>
+                <span class="legend-dist">1.5 mi &middot; 5 min south</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-dot" style="background: #60a5fa;"></div>
+                <span class="legend-name">Chapel of the Flowers</span>
+                <span class="legend-dist">3.5 mi &middot; 9 min north</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-dot" style="background: #f472b6;"></div>
+                <span class="legend-name">A Little White Chapel</span>
+                <span class="legend-dist">4.0 mi &middot; 11 min north</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-dot" style="background: #34d399;"></div>
+                <span class="legend-name">Viva Las Vegas Chapel</span>
+                <span class="legend-dist">4.2 mi &middot; 11 min north</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-dot" style="background: #fbbf24;"></div>
+                <span class="legend-name">The Little Vegas Chapel</span>
+                <span class="legend-dist">4.5 mi &middot; 11 min north</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-dot" style="background: #94a3b8;"></div>
+                <span class="legend-name">A Special Memory Chapel</span>
+                <span class="legend-dist">4.8 mi &middot; 13 min north</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-dot" style="background: #fb923c;"></div>
+                <span class="legend-name">Graceland Chapel</span>
+                <span class="legend-dist">5.0 mi &middot; 14 min north</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== CHAPEL 1: The Little Vegas Chapel ===== -->
+    <div class="chapel-card">
+        <div class="chapel-card-header">
+            <div class="chapel-header-left">
+                <div class="chapel-badge badge-best-reviews">Best Reviews & Value</div>
+                <div class="chapel-name">The Little Vegas Chapel</div>
+                <div class="chapel-location">1330 S 3rd St, Las Vegas (Arts District)</div>
+                <div class="chapel-rating">
+                    <span class="rating-number">4.9</span>
+                    <span class="stars">&#9733;&#9733;&#9733;&#9733;&#9733;</span>
+                    <span class="review-count">3,349 reviews</span>
+                </div>
+            </div>
+            <div class="distance-box">
+                <div class="dist-label">From Bellagio</div>
+                <div class="dist-miles">4.5 mi</div>
+                <div class="dist-time">~11 min drive</div>
+                <div class="dist-direction">North-East (Arts District)</div>
+                <a class="directions-link" href="https://www.google.com/maps/dir/Bellagio+Hotel+%26+Casino,+Las+Vegas/1330+S+3rd+St,+Las+Vegas,+NV+89104" target="_blank" rel="noopener">Get Directions &rarr;</a>
+            </div>
+        </div>
+        <div class="chapel-card-body">
+            <div class="section-label">Packages &mdash; Archway Chapel (18 guests) / Imperial Chapel (24 guests)</div>
+            <div class="packages-grid">
+                <div class="package-card">
+                    <div class="package-header">
+                        <span class="package-name">Love & Cherish</span>
+                        <span class="package-price">$299</span>
+                    </div>
+                    <ul class="package-includes">
+                        <li>Chapel ceremony with ordained minister</li>
+                        <li>Traditional wedding music (before, during & after)</li>
+                        <li>Fresh 3-rose bouquet</li>
+                        <li>Fresh rose boutonniere</li>
+                        <li>Professional photography (100-125 images)</li>
+                        <li>5 full-resolution digital images</li>
+                        <li>Private online gallery</li>
+                        <li>Witness provided if needed</li>
+                        <li>Wedding coordinator</li>
+                    </ul>
+                    <div class="package-note">+$60 minister fee (cash). No limo or video.</div>
+                </div>
+                <div class="package-card">
+                    <div class="package-header">
+                        <span class="package-name">Love is Forever</span>
+                        <span class="package-price">$499</span>
+                    </div>
+                    <ul class="package-includes">
+                        <li>Everything in Love & Cherish, plus:</li>
+                        <li>Roundtrip limo (Strip/Downtown, 6 passengers)</li>
+                        <li>Unity candle ceremony</li>
+                        <li>Fresh 6-rose bouquet</li>
+                        <li>125-175 images in gallery</li>
+                        <li>15 full-resolution digital images</li>
+                        <li>Ceremony video recording</li>
+                    </ul>
+                    <div class="package-note">+$60 minister fee, +$40 chauffeur gratuity</div>
+                </div>
+                <div class="package-card">
+                    <div class="package-header">
+                        <span class="package-name">Love Always</span>
+                        <span class="package-price">$699-$777</span>
+                    </div>
+                    <ul class="package-includes">
+                        <li>Everything in Love is Forever, plus:</li>
+                        <li>Arts District photo session</li>
+                        <li>Fresh 12-rose bouquet (red, ivory or pink)</li>
+                        <li>175-200+ images in gallery</li>
+                        <li>25 full-resolution digital images</li>
+                        <li>Las Vegas fuzzy dice keepsake</li>
+                        <li>Keepsake marriage license holder</li>
+                    </ul>
+                    <div class="package-note">+$60 minister, +$50 chauffeur, +$30 photographer gratuity</div>
+                </div>
+            </div>
+            <div class="chapel-highlights">
+                <span class="highlight-tag">Highest-rated chapel in Vegas</span>
+                <span class="highlight-tag">Arts District photo backdrops</span>
+                <span class="highlight-tag">Live streaming available</span>
+                <span class="highlight-tag">Elvis packages available</span>
+                <span class="highlight-tag">Up to 24 guests</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== CHAPEL 2: Graceland Wedding Chapel ===== -->
+    <div class="chapel-card">
+        <div class="chapel-card-header">
+            <div class="chapel-header-left">
+                <div class="chapel-badge badge-best-elvis">Best Elvis Wedding</div>
+                <div class="chapel-name">Graceland Wedding Chapel</div>
+                <div class="chapel-location">619 Las Vegas Blvd S</div>
+                <div class="chapel-established">Est. 1939 &mdash; Oldest chapel in Las Vegas</div>
+                <div class="chapel-rating">
+                    <span class="rating-number">4.8</span>
+                    <span class="stars">&#9733;&#9733;&#9733;&#9733;&#9733;</span>
+                    <span class="review-count">1,938 reviews</span>
+                </div>
+            </div>
+            <div class="distance-box">
+                <div class="dist-label">From Bellagio</div>
+                <div class="dist-miles">5.0 mi</div>
+                <div class="dist-time">~14 min drive</div>
+                <div class="dist-direction">North (Downtown, on Las Vegas Blvd)</div>
+                <a class="directions-link" href="https://www.google.com/maps/dir/Bellagio+Hotel+%26+Casino,+Las+Vegas/619+Las+Vegas+Blvd+S,+Las+Vegas,+NV+89101" target="_blank" rel="noopener">Get Directions &rarr;</a>
+            </div>
+        </div>
+        <div class="chapel-card-body">
+            <div class="section-label">Traditional Packages</div>
+            <div class="packages-grid">
+                <div class="package-card">
+                    <div class="package-header">
+                        <span class="package-name">Let's Get Hitched</span>
+                        <span class="package-price">$249</span>
+                    </div>
+                    <ul class="package-includes">
+                        <li>Chapel use</li>
+                        <li>Traditional wedding music</li>
+                        <li>3-rose bouquet & boutonniere</li>
+                        <li>Professional photography</li>
+                        <li>4 digital images ($80 photo credit)</li>
+                        <li>Certificate holder</li>
+                    </ul>
+                    <div class="package-note">+$60 officiant fee. No limo, video, or livestream.</div>
+                </div>
+                <div class="package-card">
+                    <div class="package-header">
+                        <span class="package-name">Las Vegas Spectacular</span>
+                        <span class="package-price">$299</span>
+                    </div>
+                    <ul class="package-includes">
+                        <li>Chapel use + roundtrip limo</li>
+                        <li>Traditional music</li>
+                        <li>6-rose bouquet & boutonniere</li>
+                        <li>Professional photography</li>
+                        <li>5 digital images ($100 credit)</li>
+                        <li>Digital video download</li>
+                        <li>Facebook Live streaming</li>
+                        <li>Certificate holder</li>
+                    </ul>
+                    <div class="package-note">+$60 officiant fee. Free limo from Strip hotels.</div>
+                </div>
+                <div class="package-card">
+                    <div class="package-header">
+                        <span class="package-name">Las Vegas VIP</span>
+                        <span class="package-price">$499</span>
+                    </div>
+                    <ul class="package-includes">
+                        <li>Chapel use + roundtrip limo</li>
+                        <li>Specialty bouquet & boutonniere</li>
+                        <li>13 digital images ($260 credit)</li>
+                        <li>Digital video download</li>
+                        <li>Facebook Live streaming</li>
+                        <li>Certificate holder</li>
+                    </ul>
+                    <div class="package-note">+$60 officiant fee</div>
+                </div>
+            </div>
+            <div class="section-label">Elvis Packages</div>
+            <div class="packages-grid">
+                <div class="package-card">
+                    <div class="package-header">
+                        <span class="package-name">Viva Las Vegas</span>
+                        <span class="package-price">$249</span>
+                    </div>
+                    <ul class="package-includes">
+                        <li>Elvis escorts bride down aisle</li>
+                        <li>Elvis sings 2 songs</li>
+                        <li>Single rose bouquet & boutonniere</li>
+                        <li>Elvis & Priscilla certificate copy</li>
+                        <li>Professional photography</li>
+                    </ul>
+                    <div class="package-note">Photos sold separately. +$60 officiant.</div>
+                </div>
+                <div class="package-card">
+                    <div class="package-header">
+                        <span class="package-name">Can't Help Falling in Love</span>
+                        <span class="package-price">$429</span>
+                    </div>
+                    <ul class="package-includes">
+                        <li>Elvis escorts bride, sings 3 songs</li>
+                        <li>Roundtrip limo</li>
+                        <li>6-rose bouquet & boutonniere</li>
+                        <li>5 digital images</li>
+                        <li>Video download + Facebook Live</li>
+                        <li>Certificate holder</li>
+                    </ul>
+                    <div class="package-note">+$60 officiant fee</div>
+                </div>
+                <div class="package-card">
+                    <div class="package-header">
+                        <span class="package-name">Famous Dueling Elvis</span>
+                        <span class="package-price">$799</span>
+                    </div>
+                    <ul class="package-includes">
+                        <li>TWO Elvis impersonators (young + 70s)</li>
+                        <li>6 songs total (3 each era)</li>
+                        <li>Roundtrip limo</li>
+                        <li>12-rose bouquet & boutonniere</li>
+                        <li>9 digital images</li>
+                        <li>Video + Facebook Live</li>
+                        <li>Certificate holder</li>
+                    </ul>
+                    <div class="package-note">+$60 officiant fee</div>
+                </div>
+            </div>
+            <div class="chapel-highlights">
+                <span class="highlight-tag">World's first Elvis chapel (1977)</span>
+                <span class="highlight-tag">Oldest operating chapel</span>
+                <span class="highlight-tag">Facebook Live streaming</span>
+                <span class="highlight-tag">Free limo from Strip hotels</span>
+                <span class="highlight-tag">Up to 35 guests</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== CHAPEL 3: Chapel of the Flowers ===== -->
+    <div class="chapel-card">
+        <div class="chapel-card-header">
+            <div class="chapel-header-left">
+                <div class="chapel-badge badge-best-international">Best for International Couples</div>
+                <div class="chapel-name">Chapel of the Flowers</div>
+                <div class="chapel-location">1717 Las Vegas Blvd S</div>
+                <div class="chapel-established">Est. 1960s</div>
+                <div class="chapel-rating">
+                    <span class="rating-number">4.7</span>
+                    <span class="stars">&#9733;&#9733;&#9733;&#9733;&#9734;</span>
+                    <span class="review-count">5,732 reviews</span>
+                </div>
+            </div>
+            <div class="distance-box">
+                <div class="dist-label">From Bellagio</div>
+                <div class="dist-miles">3.5 mi</div>
+                <div class="dist-time">~9 min drive</div>
+                <div class="dist-direction">North (on Las Vegas Blvd)</div>
+                <a class="directions-link" href="https://www.google.com/maps/dir/Bellagio+Hotel+%26+Casino,+Las+Vegas/1717+Las+Vegas+Blvd+S,+Las+Vegas,+NV+89104" target="_blank" rel="noopener">Get Directions &rarr;</a>
+            </div>
+        </div>
+        <div class="chapel-card-body">
+            <div class="section-label">Packages</div>
+            <div class="packages-grid">
+                <div class="package-card">
+                    <div class="package-header">
+                        <span class="package-name">Love It Or It's FREE</span>
+                        <span class="package-price">$195</span>
+                    </div>
+                    <ul class="package-includes">
+                        <li>Private ceremony at Serenity Chapel</li>
+                        <li>Silk bouquet rental</li>
+                        <li>Ring exchange with traditional vows</li>
+                        <li>8 digital photos</li>
+                        <li>Standard wedding music</li>
+                        <li>Money-back guarantee</li>
+                    </ul>
+                </div>
+                <div class="package-card">
+                    <div class="package-header">
+                        <span class="package-name">Traditional</span>
+                        <span class="package-price">$495</span>
+                    </div>
+                    <ul class="package-includes">
+                        <li>Rose bouquet & boutonniere</li>
+                        <li>Candid ceremony photos</li>
+                        <li>Traditional chapel ceremony</li>
+                        <li>Personal wedding planner</li>
+                    </ul>
+                    <div class="package-note">+$100 weekend surcharge</div>
+                </div>
+                <div class="package-card">
+                    <div class="package-header">
+                        <span class="package-name">Romantic</span>
+                        <span class="package-price">$650</span>
+                    </div>
+                    <ul class="package-includes">
+                        <li>Limo to chapel</li>
+                        <li>Wedding flowers</li>
+                        <li>Ceremony photos</li>
+                        <li>Videography</li>
+                        <li>Personal wedding planner</li>
+                    </ul>
+                </div>
+                <div class="package-card">
+                    <div class="package-header">
+                        <span class="package-name">Viva Elvis</span>
+                        <span class="package-price">$1,249</span>
+                    </div>
+                    <ul class="package-includes">
+                        <li>Elvis entertainer performs ceremony</li>
+                        <li>Elvis walks couple down aisle</li>
+                        <li>Post-ceremony photos with Elvis</li>
+                        <li>Full ceremony inclusions</li>
+                    </ul>
+                </div>
+                <div class="package-card">
+                    <div class="package-header">
+                        <span class="package-name">Cherish (Premium)</span>
+                        <span class="package-price">$2,099</span>
+                    </div>
+                    <ul class="package-includes">
+                        <li>Deluxe "First Look" with limo service</li>
+                        <li>Couple flowers + silk rose petal aisle</li>
+                        <li>Live wedding music</li>
+                        <li>Hair & makeup stylist</li>
+                        <li>Extended photoshoot with prints</li>
+                        <li>Ceremony digital download</li>
+                        <li>Personal wedding planner</li>
+                    </ul>
+                </div>
+                <div class="package-card">
+                    <div class="package-header">
+                        <span class="package-name">Valley of Fire</span>
+                        <span class="package-price">$2,399</span>
+                    </div>
+                    <ul class="package-includes">
+                        <li>Outdoor desert ceremony</li>
+                        <li>45-minute photo shoot</li>
+                        <li>Limo transport</li>
+                        <li>Park fees included</li>
+                        <li>Wedding planner & coordinator</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="chapel-highlights">
+                <span class="highlight-tag">Brochures in 8 languages</span>
+                <span class="highlight-tag">VIP sedan: hotel > bureau > chapel</span>
+                <span class="highlight-tag">3 indoor chapels + outdoor</span>
+                <span class="highlight-tag">Helicopter & Grand Canyon options</span>
+                <span class="highlight-tag">Up to 101 guests</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== CHAPEL 4: A Little White Wedding Chapel ===== -->
+    <div class="chapel-card">
+        <div class="chapel-card-header">
+            <div class="chapel-header-left">
+                <div class="chapel-badge badge-most-famous">Most Famous Worldwide</div>
+                <div class="chapel-name">A Little White Wedding Chapel</div>
+                <div class="chapel-location">1301 Las Vegas Blvd S</div>
+                <div class="chapel-established">Est. 1951</div>
+                <div class="chapel-rating">
+                    <span class="rating-number">4.4</span>
+                    <span class="stars">&#9733;&#9733;&#9733;&#9733;&#9734;</span>
+                    <span class="review-count">2,367 reviews</span>
+                </div>
+            </div>
+            <div class="distance-box">
+                <div class="dist-label">From Bellagio</div>
+                <div class="dist-miles">4.0 mi</div>
+                <div class="dist-time">~11 min drive</div>
+                <div class="dist-direction">North (on Las Vegas Blvd)</div>
+                <a class="directions-link" href="https://www.google.com/maps/dir/Bellagio+Hotel+%26+Casino,+Las+Vegas/1301+Las+Vegas+Blvd+S,+Las+Vegas,+NV+89104" target="_blank" rel="noopener">Get Directions &rarr;</a>
+            </div>
+        </div>
+        <div class="chapel-card-body">
+            <div class="section-label">Packages (all +19% service surcharge, +$100 Fri/Sat)</div>
+            <div class="packages-grid">
+                <div class="package-card">
+                    <div class="package-header">
+                        <span class="package-name">Chapel Ceremony</span>
+                        <span class="package-price">$150</span>
+                    </div>
+                    <ul class="package-includes">
+                        <li>Traditional wedding music</li>
+                        <li>Religious or civil ceremony</li>
+                        <li>Witness provided if needed</li>
+                        <li>Complimentary limo to/from hotel</li>
+                        <li>Bride's single fresh rose</li>
+                        <li>Groom's boutonniere</li>
+                        <li>9 professional photos (hi-res disc)</li>
+                        <li>Certificate holder & 5x7 print</li>
+                        <li>1-hour reception for up to 15 (table linens, place settings, champagne toast)</li>
+                    </ul>
+                    <div class="package-note">+$60 officiant fee. +19% surcharge. Up to 10 guests (+$100 for 11-20).</div>
+                </div>
+                <div class="package-card">
+                    <div class="package-header">
+                        <span class="package-name">Drive-Thru Tunnel of Love</span>
+                        <span class="package-price">$150</span>
+                    </div>
+                    <ul class="package-includes">
+                        <li>Famous Tunnel of Love ceremony</li>
+                        <li>Religious or civil ceremony</li>
+                        <li>Witness provided</li>
+                        <li>2 souvenir poker chips</li>
+                        <li>Walk-ups, cars, motorcycles, or bicycles</li>
+                    </ul>
+                    <div class="package-note">+$60 officiant. +$250 for Elvis upgrade. Up to 10 guests.</div>
+                </div>
+                <div class="package-card">
+                    <div class="package-header">
+                        <span class="package-name">Elvis Tribute</span>
+                        <span class="package-price">$495</span>
+                    </div>
+                    <ul class="package-includes">
+                        <li>Elvis impersonator performs 2 songs</li>
+                        <li>12-rose hand-tied bouquet</li>
+                        <li>Matching boutonniere</li>
+                        <li>Religious or civil ceremony</li>
+                        <li>Witness provided</li>
+                        <li>Certificate holder</li>
+                    </ul>
+                    <div class="package-note">+$60 officiant. Up to 20 guests.</div>
+                </div>
+                <div class="package-card">
+                    <div class="package-header">
+                        <span class="package-name">Ride With The King</span>
+                        <span class="package-price">$595</span>
+                    </div>
+                    <ul class="package-includes">
+                        <li>Pink Cadillac ride through Tunnel of Love</li>
+                        <li>Elvis performs 2 songs</li>
+                        <li>12-rose hand-tied bouquet</li>
+                        <li>Matching boutonniere</li>
+                        <li>Souvenir poker chips</li>
+                        <li>Witness provided</li>
+                    </ul>
+                    <div class="package-note">+$60 officiant. Up to 20 guests.</div>
+                </div>
+                <div class="package-card">
+                    <div class="package-header">
+                        <span class="package-name">The World-Famous Experience</span>
+                        <span class="package-price">$695</span>
+                    </div>
+                    <ul class="package-includes">
+                        <li>6-rose bouquet & boutonniere</li>
+                        <li>Traditional wedding music</li>
+                        <li>Professional photographer</li>
+                        <li>Ceremony photos + 10-min grounds photo session</li>
+                        <li>Professional wedding ceremony video</li>
+                        <li>Certificate holder</li>
+                        <li>Witness provided</li>
+                    </ul>
+                    <div class="package-note">+$60 officiant. Up to 20 guests (call for 21-60).</div>
+                </div>
+            </div>
+            <div class="chapel-highlights">
+                <span class="highlight-tag">Britney Spears, Sinatra, MJ married here</span>
+                <span class="highlight-tag">Famous Tunnel of Love drive-thru</span>
+                <span class="highlight-tag">Pink Cadillac ceremony</span>
+                <span class="highlight-tag">Up to 60 guests</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== CHAPEL 5: Little Church of the West ===== -->
+    <div class="chapel-card">
+        <div class="chapel-card-header">
+            <div class="chapel-header-left">
+                <div class="chapel-badge badge-most-historic">National Historic Landmark &middot; Closest to Bellagio</div>
+                <div class="chapel-name">Little Church of the West</div>
+                <div class="chapel-location">4617 S Las Vegas Blvd</div>
+                <div class="chapel-established">Est. 1942</div>
+                <div class="chapel-rating">
+                    <span class="rating-number">4.6</span>
+                    <span class="stars">&#9733;&#9733;&#9733;&#9733;&#9734;</span>
+                    <span class="review-count">1,968 reviews</span>
+                </div>
+            </div>
+            <div class="distance-box">
+                <div class="dist-label">From Bellagio</div>
+                <div class="dist-miles">1.5 mi</div>
+                <div class="dist-time">~5 min drive</div>
+                <div class="dist-direction">South (on the Strip, near Mandalay Bay)</div>
+                <a class="directions-link" href="https://www.google.com/maps/dir/Bellagio+Hotel+%26+Casino,+Las+Vegas/4617+S+Las+Vegas+Blvd,+Las+Vegas,+NV+89119" target="_blank" rel="noopener">Get Directions &rarr;</a>
+            </div>
+        </div>
+        <div class="chapel-card-body">
+            <div class="section-label">Packages (all include free livestream)</div>
+            <div class="packages-grid">
+                <div class="package-card">
+                    <div class="package-header">
+                        <span class="package-name">The Elopement</span>
+                        <span class="package-price">$199</span>
+                    </div>
+                    <ul class="package-includes">
+                        <li>Couple only &mdash; no guests</li>
+                        <li>Sun-Fri 10am-4pm only</li>
+                        <li>"I Do" vows</li>
+                        <li>Single rose & boutonniere</li>
+                        <li>Professional photography</li>
+                        <li>$50 credit toward photos/digitals</li>
+                        <li>Certificate holder</li>
+                        <li>30-day online gallery</li>
+                        <li>Free livestream</li>
+                        <li>Witness provided</li>
+                    </ul>
+                    <div class="package-note">+$60 minister fee (cash). No guests allowed.</div>
+                </div>
+                <div class="package-card">
+                    <div class="package-header">
+                        <span class="package-name">Neon Lights</span>
+                        <span class="package-price">$399</span>
+                    </div>
+                    <ul class="package-includes">
+                        <li>No guest limits or fees</li>
+                        <li>"Repeat After the Minister" vows</li>
+                        <li>7-rose bouquet & boutonniere</li>
+                        <li>Classic entry music</li>
+                        <li>Professional photography</li>
+                        <li>$100 credit toward photos/digitals</li>
+                        <li>Certificate holder</li>
+                        <li>30-day online gallery + livestream</li>
+                    </ul>
+                    <div class="package-note">+$60 minister. Guests cannot take photos.</div>
+                </div>
+                <div class="package-card">
+                    <div class="package-header">
+                        <span class="package-name">Supernova Love</span>
+                        <span class="package-price">$695</span>
+                    </div>
+                    <ul class="package-includes">
+                        <li>No guest limits</li>
+                        <li>Optional custom vows</li>
+                        <li>12-rose bouquet & boutonniere</li>
+                        <li>Entry & exit music</li>
+                        <li>Roundtrip limo (6 adults)</li>
+                        <li>Professional photography</li>
+                        <li>$150 credit toward photos</li>
+                        <li>Video download of ceremony</li>
+                        <li>30-day gallery + livestream</li>
+                    </ul>
+                    <div class="package-note">+$60 minister. Guests cannot take photos.</div>
+                </div>
+                <div class="package-card">
+                    <div class="package-header">
+                        <span class="package-name">The Headliner</span>
+                        <span class="package-price">$995</span>
+                    </div>
+                    <ul class="package-includes">
+                        <li>No guest limits</li>
+                        <li>Custom vows + entry/exit music</li>
+                        <li>16-rose bouquet + additional 7-rose bouquet</li>
+                        <li>Two boutonnieres</li>
+                        <li>Roundtrip limo (6 adults)</li>
+                        <li>Photos of couple, party & family</li>
+                        <li>$200 credit + video download</li>
+                        <li>60-day gallery + livestream</li>
+                        <li>Guests CAN take photos from seats</li>
+                    </ul>
+                    <div class="package-note">+$100 minister fee (cash)</div>
+                </div>
+                <div class="package-card">
+                    <div class="package-header">
+                        <span class="package-name">Desert Stardust</span>
+                        <span class="package-price">$1,495</span>
+                    </div>
+                    <ul class="package-includes">
+                        <li>Everything in Headliner, plus:</li>
+                        <li>24-rose bouquet + extra 7-rose bouquet</li>
+                        <li>One-way limo + roundtrip limo</li>
+                        <li>30-minute bridal suite</li>
+                        <li>Group photo with all guests</li>
+                        <li>$250 credit + video download</li>
+                        <li>60-day gallery + livestream</li>
+                        <li>Guests CAN take photos</li>
+                    </ul>
+                    <div class="package-note">+$100 minister fee. Add-ons: Elvis $200, Vegas Singer $250, Bagpiper $300</div>
+                </div>
+            </div>
+            <div class="chapel-highlights">
+                <span class="highlight-tag">Only chapel on National Register of Historic Places</span>
+                <span class="highlight-tag">Authentic 1942 wooden chapel</span>
+                <span class="highlight-tag">Stained glass windows</span>
+                <span class="highlight-tag">Harley-Davidson venue option</span>
+                <span class="highlight-tag">Up to 100 guests</span>
+                <span class="highlight-tag">CLOSEST to Bellagio (5 min)</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== CHAPEL 6: Viva Las Vegas ===== -->
+    <div class="chapel-card">
+        <div class="chapel-card-header">
+            <div class="chapel-header-left">
+                <div class="chapel-badge badge-best-themed">Best Themed Weddings &middot; 40+ Themes</div>
+                <div class="chapel-name">Viva Las Vegas Wedding Chapel</div>
+                <div class="chapel-location">1205 Las Vegas Blvd S</div>
+                <div class="chapel-established">Est. 1999 &mdash; 100,000+ couples married</div>
+                <div class="chapel-rating">
+                    <span class="rating-number">4.5</span>
+                    <span class="stars">&#9733;&#9733;&#9733;&#9733;&#9734;</span>
+                    <span class="review-count">240+ reviews (Yelp)</span>
+                </div>
+            </div>
+            <div class="distance-box">
+                <div class="dist-label">From Bellagio</div>
+                <div class="dist-miles">4.2 mi</div>
+                <div class="dist-time">~11 min drive</div>
+                <div class="dist-direction">North (on Las Vegas Blvd)</div>
+                <a class="directions-link" href="https://www.google.com/maps/dir/Bellagio+Hotel+%26+Casino,+Las+Vegas/1205+Las+Vegas+Blvd+S,+Las+Vegas,+NV+89104" target="_blank" rel="noopener">Get Directions &rarr;</a>
+            </div>
+        </div>
+        <div class="chapel-card-body">
+            <div class="section-label">Traditional Packages (+19% surcharge, +$100 Sat/premium days)</div>
+            <div class="packages-grid">
+                <div class="package-card">
+                    <div class="package-header">
+                        <span class="package-name">VLV Cherish</span>
+                        <span class="package-price">$159</span>
+                    </div>
+                    <ul class="package-includes">
+                        <li>Wedding planner + coordinator</li>
+                        <li>Main chapel use</li>
+                        <li>Traditional music</li>
+                        <li>Licensed officiant</li>
+                        <li>9 hi-res ceremony images</li>
+                        <li>Single rose bouquet + boutonniere</li>
+                        <li>Certificate holder & 5x7 print</li>
+                        <li>Names on Strip marquee</li>
+                    </ul>
+                    <div class="package-note">Up to 6 guests. No limo, video, or livestream.</div>
+                </div>
+                <div class="package-card">
+                    <div class="package-header">
+                        <span class="package-name">VLV Ignite</span>
+                        <span class="package-price">$399</span>
+                    </div>
+                    <ul class="package-includes">
+                        <li>Wedding planner + coordinator</li>
+                        <li>Roundtrip limo</li>
+                        <li>Choice of venue</li>
+                        <li>Traditional music</li>
+                        <li>Livestream of ceremony</li>
+                        <li>Unity ceremony</li>
+                        <li>11 professional images</li>
+                        <li>3-rose bouquet + boutonniere</li>
+                        <li>Certificate holder + marquee</li>
+                    </ul>
+                    <div class="package-note">Up to 25 guests</div>
+                </div>
+                <div class="package-card">
+                    <div class="package-header">
+                        <span class="package-name">VLV Dream</span>
+                        <span class="package-price">$599</span>
+                    </div>
+                    <ul class="package-includes">
+                        <li>Everything in Ignite, plus:</li>
+                        <li>Bridal suite access</li>
+                        <li>"First Glance" service</li>
+                        <li>15 professional images</li>
+                        <li>6-rose bouquet</li>
+                        <li>Wedding ceremony video</li>
+                    </ul>
+                    <div class="package-note">Up to 50 guests</div>
+                </div>
+                <div class="package-card">
+                    <div class="package-header">
+                        <span class="package-name">VLV Inspire</span>
+                        <span class="package-price">$799</span>
+                    </div>
+                    <ul class="package-includes">
+                        <li>Limo + bridal suite + First Glance</li>
+                        <li>Livestream + unity ceremony</li>
+                        <li>19 professional images</li>
+                        <li>12-rose bouquet + boutonniere</li>
+                        <li>Wedding ceremony video</li>
+                        <li>Certificate holder + marquee</li>
+                    </ul>
+                    <div class="package-note">Up to 80 guests</div>
+                </div>
+                <div class="package-card">
+                    <div class="package-header">
+                        <span class="package-name">VLV Enamor</span>
+                        <span class="package-price">$1,199</span>
+                    </div>
+                    <ul class="package-includes">
+                        <li>Limo for up to 12 passengers</li>
+                        <li>ALL ceremony images</li>
+                        <li>30-min photo shoot + 7 favorites</li>
+                        <li>Epic flower shower shot</li>
+                        <li>Color, B&W, and sepia images</li>
+                        <li>18-rose bouquet + maid of honor rose</li>
+                        <li>Best man boutonniere</li>
+                        <li>Video + livestream + unity</li>
+                    </ul>
+                    <div class="package-note">Up to 80 guests</div>
+                </div>
+                <div class="package-card">
+                    <div class="package-header">
+                        <span class="package-name">VLV Indulge</span>
+                        <span class="package-price">$1,999</span>
+                    </div>
+                    <ul class="package-includes">
+                        <li>Hair & makeup for one</li>
+                        <li>Limo for 12 + bridal suite</li>
+                        <li>Candlelit aisle & rose petals</li>
+                        <li>ALL ceremony images</li>
+                        <li>60-min photo shoot (all images)</li>
+                        <li>24-rose bouquet + 2 extra 3-rose bouquets</li>
+                        <li>3 boutonnieres</li>
+                        <li>Full video from arrival to departure</li>
+                    </ul>
+                    <div class="package-note">Up to 80 guests</div>
+                </div>
+            </div>
+            <div class="section-label">Themed Packages (40+ themes available)</div>
+            <div class="packages-grid">
+                <div class="package-card">
+                    <div class="package-header">
+                        <span class="package-name">All Themed Weddings Include</span>
+                        <span class="package-price">$499-$2,295</span>
+                    </div>
+                    <ul class="package-includes">
+                        <li>Live character performer(s)</li>
+                        <li>Theatrical lighting & fog effects</li>
+                        <li>Concert-quality sound</li>
+                        <li>Theme-appropriate music & decor</li>
+                        <li>Names on Las Vegas Strip marquee</li>
+                        <li>Roundtrip limo</li>
+                        <li>Professional photographer</li>
+                        <li>Wedding planner + coordinator</li>
+                        <li>Bouquet & boutonniere</li>
+                        <li>Witness if needed + livestream</li>
+                    </ul>
+                    <div class="package-note">Themes: Elvis, Beetlejuice, Star Wars, Star Trek, Gothic, Superheroes, Egyptian, Gangster, Zombie, and 30+ more</div>
+                </div>
+            </div>
+            <div class="chapel-highlights">
+                <span class="highlight-tag">40+ themed weddings</span>
+                <span class="highlight-tag">Names on real Strip marquee</span>
+                <span class="highlight-tag">Pink Cadillac entrance</span>
+                <span class="highlight-tag">LGBTQ+-owned</span>
+                <span class="highlight-tag">Theatrical production quality</span>
+                <span class="highlight-tag">Up to 80 guests</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== CHAPEL 7: A Special Memory ===== -->
+    <div class="chapel-card">
+        <div class="chapel-card-header">
+            <div class="chapel-header-left">
+                <div class="chapel-badge badge-budget">Most Budget-Friendly</div>
+                <div class="chapel-name">A Special Memory Wedding Chapel</div>
+                <div class="chapel-location">800 S 4th St (near courthouse)</div>
+                <div class="chapel-established">Est. 1971 &mdash; Family-owned 50+ years</div>
+                <div class="chapel-rating">
+                    <span class="rating-number">4.3</span>
+                    <span class="stars">&#9733;&#9733;&#9733;&#9733;&#9734;</span>
+                    <span class="review-count">500+ reviews</span>
+                </div>
+            </div>
+            <div class="distance-box">
+                <div class="dist-label">From Bellagio</div>
+                <div class="dist-miles">4.8 mi</div>
+                <div class="dist-time">~13 min drive</div>
+                <div class="dist-direction">North-East (near courthouse)</div>
+                <a class="directions-link" href="https://www.google.com/maps/dir/Bellagio+Hotel+%26+Casino,+Las+Vegas/800+S+4th+St,+Las+Vegas,+NV+89101" target="_blank" rel="noopener">Get Directions &rarr;</a>
+            </div>
+        </div>
+        <div class="chapel-card-body">
+            <div class="section-label">Packages (minister fee NOT included in any price)</div>
+            <div class="packages-grid">
+                <div class="package-card">
+                    <div class="package-header">
+                        <span class="package-name">Say "I Do"</span>
+                        <span class="package-price">$249</span>
+                    </div>
+                    <ul class="package-includes">
+                        <li>Chapel ceremony</li>
+                        <li>Traditional wedding music</li>
+                        <li>Professional photography</li>
+                        <li>4 candid digital images</li>
+                        <li>Single rose bouquet & boutonniere</li>
+                        <li>No charge for guests</li>
+                    </ul>
+                    <div class="package-note">No limo, video, or livestream</div>
+                </div>
+                <div class="package-card">
+                    <div class="package-header">
+                        <span class="package-name">One True Love</span>
+                        <span class="package-price">$299</span>
+                    </div>
+                    <ul class="package-includes">
+                        <li>Chapel ceremony</li>
+                        <li>Roundtrip luxury transport</li>
+                        <li>5 candid digital images</li>
+                        <li>DVD / digital download of ceremony</li>
+                        <li>3-rose bouquet & boutonniere</li>
+                        <li>Traditional music</li>
+                    </ul>
+                </div>
+                <div class="package-card">
+                    <div class="package-header">
+                        <span class="package-name">The Romance Package</span>
+                        <span class="package-price">$399</span>
+                    </div>
+                    <ul class="package-includes">
+                        <li>Roundtrip luxury transport</li>
+                        <li>10 candid digital images</li>
+                        <li>DVD / digital download</li>
+                        <li>Certificate holder</li>
+                        <li>9-rose bouquet & boutonniere</li>
+                        <li>Traditional music</li>
+                    </ul>
+                </div>
+                <div class="package-card">
+                    <div class="package-header">
+                        <span class="package-name">Las Vegas Silver</span>
+                        <span class="package-price">$499</span>
+                    </div>
+                    <ul class="package-includes">
+                        <li>Roundtrip luxury transport</li>
+                        <li>15 candid digital images</li>
+                        <li>DVD / digital download</li>
+                        <li>Unity candle ceremony</li>
+                        <li>Bride's garter</li>
+                        <li>Champagne flutes & bottle</li>
+                        <li>12-rose bouquet & boutonniere</li>
+                        <li>Certificate holder</li>
+                    </ul>
+                </div>
+                <div class="package-card">
+                    <div class="package-header">
+                        <span class="package-name">Las Vegas Gold</span>
+                        <span class="package-price">$599</span>
+                    </div>
+                    <ul class="package-includes">
+                        <li>Everything in Silver, plus:</li>
+                        <li>20 candid digital images</li>
+                        <li>Photo album</li>
+                        <li>Designer garter</li>
+                        <li>12-rose bouquet + 3 boutonnieres</li>
+                        <li>Two corsages</li>
+                        <li>Bridesmaid 3-rose presentation</li>
+                    </ul>
+                </div>
+                <div class="package-card">
+                    <div class="package-header">
+                        <span class="package-name">Drive-Thru Wedding</span>
+                        <span class="package-price">from $199</span>
+                    </div>
+                    <ul class="package-includes">
+                        <li>Drive-thru "Lover's Lane" ceremony</li>
+                        <li>Marry in limo or your own vehicle</li>
+                        <li>Basic ceremony inclusions</li>
+                    </ul>
+                    <div class="package-note">"Super Sized" version from $349 adds photos, flowers & DVD</div>
+                </div>
+            </div>
+            <div class="chapel-highlights">
+                <span class="highlight-tag">Multi-language ceremonies</span>
+                <span class="highlight-tag">Steps from Marriage License Bureau</span>
+                <span class="highlight-tag">Wheelchair-friendly</span>
+                <span class="highlight-tag">Elvis packages from $489</span>
+                <span class="highlight-tag">No guest fees</span>
+            </div>
+        </div>
+    </div>
+
+</div>
+</div>
+
+<!-- ==================== TAB 3: COSTS & TIPS ==================== -->
+<div id="tab-costs" class="tab-content">
+<div class="content-area">
+
+    <h2 style="font-family: 'Playfair Display', serif; color: var(--gold); margin-bottom: 24px;">Costs & Pro Tips</h2>
+
+    <div class="cost-summary">
+        <h3>Total Cost Breakdown (excluding flights & hotel)</h3>
+        <div class="cost-row"><span class="cost-label">ESTA (2 persons)</span><span class="cost-value">$42</span></div>
+        <div class="cost-row"><span class="cost-label">Marriage License</span><span class="cost-value">$102</span></div>
+        <div class="cost-row"><span class="cost-label">Chapel Ceremony (basic to mid-range)</span><span class="cost-value">$150 &ndash; $700</span></div>
+        <div class="cost-row"><span class="cost-label">Certified Copies (x4)</span><span class="cost-value">$40 &ndash; $60</span></div>
+        <div class="cost-row"><span class="cost-label">Apostille + Service</span><span class="cost-value">$70 &ndash; $170</span></div>
+        <div class="cost-row"><span class="cost-label">Hebrew Notarized Translation</span><span class="cost-value">$55 &ndash; $140 (200-500 NIS)</span></div>
+        <div class="cost-row"><span class="cost-label">Israeli Registration</span><span class="cost-value">Free</span></div>
+        <div class="cost-row total"><span class="cost-label">Total Estimated Range</span><span class="cost-value">$460 &ndash; $1,200</span></div>
+    </div>
+
+    <h3 style="font-family: 'Playfair Display', serif; color: var(--gold-light); margin-top: 36px;">Clark County Bureau &mdash; Wait Times</h3>
+    <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 12px;">With online pre-application completed</p>
+
+    <div class="wait-grid">
+        <div class="wait-card"><div class="time-label">Weekday Morning<br>(8-10 AM)</div><div class="time-value wait-short">15-30 min</div></div>
+        <div class="wait-card"><div class="time-label">Weekday Midday</div><div class="time-value wait-medium">30-60 min</div></div>
+        <div class="wait-card"><div class="time-label">Sunday / Tuesday</div><div class="time-value wait-short">20-40 min</div></div>
+        <div class="wait-card"><div class="time-label">Late Evening<br>(8 PM - Midnight)</div><div class="time-value wait-short">15-30 min</div></div>
+        <div class="wait-card"><div class="time-label">Friday Evening /<br>Saturday PM</div><div class="time-value wait-long">60-90 min</div></div>
+        <div class="wait-card"><div class="time-label">Valentine's Day /<br>Special Dates</div><div class="time-value wait-long">90+ min</div></div>
+    </div>
+
+    <div style="margin-top: 36px;">
+        <h3 style="font-family: 'Playfair Display', serif; color: var(--gold-light); margin-bottom: 16px;">Pro Tips for Israeli Couples</h3>
+
+        <div class="tip-card"><strong>This is extremely common</strong><p>Thousands of Israeli couples marry in Las Vegas every year. Every office has handled Israeli couples before.</p></div>
+        <div class="tip-card"><strong>Get the license the day BEFORE the ceremony</strong><p>Valid for a year. Getting it a day early means zero stress on your wedding day.</p></div>
+        <div class="tip-card"><strong>Order extra certified copies (3-4 minimum)</strong><p>They're cheap ($10-15 each) and you need them for apostille + Israeli registration + spares.</p></div>
+        <div class="tip-card"><strong>Get the apostille before leaving the US</strong><p>Nevada Secretary of State Las Vegas office (555 E. Washington Ave). Same-day in person saves weeks.</p></div>
+        <div class="tip-card"><strong>Bring $102 cash for the license</strong><p>Credit cards work but add a surcharge ($105.29). Cash = exact amount, no fees.</p></div>
+        <div class="tip-card"><strong>Choose a chapel with limo/concierge service</strong><p>Several chapels offer hotel &rarr; bureau &rarr; chapel transport. Makes the whole experience seamless.</p></div>
+        <div class="tip-card"><strong>Watch for hidden surcharges</strong><p>A Little White Chapel and Viva Las Vegas add 19% surcharge. Most chapels charge +$60 officiant fee on top. Always ask for the all-in price.</p></div>
+        <div class="tip-card"><strong>Total timeline after return: 4-8 weeks</strong><p>Apostille &rarr; translation &rarr; registration &rarr; new Teudat Zehut. If relaxed, 2-3 months.</p></div>
+    </div>
+
+</div>
+</div>
+
+<div class="footer">
+    <div class="mazel">Mazal Tov!</div>
+    <p>Vegas wedding guide for Israeli couples. Last updated April 2026.</p>
+</div>
+
+<script>
+    function switchTab(tabName) {
+        document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+        document.getElementById('tab-' + tabName).classList.add('active');
+        event.target.classList.add('active');
+    }
+
+    function toggleTodo(el) {
+        el.classList.toggle('checked');
+        const cb = el.querySelector('.todo-checkbox');
+        cb.innerHTML = el.classList.contains('checked') ? '&#10003;' : '';
+        updateProgress();
+    }
+
+    function updateProgress() {
+        const total = document.querySelectorAll('.todo-item').length;
+        const done = document.querySelectorAll('.todo-item.checked').length;
+        document.getElementById('progress-fill').style.width = (done / total * 100) + '%';
+        document.getElementById('progress-text').textContent = done + ' / ' + total + ' completed';
+    }
+
+    updateProgress();
+</script>
+
+</body>
+</html>

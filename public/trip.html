@@ -1,0 +1,1515 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>✈️ USA & Mexico Trip 2026</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700&display=swap');
+
+  :root {
+    --bg: #0a0a1a;
+    --card: #12122a;
+    --card-hover: #1a1a3a;
+    --accent: #6c5ce7;
+    --accent2: #00cec9;
+    --accent3: #fd79a8;
+    --accent4: #fdcb6e;
+    --text: #e0e0f0;
+    --text-dim: #8888aa;
+    --border: #2a2a4a;
+    --gradient1: linear-gradient(135deg, #6c5ce7, #a29bfe);
+    --gradient2: linear-gradient(135deg, #00cec9, #81ecec);
+    --gradient3: linear-gradient(135deg, #fd79a8, #fab1a0);
+    --gradient4: linear-gradient(135deg, #fdcb6e, #ffeaa7);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Heebo', 'Inter', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    overflow-x: hidden;
+    direction: rtl;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background:
+      radial-gradient(ellipse at 20% 50%, rgba(108,92,231,0.08) 0%, transparent 50%),
+      radial-gradient(ellipse at 80% 20%, rgba(0,206,201,0.06) 0%, transparent 50%),
+      radial-gradient(ellipse at 50% 80%, rgba(253,121,168,0.05) 0%, transparent 50%);
+    z-index: -1;
+    animation: bgPulse 15s ease-in-out infinite alternate;
+  }
+
+  @keyframes bgPulse { 0% { opacity: 0.7; } 100% { opacity: 1; } }
+
+  /* ===== Hero ===== */
+  .hero {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 2rem;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .hero::before {
+    content: '';
+    position: absolute;
+    width: 600px; height: 600px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(108,92,231,0.15), transparent 70%);
+    top: -100px; left: 50%;
+    transform: translateX(-50%);
+    animation: heroGlow 8s ease-in-out infinite alternate;
+  }
+
+  @keyframes heroGlow {
+    0% { transform: translateX(-50%) scale(1); }
+    100% { transform: translateX(-50%) scale(1.3); }
+  }
+
+  .hero-emoji { font-size: 5rem; margin-bottom: 1rem; animation: bounce 2s ease-in-out infinite; }
+
+  @keyframes bounce {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-15px); }
+  }
+
+  .hero h1 {
+    font-size: clamp(2.5rem, 6vw, 4.5rem);
+    font-weight: 900;
+    background: linear-gradient(135deg, #a29bfe, #6c5ce7, #00cec9, #fd79a8);
+    background-size: 300% 300%;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    animation: gradientShift 5s ease-in-out infinite;
+    margin-bottom: 0.5rem;
+  }
+
+  @keyframes gradientShift {
+    0%, 100% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+  }
+
+  .hero .subtitle { font-size: 1.3rem; color: var(--text-dim); font-weight: 300; margin-bottom: 2rem; }
+
+  .hero-stats { display: flex; gap: 2rem; flex-wrap: wrap; justify-content: center; margin-top: 1rem; }
+
+  .stat {
+    text-align: center;
+    padding: 1rem 1.5rem;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    backdrop-filter: blur(10px);
+    min-width: 120px;
+    transition: transform 0.3s, border-color 0.3s;
+  }
+
+  .stat:hover { transform: translateY(-4px); border-color: var(--accent); }
+
+  .stat .number {
+    font-size: 2.2rem;
+    font-weight: 800;
+    background: var(--gradient1);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .stat .label { font-size: 0.85rem; color: var(--text-dim); margin-top: 0.25rem; }
+
+  .scroll-indicator {
+    position: absolute;
+    bottom: 2rem;
+    animation: scrollBounce 2s ease-in-out infinite;
+    cursor: pointer;
+    font-size: 1.5rem;
+    color: var(--text-dim);
+  }
+
+  @keyframes scrollBounce {
+    0%, 100% { transform: translateY(0); opacity: 1; }
+    50% { transform: translateY(10px); opacity: 0.5; }
+  }
+
+  /* ===== Navigation ===== */
+  nav {
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+    background: rgba(10,10,26,0.85);
+    backdrop-filter: blur(20px);
+    border-bottom: 1px solid var(--border);
+    padding: 0;
+    direction: ltr;
+  }
+
+  .nav-inner {
+    display: flex;
+    overflow-x: auto;
+    scrollbar-width: none;
+    gap: 0;
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+
+  .nav-inner::-webkit-scrollbar { display: none; }
+
+  .nav-btn {
+    padding: 0.8rem 1.2rem;
+    background: none;
+    border: none;
+    color: var(--text-dim);
+    cursor: pointer;
+    white-space: nowrap;
+    font-family: inherit;
+    font-size: 0.85rem;
+    font-weight: 500;
+    transition: all 0.3s;
+    border-bottom: 2px solid transparent;
+  }
+
+  .nav-btn:hover, .nav-btn.active {
+    color: var(--text);
+    border-bottom-color: var(--accent);
+    background: rgba(108,92,231,0.1);
+  }
+
+  /* ===== Sections ===== */
+  section { max-width: 1200px; margin: 0 auto; padding: 3rem 1.5rem; }
+
+  .section-title {
+    font-size: 2rem;
+    font-weight: 800;
+    margin-bottom: 2rem;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .section-title .icon { font-size: 2.2rem; }
+
+  /* ===== Map ===== */
+  #map {
+    height: 500px;
+    border-radius: 20px;
+    border: 1px solid var(--border);
+    overflow: hidden;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+  }
+
+  .leaflet-popup-content-wrapper {
+    background: var(--card) !important;
+    color: var(--text) !important;
+    border-radius: 12px !important;
+    border: 1px solid var(--border) !important;
+    direction: rtl;
+  }
+
+  .leaflet-popup-tip { background: var(--card) !important; }
+
+  .leaflet-popup-content {
+    font-family: 'Heebo', sans-serif !important;
+    font-size: 14px !important;
+    line-height: 1.6 !important;
+  }
+
+  .popup-title { font-weight: 700; font-size: 1.1rem; margin-bottom: 4px; }
+  .popup-dates { color: var(--accent2); font-size: 0.85rem; }
+
+  /* ===== Flow Route ===== */
+  .flow-route {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    padding: 1.5rem;
+    background: rgba(255,255,255,0.02);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    margin-bottom: 2rem;
+    direction: ltr;
+  }
+
+  .flow-city {
+    padding: 0.4rem 1rem;
+    background: rgba(108,92,231,0.15);
+    border: 1px solid rgba(108,92,231,0.3);
+    border-radius: 20px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    white-space: nowrap;
+    transition: all 0.3s;
+  }
+
+  .flow-city:hover { background: rgba(108,92,231,0.3); transform: scale(1.05); }
+  .flow-arrow { color: var(--accent2); font-size: 1.2rem; }
+
+  /* ===== Calendar ===== */
+  .calendar-container {
+    overflow-x: auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--accent) var(--card);
+    padding-bottom: 1rem;
+  }
+
+  .calendar {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 4px;
+    min-width: 700px;
+    direction: ltr;
+  }
+
+  .cal-header {
+    text-align: center;
+    padding: 0.75rem 0.5rem;
+    font-weight: 700;
+    font-size: 0.85rem;
+    color: var(--accent);
+    background: rgba(108,92,231,0.1);
+    border-radius: 8px;
+  }
+
+  .cal-day {
+    aspect-ratio: 1;
+    min-height: 85px;
+    padding: 0.4rem;
+    border-radius: 10px;
+    border: 1px solid transparent;
+    position: relative;
+    transition: all 0.3s;
+    display: flex;
+    flex-direction: column;
+    font-size: 0.75rem;
+    cursor: default;
+  }
+
+  .cal-day.empty { background: transparent; }
+
+  .cal-day:not(.empty) {
+    background: rgba(255,255,255,0.02);
+    border-color: var(--border);
+  }
+
+  .cal-day:not(.empty):hover {
+    border-color: var(--accent);
+    background: rgba(108,92,231,0.08);
+    transform: scale(1.02);
+    z-index: 2;
+  }
+
+  .cal-day .day-num { font-weight: 700; font-size: 0.9rem; margin-bottom: 2px; }
+
+  .cal-day .day-event {
+    font-size: 0.65rem;
+    padding: 1px 4px;
+    border-radius: 4px;
+    margin-top: 1px;
+    line-height: 1.3;
+    font-weight: 500;
+  }
+
+  .event-flight { background: rgba(108,92,231,0.3); color: #c8c0ff; }
+  .event-hotel-ny { background: rgba(0,206,201,0.3); color: #81ecec; }
+  .event-hotel-niagara { background: rgba(116,185,255,0.3); color: #74b9ff; }
+  .event-hotel-vegas { background: rgba(253,121,168,0.3); color: #fab1a0; }
+  .event-hotel-sf { background: rgba(253,203,110,0.3); color: #ffeaa7; }
+  .event-hotel-yosemite { background: rgba(85,239,196,0.3); color: #55efc4; }
+  .event-hotel-hw1 { background: rgba(162,155,254,0.3); color: #a29bfe; }
+  .event-hotel-la { background: rgba(255,118,117,0.3); color: #ff7675; }
+  .event-hotel-mexico { background: rgba(0,184,148,0.3); color: #00b894; }
+  .event-hotel-athens { background: rgba(255,234,167,0.3); color: #ffeaa7; }
+  .event-hotel-isla { background: rgba(0,210,211,0.3); color: #00d2d3; }
+  .event-show { background: rgba(255,165,0,0.35); color: #ffcc80; }
+  .event-return { background: rgba(162,155,254,0.35); color: #d5ccff; }
+
+  .cal-month-label {
+    grid-column: 1 / -1;
+    text-align: center;
+    font-size: 1.3rem;
+    font-weight: 700;
+    padding: 1rem 0 0.5rem;
+    color: var(--accent);
+  }
+
+  /* ===== Timeline ===== */
+  .timeline { position: relative; padding-right: 3rem; }
+
+  .timeline::before {
+    content: '';
+    position: absolute;
+    right: 14px;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: linear-gradient(to bottom, var(--accent), var(--accent2), var(--accent3), var(--accent4), var(--accent));
+  }
+
+  .timeline-item {
+    position: relative;
+    margin-bottom: 2rem;
+    animation: fadeInUp 0.6s ease-out backwards;
+  }
+
+  .timeline-item::before {
+    content: '';
+    position: absolute;
+    right: -3rem;
+    top: 1.5rem;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    border: 3px solid var(--accent);
+    background: var(--bg);
+    transform: translateX(50%);
+    z-index: 2;
+  }
+
+  .timeline-item:nth-child(3n+1)::before { border-color: var(--accent); }
+  .timeline-item:nth-child(3n+2)::before { border-color: var(--accent2); }
+  .timeline-item:nth-child(3n)::before { border-color: var(--accent3); }
+
+  @keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ===== Cards ===== */
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 1.5rem;
+    transition: all 0.3s;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 4px;
+    height: 100%;
+    border-radius: 0 4px 4px 0;
+  }
+
+  .card-flight::before { background: var(--gradient1); }
+  .card-hotel::before { background: var(--gradient2); }
+  .card-destination::before { background: var(--gradient3); }
+  .card-show::before { background: linear-gradient(135deg, #ff9800, #ffcc80); }
+
+  .card:hover {
+    background: var(--card-hover);
+    border-color: rgba(108,92,231,0.3);
+    transform: translateX(-4px);
+    box-shadow: 0 8px 30px rgba(0,0,0,0.3);
+  }
+
+  .card-header { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1rem; }
+
+  .card-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    flex-shrink: 0;
+  }
+
+  .icon-flight { background: rgba(108,92,231,0.2); }
+  .icon-hotel { background: rgba(0,206,201,0.2); }
+  .icon-dest { background: rgba(253,121,168,0.2); }
+  .icon-drive { background: rgba(253,203,110,0.2); }
+  .icon-show { background: rgba(255,152,0,0.2); }
+
+  .card-title { font-size: 1.2rem; font-weight: 700; }
+  .card-subtitle { font-size: 0.85rem; color: var(--text-dim); }
+
+  .card-body {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 0.75rem;
+  }
+
+  .info-item { display: flex; flex-direction: column; gap: 0.15rem; }
+
+  .info-label {
+    font-size: 0.7rem;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-weight: 600;
+  }
+
+  .info-value { font-size: 0.95rem; font-weight: 500; }
+
+  .flight-route {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem;
+    background: rgba(255,255,255,0.02);
+    border-radius: 12px;
+    margin-bottom: 1rem;
+    direction: ltr;
+    justify-content: center;
+  }
+
+  .route-city { text-align: center; }
+
+  .route-city .code {
+    font-size: 1.5rem;
+    font-weight: 800;
+    background: var(--gradient1);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .route-city .name { font-size: 0.75rem; color: var(--text-dim); }
+
+  .route-line {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    position: relative;
+    max-width: 200px;
+  }
+
+  .route-line::before { content: ''; flex: 1; height: 1px; background: var(--text-dim); }
+  .route-line .plane-icon { font-size: 1.2rem; margin: 0 0.5rem; animation: flyPlane 3s ease-in-out infinite; }
+  .route-line::after { content: ''; flex: 1; height: 1px; background: var(--text-dim); }
+
+  @keyframes flyPlane {
+    0%, 100% { transform: translateX(0); }
+    50% { transform: translateX(8px); }
+  }
+
+  /* Destination headers */
+  .dest-header {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin: 3rem 0 1.5rem;
+    padding: 1.5rem;
+    background: rgba(255,255,255,0.02);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+  }
+
+  .dest-header .dest-emoji { font-size: 3rem; }
+  .dest-header h2 { font-size: 1.8rem; font-weight: 800; }
+  .dest-header .dest-dates { font-size: 0.9rem; color: var(--text-dim); }
+
+  /* Legend */
+  .legend { display: flex; flex-wrap: wrap; gap: 0.75rem; margin-bottom: 1.5rem; justify-content: center; }
+  .legend-item { display: flex; align-items: center; gap: 0.4rem; font-size: 0.75rem; color: var(--text-dim); }
+  .legend-dot { width: 12px; height: 12px; border-radius: 3px; }
+
+  /* Notes */
+  .note-card {
+    background: rgba(253,203,110,0.08);
+    border: 1px solid rgba(253,203,110,0.2);
+    border-radius: 12px;
+    padding: 1rem 1.25rem;
+    margin-top: 0.75rem;
+    font-size: 0.9rem;
+    display: flex;
+    gap: 0.5rem;
+    align-items: flex-start;
+  }
+
+  .note-card .note-icon { font-size: 1.1rem; flex-shrink: 0; }
+
+  /* Booking link */
+  .booking-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    margin-top: 0.75rem;
+    padding: 0.45rem 1rem;
+    border-radius: 10px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    text-decoration: none;
+    transition: all 0.3s;
+    border: 1px solid;
+  }
+
+  .booking-link:hover { transform: translateY(-2px); filter: brightness(1.2); }
+
+  .link-booking {
+    background: rgba(0,53,128,0.15);
+    border-color: rgba(0,113,227,0.3);
+    color: #5ba8ff;
+  }
+
+  .link-taw {
+    background: rgba(255,87,34,0.12);
+    border-color: rgba(255,87,34,0.3);
+    color: #ff8a65;
+  }
+
+  .link-travelingo {
+    background: rgba(0,200,83,0.12);
+    border-color: rgba(0,200,83,0.3);
+    color: #69f0ae;
+  }
+
+  /* Show card extras */
+  .show-badge {
+    display: inline-block;
+    padding: 0.2rem 0.7rem;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    background: rgba(255,152,0,0.15);
+    border: 1px solid rgba(255,152,0,0.3);
+    color: #ffcc80;
+  }
+
+  .seats-grid { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.5rem; }
+
+  .seat-tag {
+    padding: 0.25rem 0.65rem;
+    border-radius: 8px;
+    font-size: 0.8rem;
+    font-weight: 500;
+    background: rgba(108,92,231,0.15);
+    border: 1px solid rgba(108,92,231,0.25);
+    color: #c8c0ff;
+  }
+
+  /* Multi-leg flight */
+  .multi-leg {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 1rem;
+    background: rgba(255,255,255,0.02);
+    border-radius: 12px;
+    margin-bottom: 1rem;
+    direction: ltr;
+    justify-content: center;
+  }
+
+  .leg-stop { text-align: center; }
+  .leg-stop .code { font-size: 1.3rem; font-weight: 800; color: #a29bfe; }
+  .leg-stop .name { font-size: 0.7rem; color: var(--text-dim); }
+  .leg-connector { color: var(--text-dim); font-size: 1rem; }
+
+  /* Footer */
+  footer {
+    text-align: center;
+    padding: 3rem 1.5rem;
+    color: var(--text-dim);
+    font-size: 0.85rem;
+    border-top: 1px solid var(--border);
+  }
+
+  /* Responsive */
+  @media (max-width: 768px) {
+    .hero h1 { font-size: 2.2rem; }
+    .hero-stats { gap: 1rem; }
+    .stat { min-width: 100px; padding: 0.75rem 1rem; }
+    .stat .number { font-size: 1.8rem; }
+    .timeline { padding-right: 2.5rem; }
+    .timeline::before { right: 10px; }
+    .timeline-item::before { right: -2.5rem; width: 10px; height: 10px; }
+    #map { height: 350px; }
+    .card-body { grid-template-columns: 1fr 1fr; }
+    .dest-header { flex-direction: column; text-align: center; }
+  }
+
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+</style>
+</head>
+<body>
+
+<!-- ==================== HERO ==================== -->
+<div class="hero" id="top">
+  <div class="hero-emoji">✈️🌎</div>
+  <h1>USA & Mexico Trip</h1>
+  <p class="subtitle">15.04 – 20.05.2026 &nbsp;|&nbsp; ישראל → אתונה → ארה״ב → מקסיקו → חזרה הביתה</p>
+  <div class="hero-stats">
+    <div class="stat"><div class="number">9</div><div class="label">טיסות</div></div>
+    <div class="stat"><div class="number">12</div><div class="label">יעדים</div></div>
+    <div class="stat"><div class="number">35</div><div class="label">לילות</div></div>
+    <div class="stat"><div class="number">4</div><div class="label">מדינות</div></div>
+  </div>
+  <div class="scroll-indicator" onclick="document.getElementById('nav').scrollIntoView({behavior:'smooth'})">▼</div>
+</div>
+
+<!-- ==================== NAV ==================== -->
+<nav id="nav">
+  <div class="nav-inner">
+    <button class="nav-btn active" onclick="scrollToSection('map-section')">🗺️ Map</button>
+    <button class="nav-btn" onclick="scrollToSection('calendar-section')">📅 Calendar</button>
+    <button class="nav-btn" onclick="scrollToSection('athens')">🏛️ Athens</button>
+    <button class="nav-btn" onclick="scrollToSection('nyc')">🗽 New York</button>
+    <button class="nav-btn" onclick="scrollToSection('niagara')">💦 Niagara</button>
+    <button class="nav-btn" onclick="scrollToSection('vegas')">🎰 Las Vegas</button>
+    <button class="nav-btn" onclick="scrollToSection('sf')">🌉 San Francisco</button>
+    <button class="nav-btn" onclick="scrollToSection('yosemite')">🌲 Yosemite</button>
+    <button class="nav-btn" onclick="scrollToSection('hw1')">🛣️ Highway 1</button>
+    <button class="nav-btn" onclick="scrollToSection('la')">🌴 Los Angeles</button>
+    <button class="nav-btn" onclick="scrollToSection('playa')">🏖️ Playa Blanca</button>
+    <button class="nav-btn" onclick="scrollToSection('isla')">🏝️ Isla Mujeres</button>
+    <button class="nav-btn" onclick="scrollToSection('return')">🔁 Return</button>
+  </div>
+</nav>
+
+<!-- ==================== FLOW ROUTE ==================== -->
+<section>
+  <div class="flow-route">
+    <span class="flow-city">🇮🇱 Israel</span><span class="flow-arrow">→</span>
+    <span class="flow-city">🇬🇷 Athens</span><span class="flow-arrow">→</span>
+    <span class="flow-city">🗽 New York</span><span class="flow-arrow">→</span>
+    <span class="flow-city">💦 Niagara</span><span class="flow-arrow">→</span>
+    <span class="flow-city">🎰 Las Vegas</span><span class="flow-arrow">→</span>
+    <span class="flow-city">🌉 San Francisco</span><span class="flow-arrow">→</span>
+    <span class="flow-city">🌲 Yosemite</span><span class="flow-arrow">→</span>
+    <span class="flow-city">🛣️ Highway 1</span><span class="flow-arrow">→</span>
+    <span class="flow-city">🌴 Los Angeles</span><span class="flow-arrow">→</span>
+    <span class="flow-city">🏖️ Playa Blanca</span><span class="flow-arrow">→</span>
+    <span class="flow-city">🏝️ Isla Mujeres</span><span class="flow-arrow">→</span>
+    <span class="flow-city">🇫🇷 Paris</span><span class="flow-arrow">→</span>
+    <span class="flow-city">🇬🇷 Athens</span><span class="flow-arrow">→</span>
+    <span class="flow-city">🇮🇱 Israel</span>
+  </div>
+</section>
+
+<!-- ==================== MAP ==================== -->
+<section id="map-section">
+  <div class="section-title"><span class="icon">🗺️</span><span>מפת המסלול</span></div>
+  <div id="map"></div>
+</section>
+
+<!-- ==================== CALENDAR ==================== -->
+<section id="calendar-section">
+  <div class="section-title"><span class="icon">📅</span><span>לוח שנה</span></div>
+  <div class="legend">
+    <div class="legend-item"><div class="legend-dot event-flight"></div> טיסה</div>
+    <div class="legend-item"><div class="legend-dot event-hotel-athens"></div> אתונה</div>
+    <div class="legend-item"><div class="legend-dot event-hotel-ny"></div> ניו יורק</div>
+    <div class="legend-item"><div class="legend-dot event-hotel-niagara"></div> ניאגרה</div>
+    <div class="legend-item"><div class="legend-dot event-hotel-vegas"></div> לאס וגאס</div>
+    <div class="legend-item"><div class="legend-dot event-hotel-sf"></div> סן פרנסיסקו</div>
+    <div class="legend-item"><div class="legend-dot event-hotel-yosemite"></div> יוסמיטי</div>
+    <div class="legend-item"><div class="legend-dot event-hotel-hw1"></div> כביש 1</div>
+    <div class="legend-item"><div class="legend-dot event-hotel-la"></div> לוס אנג׳לס</div>
+    <div class="legend-item"><div class="legend-dot event-hotel-mexico"></div> פלאיה בלנקה</div>
+    <div class="legend-item"><div class="legend-dot event-hotel-isla"></div> איסלה מוחרס</div>
+    <div class="legend-item"><div class="legend-dot event-show"></div> הופעה / מופע</div>
+    <div class="legend-item"><div class="legend-dot event-return"></div> חזרה</div>
+  </div>
+  <div class="calendar-container">
+    <div class="calendar" id="calendar"></div>
+  </div>
+</section>
+
+<!-- ==================== ITINERARY ==================== -->
+<section id="itinerary-section">
+  <div class="section-title"><span class="icon">📋</span><span>מסלול מפורט</span></div>
+
+  <!-- ======== ATHENS ======== -->
+  <div class="dest-header" id="athens">
+    <span class="dest-emoji">🏛️</span>
+    <div>
+      <h2>אתונה</h2>
+      <div class="dest-dates">15.4 – 16.4 &nbsp;|&nbsp; לילה 1</div>
+    </div>
+  </div>
+
+  <div class="timeline">
+    <div class="timeline-item">
+      <div class="card card-flight">
+        <div class="card-header">
+          <div class="card-icon icon-flight">✈️</div>
+          <div>
+            <div class="card-title">טיסה 1 – תל אביב → אתונה</div>
+            <div class="card-subtitle">Israir &nbsp;|&nbsp; 6H959</div>
+          </div>
+        </div>
+        <div class="flight-route">
+          <div class="route-city"><div class="code">TLV</div><div class="name">תל אביב</div></div>
+          <div class="route-line"><span class="plane-icon">✈️</span></div>
+          <div class="route-city"><div class="code">ATH</div><div class="name">אתונה</div></div>
+        </div>
+        <div class="card-body">
+          <div class="info-item"><span class="info-label">תאריך</span><span class="info-value">15.4.2026</span></div>
+          <div class="info-item"><span class="info-label">שעת המראה</span><span class="info-value">19:30</span></div>
+          <div class="info-item"><span class="info-label">חברה</span><span class="info-value">Israir (6H)</span></div>
+          <div class="info-item"><span class="info-label">מספר טיסה</span><span class="info-value">6H959</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="timeline-item">
+      <div class="card card-hotel">
+        <div class="card-header">
+          <div class="card-icon icon-hotel">🏨</div>
+          <div>
+            <div class="card-title">Zed Athens</div>
+            <div class="card-subtitle">אתונה</div>
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="info-item"><span class="info-label">צ׳ק-אין</span><span class="info-value">15.4.2026</span></div>
+          <div class="info-item"><span class="info-label">צ׳ק-אאוט</span><span class="info-value">16.4.2026</span></div>
+          <div class="info-item"><span class="info-label">לילות</span><span class="info-value">1</span></div>
+        </div>
+        <a href="https://www.booking.com/hotel/gr/zed-suites-airport-by-airstay.html" target="_blank" class="booking-link link-booking">📲 Booking.com – Zed Athens</a>
+      </div>
+    </div>
+
+    <div class="timeline-item">
+      <div class="card card-flight">
+        <div class="card-header">
+          <div class="card-icon icon-flight">✈️</div>
+          <div>
+            <div class="card-title">טיסה 2 – אתונה → ניו יורק</div>
+            <div class="card-subtitle">Emirates &nbsp;|&nbsp; EK209</div>
+          </div>
+        </div>
+        <div class="flight-route">
+          <div class="route-city"><div class="code">ATH</div><div class="name">אתונה</div></div>
+          <div class="route-line"><span class="plane-icon">✈️</span></div>
+          <div class="route-city"><div class="code">JFK</div><div class="name">ניו יורק</div></div>
+        </div>
+        <div class="card-body">
+          <div class="info-item"><span class="info-label">תאריך</span><span class="info-value">16.4.2026</span></div>
+          <div class="info-item"><span class="info-label">שעת המראה</span><span class="info-value">17:35</span></div>
+          <div class="info-item"><span class="info-label">חברה</span><span class="info-value">Emirates (EK)</span></div>
+          <div class="info-item"><span class="info-label">מספר טיסה</span><span class="info-value">EK209</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======== NEW YORK ======== -->
+  <div class="dest-header" id="nyc">
+    <span class="dest-emoji">🗽</span>
+    <div>
+      <h2>ניו יורק</h2>
+      <div class="dest-dates">16.4 – 22.4 &nbsp;|&nbsp; 6 לילות</div>
+    </div>
+  </div>
+
+  <div class="timeline">
+    <div class="timeline-item">
+      <div class="card card-hotel">
+        <div class="card-header">
+          <div class="card-icon icon-hotel">🏨</div>
+          <div>
+            <div class="card-title">Park Terrace Hotel</div>
+            <div class="card-subtitle">ניו יורק</div>
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="info-item"><span class="info-label">צ׳ק-אין</span><span class="info-value">16.4.2026</span></div>
+          <div class="info-item"><span class="info-label">צ׳ק-אאוט</span><span class="info-value">22.4.2026</span></div>
+          <div class="info-item"><span class="info-label">לילות</span><span class="info-value">6</span></div>
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:0.5rem;">
+          <a href="https://www.booking.com/hotel/us/park-terrace.html" target="_blank" class="booking-link link-booking">📲 Booking.com – Park Terrace</a>
+          <a href="https://www.ticketsatwork.com/tickets/" target="_blank" class="booking-link link-taw">📲 Tickets at Work (הוזמן דרך)</a>
+        </div>
+        <div class="note-card">
+          <span class="note-icon">👉</span>
+          <span>בסיס לטיול בעיר – מנהטן, ברוקלין, סנטרל פארק, טיימס סקוור</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Hadestown -->
+    <div class="timeline-item">
+      <div class="card card-show">
+        <div class="card-header">
+          <div class="card-icon icon-show">🎭</div>
+          <div>
+            <div class="card-title">Hadestown – Broadway</div>
+            <div class="card-subtitle">Walter Kerr Theatre, NYC</div>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:0.75rem;flex-wrap:wrap;margin-bottom:1rem;">
+          <span class="show-badge">🎶 Musical</span>
+          <span class="show-badge">🏆 Tony Award Winner</span>
+        </div>
+        <div class="card-body">
+          <div class="info-item"><span class="info-label">תאריך</span><span class="info-value">18.4.2026 (שבת)</span></div>
+          <div class="info-item"><span class="info-label">שעה</span><span class="info-value">20:00</span></div>
+        </div>
+        <div style="margin-top:1rem;">
+          <div class="info-label" style="margin-bottom:0.4rem;">מושבים</div>
+          <div class="seats-grid">
+            <span class="seat-tag">🎫 Orchestra 2</span>
+            <span class="seat-tag">🎫 Orchestra 3</span>
+            <span class="seat-tag">🎫 Mezzanine 1</span>
+            <span class="seat-tag">🎫 Mezzanine 2</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="timeline-item">
+      <div class="card card-flight">
+        <div class="card-header">
+          <div class="card-icon icon-flight">✈️</div>
+          <div>
+            <div class="card-title">מעבר לניאגרה</div>
+            <div class="card-subtitle">Delta &nbsp;|&nbsp; DL5250</div>
+          </div>
+        </div>
+        <div class="flight-route">
+          <div class="route-city"><div class="code">JFK</div><div class="name">ניו יורק</div></div>
+          <div class="route-line"><span class="plane-icon">✈️</span></div>
+          <div class="route-city"><div class="code">BUF</div><div class="name">באפלו</div></div>
+        </div>
+        <div class="card-body">
+          <div class="info-item"><span class="info-label">תאריך</span><span class="info-value">22.4.2026</span></div>
+          <div class="info-item"><span class="info-label">שעת המראה</span><span class="info-value">17:25</span></div>
+          <div class="info-item"><span class="info-label">חברה</span><span class="info-value">Delta (DL)</span></div>
+          <div class="info-item"><span class="info-label">מספר טיסה</span><span class="info-value">DL5250</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======== NIAGARA ======== -->
+  <div class="dest-header" id="niagara">
+    <span class="dest-emoji">💦</span>
+    <div>
+      <h2>מפלי ניאגרה</h2>
+      <div class="dest-dates">22.4 – 25.4 &nbsp;|&nbsp; 3 לילות</div>
+    </div>
+  </div>
+
+  <div class="timeline">
+    <div class="timeline-item">
+      <div class="card card-hotel">
+        <div class="card-header">
+          <div class="card-icon icon-hotel">🏨</div>
+          <div>
+            <div class="card-title">Niagara Falls Marriott Fallsview Hotel & Spa</div>
+            <div class="card-subtitle">ניאגרה פולס</div>
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="info-item"><span class="info-label">צ׳ק-אין</span><span class="info-value">22.4.2026</span></div>
+          <div class="info-item"><span class="info-label">צ׳ק-אאוט</span><span class="info-value">25.4.2026</span></div>
+          <div class="info-item"><span class="info-label">לילות</span><span class="info-value">3</span></div>
+        </div>
+        <a href="https://www.booking.com/hotel/ca/marriott-niagara-falls-fallsview-spa.html" target="_blank" class="booking-link link-booking">📲 Booking.com – Marriott Fallsview</a>
+      </div>
+    </div>
+
+    <div class="timeline-item">
+      <div class="card card-flight">
+        <div class="card-header">
+          <div class="card-icon icon-flight">✈️</div>
+          <div>
+            <div class="card-title">מעבר ללאס וגאס</div>
+            <div class="card-subtitle">Southwest &nbsp;|&nbsp; WN3061</div>
+          </div>
+        </div>
+        <div class="flight-route">
+          <div class="route-city"><div class="code">BUF</div><div class="name">באפלו</div></div>
+          <div class="route-line"><span class="plane-icon">✈️</span></div>
+          <div class="route-city"><div class="code">LAS</div><div class="name">לאס וגאס</div></div>
+        </div>
+        <div class="card-body">
+          <div class="info-item"><span class="info-label">תאריך</span><span class="info-value">25.4.2026</span></div>
+          <div class="info-item"><span class="info-label">שעת המראה</span><span class="info-value">16:55</span></div>
+          <div class="info-item"><span class="info-label">חברה</span><span class="info-value">Southwest (WN)</span></div>
+          <div class="info-item"><span class="info-label">מספר טיסה</span><span class="info-value">WN3061</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======== LAS VEGAS ======== -->
+  <div class="dest-header" id="vegas">
+    <span class="dest-emoji">🎰</span>
+    <div>
+      <h2>לאס וגאס</h2>
+      <div class="dest-dates">25.4 – 29.4 &nbsp;|&nbsp; 4 לילות</div>
+    </div>
+  </div>
+
+  <div class="timeline">
+    <div class="timeline-item">
+      <div class="card card-hotel">
+        <div class="card-header">
+          <div class="card-icon icon-hotel">🏨</div>
+          <div>
+            <div class="card-title">Bellagio Hotel & Casino</div>
+            <div class="card-subtitle">לאס וגאס סטריפ</div>
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="info-item"><span class="info-label">צ׳ק-אין</span><span class="info-value">25.4.2026</span></div>
+          <div class="info-item"><span class="info-label">צ׳ק-אאוט</span><span class="info-value">29.4.2026</span></div>
+          <div class="info-item"><span class="info-label">לילות</span><span class="info-value">4</span></div>
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:0.5rem;">
+          <a href="https://www.booking.com/hotel/us/bellagio.html" target="_blank" class="booking-link link-booking">📲 Booking.com – Bellagio</a>
+          <a href="https://www.ticketsatwork.com/tickets/" target="_blank" class="booking-link link-taw">📲 Tickets at Work (הוזמן דרך)</a>
+        </div>
+      </div>
+    </div>
+
+    <div class="timeline-item">
+      <div class="card card-flight">
+        <div class="card-header">
+          <div class="card-icon icon-flight">✈️</div>
+          <div>
+            <div class="card-title">מעבר לסן פרנסיסקו</div>
+            <div class="card-subtitle">Frontier &nbsp;|&nbsp; F9 3801</div>
+          </div>
+        </div>
+        <div class="flight-route">
+          <div class="route-city"><div class="code">LAS</div><div class="name">לאס וגאס</div></div>
+          <div class="route-line"><span class="plane-icon">✈️</span></div>
+          <div class="route-city"><div class="code">SFO</div><div class="name">סן פרנסיסקו</div></div>
+        </div>
+        <div class="card-body">
+          <div class="info-item"><span class="info-label">תאריך</span><span class="info-value">29.4.2026</span></div>
+          <div class="info-item"><span class="info-label">שעת המראה</span><span class="info-value">16:49</span></div>
+          <div class="info-item"><span class="info-label">חברה</span><span class="info-value">Frontier (F9)</span></div>
+          <div class="info-item"><span class="info-label">מספר טיסה</span><span class="info-value">F9 3801</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======== SAN FRANCISCO ======== -->
+  <div class="dest-header" id="sf">
+    <span class="dest-emoji">🌉</span>
+    <div>
+      <h2>סן פרנסיסקו</h2>
+      <div class="dest-dates">29.4 – 2.5 &nbsp;|&nbsp; 3 לילות</div>
+    </div>
+  </div>
+
+  <div class="timeline">
+    <div class="timeline-item">
+      <div class="card card-hotel">
+        <div class="card-header">
+          <div class="card-icon icon-hotel">🏨</div>
+          <div>
+            <div class="card-title">Hotel Zoe Fisherman's Wharf</div>
+            <div class="card-subtitle">סן פרנסיסקו</div>
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="info-item"><span class="info-label">צ׳ק-אין</span><span class="info-value">29.4.2026</span></div>
+          <div class="info-item"><span class="info-label">צ׳ק-אאוט</span><span class="info-value">2.5.2026</span></div>
+          <div class="info-item"><span class="info-label">לילות</span><span class="info-value">3</span></div>
+        </div>
+        <a href="https://www.booking.com/hotel/us/zoe-fishermanswharf.html" target="_blank" class="booking-link link-booking">📲 Booking.com – Hotel Zoe</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======== YOSEMITE ======== -->
+  <div class="dest-header" id="yosemite">
+    <span class="dest-emoji">🌲</span>
+    <div>
+      <h2>יוסמיטי</h2>
+      <div class="dest-dates">2.5 – 4.5 &nbsp;|&nbsp; 2 לילות</div>
+    </div>
+  </div>
+
+  <div class="timeline">
+    <div class="timeline-item">
+      <div class="card card-hotel">
+        <div class="card-header">
+          <div class="card-icon icon-hotel">🏨</div>
+          <div>
+            <div class="card-title">Yosemite View Lodge</div>
+            <div class="card-subtitle">אל פורטל – כניסה לפארק</div>
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="info-item"><span class="info-label">צ׳ק-אין</span><span class="info-value">2.5.2026</span></div>
+          <div class="info-item"><span class="info-label">צ׳ק-אאוט</span><span class="info-value">4.5.2026</span></div>
+          <div class="info-item"><span class="info-label">לילות</span><span class="info-value">2</span></div>
+          <div class="info-item"><span class="info-label">מיקום</span><span class="info-value">El Portal</span></div>
+        </div>
+        <a href="https://www.booking.com/hotel/us/yosemite-view-lodge.html" target="_blank" class="booking-link link-booking">📲 Booking.com – Yosemite View Lodge</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======== HIGHWAY 1 ======== -->
+  <div class="dest-header" id="hw1">
+    <span class="dest-emoji">🛣️</span>
+    <div>
+      <h2>כביש 1 (Highway 1)</h2>
+      <div class="dest-dates">4.5 – 6.5 &nbsp;|&nbsp; 2 לילות</div>
+    </div>
+  </div>
+
+  <div class="timeline">
+    <div class="timeline-item">
+      <div class="card card-destination">
+        <div class="card-header">
+          <div class="card-icon icon-drive">🚗</div>
+          <div>
+            <div class="card-title">נסיעה נופית – יוסמיטי → לוס אנג׳לס</div>
+            <div class="card-subtitle">Monterey / Carmel / Big Sur / San Simeon</div>
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="info-item"><span class="info-label">תאריכים</span><span class="info-value">4.5 – 6.5.2026</span></div>
+          <div class="info-item"><span class="info-label">לילות</span><span class="info-value">2</span></div>
+          <div class="info-item"><span class="info-label">סטטוס לינה</span><span class="info-value">⏳ טרם נסגר</span></div>
+        </div>
+        <div class="note-card">
+          <span class="note-icon">📍</span>
+          <span>המלצה לאזורים: Monterey / Carmel, Big Sur / San Simeon – נסיעה נופית מיוסמיטי לכיוון LA</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======== LOS ANGELES ======== -->
+  <div class="dest-header" id="la">
+    <span class="dest-emoji">🌴</span>
+    <div>
+      <h2>לוס אנג׳לס (Santa Monica)</h2>
+      <div class="dest-dates">6.5 – 11.5 &nbsp;|&nbsp; 5 לילות</div>
+    </div>
+  </div>
+
+  <div class="timeline">
+    <div class="timeline-item">
+      <div class="card card-hotel">
+        <div class="card-header">
+          <div class="card-icon icon-hotel">🏨</div>
+          <div>
+            <div class="card-title">The Huntley Hotel Santa Monica</div>
+            <div class="card-subtitle">סנטה מוניקה, LA</div>
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="info-item"><span class="info-label">צ׳ק-אין</span><span class="info-value">6.5.2026</span></div>
+          <div class="info-item"><span class="info-label">צ׳ק-אאוט</span><span class="info-value">11.5.2026</span></div>
+          <div class="info-item"><span class="info-label">לילות</span><span class="info-value">5</span></div>
+        </div>
+        <a href="https://www.booking.com/hotel/us/huntley-santa-monica-beach.html" target="_blank" class="booking-link link-booking">📲 Booking.com – Huntley Santa Monica</a>
+        <div class="note-card">
+          <span class="note-icon">👉</span>
+          <span>בסיס לטיול: LA, דיסנילנד, יוניברסל סטודיוס, חופים</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="timeline-item">
+      <div class="card card-flight">
+        <div class="card-header">
+          <div class="card-icon icon-flight">✈️</div>
+          <div>
+            <div class="card-title">מעבר למקסיקו</div>
+            <div class="card-subtitle">Alaska Airlines &nbsp;|&nbsp; AS1366</div>
+          </div>
+        </div>
+        <div class="flight-route">
+          <div class="route-city"><div class="code">LAX</div><div class="name">לוס אנג׳לס</div></div>
+          <div class="route-line"><span class="plane-icon">✈️</span></div>
+          <div class="route-city"><div class="code">CUN</div><div class="name">קנקון</div></div>
+        </div>
+        <div class="card-body">
+          <div class="info-item"><span class="info-label">תאריך</span><span class="info-value">11.5.2026</span></div>
+          <div class="info-item"><span class="info-label">שעת המראה</span><span class="info-value">08:14</span></div>
+          <div class="info-item"><span class="info-label">חברה</span><span class="info-value">Alaska Airlines (AS)</span></div>
+          <div class="info-item"><span class="info-label">מספר טיסה</span><span class="info-value">AS1366</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======== PLAYA BLANCA ======== -->
+  <div class="dest-header" id="playa">
+    <span class="dest-emoji">🏖️</span>
+    <div>
+      <h2>פלאיה בלנקה</h2>
+      <div class="dest-dates">11.5 – 15.5 &nbsp;|&nbsp; 4 לילות</div>
+    </div>
+  </div>
+
+  <div class="timeline">
+    <div class="timeline-item">
+      <div class="card card-hotel">
+        <div class="card-header">
+          <div class="card-icon icon-hotel">🏨</div>
+          <div>
+            <div class="card-title">Secrets Playa Blanca</div>
+            <div class="card-subtitle">פלאיה בלנקה, מקסיקו</div>
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="info-item"><span class="info-label">צ׳ק-אין</span><span class="info-value">11.5.2026</span></div>
+          <div class="info-item"><span class="info-label">צ׳ק-אאוט</span><span class="info-value">15.5.2026</span></div>
+          <div class="info-item"><span class="info-label">לילות</span><span class="info-value">4</span></div>
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:0.5rem;">
+          <a href="https://www.hyatt.com/en-US/hotel/mexico/secrets-playa-blanca-costa-mujeres/sepbc" target="_blank" class="booking-link link-travelingo">🏨 אתר הריזורט – Secrets Playa Blanca</a>
+          <span class="booking-link link-travelingo" style="cursor:default;">📲 הוזמן דרך Travelingo</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======== ISLA MUJERES ======== -->
+  <div class="dest-header" id="isla">
+    <span class="dest-emoji">🏝️</span>
+    <div>
+      <h2>איסלה מוחרס</h2>
+      <div class="dest-dates">15.5 – 18.5 &nbsp;|&nbsp; 3 לילות</div>
+    </div>
+  </div>
+
+  <div class="timeline">
+    <div class="timeline-item">
+      <div class="card card-hotel">
+        <div class="card-header">
+          <div class="card-icon icon-hotel">🏨</div>
+          <div>
+            <div class="card-title">Impression Isla Mujeres</div>
+            <div class="card-subtitle">איסלה מוחרס, מקסיקו</div>
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="info-item"><span class="info-label">צ׳ק-אין</span><span class="info-value">15.5.2026</span></div>
+          <div class="info-item"><span class="info-label">צ׳ק-אאוט</span><span class="info-value">18.5.2026</span></div>
+          <div class="info-item"><span class="info-label">לילות</span><span class="info-value">3</span></div>
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:0.5rem;">
+          <a href="https://www.hyatt.com/en-US/hotel/mexico/impression-isla-mujeres-by-secrets/seiim" target="_blank" class="booking-link link-travelingo">🏨 אתר הריזורט – Impression Isla Mujeres</a>
+          <span class="booking-link link-travelingo" style="cursor:default;">📲 הוזמן דרך Travelingo</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======== RETURN ======== -->
+  <div class="dest-header" id="return">
+    <span class="dest-emoji">🔁</span>
+    <div>
+      <h2>חזרה הביתה</h2>
+      <div class="dest-dates">18.5 – 20.5</div>
+    </div>
+  </div>
+
+  <div class="timeline">
+    <div class="timeline-item">
+      <div class="card card-flight">
+        <div class="card-header">
+          <div class="card-icon icon-flight">✈️</div>
+          <div>
+            <div class="card-title">קנקון → אתונה (דרך פריז)</div>
+            <div class="card-subtitle">Air France &nbsp;|&nbsp; 2 טיסות</div>
+          </div>
+        </div>
+        <div class="multi-leg">
+          <div class="leg-stop"><div class="code">CUN</div><div class="name">קנקון</div></div>
+          <div class="leg-connector">✈️ AF651 →</div>
+          <div class="leg-stop"><div class="code">CDG</div><div class="name">פריז</div></div>
+          <div class="leg-connector">✈️ AF1032 →</div>
+          <div class="leg-stop"><div class="code">ATH</div><div class="name">אתונה</div></div>
+        </div>
+        <div class="card-body">
+          <div class="info-item"><span class="info-label">תאריך המראה</span><span class="info-value">18.5.2026</span></div>
+          <div class="info-item"><span class="info-label">שעת המראה</span><span class="info-value">20:15</span></div>
+          <div class="info-item"><span class="info-label">נחיתה</span><span class="info-value">19.5 בשעה 23:00</span></div>
+          <div class="info-item"><span class="info-label">משך כולל</span><span class="info-value">~19 שעות</span></div>
+          <div class="info-item"><span class="info-label">טיסה 1</span><span class="info-value">AF651 (CUN→CDG)</span></div>
+          <div class="info-item"><span class="info-label">טיסה 2</span><span class="info-value">AF1032 (CDG→ATH)</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="timeline-item">
+      <div class="card card-hotel">
+        <div class="card-header">
+          <div class="card-icon icon-hotel">🏨</div>
+          <div>
+            <div class="card-title">לילה באתונה</div>
+            <div class="card-subtitle">אתונה – לפני טיסה הביתה</div>
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="info-item"><span class="info-label">הגעה</span><span class="info-value">19.5 בשעה 23:00</span></div>
+          <div class="info-item"><span class="info-label">טיסה הביתה</span><span class="info-value">20.5 בשעה 17:00</span></div>
+          <div class="info-item"><span class="info-label">לילות</span><span class="info-value">1</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="timeline-item">
+      <div class="card card-flight">
+        <div class="card-header">
+          <div class="card-icon icon-flight">✈️</div>
+          <div>
+            <div class="card-title">אתונה → ישראל 🏠</div>
+            <div class="card-subtitle">Arkia</div>
+          </div>
+        </div>
+        <div class="flight-route">
+          <div class="route-city"><div class="code">ATH</div><div class="name">אתונה</div></div>
+          <div class="route-line"><span class="plane-icon">✈️</span></div>
+          <div class="route-city"><div class="code">TLV</div><div class="name">תל אביב</div></div>
+        </div>
+        <div class="card-body">
+          <div class="info-item"><span class="info-label">תאריך</span><span class="info-value">20.5.2026</span></div>
+          <div class="info-item"><span class="info-label">שעת המראה</span><span class="info-value">17:00</span></div>
+          <div class="info-item"><span class="info-label">חברה</span><span class="info-value">Arkia</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <p>✈️ USA & Mexico Trip 2026 &nbsp;|&nbsp; 15.4 – 20.5 &nbsp;|&nbsp; !טיול מושלם</p>
+</footer>
+
+<!-- Leaflet JS -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<script>
+// ============ MAP ============
+const map = L.map('map', { center: [37, -50], zoom: 3, zoomControl: true, scrollWheelZoom: true });
+
+L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+  attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/">CARTO</a>',
+  maxZoom: 19
+}).addTo(map);
+
+const locations = [
+  { name: "תל אביב", lat: 32.0853, lng: 34.7818, emoji: "🇮🇱", dates: "15.4", color: "#6c5ce7" },
+  { name: "אתונה", lat: 37.9838, lng: 23.7275, emoji: "🏛️", dates: "15.4–16.4 / 19.5–20.5", color: "#ffeaa7" },
+  { name: "ניו יורק", lat: 40.7128, lng: -74.006, emoji: "🗽", dates: "16.4–22.4", color: "#00cec9" },
+  { name: "ניאגרה (באפלו)", lat: 43.0896, lng: -79.0849, emoji: "💦", dates: "22.4–25.4", color: "#74b9ff" },
+  { name: "לאס וגאס", lat: 36.1699, lng: -115.1398, emoji: "🎰", dates: "25.4–29.4", color: "#fd79a8" },
+  { name: "סן פרנסיסקו", lat: 37.7749, lng: -122.4194, emoji: "🌉", dates: "29.4–2.5", color: "#fdcb6e" },
+  { name: "יוסמיטי", lat: 37.749, lng: -119.5885, emoji: "🌲", dates: "2.5–4.5", color: "#55efc4" },
+  { name: "Monterey / Big Sur", lat: 36.2704, lng: -121.8081, emoji: "🛣️", dates: "4.5–6.5", color: "#a29bfe" },
+  { name: "לוס אנג׳לס", lat: 34.0195, lng: -118.4912, emoji: "🌴", dates: "6.5–11.5", color: "#ff7675" },
+  { name: "פלאיה בלנקה", lat: 20.63, lng: -87.08, emoji: "🏖️", dates: "11.5–15.5", color: "#00b894" },
+  { name: "איסלה מוחרס", lat: 21.23, lng: -86.73, emoji: "🏝️", dates: "15.5–18.5", color: "#00d2d3" },
+  { name: "פריז (קונקשן)", lat: 49.0097, lng: 2.5479, emoji: "🇫🇷", dates: "19.5 (מעבר)", color: "#dfe6e9" }
+];
+
+locations.forEach((loc, i) => {
+  const icon = L.divIcon({
+    html: `<div style="
+      background: ${loc.color};
+      width: 36px; height: 36px;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px;
+      box-shadow: 0 0 15px ${loc.color}80;
+      border: 2px solid white;
+    ">${loc.emoji}</div>
+    <div style="
+      position: absolute;
+      top: 40px; left: 50%; transform: translateX(-50%);
+      background: rgba(10,10,26,0.9);
+      color: white;
+      padding: 2px 8px;
+      border-radius: 6px;
+      font-size: 11px;
+      white-space: nowrap;
+      font-family: Heebo, sans-serif;
+      font-weight: 600;
+      border: 1px solid ${loc.color}60;
+    ">${i + 1}. ${loc.name}</div>`,
+    className: '',
+    iconSize: [36, 60],
+    iconAnchor: [18, 18]
+  });
+
+  L.marker([loc.lat, loc.lng], { icon })
+    .addTo(map)
+    .bindPopup(`<div class="popup-title">${loc.emoji} ${loc.name}</div><div class="popup-dates">📅 ${loc.dates}</div>`);
+});
+
+// Outbound route
+const outbound = locations.map(l => [l.lat, l.lng]);
+L.polyline(outbound, { color: '#6c5ce7', weight: 2.5, opacity: 0.7, dashArray: '8, 12', smoothFactor: 1 }).addTo(map);
+L.polyline(outbound, { color: '#a29bfe', weight: 5, opacity: 0.15, smoothFactor: 1 }).addTo(map);
+
+// Return route (Paris → Athens → TLV)
+const returnRoute = [[49.0097, 2.5479], [37.9838, 23.7275], [32.0853, 34.7818]];
+L.polyline(returnRoute, { color: '#fd79a8', weight: 2.5, opacity: 0.7, dashArray: '8, 12', smoothFactor: 1 }).addTo(map);
+L.polyline(returnRoute, { color: '#fab1a0', weight: 5, opacity: 0.15, smoothFactor: 1 }).addTo(map);
+
+const allCoords = [...outbound, ...returnRoute];
+map.fitBounds(L.latLngBounds(allCoords), { padding: [40, 40] });
+
+// ============ CALENDAR ============
+function buildCalendar() {
+  const cal = document.getElementById('calendar');
+  const days = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+
+  const events = [
+    // === APRIL ===
+    { m:3, d:15, label:"✈️ TLV→ATH", cls:"event-flight" },
+    { m:3, d:15, label:"🏨 Zed Athens", cls:"event-hotel-athens" },
+    { m:3, d:16, label:"✈️ ATH→JFK", cls:"event-flight" },
+    { m:3, d:16, label:"🗽 Park Terrace", cls:"event-hotel-ny" },
+    { m:3, d:17, label:"🗽 ניו יורק", cls:"event-hotel-ny" },
+    { m:3, d:18, label:"🗽 ניו יורק", cls:"event-hotel-ny" },
+    { m:3, d:18, label:"🎭 Hadestown 8PM", cls:"event-show" },
+    { m:3, d:19, label:"🗽 ניו יורק", cls:"event-hotel-ny" },
+    { m:3, d:20, label:"🗽 ניו יורק", cls:"event-hotel-ny" },
+    { m:3, d:21, label:"🗽 ניו יורק", cls:"event-hotel-ny" },
+    { m:3, d:22, label:"✈️ JFK→BUF", cls:"event-flight" },
+    { m:3, d:22, label:"💦 Marriott", cls:"event-hotel-niagara" },
+    { m:3, d:23, label:"💦 ניאגרה", cls:"event-hotel-niagara" },
+    { m:3, d:24, label:"💦 ניאגרה", cls:"event-hotel-niagara" },
+    { m:3, d:25, label:"✈️ BUF→LAS", cls:"event-flight" },
+    { m:3, d:25, label:"🎰 Bellagio", cls:"event-hotel-vegas" },
+    { m:3, d:26, label:"🎰 לאס וגאס", cls:"event-hotel-vegas" },
+    { m:3, d:27, label:"🎰 לאס וגאס", cls:"event-hotel-vegas" },
+    { m:3, d:28, label:"🎰 לאס וגאס", cls:"event-hotel-vegas" },
+    { m:3, d:29, label:"✈️ LAS→SFO", cls:"event-flight" },
+    { m:3, d:29, label:"🌉 Hotel Zoe", cls:"event-hotel-sf" },
+    { m:3, d:30, label:"🌉 סן פרנסיסקו", cls:"event-hotel-sf" },
+    // === MAY ===
+    { m:4, d:1, label:"🌉 סן פרנסיסקו", cls:"event-hotel-sf" },
+    { m:4, d:2, label:"🌲 Yosemite Lodge", cls:"event-hotel-yosemite" },
+    { m:4, d:3, label:"🌲 יוסמיטי", cls:"event-hotel-yosemite" },
+    { m:4, d:4, label:"🛣️ Highway 1", cls:"event-hotel-hw1" },
+    { m:4, d:5, label:"🛣️ Highway 1", cls:"event-hotel-hw1" },
+    { m:4, d:6, label:"🌴 Huntley Hotel", cls:"event-hotel-la" },
+    { m:4, d:7, label:"🌴 LA", cls:"event-hotel-la" },
+    { m:4, d:8, label:"🌴 LA", cls:"event-hotel-la" },
+    { m:4, d:9, label:"🌴 LA", cls:"event-hotel-la" },
+    { m:4, d:10, label:"🌴 LA", cls:"event-hotel-la" },
+    { m:4, d:11, label:"✈️ LAX→CUN", cls:"event-flight" },
+    { m:4, d:11, label:"🏖️ Secrets PB", cls:"event-hotel-mexico" },
+    { m:4, d:12, label:"🏖️ פלאיה בלנקה", cls:"event-hotel-mexico" },
+    { m:4, d:13, label:"🏖️ פלאיה בלנקה", cls:"event-hotel-mexico" },
+    { m:4, d:14, label:"🏖️ פלאיה בלנקה", cls:"event-hotel-mexico" },
+    { m:4, d:15, label:"🏝️ Impression IM", cls:"event-hotel-isla" },
+    { m:4, d:16, label:"🏝️ איסלה מוחרס", cls:"event-hotel-isla" },
+    { m:4, d:17, label:"🏝️ איסלה מוחרס", cls:"event-hotel-isla" },
+    { m:4, d:18, label:"✈️ CUN→CDG→ATH", cls:"event-flight" },
+    { m:4, d:19, label:"🏛️ נחיתה אתונה", cls:"event-return" },
+    { m:4, d:20, label:"✈️ ATH→TLV 🏠", cls:"event-return" },
+  ];
+
+  function getEvents(month, day) {
+    return events.filter(e => e.m === month && e.d === day);
+  }
+
+  function renderMonth(year, month, name) {
+    const label = document.createElement('div');
+    label.className = 'cal-month-label';
+    label.textContent = name;
+    cal.appendChild(label);
+
+    days.forEach(d => {
+      const h = document.createElement('div');
+      h.className = 'cal-header';
+      h.textContent = d;
+      cal.appendChild(h);
+    });
+
+    const firstDay = new Date(year, month, 1).getDay();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+    for (let i = 0; i < firstDay; i++) {
+      const empty = document.createElement('div');
+      empty.className = 'cal-day empty';
+      cal.appendChild(empty);
+    }
+
+    for (let d = 1; d <= daysInMonth; d++) {
+      const cell = document.createElement('div');
+      cell.className = 'cal-day';
+
+      const num = document.createElement('div');
+      num.className = 'day-num';
+      num.textContent = d;
+      cell.appendChild(num);
+
+      const dayEvents = getEvents(month, d);
+      dayEvents.forEach(ev => {
+        const tag = document.createElement('div');
+        tag.className = `day-event ${ev.cls}`;
+        tag.textContent = ev.label;
+        cell.appendChild(tag);
+      });
+
+      cal.appendChild(cell);
+    }
+  }
+
+  renderMonth(2026, 3, '🗓️ April 2026');
+  renderMonth(2026, 4, '🗓️ May 2026');
+}
+
+buildCalendar();
+
+// ============ NAV ============
+function scrollToSection(id) {
+  document.getElementById(id).scrollIntoView({ behavior: 'smooth', block: 'start' });
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  event.target.classList.add('active');
+}
+
+const sections = document.querySelectorAll('.dest-header, #map-section, #calendar-section');
+const navBtns = document.querySelectorAll('.nav-btn');
+
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(entry => {
+    if (entry.isIntersecting) {
+      const id = entry.target.id;
+      navBtns.forEach(btn => btn.classList.toggle('active', btn.getAttribute('onclick')?.includes(id)));
+    }
+  });
+}, { threshold: 0.3, rootMargin: '-80px 0px 0px 0px' });
+
+sections.forEach(s => observer.observe(s));
+
+const timelineObserver = new IntersectionObserver((entries) => {
+  entries.forEach(entry => {
+    if (entry.isIntersecting) entry.target.style.animationPlayState = 'running';
+  });
+}, { threshold: 0.1 });
+
+document.querySelectorAll('.timeline-item').forEach(item => {
+  item.style.animationPlayState = 'paused';
+  timelineObserver.observe(item);
+});
+</script>
+
+</body>
+</html>

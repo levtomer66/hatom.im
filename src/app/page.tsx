@@ -4,7 +4,7 @@ import React from 'react';
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import { motion } from 'framer-motion';
-import { FaDog, FaCoffee, FaVideo, FaDumbbell, FaCamera } from 'react-icons/fa';
+import { FaDog, FaCoffee, FaVideo, FaDumbbell, FaRing, FaPlane } from 'react-icons/fa';
 import Navbar from '@/components/Navbar';
 import CountdownTimer from '@/components/CountdownTimer';
 
@@ -42,11 +42,18 @@ const features = [
     linkText: 'לאימון',
   },
   {
-    icon: FaCamera,
-    title: 'Wedding',
-    description: 'Coming soon',
-    href: '#',
-    linkText: '',
+    icon: FaRing,
+    title: 'Wedding Guide',
+    description: 'מדריך חתונה בלאס וגאס',
+    href: '/vegas-wedding-guide.html',
+    linkText: 'למדריך החתונה',
+  },
+  {
+    icon: FaPlane,
+    title: 'USA & Mexico Trip',
+    description: 'מסלול הטיול המלא 2026',
+    href: '/trip.html',
+    linkText: 'צפה במסלול',
   },
 ];
 
@@ -55,6 +62,8 @@ const heroButtons = [
   { href: '/mekafkefim', label: 'מקפקפים', icon: FaCoffee },
   { href: '/instomit', label: 'InsTomit', icon: FaVideo },
   { href: '/workout', label: 'המפלצתומים', icon: FaDumbbell },
+  { href: '/vegas-wedding-guide.html', label: 'מדריך חתונה', icon: FaRing },
+  { href: '/trip.html', label: 'מסלול הטיול', icon: FaPlane },
 ];
 
 const containerVariants = {
