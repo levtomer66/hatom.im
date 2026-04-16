@@ -2,9 +2,12 @@
 
 import React, { useState } from 'react';
 import Image from 'next/image';
-import { CoffeeReview, CombinedReviewScores, ReviewerScores } from '@/types/coffee';
-import { RatingStars } from './RatingStars';
+import { Playfair_Display, Courier_Prime } from 'next/font/google';
+import { CoffeeReview } from '@/types/coffee';
 import EditCoffeeReviewForm from './EditCoffeeReviewForm';
+
+const playfair = Playfair_Display({ subsets: ['latin'], weight: ['400', '600', '700', '900'], style: ['normal', 'italic'] });
+const courier = Courier_Prime({ subsets: ['latin'], weight: ['400', '700'] });
 
 interface CoffeeReviewCardProps {
   review: CoffeeReview;
@@ -13,291 +16,236 @@ interface CoffeeReviewCardProps {
   rank?: number;
 }
 
+const nonZeroAvg = (vals: number[]) => {
+  const rated = vals.filter(v => v > 0);
+  return rated.length ? rated.reduce((a, b) => a + b, 0) / rated.length : 0;
+};
+
+// SVG ring gauge for a score
+const ScoreRing = ({ score, label, size = 72 }: { score: number; label: string; size?: number }) => {
+  const r = size * 0.38;
+  const circ = 2 * Math.PI * r;
+  const fill = score > 0 ? (score / 10) * circ : 0;
+  const gap = circ - fill;
+  const colors = score >= 8 ? '#5a7a3a' : score >= 6 ? '#8a6020' : score >= 4 ? '#c04020' : '#aaa';
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
+      <svg width={size} height={size} style={{ transform: 'rotate(-90deg)' }}>
+        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="#e8ddc8" strokeWidth="4" />
+        {score > 0 && (
+          <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={colors} strokeWidth="4"
+            strokeDasharray={`${fill} ${gap}`} strokeLinecap="round"
+            style={{ transition: 'stroke-dasharray 0.8s ease' }}
+          />
+        )}
+        <text x="50%" y="50%" textAnchor="middle" dominantBaseline="central"
+          style={{ transform: 'rotate(90deg)', transformOrigin: 'center', fontFamily: 'monospace', fontSize: size * 0.22 + 'px', fill: score > 0 ? '#3a2c1a' : '#bba', fontWeight: 700 }}>
+          {score > 0 ? score.toFixed(1) : '—'}
+        </text>
+      </svg>
+      <span style={{ fontSize: '10px', color: '#8a7a60', letterSpacing: '0.08em', textTransform: 'uppercase', fontFamily: 'monospace' }}>{label}</span>
+    </div>
+  );
+};
+
 const CoffeeReviewCard: React.FC<CoffeeReviewCardProps> = ({ review, onDelete, onUpdate, rank }) => {
   const [imageError, setImageError] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [deleteError, setDeleteError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'overview' | 'tom' | 'tomer'>('overview');
-  
-  // Average over only rated (non-zero) categories
-  const nonZeroAvg = (vals: number[]) => {
-    const rated = vals.filter(v => v > 0);
-    return rated.length ? rated.reduce((a, b) => a + b, 0) / rated.length : 0;
-  };
+  const tomAvg = nonZeroAvg([review.tomCoffeeRating ?? 0, review.tomFoodRating ?? 0, review.tomAtmosphereRating ?? 0, review.tomPriceRating ?? 0]);
+  const tomerAvg = nonZeroAvg([review.tomerCoffeeRating ?? 0, review.tomerFoodRating ?? 0, review.tomerAtmosphereRating ?? 0, review.tomerPriceRating ?? 0]);
+  const combinedAvg = nonZeroAvg([tomAvg, tomerAvg].filter(v => v > 0));
 
-  // Calculate review scores
-  const getReviewerScores = (prefix: 'tom' | 'tomer'): ReviewerScores => {
-    const coffeeRating = review[`${prefix}CoffeeRating`] ?? 0;
-    const foodRating = review[`${prefix}FoodRating`] ?? 0;
-    const atmosphereRating = review[`${prefix}AtmosphereRating`] ?? 0;
-    const priceRating = review[`${prefix}PriceRating`] ?? 0;
-    const averageRating = nonZeroAvg([coffeeRating, foodRating, atmosphereRating, priceRating]);
-    return { coffeeRating, foodRating, atmosphereRating, priceRating, averageRating };
-  };
-
-  // Get scores for Tom and Tomer
-  const tomScores = getReviewerScores('tom');
-  const tomerScores = getReviewerScores('tomer');
-
-  // Combined averages — only over rated categories
   const avgCategory = (a: number, b: number) => nonZeroAvg([a, b].filter(v => v > 0));
-  const combinedScores: CombinedReviewScores = {
-    tom: tomScores,
-    tomer: tomerScores,
-    average: {
-      coffeeRating: avgCategory(tomScores.coffeeRating, tomerScores.coffeeRating),
-      foodRating: avgCategory(tomScores.foodRating, tomerScores.foodRating),
-      atmosphereRating: avgCategory(tomScores.atmosphereRating, tomerScores.atmosphereRating),
-      priceRating: avgCategory(tomScores.priceRating, tomerScores.priceRating),
-      totalAverage: nonZeroAvg([tomScores.averageRating, tomerScores.averageRating].filter(v => v > 0)),
-    }
-  };
-  
-  // Format date
-  const formattedDate = new Date(review.createdAt).toLocaleDateString('he-IL', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric'
-  });
 
-  // Get medal emoji based on rank
-  const getMedal = (rank?: number) => {
-    if (!rank) return null;
-    switch (rank) {
-      case 1: return '🥇';
-      case 2: return '🥈';
-      case 3: return '🥉';
-      default: return null;
-    }
-  };
+  const overviewRings = [
+    { score: avgCategory(review.tomCoffeeRating ?? 0, review.tomerCoffeeRating ?? 0), label: 'קפה' },
+    { score: avgCategory(review.tomFoodRating ?? 0, review.tomerFoodRating ?? 0), label: 'אוכל' },
+    { score: avgCategory(review.tomAtmosphereRating ?? 0, review.tomerAtmosphereRating ?? 0), label: 'אווירה' },
+    { score: avgCategory(review.tomPriceRating ?? 0, review.tomerPriceRating ?? 0), label: 'מחיר' },
+  ];
+  const tomRings = [
+    { score: review.tomCoffeeRating ?? 0, label: 'קפה' },
+    { score: review.tomFoodRating ?? 0, label: 'אוכל' },
+    { score: review.tomAtmosphereRating ?? 0, label: 'אווירה' },
+    { score: review.tomPriceRating ?? 0, label: 'מחיר' },
+  ];
+  const tomerRings = [
+    { score: review.tomerCoffeeRating ?? 0, label: 'קפה' },
+    { score: review.tomerFoodRating ?? 0, label: 'אוכל' },
+    { score: review.tomerAtmosphereRating ?? 0, label: 'אווירה' },
+    { score: review.tomerPriceRating ?? 0, label: 'מחיר' },
+  ];
+
+  const rings = activeTab === 'overview' ? overviewRings : activeTab === 'tom' ? tomRings : tomerRings;
+
+  const formattedDate = new Date(review.createdAt).toLocaleDateString('he-IL', { year: 'numeric', month: '2-digit', day: '2-digit' });
+
+  const rankBadge = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : null;
 
   const handleDelete = async () => {
     if (window.confirm('האם אתה בטוח שברצונך למחוק ביקורת זו?')) {
-      try {
-        setIsDeleting(true);
-        setDeleteError(null);
-        await onDelete(review.id);
-      } catch (deletedError) {
-        setDeleteError('שגיאה במחיקת הביקורת');
-        setIsDeleting(false);
-        console.error('Error deleting coffee review:', deletedError);
-      }
+      setIsDeleting(true);
+      try { await onDelete(review.id); } catch { setIsDeleting(false); }
     }
   };
 
-  const handleEdit = () => {
-    setIsEditing(true);
-  };
-
-  const handleCancelEdit = () => {
-    setIsEditing(false);
-  };
-
-  const handleUpdateSuccess = () => {
-    setIsEditing(false);
-    onUpdate();
-  };
-  
-  const renderRatingRow = (label: string, value: number) => (
-    <div className="flex justify-between items-center">
-      <span className="text-amber-700">{label}:</span>
-      {value > 0 ? (
-        <div className="flex items-center">
-          <span className="text-sm text-amber-600 mr-2">{value.toFixed(1)}</span>
-          <RatingStars rating={value} size="sm" />
-        </div>
-      ) : (
-        <span className="text-xs text-gray-400 italic">לא דורג</span>
-      )}
-    </div>
-  );
-
-  // Render ratings for a reviewer
-  const renderReviewerRatings = (reviewer: 'tom' | 'tomer', scores: ReviewerScores) => {
-    const displayName = reviewer === 'tom' ? 'תום' : 'תומר';
-    return (
-      <div className="space-y-2 mb-4">
-        {renderRatingRow('קפה', scores.coffeeRating)}
-        {renderRatingRow('אוכל', scores.foodRating)}
-        {renderRatingRow('אווירה', scores.atmosphereRating)}
-        {renderRatingRow('מחיר', scores.priceRating)}
-        <div className="flex justify-between items-center mt-3 pt-2 border-t border-amber-100">
-          <span className="text-amber-800 font-medium">ממוצע {displayName}:</span>
-          {scores.averageRating > 0 ? (
-            <div className="flex items-center">
-              <span className="text-sm font-bold text-amber-700 mr-2">{scores.averageRating.toFixed(1)}</span>
-              <RatingStars rating={scores.averageRating} size="sm" />
-            </div>
-          ) : (
-            <span className="text-xs text-gray-400 italic">לא דורג</span>
-          )}
-        </div>
-      </div>
-    );
-  };
-  
-  // Render overview/combined ratings
-  const renderOverviewRatings = () => {
-    const avg = combinedScores.average;
-    return (
-      <div className="space-y-2 mb-4">
-        {renderRatingRow('קפה', avg.coffeeRating)}
-        {renderRatingRow('אוכל', avg.foodRating)}
-        {renderRatingRow('אווירה', avg.atmosphereRating)}
-        {renderRatingRow('מחיר', avg.priceRating)}
-        <div className="grid grid-cols-2 gap-4 mt-4 pt-3 border-t border-amber-100">
-          <div className="flex flex-col items-center">
-            <span className="text-amber-800 font-medium mb-1">תום</span>
-            {tomScores.averageRating > 0 ? (
-              <div className="flex items-center">
-                <span className="text-sm font-bold text-amber-700 mr-1">{tomScores.averageRating.toFixed(1)}</span>
-                <RatingStars rating={tomScores.averageRating} size="xs" />
-              </div>
-            ) : <span className="text-xs text-gray-400 italic">לא דורג</span>}
-          </div>
-          <div className="flex flex-col items-center">
-            <span className="text-amber-800 font-medium mb-1">תומר</span>
-            {tomerScores.averageRating > 0 ? (
-              <div className="flex items-center">
-                <span className="text-sm font-bold text-amber-700 mr-1">{tomerScores.averageRating.toFixed(1)}</span>
-                <RatingStars rating={tomerScores.averageRating} size="xs" />
-              </div>
-            ) : <span className="text-xs text-gray-400 italic">לא דורג</span>}
-          </div>
-        </div>
-      </div>
-    );
-  };
-  
   if (isEditing) {
-    return <EditCoffeeReviewForm 
-      review={review} 
-      onSuccess={handleUpdateSuccess} 
-      onCancel={handleCancelEdit} 
-    />;
+    return <EditCoffeeReviewForm review={review} onSuccess={() => { setIsEditing(false); onUpdate(); }} onCancel={() => setIsEditing(false)} />;
   }
-  
+
   return (
-    <div className="bg-white rounded-lg shadow-lg overflow-hidden transition-transform duration-300 hover:transform hover:scale-102 border-2 border-amber-100 relative">
-      {/* Medal */}
-      {rank && rank <= 3 && (
-        <div className="absolute top-2 right-2 z-10 text-4xl">
-          {getMedal(rank)}
+    <div style={{
+      background: 'linear-gradient(160deg, #fdf6e3 0%, #f7eed5 100%)',
+      border: '1px solid #d4c4a0',
+      boxShadow: '3px 5px 18px rgba(90,60,20,0.13), 0 1px 3px rgba(90,60,20,0.08)',
+      position: 'relative',
+      overflow: 'hidden',
+      transition: 'transform 0.25s ease, box-shadow 0.25s ease',
+    }}
+      onMouseEnter={e => { (e.currentTarget as HTMLElement).style.transform = 'translateY(-3px)'; (e.currentTarget as HTMLElement).style.boxShadow = '3px 10px 28px rgba(90,60,20,0.18), 0 2px 6px rgba(90,60,20,0.1)'; }}
+      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.transform = ''; (e.currentTarget as HTMLElement).style.boxShadow = '3px 5px 18px rgba(90,60,20,0.13), 0 1px 3px rgba(90,60,20,0.08)'; }}
+    >
+      {/* Paper grain overlay */}
+      <div style={{
+        position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 1,
+        backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E")`,
+        backgroundSize: '200px 200px',
+        opacity: 0.5,
+      }} />
+
+      {/* Rank stamp */}
+      {rankBadge && (
+        <div style={{
+          position: 'absolute', top: '12px', right: '12px', zIndex: 10,
+          fontSize: '2rem', filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.15))',
+        }}>
+          {rankBadge}
         </div>
       )}
-      
+
       {/* Action buttons */}
-      <div className="absolute top-2 left-2 flex space-x-2 z-10">
-        <button
-          onClick={handleEdit}
-          className="bg-amber-500 hover:bg-amber-600 text-white rounded-full p-2 transition-colors duration-200 shadow-md"
-          aria-label="Edit review"
-          title="ערוך ביקורת"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-            <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
-          </svg>
+      <div style={{ position: 'absolute', top: '10px', left: '10px', zIndex: 10, display: 'flex', gap: '4px' }}>
+        <button onClick={() => setIsEditing(true)}
+          style={{ background: 'rgba(255,255,255,0.7)', border: '1px solid #c4b080', borderRadius: '50%', width: '30px', height: '30px', cursor: 'pointer', fontSize: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(4px)' }}>
+          ✏️
         </button>
-        <button
-          onClick={handleDelete}
-          disabled={isDeleting}
-          className="bg-red-500 hover:bg-red-600 text-white rounded-full p-2 transition-colors duration-200 shadow-md disabled:opacity-50"
-          aria-label="Delete review"
-          title="מחק ביקורת"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-            <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
-          </svg>
+        <button onClick={handleDelete} disabled={isDeleting}
+          style={{ background: 'rgba(255,255,255,0.7)', border: '1px solid #c4b080', borderRadius: '50%', width: '30px', height: '30px', cursor: 'pointer', fontSize: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(4px)' }}>
+          🗑️
         </button>
       </div>
-      
-      {deleteError && (
-        <div className="absolute top-2 right-2 bg-red-100 border border-red-400 text-red-700 px-2 py-1 rounded text-sm z-10">
-          {deleteError}
-        </div>
-      )}
-      
-      <div className="relative h-48 w-full bg-amber-50">
-        {(review.photoData || review.photoUrl) && !imageError ? (
+
+      {/* Image */}
+      <div style={{ height: '180px', background: '#ece0c8', overflow: 'hidden', position: 'relative' }}>
+        {(review.photoUrl || review.photoData) && !imageError ? (
           <Image
             src={review.photoData ? `/api/coffee-reviews/${review.id}/image` : (review.photoUrl || '')}
             alt={review.placeName}
             fill
-            className="object-cover"
+            style={{ objectFit: 'cover', filter: 'sepia(30%) saturate(0.85) contrast(1.05)' }}
             onError={() => setImageError(true)}
-            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+            sizes="(max-width: 768px) 100vw, 50vw"
           />
         ) : (
-          <div className="flex items-center justify-center h-full">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 text-amber-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-            </svg>
-          </div>
+          <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '4rem', opacity: 0.2 }}>☕</div>
         )}
+        {/* Receipt tape top */}
+        <div style={{
+          position: 'absolute', bottom: 0, left: 0, right: 0, height: '12px',
+          background: 'linear-gradient(160deg, #fdf6e3 0%, #f7eed5 100%)',
+          clipPath: 'polygon(0% 100%, 2% 0%, 4% 100%, 6% 0%, 8% 100%, 10% 0%, 12% 100%, 14% 0%, 16% 100%, 18% 0%, 20% 100%, 22% 0%, 24% 100%, 26% 0%, 28% 100%, 30% 0%, 32% 100%, 34% 0%, 36% 100%, 38% 0%, 40% 100%, 42% 0%, 44% 100%, 46% 0%, 48% 100%, 50% 0%, 52% 100%, 54% 0%, 56% 100%, 58% 0%, 60% 100%, 62% 0%, 64% 100%, 66% 0%, 68% 100%, 70% 0%, 72% 100%, 74% 0%, 76% 100%, 78% 0%, 80% 100%, 82% 0%, 84% 100%, 86% 0%, 88% 100%, 90% 0%, 92% 100%, 94% 0%, 96% 100%, 98% 0%, 100% 100%)',
+        }} />
       </div>
-      
-      <div className="p-6">
-        <h3 className="text-2xl font-bold text-amber-900 mb-2">{review.placeName}</h3>
 
-        {/* Maps / Instagram links */}
+      {/* Content */}
+      <div style={{ padding: '16px 18px 20px', position: 'relative', zIndex: 2, direction: 'rtl' }}>
+        {/* Receipt header line */}
+        <div style={{ borderTop: '2px dashed #c4b080', marginBottom: '14px', paddingTop: '14px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+            <h3 className={playfair.className} style={{ fontSize: '1.35rem', fontWeight: 700, color: '#2a1e0a', margin: 0, lineHeight: 1.2, flex: 1, paddingLeft: '8px' }}>
+              {review.placeName}
+            </h3>
+            {combinedAvg > 0 ? (
+              <div style={{ textAlign: 'center', minWidth: '50px' }}>
+                <span className={courier.className} style={{ fontSize: '1.6rem', fontWeight: 700, color: '#5a3a10', lineHeight: 1 }}>{combinedAvg.toFixed(1)}</span>
+                <div className={courier.className} style={{ fontSize: '9px', color: '#a08060', marginTop: '1px' }}>/10</div>
+              </div>
+            ) : (
+              <span style={{ fontSize: '11px', color: '#b0a080', fontStyle: 'italic' }}>לא דורג</span>
+            )}
+          </div>
+        </div>
+
+        {/* Links */}
         {(review.mapsUrl || review.instagramUrl) && (
-          <div className="flex gap-2 mb-3 flex-wrap">
+          <div style={{ display: 'flex', gap: '6px', marginBottom: '14px', flexWrap: 'wrap' }}>
             {review.mapsUrl && (
-              <a href={review.mapsUrl} target="_blank" rel="noopener noreferrer"
-                 className="text-xs bg-green-100 text-green-700 px-3 py-1 rounded-full hover:bg-green-200 transition-colors font-medium">
+              <a href={review.mapsUrl} target="_blank" rel="noopener noreferrer" className={courier.className}
+                style={{ fontSize: '10px', color: '#5a7a3a', background: 'rgba(90,122,58,0.1)', border: '1px solid rgba(90,122,58,0.25)', padding: '2px 8px', textDecoration: 'none', borderRadius: '2px' }}>
                 📍 מפה
               </a>
             )}
             {review.instagramUrl && (
-              <a href={review.instagramUrl} target="_blank" rel="noopener noreferrer"
-                 className="text-xs bg-pink-100 text-pink-700 px-3 py-1 rounded-full hover:bg-pink-200 transition-colors font-medium">
+              <a href={review.instagramUrl} target="_blank" rel="noopener noreferrer" className={courier.className}
+                style={{ fontSize: '10px', color: '#8a3060', background: 'rgba(138,48,96,0.08)', border: '1px solid rgba(138,48,96,0.2)', padding: '2px 8px', textDecoration: 'none', borderRadius: '2px' }}>
                 📸 אינסטגרם
               </a>
             )}
           </div>
         )}
 
-        <div className="flex items-center mb-4">
-          <span className="text-lg font-semibold text-amber-800 mr-2">
-            {combinedScores.average.totalAverage > 0 ? combinedScores.average.totalAverage.toFixed(1) : 'לא דורג'}
-          </span>
-          {combinedScores.average.totalAverage > 0 && <RatingStars rating={combinedScores.average.totalAverage} size="sm" />}
+        {/* Receipt divider */}
+        <div style={{ borderTop: '1px dashed #c4b080', marginBottom: '14px' }} />
+
+        {/* Tabs */}
+        <div style={{ display: 'flex', gap: '0', marginBottom: '16px' }}>
+          {(['overview', 'tom', 'tomer'] as const).map((tab, i) => (
+            <button key={tab} onClick={() => setActiveTab(tab)} className={courier.className}
+              style={{
+                flex: 1, background: activeTab === tab ? '#3a2a10' : 'transparent',
+                border: '1px solid #c4b080', borderLeft: i > 0 ? 'none' : '1px solid #c4b080',
+                color: activeTab === tab ? '#fdf6e3' : '#8a7050',
+                cursor: 'pointer', padding: '5px 0', fontSize: '11px',
+                letterSpacing: '0.05em', transition: 'all 0.15s',
+              }}
+            >
+              {tab === 'overview' ? 'סיכום' : tab === 'tom' ? 'תום' : 'תומר'}
+            </button>
+          ))}
         </div>
-        
-        {/* Review Tabs */}
-        <div className="flex border-b border-amber-200 mb-4">
-          <button 
-            className={`py-2 px-4 font-medium ${activeTab === 'overview' ? 'text-amber-700 border-b-2 border-amber-500' : 'text-amber-500 hover:text-amber-600'}`}
-            onClick={() => setActiveTab('overview')}
-          >
-            סיכום
-          </button>
-          <button 
-            className={`py-2 px-4 font-medium ${activeTab === 'tom' ? 'text-amber-700 border-b-2 border-amber-500' : 'text-amber-500 hover:text-amber-600'}`}
-            onClick={() => setActiveTab('tom')}
-          >
-            תום
-          </button>
-          <button 
-            className={`py-2 px-4 font-medium ${activeTab === 'tomer' ? 'text-amber-700 border-b-2 border-amber-500' : 'text-amber-500 hover:text-amber-600'}`}
-            onClick={() => setActiveTab('tomer')}
-          >
-            תומר
-          </button>
+
+        {/* Score rings */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0 4px' }}>
+          {rings.map(r => <ScoreRing key={r.label} score={r.score} label={r.label} size={62} />)}
         </div>
-        
-        {/* Display ratings based on active tab */}
-        {activeTab === 'overview' && renderOverviewRatings()}
-        {activeTab === 'tom' && renderReviewerRatings('tom', tomScores)}
-        {activeTab === 'tomer' && renderReviewerRatings('tomer', tomerScores)}
-        
-        <div className="text-right text-sm text-gray-500 mt-4">
-          נוסף בתאריך: {formattedDate}
+
+        {/* Reviewer averages in overview */}
+        {activeTab === 'overview' && (tomAvg > 0 || tomerAvg > 0) && (
+          <div style={{ display: 'flex', justifyContent: 'space-around', marginTop: '14px', borderTop: '1px dashed #c4b080', paddingTop: '10px' }}>
+            {[{ name: 'תום', avg: tomAvg }, { name: 'תומר', avg: tomerAvg }].map(({ name, avg }) => (
+              <div key={name} style={{ textAlign: 'center' }}>
+                <div className={courier.className} style={{ fontSize: '10px', color: '#8a7050', marginBottom: '2px' }}>{name}</div>
+                <div className={courier.className} style={{ fontSize: '1rem', fontWeight: 700, color: avg > 0 ? '#3a2a10' : '#b0a080' }}>
+                  {avg > 0 ? avg.toFixed(1) : '—'}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Receipt footer */}
+        <div style={{ borderTop: '2px dashed #c4b080', marginTop: '14px', paddingTop: '10px' }}>
+          <div className={courier.className} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '9px', color: '#a09070' }}>
+            <span>תאריך: {formattedDate}</span>
+            <span style={{ direction: 'ltr' }}>NO. {rank ? String(rank).padStart(3, '0') : '—'}</span>
+          </div>
         </div>
       </div>
     </div>
   );
 };
 
-export default CoffeeReviewCard; 
+export default CoffeeReviewCard;
