@@ -1,86 +1,40 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { Playfair_Display, Courier_Prime } from 'next/font/google';
 import Navbar from '@/components/Navbar';
 import CoffeeReviewCard from '@/components/CoffeeReviewCard';
 import AddCoffeeReviewForm from '@/components/AddCoffeeReviewForm';
 import { CoffeeReview } from '@/types/coffee';
+
+const playfair = Playfair_Display({ subsets: ['latin'], weight: ['400', '600', '700', '900'], style: ['normal', 'italic'] });
+const courier = Courier_Prime({ subsets: ['latin'], weight: ['400', '700'] });
 
 export default function MekafkefimPage() {
   const [reviews, setReviews] = useState<CoffeeReview[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
-  const [beanStyles, setBeanStyles] = useState<Array<{
-    top: string;
-    left: string;
-    transform: string;
-    opacity: number;
-  }>>([]);
 
-  // Generate random bean styles on client-side only
-  useEffect(() => {
-    const newBeanStyles = Array(15).fill(0).map(() => ({
-      top: `${Math.random() * 100}%`,
-      left: `${Math.random() * 100}%`,
-      transform: `rotate(${Math.random() * 360}deg)`,
-      opacity: 0.1 + Math.random() * 0.1
-    }));
-    setBeanStyles(newBeanStyles);
-  }, []);
-
-  // Fetch coffee reviews
   const fetchReviews = async () => {
     try {
       setIsLoading(true);
       const response = await fetch('/api/coffee-reviews');
-      
-      if (!response.ok) {
-        throw new Error('Failed to fetch coffee reviews');
-      }
-      
-      const data = await response.json();
-      setReviews(data);
+      if (!response.ok) throw new Error('Failed to fetch');
+      setReviews(await response.json());
     } catch (err) {
-      console.error('Error fetching reviews:', err);
-      setError('Failed to load coffee reviews. Please try again later.');
+      console.error(err);
+      setError('שגיאה בטעינת הביקורות');
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Load reviews on component mount
-  useEffect(() => {
-    fetchReviews();
-  }, []);
+  useEffect(() => { fetchReviews(); }, []);
 
-  // Handle successful review submission
-  const handleReviewAdded = () => {
-    setShowAddForm(false);
-    fetchReviews();
-  };
-
-  // Handle review deletion
   const handleDeleteReview = async (id: string) => {
-    try {
-      const response = await fetch(`/api/coffee-reviews/${id}`, {
-        method: 'DELETE',
-      });
-      
-      if (!response.ok) {
-        throw new Error('Failed to delete review');
-      }
-      
-      // Refresh the reviews list
-      fetchReviews();
-    } catch (err) {
-      console.error('Error deleting review:', err);
-      throw err;
-    }
-  };
-
-  // Handle review update
-  const handleUpdateReview = () => {
+    const response = await fetch(`/api/coffee-reviews/${id}`, { method: 'DELETE' });
+    if (!response.ok) throw new Error('Failed to delete');
     fetchReviews();
   };
 
@@ -90,109 +44,157 @@ export default function MekafkefimPage() {
   };
 
   const sortedReviews = [...reviews].sort((a, b) => {
-    const getAvgRating = (review: CoffeeReview) => {
-      const tomVals = [review.tomCoffeeRating ?? 0, review.tomFoodRating ?? 0, review.tomAtmosphereRating ?? 0, review.tomPriceRating ?? 0];
-      const tomerVals = [review.tomerCoffeeRating ?? 0, review.tomerFoodRating ?? 0, review.tomerAtmosphereRating ?? 0, review.tomerPriceRating ?? 0];
-      return nonZeroAvg([nonZeroAvg(tomVals), nonZeroAvg(tomerVals)].filter(v => v > 0));
+    const getAvg = (r: CoffeeReview) => {
+      const t = nonZeroAvg([r.tomCoffeeRating ?? 0, r.tomFoodRating ?? 0, r.tomAtmosphereRating ?? 0, r.tomPriceRating ?? 0]);
+      const tr = nonZeroAvg([r.tomerCoffeeRating ?? 0, r.tomerFoodRating ?? 0, r.tomerAtmosphereRating ?? 0, r.tomerPriceRating ?? 0]);
+      return nonZeroAvg([t, tr].filter(v => v > 0));
     };
-    return getAvgRating(b) - getAvgRating(a);
+    return getAvg(b) - getAvg(a);
   });
 
   return (
-    <div className="min-h-screen coffee-theme-bg">
+    <div style={{
+      minHeight: '100vh',
+      background: '#f2e8d5',
+      backgroundImage: `
+        radial-gradient(ellipse at 20% 10%, rgba(200,160,80,0.12) 0%, transparent 60%),
+        radial-gradient(ellipse at 80% 90%, rgba(160,100,40,0.1) 0%, transparent 60%)
+      `,
+    }}>
       <Navbar />
-      
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        {/* Header */}
-        <div className="text-center mb-12">
-          <h1 className="text-4xl font-bold text-amber-900 mb-4">מקפקפים ☕</h1>
-          <p className="text-xl text-amber-800 max-w-3xl mx-auto">
-            המדריך השלם לבתי הקפה הטובים ביותר - דירוגים, ביקורות והמלצות
-          </p>
-          
-          <button
-            onClick={() => setShowAddForm(!showAddForm)}
-            className="mt-6 bg-amber-600 hover:bg-amber-700 text-white font-bold py-3 px-6 rounded-lg transition-colors duration-200 flex items-center mx-auto"
-          >
-            {showAddForm ? 'סגור טופס' : '➕ הוסף ביקורת חדשה'}
-          </button>
-        </div>
-        
-        {/* Add Review Form */}
+
+      <style>{`
+        @keyframes popIn {
+          from { opacity: 0; transform: scale(0.96) translateY(12px); }
+          to { opacity: 1; transform: scale(1) translateY(0); }
+        }
+        .card-pop { animation: popIn 0.4s cubic-bezier(0.34,1.56,0.64,1) forwards; opacity: 0; }
+      `}</style>
+
+      <div style={{ maxWidth: '1100px', margin: '0 auto', padding: '48px 24px 100px' }}>
+
+        {/* Header — like the top of a paper notepad */}
+        <header style={{ textAlign: 'center', marginBottom: '56px', position: 'relative' }}>
+          <div style={{
+            display: 'inline-block',
+            background: 'linear-gradient(160deg, #fdf6e3, #f5e8c8)',
+            border: '1px solid #c4a870',
+            boxShadow: '0 4px 20px rgba(100,60,10,0.12), 0 1px 4px rgba(100,60,10,0.08)',
+            padding: '36px 60px 32px',
+            position: 'relative',
+            maxWidth: '560px',
+          }}>
+            {/* Binding holes */}
+            {[-1, 0, 1].map(i => (
+              <div key={i} style={{
+                position: 'absolute', top: '50%', left: i === -1 ? '-14px' : i === 0 ? '-14px' : '-14px',
+                marginTop: `${i * 28}px`,
+                width: '12px', height: '12px', borderRadius: '50%',
+                background: '#d4c4a0', border: '2px solid #b8a878',
+                boxShadow: 'inset 0 1px 3px rgba(0,0,0,0.2)',
+              }} />
+            ))}
+            {/* Ruled lines */}
+            {[0, 1, 2, 3].map(i => (
+              <div key={i} style={{
+                position: 'absolute', left: '24px', right: '24px',
+                top: `${72 + i * 28}px`, height: '1px',
+                background: 'rgba(180,140,60,0.15)',
+                pointerEvents: 'none',
+              }} />
+            ))}
+
+            <p className={courier.className} style={{
+              fontSize: '10px', letterSpacing: '0.25em', textTransform: 'uppercase',
+              color: '#a08040', margin: '0 0 10px 0',
+            }}>
+              coffee journal · tel aviv
+            </p>
+            <h1 className={playfair.className} style={{
+              fontSize: 'clamp(2.8rem, 7vw, 4.5rem)', fontWeight: 900,
+              color: '#2a1a06', margin: '0 0 10px 0', lineHeight: 1,
+              letterSpacing: '-0.02em',
+            }}>
+              מקפקפים
+            </h1>
+            <p className={playfair.className} style={{
+              fontSize: '1rem', color: '#7a6040', fontStyle: 'italic', margin: '0 0 20px 0',
+            }}>
+              המדריך השלם לבתי הקפה הטובים ביותר
+            </p>
+
+            <button
+              onClick={() => setShowAddForm(!showAddForm)}
+              className={courier.className}
+              style={{
+                background: showAddForm ? '#3a2a10' : 'transparent',
+                border: '2px solid #3a2a10',
+                color: showAddForm ? '#fdf6e3' : '#3a2a10',
+                cursor: 'pointer', padding: '8px 20px',
+                fontSize: '11px', letterSpacing: '0.12em', textTransform: 'uppercase',
+                transition: 'all 0.2s',
+              }}
+            >
+              {showAddForm ? '× סגור' : '+ הוסף ביקורת'}
+            </button>
+          </div>
+
+          {/* Decorative coffee ring stains */}
+          <div style={{ position: 'absolute', top: '20px', right: '10%', width: '60px', height: '60px', borderRadius: '50%', border: '3px solid rgba(140,90,30,0.12)', pointerEvents: 'none' }} />
+          <div style={{ position: 'absolute', top: '35px', right: 'calc(10% + 20px)', width: '60px', height: '60px', borderRadius: '50%', border: '3px solid rgba(140,90,30,0.08)', pointerEvents: 'none' }} />
+          <div style={{ position: 'absolute', bottom: '10px', left: '12%', width: '44px', height: '44px', borderRadius: '50%', border: '2px solid rgba(140,90,30,0.1)', pointerEvents: 'none' }} />
+        </header>
+
+        {/* Add form */}
         {showAddForm && (
-          <div className="max-w-2xl mx-auto mb-12">
-            <AddCoffeeReviewForm onSuccess={handleReviewAdded} />
+          <div style={{ maxWidth: '640px', margin: '0 auto 48px', background: 'linear-gradient(160deg, #fdf6e3, #f5e8c8)', border: '1px solid #c4a870', padding: '24px', boxShadow: '0 4px 16px rgba(100,60,10,0.1)' }}>
+            <AddCoffeeReviewForm onSuccess={() => { setShowAddForm(false); fetchReviews(); }} />
           </div>
         )}
-        
-        {/* Reviews Grid */}
+
+        {/* Content */}
         {isLoading ? (
-          <div className="flex justify-center items-center py-12">
-            <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-amber-600"></div>
+          <div style={{ textAlign: 'center', padding: '80px 0' }}>
+            <p className={courier.className} style={{ color: '#a08040', letterSpacing: '0.2em' }}>BREWING...</p>
           </div>
         ) : error ? (
-          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded text-center max-w-2xl mx-auto">
-            {error}
-          </div>
+          <p style={{ color: '#8a3020', textAlign: 'center' }}>{error}</p>
         ) : sortedReviews.length === 0 ? (
-          <div className="text-center py-12">
-            <div className="text-6xl mb-4">☕</div>
-            <h3 className="text-2xl font-bold text-amber-800 mb-2">אין ביקורות עדיין</h3>
-            <p className="text-amber-700">היה הראשון להוסיף ביקורת על בית קפה!</p>
+          <div style={{ textAlign: 'center', padding: '80px 0' }}>
+            <p className={playfair.className} style={{ fontSize: '1.5rem', color: '#8a7040', fontStyle: 'italic' }}>אין ביקורות עדיין</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
+            gap: '28px',
+          }}>
             {sortedReviews.map((review, index) => (
-              <CoffeeReviewCard 
-                key={review.id} 
-                review={review} 
-                onDelete={handleDeleteReview}
-                onUpdate={handleUpdateReview}
-                rank={index + 1}
-              />
+              <div
+                key={review.id}
+                className="card-pop"
+                style={{ animationDelay: `${index * 55}ms` }}
+              >
+                <CoffeeReviewCard
+                  review={review}
+                  onDelete={handleDeleteReview}
+                  onUpdate={fetchReviews}
+                  rank={index + 1}
+                />
+              </div>
             ))}
           </div>
         )}
-      </div>
-      
-      {/* Coffee-themed decorative elements */}
-      <div className="coffee-beans">
-        {beanStyles.map((style, i) => (
-          <div 
-            key={i} 
-            className="coffee-bean"
-            style={style}
-          >
-            ☕
+
+        {/* Footer note */}
+        {!isLoading && reviews.length > 0 && (
+          <div style={{ textAlign: 'center', marginTop: '48px' }}>
+            <p className={courier.className} style={{ fontSize: '10px', color: '#a09060', letterSpacing: '0.15em' }}>
+              {reviews.length} בתי קפה · מיוין לפי דירוג ממוצע · 0 = לא דורג
+            </p>
           </div>
-        ))}
+        )}
       </div>
-      
-      <style jsx>{`
-        .coffee-theme-bg {
-          background-color: #f5f0e8;
-          background-image: radial-gradient(#d4b996 0.5px, transparent 0.5px), radial-gradient(#d4b996 0.5px, #f5f0e8 0.5px);
-          background-size: 20px 20px;
-          background-position: 0 0, 10px 10px;
-        }
-        
-        .coffee-beans {
-          position: fixed;
-          top: 0;
-          left: 0;
-          width: 100%;
-          height: 100%;
-          z-index: -1;
-          pointer-events: none;
-        }
-        
-        .coffee-bean {
-          position: absolute;
-          font-size: 2rem;
-          color: #6f4e37;
-          z-index: -1;
-        }
-      `}</style>
     </div>
   );
-} 
+}
