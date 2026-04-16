@@ -17,6 +17,8 @@ export interface CoffeeReview {
   photoType?: string; // Image MIME type
   photoName?: string; // Original filename
   photoSize?: number; // Size in bytes
+  mapsUrl?: string;
+  instagramUrl?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -39,6 +41,8 @@ export interface CreateCoffeeReviewDto {
   photoType?: string; // Image MIME type
   photoName?: string; // Original filename
   photoSize?: number; // Size in bytes
+  mapsUrl?: string;
+  instagramUrl?: string;
 }
 
 // Helper type for calculating review statistics

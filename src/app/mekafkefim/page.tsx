@@ -84,31 +84,18 @@ export default function MekafkefimPage() {
     fetchReviews();
   };
 
-  // Sort reviews by average rating
+  const nonZeroAvg = (vals: number[]) => {
+    const rated = vals.filter(v => v > 0);
+    return rated.length ? rated.reduce((a, b) => a + b, 0) / rated.length : 0;
+  };
+
   const sortedReviews = [...reviews].sort((a, b) => {
-    // Calculate average ratings for each review
     const getAvgRating = (review: CoffeeReview) => {
-      // Provide fallbacks for potentially missing properties
-      const tomCoffeeRating = review.tomCoffeeRating ?? 0;
-      const tomFoodRating = review.tomFoodRating ?? 0;
-      const tomAtmosphereRating = review.tomAtmosphereRating ?? 0;
-      const tomPriceRating = review.tomPriceRating ?? 0;
-      
-      const tomerCoffeeRating = review.tomerCoffeeRating ?? 0;
-      const tomerFoodRating = review.tomerFoodRating ?? 0;
-      const tomerAtmosphereRating = review.tomerAtmosphereRating ?? 0;
-      const tomerPriceRating = review.tomerPriceRating ?? 0;
-      
-      const tomAvg = (tomCoffeeRating + tomFoodRating + 
-                    tomAtmosphereRating + tomPriceRating) / 4;
-      
-      const tomerAvg = (tomerCoffeeRating + tomerFoodRating + 
-                      tomerAtmosphereRating + tomerPriceRating) / 4;
-      
-      return (tomAvg + tomerAvg) / 2;
+      const tomVals = [review.tomCoffeeRating ?? 0, review.tomFoodRating ?? 0, review.tomAtmosphereRating ?? 0, review.tomPriceRating ?? 0];
+      const tomerVals = [review.tomerCoffeeRating ?? 0, review.tomerFoodRating ?? 0, review.tomerAtmosphereRating ?? 0, review.tomerPriceRating ?? 0];
+      return nonZeroAvg([nonZeroAvg(tomVals), nonZeroAvg(tomerVals)].filter(v => v > 0));
     };
-    
-    return getAvgRating(b) - getAvgRating(a); // Sort descending
+    return getAvgRating(b) - getAvgRating(a);
   });
 
   return (

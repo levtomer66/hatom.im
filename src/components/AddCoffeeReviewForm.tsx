@@ -25,6 +25,8 @@ const AddCoffeeReviewForm: React.FC<AddCoffeeReviewFormProps> = ({ onSuccess }) 
   const [photoType, setPhotoType] = useState<string | undefined>(undefined);
   const [photoName, setPhotoName] = useState<string | undefined>(undefined);
   const [photoSize, setPhotoSize] = useState<number | undefined>(undefined);
+  const [mapsUrl, setMapsUrl] = useState('');
+  const [instagramUrl, setInstagramUrl] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
@@ -46,19 +48,7 @@ const AddCoffeeReviewForm: React.FC<AddCoffeeReviewFormProps> = ({ onSuccess }) 
       return;
     }
     
-    // Validate Tom's ratings
-    if (tomCoffeeRating === 0 || tomFoodRating === 0 || tomAtmosphereRating === 0 || tomPriceRating === 0) {
-      setError('יש לדרג את כל הקטגוריות עבור תום');
-      setActiveTab('tom');
-      return;
-    }
-    
-    // Validate Tomer's ratings
-    if (tomerCoffeeRating === 0 || tomerFoodRating === 0 || tomerAtmosphereRating === 0 || tomerPriceRating === 0) {
-      setError('יש לדרג את כל הקטגוריות עבור תומר');
-      setActiveTab('tomer');
-      return;
-    }
+    // 0 is a valid rating (means "not rated")
     
     try {
       setIsSubmitting(true);
@@ -85,6 +75,9 @@ const AddCoffeeReviewForm: React.FC<AddCoffeeReviewFormProps> = ({ onSuccess }) 
           photoType,
           photoName,
           photoSize,
+          // Links
+          mapsUrl: mapsUrl || undefined,
+          instagramUrl: instagramUrl || undefined,
         }),
       });
       
@@ -105,6 +98,9 @@ const AddCoffeeReviewForm: React.FC<AddCoffeeReviewFormProps> = ({ onSuccess }) 
       setTomerFoodRating(0);
       setTomerAtmosphereRating(0);
       setTomerPriceRating(0);
+      // Reset link fields
+      setMapsUrl('');
+      setInstagramUrl('');
       // Reset image fields
       setPhotoData(undefined);
       setPhotoType(undefined);
@@ -287,12 +283,42 @@ const AddCoffeeReviewForm: React.FC<AddCoffeeReviewFormProps> = ({ onSuccess }) 
             dir="rtl"
           />
         </div>
-        
+
+        <div>
+          <label htmlFor="mapsUrl" className="block text-amber-800 font-medium mb-2 text-right">
+            קישור למפה (אופציונלי)
+          </label>
+          <input
+            type="url"
+            id="mapsUrl"
+            value={mapsUrl}
+            onChange={(e) => setMapsUrl(e.target.value)}
+            className="w-full px-4 py-2 border border-amber-300 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-500 text-left"
+            placeholder="https://maps.google.com/..."
+            dir="ltr"
+          />
+        </div>
+
+        <div>
+          <label htmlFor="instagramUrl" className="block text-amber-800 font-medium mb-2 text-right">
+            קישור לאינסטגרם (אופציונלי)
+          </label>
+          <input
+            type="url"
+            id="instagramUrl"
+            value={instagramUrl}
+            onChange={(e) => setInstagramUrl(e.target.value)}
+            className="w-full px-4 py-2 border border-amber-300 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-500 text-left"
+            placeholder="https://www.instagram.com/..."
+            dir="ltr"
+          />
+        </div>
+
         <div>
           <label className="block text-amber-800 font-medium mb-2 text-right">
             תמונה (אופציונלי)
           </label>
-          
+
           {/* Hidden file inputs */}
           <input
             type="file"

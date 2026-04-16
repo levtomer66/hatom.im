@@ -33,7 +33,9 @@ const EditCoffeeReviewForm: React.FC<EditCoffeeReviewFormProps> = ({
   const [photoName, setPhotoName] = useState<string | undefined>(review.photoName);
   const [photoSize, setPhotoSize] = useState<number | undefined>(review.photoSize);
   const [photoUrl, setPhotoUrl] = useState(review.photoUrl || '');
-  
+  const [mapsUrl, setMapsUrl] = useState(review.mapsUrl || '');
+  const [instagramUrl, setInstagramUrl] = useState(review.instagramUrl || '');
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
@@ -59,19 +61,7 @@ const EditCoffeeReviewForm: React.FC<EditCoffeeReviewFormProps> = ({
       return;
     }
     
-    // Validate Tom's ratings
-    if (tomCoffeeRating === 0 || tomFoodRating === 0 || tomAtmosphereRating === 0 || tomPriceRating === 0) {
-      setError('יש לדרג את כל הקטגוריות עבור תום');
-      setActiveTab('tom');
-      return;
-    }
-    
-    // Validate Tomer's ratings
-    if (tomerCoffeeRating === 0 || tomerFoodRating === 0 || tomerAtmosphereRating === 0 || tomerPriceRating === 0) {
-      setError('יש לדרג את כל הקטגוריות עבור תומר');
-      setActiveTab('tomer');
-      return;
-    }
+    // 0 is a valid rating (means "not rated")
     
     try {
       setIsSubmitting(true);
@@ -95,6 +85,8 @@ const EditCoffeeReviewForm: React.FC<EditCoffeeReviewFormProps> = ({
           tomerPriceRating,
           // Image data
           photoUrl: photoUrl || undefined,
+          mapsUrl: mapsUrl || undefined,
+          instagramUrl: instagramUrl || undefined,
           photoData,
           photoType,
           photoName,
@@ -286,12 +278,42 @@ const EditCoffeeReviewForm: React.FC<EditCoffeeReviewFormProps> = ({
             dir="rtl"
           />
         </div>
-        
+
+        <div>
+          <label htmlFor="mapsUrl" className="block text-amber-800 font-medium mb-2 text-right">
+            קישור למפה (אופציונלי)
+          </label>
+          <input
+            type="url"
+            id="mapsUrl"
+            value={mapsUrl}
+            onChange={(e) => setMapsUrl(e.target.value)}
+            className="w-full px-4 py-2 border border-amber-300 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-500 text-left"
+            placeholder="https://maps.google.com/..."
+            dir="ltr"
+          />
+        </div>
+
+        <div>
+          <label htmlFor="instagramUrl" className="block text-amber-800 font-medium mb-2 text-right">
+            קישור לאינסטגרם (אופציונלי)
+          </label>
+          <input
+            type="url"
+            id="instagramUrl"
+            value={instagramUrl}
+            onChange={(e) => setInstagramUrl(e.target.value)}
+            className="w-full px-4 py-2 border border-amber-300 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-500 text-left"
+            placeholder="https://www.instagram.com/..."
+            dir="ltr"
+          />
+        </div>
+
         <div>
           <label className="block text-amber-800 font-medium mb-2 text-right">
             תמונה (אופציונלי)
           </label>
-          
+
           {/* Hidden file inputs */}
           <input
             type="file"

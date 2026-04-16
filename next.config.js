@@ -6,8 +6,26 @@ const nextConfig = {
       {
         protocol: 'https',
         hostname: 'images.unsplash.com',
-        port: '',
-        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'medias.timeout.co.il',
+      },
+      {
+        protocol: 'https',
+        hostname: 'img02.restaurantguru.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 'eatintlv.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 'img.haarets.co.il',
+      },
+      {
+        protocol: 'https',
+        hostname: 'cityrattelaviv.wordpress.com',
       },
     ],
   },
