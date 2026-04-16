@@ -1,86 +1,40 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { Share_Tech_Mono, Rajdhani } from 'next/font/google';
 import Navbar from '@/components/Navbar';
 import CoffeeReviewCard from '@/components/CoffeeReviewCard';
 import AddCoffeeReviewForm from '@/components/AddCoffeeReviewForm';
 import { CoffeeReview } from '@/types/coffee';
+
+const shareTech = Share_Tech_Mono({ subsets: ['latin'], weight: ['400'] });
+const rajdhani = Rajdhani({ subsets: ['latin'], weight: ['400', '500', '600', '700'] });
 
 export default function MekafkefimPage() {
   const [reviews, setReviews] = useState<CoffeeReview[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
-  const [beanStyles, setBeanStyles] = useState<Array<{
-    top: string;
-    left: string;
-    transform: string;
-    opacity: number;
-  }>>([]);
 
-  // Generate random bean styles on client-side only
-  useEffect(() => {
-    const newBeanStyles = Array(15).fill(0).map(() => ({
-      top: `${Math.random() * 100}%`,
-      left: `${Math.random() * 100}%`,
-      transform: `rotate(${Math.random() * 360}deg)`,
-      opacity: 0.1 + Math.random() * 0.1
-    }));
-    setBeanStyles(newBeanStyles);
-  }, []);
-
-  // Fetch coffee reviews
   const fetchReviews = async () => {
     try {
       setIsLoading(true);
       const response = await fetch('/api/coffee-reviews');
-      
-      if (!response.ok) {
-        throw new Error('Failed to fetch coffee reviews');
-      }
-      
-      const data = await response.json();
-      setReviews(data);
+      if (!response.ok) throw new Error('Failed to fetch');
+      setReviews(await response.json());
     } catch (err) {
-      console.error('Error fetching reviews:', err);
-      setError('Failed to load coffee reviews. Please try again later.');
+      console.error(err);
+      setError('שגיאה בטעינת הביקורות');
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Load reviews on component mount
-  useEffect(() => {
-    fetchReviews();
-  }, []);
+  useEffect(() => { fetchReviews(); }, []);
 
-  // Handle successful review submission
-  const handleReviewAdded = () => {
-    setShowAddForm(false);
-    fetchReviews();
-  };
-
-  // Handle review deletion
   const handleDeleteReview = async (id: string) => {
-    try {
-      const response = await fetch(`/api/coffee-reviews/${id}`, {
-        method: 'DELETE',
-      });
-      
-      if (!response.ok) {
-        throw new Error('Failed to delete review');
-      }
-      
-      // Refresh the reviews list
-      fetchReviews();
-    } catch (err) {
-      console.error('Error deleting review:', err);
-      throw err;
-    }
-  };
-
-  // Handle review update
-  const handleUpdateReview = () => {
+    const response = await fetch(`/api/coffee-reviews/${id}`, { method: 'DELETE' });
+    if (!response.ok) throw new Error('Failed to delete');
     fetchReviews();
   };
 
@@ -90,109 +44,175 @@ export default function MekafkefimPage() {
   };
 
   const sortedReviews = [...reviews].sort((a, b) => {
-    const getAvgRating = (review: CoffeeReview) => {
-      const tomVals = [review.tomCoffeeRating ?? 0, review.tomFoodRating ?? 0, review.tomAtmosphereRating ?? 0, review.tomPriceRating ?? 0];
-      const tomerVals = [review.tomerCoffeeRating ?? 0, review.tomerFoodRating ?? 0, review.tomerAtmosphereRating ?? 0, review.tomerPriceRating ?? 0];
-      return nonZeroAvg([nonZeroAvg(tomVals), nonZeroAvg(tomerVals)].filter(v => v > 0));
+    const getAvg = (r: CoffeeReview) => {
+      const t = nonZeroAvg([r.tomCoffeeRating ?? 0, r.tomFoodRating ?? 0, r.tomAtmosphereRating ?? 0, r.tomPriceRating ?? 0]);
+      const tr = nonZeroAvg([r.tomerCoffeeRating ?? 0, r.tomerFoodRating ?? 0, r.tomerAtmosphereRating ?? 0, r.tomerPriceRating ?? 0]);
+      return nonZeroAvg([t, tr].filter(v => v > 0));
     };
-    return getAvgRating(b) - getAvgRating(a);
+    return getAvg(b) - getAvg(a);
   });
 
   return (
-    <div className="min-h-screen coffee-theme-bg">
+    <div style={{
+      minHeight: '100vh',
+      background: '#050710',
+      backgroundImage: `
+        radial-gradient(ellipse at 15% 25%, rgba(0,229,255,0.05) 0%, transparent 50%),
+        radial-gradient(ellipse at 85% 75%, rgba(255,45,120,0.04) 0%, transparent 50%),
+        radial-gradient(ellipse at 50% 50%, rgba(255,107,43,0.03) 0%, transparent 70%)
+      `,
+    }}>
       <Navbar />
-      
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+
+      <style>{`
+        @keyframes slideIn {
+          from { opacity: 0; transform: translateX(-16px); }
+          to { opacity: 1; transform: translateX(0); }
+        }
+        @keyframes pulse-glow {
+          0%, 100% { text-shadow: 0 0 20px rgba(0,229,255,0.8), 0 0 40px rgba(0,229,255,0.4); }
+          50% { text-shadow: 0 0 30px rgba(0,229,255,1), 0 0 60px rgba(0,229,255,0.6), 0 0 80px rgba(0,229,255,0.2); }
+        }
+        @keyframes blink {
+          0%, 90%, 100% { opacity: 1; }
+          95% { opacity: 0; }
+        }
+        .card-in { animation: slideIn 0.4s ease forwards; opacity: 0; }
+        .neon-title { animation: pulse-glow 3s ease-in-out infinite; }
+        .cursor { animation: blink 1.2s step-end infinite; }
+      `}</style>
+
+      <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '48px 24px 100px' }}>
+
         {/* Header */}
-        <div className="text-center mb-12">
-          <h1 className="text-4xl font-bold text-amber-900 mb-4">מקפקפים ☕</h1>
-          <p className="text-xl text-amber-800 max-w-3xl mx-auto">
-            המדריך השלם לבתי הקפה הטובים ביותר - דירוגים, ביקורות והמלצות
-          </p>
-          
-          <button
-            onClick={() => setShowAddForm(!showAddForm)}
-            className="mt-6 bg-amber-600 hover:bg-amber-700 text-white font-bold py-3 px-6 rounded-lg transition-colors duration-200 flex items-center mx-auto"
-          >
-            {showAddForm ? 'סגור טופס' : '➕ הוסף ביקורת חדשה'}
-          </button>
-        </div>
-        
-        {/* Add Review Form */}
+        <header style={{ marginBottom: '64px', borderBottom: '1px solid rgba(0,229,255,0.1)', paddingBottom: '40px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', direction: 'rtl' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <p className={shareTech.className} style={{
+                fontSize: '11px', letterSpacing: '0.3em',
+                color: 'rgba(0,229,255,0.5)', margin: 0,
+              }}>
+                {'>'} INITIALIZING COFFEE_GUIDE.SYS
+                <span className="cursor" style={{ marginRight: '4px' }}>|</span>
+              </p>
+            </div>
+
+            <h1 className={rajdhani.className} style={{
+              fontSize: 'clamp(3rem, 9vw, 7rem)', fontWeight: 700,
+              margin: '8px 0',
+              color: '#00e5ff',
+              letterSpacing: '-0.02em',
+              lineHeight: 0.9,
+            }}
+              suppressHydrationWarning
+            >
+              <span className="neon-title" style={{ display: 'inline-block' }}>מקפקפים</span>
+            </h1>
+
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
+              <p className={shareTech.className} style={{
+                fontSize: '12px', letterSpacing: '0.15em',
+                color: 'rgba(255,255,255,0.3)', margin: 0,
+              }}>
+                TEL AVIV COFFEE INTELLIGENCE · TOM &amp; TOMER RATINGS SYSTEM v2.0
+              </p>
+
+              <button
+                onClick={() => setShowAddForm(!showAddForm)}
+                className={shareTech.className}
+                style={{
+                  background: showAddForm ? 'rgba(0,229,255,0.15)' : 'none',
+                  border: '1px solid rgba(0,229,255,0.5)',
+                  color: '#00e5ff',
+                  cursor: 'pointer', padding: '8px 18px',
+                  fontSize: '10px', letterSpacing: '0.2em',
+                  boxShadow: showAddForm ? '0 0 20px rgba(0,229,255,0.2)' : 'none',
+                  transition: 'all 0.2s',
+                }}
+              >
+                {showAddForm ? '[ × CLOSE ]' : '[ + NEW ENTRY ]'}
+              </button>
+            </div>
+
+            {/* Stats */}
+            {!isLoading && reviews.length > 0 && (
+              <div style={{ display: 'flex', gap: '32px', marginTop: '8px', flexWrap: 'wrap' }}>
+                {[
+                  { label: 'LOCATIONS LOGGED', value: String(reviews.length) },
+                  { label: 'TOP RATED', value: sortedReviews[0]?.placeName || '—' },
+                ].map(({ label, value }) => (
+                  <div key={label}>
+                    <span className={shareTech.className} style={{ fontSize: '9px', color: 'rgba(255,255,255,0.25)', letterSpacing: '0.2em', display: 'block', marginBottom: '2px' }}>{label}</span>
+                    <span className={rajdhani.className} style={{ fontSize: '1rem', color: '#ff6b2b', fontWeight: 600 }}>{value}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </header>
+
+        {/* Add form */}
         {showAddForm && (
-          <div className="max-w-2xl mx-auto mb-12">
-            <AddCoffeeReviewForm onSuccess={handleReviewAdded} />
+          <div style={{
+            marginBottom: '48px',
+            background: 'rgba(0,10,20,0.8)',
+            border: '1px solid rgba(0,229,255,0.2)',
+            padding: '24px',
+            boxShadow: '0 0 30px rgba(0,229,255,0.08)',
+          }}>
+            <AddCoffeeReviewForm onSuccess={() => { setShowAddForm(false); fetchReviews(); }} />
           </div>
         )}
-        
-        {/* Reviews Grid */}
+
+        {/* Content */}
         {isLoading ? (
-          <div className="flex justify-center items-center py-12">
-            <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-amber-600"></div>
+          <div style={{ textAlign: 'center', padding: '80px 0' }}>
+            <div style={{ display: 'flex', justifyContent: 'center', gap: '6px', marginBottom: '16px' }}>
+              {[0, 1, 2].map(i => (
+                <div key={i} style={{
+                  width: '8px', height: '8px', background: '#00e5ff',
+                  borderRadius: '50%',
+                  animation: `blink 1.2s ${i * 0.2}s step-end infinite`,
+                  boxShadow: '0 0 10px rgba(0,229,255,0.8)',
+                }} />
+              ))}
+            </div>
+            <p className={shareTech.className} style={{ fontSize: '11px', letterSpacing: '0.3em', color: 'rgba(0,229,255,0.4)' }}>
+              LOADING DATA...
+            </p>
           </div>
         ) : error ? (
-          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded text-center max-w-2xl mx-auto">
-            {error}
-          </div>
+          <p className={shareTech.className} style={{ color: '#ff2d78', textAlign: 'center', letterSpacing: '0.1em' }}>{error}</p>
         ) : sortedReviews.length === 0 ? (
-          <div className="text-center py-12">
-            <div className="text-6xl mb-4">☕</div>
-            <h3 className="text-2xl font-bold text-amber-800 mb-2">אין ביקורות עדיין</h3>
-            <p className="text-amber-700">היה הראשון להוסיף ביקורת על בית קפה!</p>
-          </div>
+          <p className={rajdhani.className} style={{ color: 'rgba(255,255,255,0.3)', textAlign: 'center', fontSize: '1.2rem' }}>NO DATA FOUND</p>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
+            gap: '16px',
+          }}>
             {sortedReviews.map((review, index) => (
-              <CoffeeReviewCard 
-                key={review.id} 
-                review={review} 
-                onDelete={handleDeleteReview}
-                onUpdate={handleUpdateReview}
-                rank={index + 1}
-              />
+              <div key={review.id} className="card-in" style={{ animationDelay: `${index * 45}ms` }}>
+                <CoffeeReviewCard
+                  review={review}
+                  onDelete={handleDeleteReview}
+                  onUpdate={fetchReviews}
+                  rank={index + 1}
+                />
+              </div>
             ))}
           </div>
         )}
-      </div>
-      
-      {/* Coffee-themed decorative elements */}
-      <div className="coffee-beans">
-        {beanStyles.map((style, i) => (
-          <div 
-            key={i} 
-            className="coffee-bean"
-            style={style}
-          >
-            ☕
+
+        {/* Footer */}
+        {!isLoading && reviews.length > 0 && (
+          <div style={{ marginTop: '48px', borderTop: '1px solid rgba(0,229,255,0.06)', paddingTop: '16px' }}>
+            <p className={shareTech.className} style={{ fontSize: '9px', letterSpacing: '0.2em', color: 'rgba(255,255,255,0.15)', textAlign: 'center' }}>
+              {reviews.length} ENTRIES · SORTED BY AGGREGATE SCORE · 0.0 = NOT RATED
+            </p>
           </div>
-        ))}
+        )}
       </div>
-      
-      <style jsx>{`
-        .coffee-theme-bg {
-          background-color: #f5f0e8;
-          background-image: radial-gradient(#d4b996 0.5px, transparent 0.5px), radial-gradient(#d4b996 0.5px, #f5f0e8 0.5px);
-          background-size: 20px 20px;
-          background-position: 0 0, 10px 10px;
-        }
-        
-        .coffee-beans {
-          position: fixed;
-          top: 0;
-          left: 0;
-          width: 100%;
-          height: 100%;
-          z-index: -1;
-          pointer-events: none;
-        }
-        
-        .coffee-bean {
-          position: absolute;
-          font-size: 2rem;
-          color: #6f4e37;
-          z-index: -1;
-        }
-      `}</style>
     </div>
   );
-} 
+}
