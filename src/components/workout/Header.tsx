@@ -2,6 +2,8 @@
 
 import React from 'react';
 import { useWorkoutUser } from '@/context/WorkoutUserContext';
+import { useT } from '@/lib/workout-i18n';
+import LanguageToggle from './LanguageToggle';
 
 interface HeaderProps {
   title?: string;
@@ -9,15 +11,18 @@ interface HeaderProps {
   onBack?: () => void;
 }
 
-export default function Header({ title = 'Workout', showBack, onBack }: HeaderProps) {
+export default function Header({ title, showBack, onBack }: HeaderProps) {
   const { currentUser, logout } = useWorkoutUser();
+  const t = useT();
+  const effectiveTitle = title ?? t('workout.title');
 
   return (
     <header className="workout-header">
-      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0 }}>
         {showBack && (
-          <button 
+          <button
             onClick={onBack}
+            aria-label={t('generic.back')}
             style={{
               background: 'none',
               border: 'none',
@@ -30,20 +35,25 @@ export default function Header({ title = 'Workout', showBack, onBack }: HeaderPr
             ←
           </button>
         )}
-        <h1 className="workout-header-title">{title}</h1>
+        <h1 className="workout-header-title" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {effectiveTitle}
+        </h1>
       </div>
-      
-      {currentUser && (
-        <button className="workout-header-user" onClick={logout}>
-          <div className="workout-header-user-avatar">
-            {currentUser.name.charAt(0).toUpperCase()}
-          </div>
-          <span>{currentUser.name}</span>
-          <span style={{ fontSize: '12px', color: 'var(--workout-text-secondary)' }}>
-            Switch
-          </span>
-        </button>
-      )}
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <LanguageToggle size="sm" />
+        {currentUser && (
+          <button className="workout-header-user" onClick={logout}>
+            <div className="workout-header-user-avatar">
+              {currentUser.name.charAt(0).toUpperCase()}
+            </div>
+            <span>{currentUser.name}</span>
+            <span style={{ fontSize: '12px', color: 'var(--workout-text-secondary)' }}>
+              {t('header.switch_user')}
+            </span>
+          </button>
+        )}
+      </div>
     </header>
   );
 }

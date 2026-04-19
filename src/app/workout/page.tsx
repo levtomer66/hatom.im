@@ -18,6 +18,8 @@ import {
   sortableKeyboardCoordinates,
 } from '@dnd-kit/sortable';
 import { useWorkoutUser } from '@/context/WorkoutUserContext';
+import { useWorkoutLanguage } from '@/context/WorkoutLanguageContext';
+import { useT, formatDate } from '@/lib/workout-i18n';
 import LoginScreen from '@/components/workout/LoginScreen';
 import Header from '@/components/workout/Header';
 import BottomNav from '@/components/workout/BottomNav';
@@ -38,6 +40,8 @@ import { v4 as uuidv4 } from 'uuid';
 
 export default function WorkoutsPage() {
   const { currentUser, isLoading } = useWorkoutUser();
+  const { language } = useWorkoutLanguage();
+  const t = useT();
   
   // State
   const [activeWorkout, setActiveWorkout] = useState<Workout | null>(null);
@@ -353,37 +357,37 @@ export default function WorkoutsPage() {
 
   return (
     <main className="workout-main">
-      <Header 
-        title={activeWorkout ? `🏋️ ${activeWorkout.workoutName}` : 'Workouts'} 
+      <Header
+        title={activeWorkout ? `🏋️ ${activeWorkout.workoutName}` : t('workout.title')}
       />
-      
+
       <div className="workout-page">
         {!activeWorkout ? (
           // No active workout - show start button
           <div style={{ textAlign: 'center', paddingTop: '40px' }}>
             <div style={{ fontSize: '64px', marginBottom: '24px' }}>🏋️</div>
             <h2 style={{ fontSize: '24px', fontWeight: 700, marginBottom: '8px' }}>
-              Ready to train?
+              {t('workout.ready_title')}
             </h2>
             <p style={{ color: 'var(--workout-text-secondary)', marginBottom: '32px' }}>
-              {hasInProgressWorkout 
-                ? 'You have an in-progress workout. It will auto-resume.'
-                : templates.length > 0 
-                  ? 'Select a workout to start training'
-                  : 'Create your first workout to get started'}
+              {hasInProgressWorkout
+                ? t('workout.hint_in_progress')
+                : templates.length > 0
+                  ? t('workout.hint_select')
+                  : t('workout.hint_first')}
             </p>
-            <button 
+            <button
               className="workout-btn workout-btn-primary workout-btn-large"
               onClick={() => setShowTemplateSelector(true)}
             >
-              {templates.length > 0 ? 'Start Workout' : 'Create Workout'}
+              {templates.length > 0 ? t('workout.start_button') : t('workout.create_button')}
             </button>
-            <p style={{ 
-              color: 'var(--workout-text-muted)', 
+            <p style={{
+              color: 'var(--workout-text-muted)',
               marginTop: '24px',
               fontSize: '14px',
             }}>
-              Tap a workout in History to resume it
+              {t('workout.resume_tip')}
             </p>
           </div>
         ) : (
@@ -400,26 +404,26 @@ export default function WorkoutsPage() {
             }}>
               <div>
                 <div style={{ fontSize: '14px', color: 'var(--workout-text-secondary)' }}>
-                  {new Date(activeWorkout.date).toLocaleDateString('en-US', {
+                  {formatDate(activeWorkout.date, language, {
                     weekday: 'long',
                     month: 'short',
                     day: 'numeric',
                   })}
                 </div>
-                <div style={{ 
-                  fontSize: '12px', 
+                <div style={{
+                  fontSize: '12px',
                   color: isSaving ? 'var(--workout-gold)' : 'var(--workout-green)',
                   marginTop: '4px',
                 }}>
-                  {isSaving ? 'Saving...' : '✓ Auto-saved'}
+                  {isSaving ? t('workout.saving') : t('workout.saved')}
                 </div>
               </div>
-              <button 
+              <button
                 className="workout-btn workout-btn-primary"
                 onClick={completeWorkout}
                 style={{ padding: '10px 20px', fontSize: '14px', fontWeight: 600 }}
               >
-                ✓ Complete
+                {t('workout.complete_button')}
               </button>
             </div>
 
@@ -428,7 +432,7 @@ export default function WorkoutsPage() {
               <div className="empty-state">
                 <div className="empty-state-icon">📋</div>
                 <div className="empty-state-text">
-                  No exercises yet. Add some to get started!
+                  {t('workout.no_exercises')}
                 </div>
               </div>
             ) : (
@@ -459,12 +463,12 @@ export default function WorkoutsPage() {
             )}
 
             {/* Add exercise button */}
-            <button 
+            <button
               className="workout-btn workout-btn-secondary workout-btn-full"
               onClick={() => setShowExercisePicker(true)}
               style={{ marginTop: '16px' }}
             >
-              + Add Exercise
+              {t('workout.add_exercise')}
             </button>
           </>
         )}

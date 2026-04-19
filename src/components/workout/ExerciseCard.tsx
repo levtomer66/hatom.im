@@ -3,7 +3,10 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { WorkoutExercise, WorkoutSet, PersonalBest, ExerciseDefinition, ExerciseHistoryEntry, isExerciseCompleted, getHighestWeight, MIN_SETS, MAX_SETS } from '@/types/workout';
 import { getExerciseById } from '@/data/exercise-library';
+import { getLocalizedExercise } from '@/lib/exercise-translations';
 import { useWorkoutUser } from '@/context/WorkoutUserContext';
+import { useWorkoutLanguage } from '@/context/WorkoutLanguageContext';
+import { useT, formatDate } from '@/lib/workout-i18n';
 
 export interface ExerciseCardDraggable {
   setNodeRef: (node: HTMLElement | null) => void;
@@ -34,9 +37,16 @@ export default function ExerciseCard({
   draggable,
 }: ExerciseCardProps) {
   const { currentUser } = useWorkoutUser();
+  const { language } = useWorkoutLanguage();
+  const t = useT();
 
   // Use provided definition or fall back to library lookup
   const exerciseDef = exerciseDefinition || getExerciseById(exercise.exerciseId);
+  const localized = exerciseDef
+    ? getLocalizedExercise(exerciseDef, language)
+    : { name: exercise.exerciseId, description: undefined };
+  const displayName = localized.name;
+  const displayDescription = localized.description;
   const isCompleted = isExerciseCompleted(exercise);
   const isEditable = mode === 'edit';
 
@@ -69,7 +79,7 @@ export default function ExerciseCard({
     <button
       type="button"
       className="exercise-card-action"
-      title="Drag to reorder"
+      title={t('card.drag_to_reorder')}
       onClick={(e) => e.stopPropagation()}
       style={{ cursor: 'grab', touchAction: 'none' }}
       {...draggable.handleAttributes}
@@ -270,9 +280,9 @@ export default function ExerciseCard({
             {!exerciseDef?.defaultPhoto && '🏋️'}
           </div>
           <div className="exercise-collapsed-info">
-            <span className="exercise-collapsed-name">{exerciseDef?.name || exercise.exerciseId}</span>
+            <span className="exercise-collapsed-name">{displayName}</span>
             <span className="exercise-collapsed-stats">
-              {hasData ? formatSummary() : 'Tap to log sets'}
+              {hasData ? formatSummary() : t('card.tap_to_log')}
             </span>
           </div>
           {isCompleted && <div className="exercise-collapsed-badge">✓</div>}
@@ -280,7 +290,7 @@ export default function ExerciseCard({
             <button
               className="exercise-card-action"
               onClick={(e) => { e.stopPropagation(); onRemove(); }}
-              title="Remove exercise"
+              title={t('card.remove')}
             >
               ✕
             </button>
@@ -318,15 +328,20 @@ export default function ExerciseCard({
         
         <div className="exercise-card-info">
           <div className="exercise-card-name">
-            {exerciseDef?.name || exercise.exerciseId}
+            {displayName}
           </div>
+          {displayDescription && (
+            <div className="exercise-card-description" style={{ fontSize: '12px', color: 'var(--workout-text-secondary)', marginTop: '2px' }}>
+              {displayDescription}
+            </div>
+          )}
           {isEditable && recommendedScale && !hasData && (
             <div className="exercise-card-recommended" onClick={applyRecommendedScale}>
-              💡 Recommended: {recommendedScale}kg
+              {t('card.recommended_prefix')} {recommendedScale}{t('card.kg_suffix')}
             </div>
           )}
         </div>
-        
+
         {isEditable && (
           <div className="exercise-card-actions">
             {dragHandle}
@@ -334,7 +349,7 @@ export default function ExerciseCard({
               <button
                 className="exercise-card-action"
                 onClick={onRemove}
-                title="Remove exercise"
+                title={t('card.remove')}
               >
                 ✕
               </button>
@@ -348,7 +363,7 @@ export default function ExerciseCard({
         <div className="exercise-form-compact">
           {/* Set count tuner */}
           <div className="set-count-tuner">
-            <span className="set-count-label">Sets:</span>
+            <span className="set-count-label">{t('card.sets_label')}</span>
             <div className="set-count-controls">
               <button 
                 className="set-count-btn"
@@ -372,9 +387,9 @@ export default function ExerciseCard({
           <div className="exercise-sets-grid">
             {exercise.sets.map((set, setIndex) => (
               <div key={setIndex} className="exercise-set-row-edit">
-                <div className="set-number">Set {setIndex + 1}</div>
+                <div className="set-number">{t('card.set_n')} {setIndex + 1}</div>
                 <div className="exercise-form-field">
-                  <label>KG</label>
+                  <label>{t('card.kg')}</label>
                   <input
                     ref={(el) => { inputRefs.current[setIndex * 2] = el; }}
                     type="number"
@@ -391,7 +406,7 @@ export default function ExerciseCard({
                   />
                 </div>
                 <div className="exercise-form-field">
-                  <label>Reps</label>
+                  <label>{t('card.reps')}</label>
                   <input
                     ref={(el) => { inputRefs.current[setIndex * 2 + 1] = el; }}
                     type="number"
@@ -401,7 +416,7 @@ export default function ExerciseCard({
                     value={set.reps ?? ''}
                     onChange={(e) => handleRepsChange(setIndex, e.target.value)}
                     onKeyDown={(e) => handleKeyDown(e, setIndex < exercise.sets.length - 1 ? (setIndex + 1) * 2 : null)}
-                    placeholder="reps"
+                    placeholder={t('card.reps_placeholder')}
                     min="0"
                     max="99"
                   />
@@ -415,7 +430,7 @@ export default function ExerciseCard({
             className="workout-textarea workout-textarea-compact"
             value={exercise.notes}
             onChange={(e) => handleNotesChange(e.target.value)}
-            placeholder="Notes (optional)..."
+            placeholder={t('card.notes_placeholder')}
             rows={1}
           />
         </div>
@@ -424,15 +439,15 @@ export default function ExerciseCard({
         <div className="exercise-sets">
           {exercise.sets.map((set, i) => (
             <div key={i} className="exercise-set-row">
-              <span className="exercise-set-label">Set {i + 1}</span>
+              <span className="exercise-set-label">{t('card.set_n')} {i + 1}</span>
               <span>
-                {set.kg ?? '-'} kg × {set.reps ?? '-'} reps
+                {set.kg ?? '-'} {t('card.kg_suffix')} × {set.reps ?? '-'} {t('card.reps_suffix')}
               </span>
             </div>
           ))}
           {exercise.notes && (
             <div className="exercise-set-row" style={{ marginTop: '8px' }}>
-              <span className="exercise-set-label">Notes</span>
+              <span className="exercise-set-label">{t('card.notes_label')}</span>
               <span style={{ color: 'var(--workout-text-secondary)' }}>
                 {exercise.notes}
               </span>
@@ -444,7 +459,7 @@ export default function ExerciseCard({
       {/* Completion badge */}
       {isCompleted && !isEditable && (
         <div className="completion-badge">
-          ✓ Completed at {highestKg}kg
+          {t('card.completed_at_prefix')} {highestKg}{t('card.kg_suffix')}
         </div>
       )}
 
@@ -454,9 +469,9 @@ export default function ExerciseCard({
           <div className="workout-modal" onClick={(e) => e.stopPropagation()}>
             <div className="workout-modal-header">
               <span className="workout-modal-title">
-                📊 {exerciseDef?.name || exercise.exerciseId}
+                📊 {displayName}
               </span>
-              <button className="workout-modal-close" onClick={() => setShowHistory(false)}>
+              <button className="workout-modal-close" onClick={() => setShowHistory(false)} aria-label={t('generic.close')}>
                 ✕
               </button>
             </div>
@@ -466,7 +481,7 @@ export default function ExerciseCard({
               ) : history.length === 0 ? (
                 <div className="empty-state">
                   <div className="empty-state-icon">📊</div>
-                  <div className="empty-state-text">No records yet for this exercise</div>
+                  <div className="empty-state-text">{t('card.history_empty')}</div>
                 </div>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -483,8 +498,8 @@ export default function ExerciseCard({
                         marginBottom: '4px',
                       }}>
                         <div style={{ fontWeight: 600 }}>
-                          {entry.isPB && <span style={{ marginRight: '4px' }}>🥇</span>}
-                          {new Date(entry.date).toLocaleDateString('en-US', {
+                          {entry.isPB && <span style={{ marginInlineEnd: '4px' }}>🥇</span>}
+                          {formatDate(entry.date, language, {
                             weekday: 'short',
                             month: 'short',
                             day: 'numeric',
@@ -496,7 +511,7 @@ export default function ExerciseCard({
                             color: 'var(--workout-green)',
                             fontWeight: 600,
                           }}>
-                            ✓ Completed
+                            {t('card.history_completed')}
                           </span>
                         )}
                       </div>

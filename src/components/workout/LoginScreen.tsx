@@ -3,15 +3,22 @@
 import React from 'react';
 import { useWorkoutUser } from '@/context/WorkoutUserContext';
 import { USERS } from '@/types/workout';
+import { useT } from '@/lib/workout-i18n';
+import LanguageToggle from './LanguageToggle';
 
 export default function LoginScreen() {
   const { setCurrentUser } = useWorkoutUser();
+  const t = useT();
 
   return (
     <div className="login-container">
-      <h1 className="login-title">💪 Workout Tracker</h1>
-      <p className="login-subtitle">Select your profile to continue</p>
-      
+      <div style={{ position: 'absolute', top: '16px', insetInlineEnd: '16px' }}>
+        <LanguageToggle />
+      </div>
+
+      <h1 className="login-title">{t('login.title')}</h1>
+      <p className="login-subtitle">{t('login.subtitle')}</p>
+
       <div className="login-buttons">
         {USERS.map(user => (
           <button

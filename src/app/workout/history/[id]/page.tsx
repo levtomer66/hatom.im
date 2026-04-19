@@ -3,6 +3,8 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useWorkoutUser } from '@/context/WorkoutUserContext';
+import { useWorkoutLanguage } from '@/context/WorkoutLanguageContext';
+import { useT, formatDate, exerciseCount } from '@/lib/workout-i18n';
 import LoginScreen from '@/components/workout/LoginScreen';
 import Header from '@/components/workout/Header';
 import BottomNav from '@/components/workout/BottomNav';
@@ -14,6 +16,8 @@ export default function WorkoutDetailPage() {
   const params = useParams();
   const router = useRouter();
   const { currentUser, isLoading } = useWorkoutUser();
+  const { language } = useWorkoutLanguage();
+  const t = useT();
   
   const workoutId = params?.id as string;
   
@@ -102,7 +106,7 @@ export default function WorkoutDetailPage() {
   if (loadingWorkout) {
     return (
       <main className="workout-main">
-        <Header title="Workout" showBack onBack={() => router.back()} />
+        <Header title={t('workout.title')} showBack onBack={() => router.back()} />
         <div className="loading-spinner" />
         <BottomNav />
       </main>
@@ -113,11 +117,11 @@ export default function WorkoutDetailPage() {
   if (!workout) {
     return (
       <main className="workout-main">
-        <Header title="Workout" showBack onBack={() => router.back()} />
+        <Header title={t('workout.title')} showBack onBack={() => router.back()} />
         <div className="workout-page">
           <div className="empty-state">
             <div className="empty-state-icon">❓</div>
-            <div className="empty-state-text">Workout not found</div>
+            <div className="empty-state-text">{t('history_detail.not_found')}</div>
           </div>
         </div>
         <BottomNav />
@@ -143,23 +147,23 @@ export default function WorkoutDetailPage() {
             marginBottom: '16px',
           }}
         >
-          <div style={{ 
-            fontSize: '16px', 
+          <div style={{
+            fontSize: '16px',
             fontWeight: 600,
             marginBottom: '4px',
           }}>
-            {new Date(workout.date).toLocaleDateString('en-US', {
+            {formatDate(workout.date, language, {
               weekday: 'long',
               year: 'numeric',
               month: 'long',
               day: 'numeric',
             })}
           </div>
-          <div style={{ 
-            fontSize: '14px', 
+          <div style={{
+            fontSize: '14px',
             color: 'var(--workout-text-secondary)',
           }}>
-            {workout.exercises.length} exercise{workout.exercises.length !== 1 ? 's' : ''}
+            {exerciseCount(workout.exercises.length, language)}
           </div>
         </div>
 
@@ -167,7 +171,7 @@ export default function WorkoutDetailPage() {
         {workout.exercises.length === 0 ? (
           <div className="empty-state">
             <div className="empty-state-icon">📋</div>
-            <div className="empty-state-text">No exercises in this workout</div>
+            <div className="empty-state-text">{t('history_detail.no_exercises')}</div>
           </div>
         ) : (
           workout.exercises.map((exercise) => (

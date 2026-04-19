@@ -2,6 +2,9 @@
 
 import React from 'react';
 import { WorkoutTemplate, ExerciseDefinition } from '@/types/workout';
+import { useWorkoutLanguage } from '@/context/WorkoutLanguageContext';
+import { useT, exerciseCount } from '@/lib/workout-i18n';
+import { getLocalizedExercise } from '@/lib/exercise-translations';
 
 interface TemplateSelectorProps {
   isOpen: boolean;
@@ -24,31 +27,34 @@ export default function TemplateSelector({
   onDelete,
   onCreateNew,
 }: TemplateSelectorProps) {
+  const { language } = useWorkoutLanguage();
+  const t = useT();
+
   if (!isOpen) return null;
 
   return (
     <div className="workout-modal-overlay" onClick={onClose}>
       <div className="workout-modal" onClick={(e) => e.stopPropagation()}>
         <div className="workout-modal-header">
-          <h2 className="workout-modal-title">Start Workout</h2>
-          <button className="workout-modal-close" onClick={onClose}>
+          <h2 className="workout-modal-title">{t('selector.title')}</h2>
+          <button className="workout-modal-close" onClick={onClose} aria-label={t('generic.close')}>
             ✕
           </button>
         </div>
-        
+
         <div className="workout-modal-body">
           {templates.length === 0 ? (
             <div className="empty-state" style={{ padding: '32px 16px' }}>
               <div className="empty-state-icon">📋</div>
               <div className="empty-state-text">
-                No workouts created yet
+                {t('selector.no_templates')}
               </div>
               <button
                 className="workout-btn workout-btn-primary"
                 onClick={onCreateNew}
                 style={{ marginTop: '16px' }}
               >
-                + Create Your First Workout
+                {t('selector.create_first')}
               </button>
             </div>
           ) : (
@@ -57,10 +63,13 @@ export default function TemplateSelector({
                 const exercises = template.exercises ?? [];
                 const exerciseNames = exercises
                   .slice(0, 3)
-                  .map(e => exerciseMap[e.exerciseId]?.name || 'Unknown')
+                  .map(e => {
+                    const def = exerciseMap[e.exerciseId];
+                    return def ? getLocalizedExercise(def, language).name : '?';
+                  })
                   .join(', ');
                 const moreCount = exercises.length > 3
-                  ? ` +${exercises.length - 3} more`
+                  ? ` +${exercises.length - 3}`
                   : '';
 
                 return (
@@ -88,12 +97,12 @@ export default function TemplateSelector({
                       }}>
                         🏋️ {template.name}
                       </div>
-                      <div style={{ 
-                        fontSize: '13px', 
+                      <div style={{
+                        fontSize: '13px',
                         color: 'var(--workout-text-secondary)',
                         marginBottom: '8px',
                       }}>
-                        {exercises.length} exercise{exercises.length !== 1 ? 's' : ''}
+                        {exerciseCount(exercises.length, language)}
                       </div>
                       {exerciseNames && (
                         <div style={{ 
@@ -118,7 +127,7 @@ export default function TemplateSelector({
                         onClick={() => onSelect(template)}
                         style={{ flex: 1, padding: '10px 16px', fontSize: '14px' }}
                       >
-                        Start
+                        {t('selector.start')}
                       </button>
                       <button
                         className="workout-btn workout-btn-secondary"
@@ -129,14 +138,14 @@ export default function TemplateSelector({
                       </button>
                       <button
                         className="exercise-card-action"
-                        onClick={(e) => { 
-                          e.stopPropagation(); 
-                          if (confirm(`Delete "${template.name}"?`)) {
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (confirm(`${t('selector.confirm_delete_prefix')} "${template.name}"?`)) {
                             onDelete(template);
                           }
                         }}
-                        style={{ 
-                          backgroundColor: 'var(--workout-red)', 
+                        style={{
+                          backgroundColor: 'var(--workout-red)',
                           color: 'white',
                         }}
                       >
@@ -153,7 +162,7 @@ export default function TemplateSelector({
                 onClick={onCreateNew}
                 style={{ marginTop: '8px' }}
               >
-                + Create New Workout
+                {t('selector.create_new')}
               </button>
             </div>
           )}

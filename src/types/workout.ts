@@ -1,3 +1,12 @@
+// Language selection
+export type Language = 'en' | 'he';
+
+export const LANGUAGES: readonly Language[] = ['en', 'he'];
+
+export function isLanguage(value: unknown): value is Language {
+  return value === 'en' || value === 'he';
+}
+
 // User types
 export type UserId = 'tom' | 'tomer' | 'amit';
 
@@ -85,12 +94,15 @@ export type ExerciseCategory =
   | 'calves'
   | 'abs';
 
-// Exercise library definition
+// Exercise library definition.
+// `name` and `description` are the canonical English values. Translations for
+// other languages live in `src/lib/exercise-translations/<lang>.ts` — one file
+// per language, keyed by exercise `id`. Adding a new language is one new file
+// plus one line in `src/lib/exercise-translations/index.ts`.
 export interface ExerciseDefinition {
   id: string;
   name: string;
-  hebrewName?: string;   // Hebrew name for search (not displayed)
-  description?: string;  // Short description shown under exercise name
+  description?: string;
   categories: ExerciseCategory[];
   defaultPhoto?: string;
   isCustom?: boolean;

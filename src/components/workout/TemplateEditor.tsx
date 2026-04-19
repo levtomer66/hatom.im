@@ -30,18 +30,14 @@ import {
   MAX_SETS,
 } from '@/types/workout';
 import { EXERCISE_LIBRARY } from '@/data/exercise-library';
+import { getLocalizedExercise, getExerciseSearchNames } from '@/lib/exercise-translations';
 import { useWorkoutUser } from '@/context/WorkoutUserContext';
+import { useWorkoutLanguage } from '@/context/WorkoutLanguageContext';
+import { useT, getCategoryLabel } from '@/lib/workout-i18n';
 
-// Muscle group filters
-const MUSCLE_GROUPS = [
-  { id: 'chest', label: 'Chest' },
-  { id: 'back', label: 'Back' },
-  { id: 'shoulders', label: 'Shoulders' },
-  { id: 'biceps', label: 'Biceps' },
-  { id: 'triceps', label: 'Triceps' },
-  { id: 'legs', label: 'Legs' },
-  { id: 'abs', label: 'Abs' },
-  { id: 'glutes', label: 'Glutes' },
+// Muscle group filter IDs (labels come from getCategoryLabel at render time).
+const MUSCLE_GROUP_IDS: ExerciseCategory[] = [
+  'chest', 'back', 'shoulders', 'biceps', 'triceps', 'legs', 'abs', 'glutes',
 ];
 
 interface TemplateEditorProps {
@@ -63,6 +59,11 @@ function SelectedExerciseRow({
   onUpdate: (next: TemplateExercise) => void;
   onRemove: () => void;
 }) {
+  const { language } = useWorkoutLanguage();
+  const t = useT();
+  const rowName = exerciseDef
+    ? getLocalizedExercise(exerciseDef, language).name
+    : entry.exerciseId;
   const {
     setNodeRef,
     attributes,
@@ -93,7 +94,7 @@ function SelectedExerciseRow({
         <button
           type="button"
           className="exercise-card-action"
-          title="Drag to reorder"
+          title={t('card.drag_to_reorder')}
           style={{ cursor: 'grab', touchAction: 'none', flexShrink: 0 }}
           {...attributes}
           {...listeners}
@@ -101,7 +102,7 @@ function SelectedExerciseRow({
           ≡
         </button>
         <div style={{ flex: 1, minWidth: 0, fontSize: '14px', fontWeight: 500 }}>
-          {exerciseDef?.name || entry.exerciseId}
+          {rowName}
         </div>
         <div className="set-count-controls" style={{ flexShrink: 0 }}>
           <button
@@ -126,7 +127,7 @@ function SelectedExerciseRow({
           type="button"
           className="exercise-card-action"
           onClick={onRemove}
-          title="Remove exercise"
+          title={t('card.remove')}
           style={{ flexShrink: 0 }}
         >
           ✕
@@ -135,7 +136,7 @@ function SelectedExerciseRow({
       <input
         type="text"
         className="workout-input"
-        placeholder="Notes for this exercise (optional)…"
+        placeholder={t('template.row_notes_placeholder')}
         value={entry.notes}
         onChange={(e) => onUpdate({ ...entry, notes: e.target.value })}
         style={{ fontSize: '13px', padding: '6px 10px' }}
@@ -151,11 +152,13 @@ export default function TemplateEditor({
   onSave,
 }: TemplateEditorProps) {
   const { currentUser } = useWorkoutUser();
+  const { language } = useWorkoutLanguage();
+  const t = useT();
   const [name, setName] = useState('');
   const [selectedExercises, setSelectedExercises] = useState<TemplateExercise[]>([]);
   const [search, setSearch] = useState('');
   const [categoryFilters, setCategoryFilters] = useState<Set<ExerciseCategory>>(new Set());
-  const [muscleFilters, setMuscleFilters] = useState<Set<string>>(new Set());
+  const [muscleFilters, setMuscleFilters] = useState<Set<ExerciseCategory>>(new Set());
   const [customExercises, setCustomExercises] = useState<ExerciseDefinition[]>([]);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -236,8 +239,7 @@ export default function TemplateEditor({
       }
       if (search) {
         const q = search.toLowerCase();
-        return exercise.name.toLowerCase().includes(q)
-          || (exercise.hebrewName?.toLowerCase().includes(q) ?? false);
+        return getExerciseSearchNames(exercise).some(n => n.toLowerCase().includes(q));
       }
       return true;
     });
@@ -296,7 +298,7 @@ export default function TemplateEditor({
     });
   };
 
-  const toggleMuscleFilter = (muscleId: string) => {
+  const toggleMuscleFilter = (muscleId: ExerciseCategory) => {
     setMuscleFilters(prev => {
       const next = new Set(prev);
       if (next.has(muscleId)) next.delete(muscleId); else next.add(muscleId);
@@ -352,9 +354,9 @@ export default function TemplateEditor({
       <div className="workout-modal" onClick={(e) => e.stopPropagation()} style={{ maxHeight: '90vh' }}>
         <div className="workout-modal-header">
           <h2 className="workout-modal-title">
-            {template ? 'Edit Workout' : 'Create Workout'}
+            {template ? t('template.edit_title') : t('template.create_title')}
           </h2>
-          <button className="workout-modal-close" onClick={onClose}>
+          <button className="workout-modal-close" onClick={onClose} aria-label={t('generic.close')}>
             ✕
           </button>
         </div>
@@ -369,12 +371,12 @@ export default function TemplateEditor({
               fontWeight: 600,
               color: 'var(--workout-text-secondary)'
             }}>
-              Workout Name
+              {t('template.name_label')}
             </label>
             <input
               type="text"
               className="workout-input"
-              placeholder="e.g., Push Day, Leg Day A..."
+              placeholder={t('template.name_placeholder')}
               value={name}
               onChange={(e) => setName(e.target.value)}
               maxLength={50}
@@ -391,7 +393,7 @@ export default function TemplateEditor({
                 fontWeight: 600,
                 color: 'var(--workout-text-secondary)'
               }}>
-                Selected Exercises ({selectedExercises.length}) — drag to reorder
+                {t('template.selected_prefix')} ({selectedExercises.length}) {t('template.selected_hint')}
               </label>
               <DndContext
                 sensors={sensors}
@@ -427,14 +429,14 @@ export default function TemplateEditor({
               fontWeight: 600,
               color: 'var(--workout-text-secondary)'
             }}>
-              Add Exercises
+              {t('template.add_section')}
             </label>
 
             {/* Search */}
             <input
               type="text"
               className="workout-input"
-              placeholder="Search exercises..."
+              placeholder={t('picker.search')}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               style={{ marginBottom: '12px', flexShrink: 0 }}
@@ -456,7 +458,7 @@ export default function TemplateEditor({
                   style={{ flexShrink: 0 }}
                 >
                   <span>{category.icon}</span>
-                  <span>{category.label}</span>
+                  <span>{getCategoryLabel(category.id, language)}</span>
                 </button>
               ))}
             </div>
@@ -469,13 +471,13 @@ export default function TemplateEditor({
               marginBottom: '12px',
               flexShrink: 0,
             }}>
-              {MUSCLE_GROUPS.map(muscle => (
+              {MUSCLE_GROUP_IDS.map(muscleId => (
                 <button
-                  key={muscle.id}
-                  className={`muscle-filter-btn ${muscleFilters.has(muscle.id) ? 'active' : ''}`}
-                  onClick={() => toggleMuscleFilter(muscle.id)}
+                  key={muscleId}
+                  className={`muscle-filter-btn ${muscleFilters.has(muscleId) ? 'active' : ''}`}
+                  onClick={() => toggleMuscleFilter(muscleId)}
                 >
-                  {muscle.label}
+                  {getCategoryLabel(muscleId, language)}
                 </button>
               ))}
             </div>
@@ -497,53 +499,56 @@ export default function TemplateEditor({
                   padding: '24px',
                   color: 'var(--workout-text-muted)',
                 }}>
-                  No exercises found
+                  {t('picker.none_found')}
                 </div>
               ) : (
-                sortedExercises.map(exercise => (
-                  <div
-                    key={exercise.id}
-                    className={`exercise-picker-item ${selectedIds.has(exercise.id) ? 'selected' : ''}`}
-                    onClick={() => toggleExercise(exercise.id)}
-                    style={{
-                      padding: '12px',
-                      cursor: 'pointer',
-                      flexShrink: 0,
-                    }}
-                  >
+                sortedExercises.map(exercise => {
+                  const listName = getLocalizedExercise(exercise, language).name;
+                  return (
                     <div
-                      className="exercise-picker-photo"
+                      key={exercise.id}
+                      className={`exercise-picker-item ${selectedIds.has(exercise.id) ? 'selected' : ''}`}
+                      onClick={() => toggleExercise(exercise.id)}
                       style={{
-                        width: '40px',
-                        height: '40px',
+                        padding: '12px',
+                        cursor: 'pointer',
                         flexShrink: 0,
-                        backgroundImage: exercise.defaultPhoto
-                          ? `url(${exercise.defaultPhoto})`
-                          : 'none',
-                        backgroundColor: exercise.defaultPhoto ? undefined : 'var(--workout-bg-card)',
                       }}
                     >
-                      {!exercise.defaultPhoto && '🏋️'}
-                    </div>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <span className="exercise-picker-name" style={{ fontSize: '14px' }}>
-                        {exercise.name}
-                      </span>
-                      {exercise.isCustom && (
-                        <span style={{
-                          fontSize: '11px',
-                          color: 'var(--workout-blue)',
-                          display: 'block',
-                        }}>
-                          Custom
+                      <div
+                        className="exercise-picker-photo"
+                        style={{
+                          width: '40px',
+                          height: '40px',
+                          flexShrink: 0,
+                          backgroundImage: exercise.defaultPhoto
+                            ? `url(${exercise.defaultPhoto})`
+                            : 'none',
+                          backgroundColor: exercise.defaultPhoto ? undefined : 'var(--workout-bg-card)',
+                        }}
+                      >
+                        {!exercise.defaultPhoto && '🏋️'}
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <span className="exercise-picker-name" style={{ fontSize: '14px' }}>
+                          {listName}
                         </span>
-                      )}
+                        {exercise.isCustom && (
+                          <span style={{
+                            fontSize: '11px',
+                            color: 'var(--workout-blue)',
+                            display: 'block',
+                          }}>
+                            {t('picker.custom_badge')}
+                          </span>
+                        )}
+                      </div>
+                      <div className="exercise-picker-check" style={{ width: '24px', height: '24px', flexShrink: 0 }}>
+                        {selectedIds.has(exercise.id) && '✓'}
+                      </div>
                     </div>
-                    <div className="exercise-picker-check" style={{ width: '24px', height: '24px', flexShrink: 0 }}>
-                      {selectedIds.has(exercise.id) && '✓'}
-                    </div>
-                  </div>
-                ))
+                  );
+                })
               )}
             </div>
           </div>
@@ -556,7 +561,7 @@ export default function TemplateEditor({
             disabled={!name.trim() || isSaving}
             style={{ opacity: (!name.trim() || isSaving) ? 0.5 : 1 }}
           >
-            {isSaving ? 'Saving...' : (template ? 'Save Changes' : 'Create Workout')}
+            {isSaving ? t('template.save_creating') : (template ? t('template.save_changes') : t('template.create_title'))}
           </button>
         </div>
       </div>

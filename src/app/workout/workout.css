@@ -1,9 +1,12 @@
 /* Workout App - Dark Gym Theme */
 
-/* Reset RTL styles for this app */
+/* Direction is driven by the `dir` attribute set from WorkoutShell based on
+   the current language. The global site default is RTL, so we explicitly pin
+   text-align to `start` — it resolves to left in LTR (English) and right in
+   RTL (Hebrew) without inheriting the global `html[dir="rtl"] { text-align:
+   right }` rule from globals.css. */
 .workout-app {
-  direction: ltr !important;
-  text-align: left !important;
+  text-align: start;
 }
 
 :root {

@@ -3,6 +3,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useWorkoutUser } from '@/context/WorkoutUserContext';
+import { useWorkoutLanguage } from '@/context/WorkoutLanguageContext';
+import { useT, formatDate, exerciseCount } from '@/lib/workout-i18n';
 import LoginScreen from '@/components/workout/LoginScreen';
 import Header from '@/components/workout/Header';
 import BottomNav from '@/components/workout/BottomNav';
@@ -11,6 +13,8 @@ import { Workout } from '@/types/workout';
 export default function HistoryPage() {
   const router = useRouter();
   const { currentUser, isLoading } = useWorkoutUser();
+  const { language } = useWorkoutLanguage();
+  const t = useT();
   
   const [workouts, setWorkouts] = useState<Workout[]>([]);
   const [loadingWorkouts, setLoadingWorkouts] = useState(true);
@@ -40,7 +44,7 @@ export default function HistoryPage() {
 
   // Delete workout
   const deleteWorkout = async (workoutId: string) => {
-    if (!confirm('Delete this workout? This action cannot be undone.')) {
+    if (!confirm(t('history.delete_confirm'))) {
       return;
     }
     
@@ -85,12 +89,12 @@ export default function HistoryPage() {
   const inProgressWorkouts = workouts.filter(w => !w.isCompleted);
   const completedWorkouts = workouts.filter(w => w.isCompleted);
 
-  // Group completed workouts by month
+  // Group completed workouts by month (localised month label)
   const groupedWorkouts = completedWorkouts.reduce((groups, workout) => {
     const date = new Date(workout.date);
     const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-    const monthLabel = date.toLocaleDateString('en-US', { year: 'numeric', month: 'long' });
-    
+    const monthLabel = formatDate(date, language, { year: 'numeric', month: 'long' });
+
     if (!groups[monthKey]) {
       groups[monthKey] = { label: monthLabel, workouts: [] };
     }
@@ -102,15 +106,15 @@ export default function HistoryPage() {
 
   return (
     <main className="workout-main">
-      <Header title="History" />
-      
+      <Header title={t('history.title')} />
+
       <div className="workout-page">
         {loadingWorkouts ? (
           <div className="loading-spinner" />
         ) : workouts.length === 0 ? (
           <div className="empty-state">
             <div className="empty-state-icon">📊</div>
-            <div className="empty-state-text">No workouts yet</div>
+            <div className="empty-state-text">{t('history.empty')}</div>
           </div>
         ) : (
           <>
@@ -128,18 +132,18 @@ export default function HistoryPage() {
                   alignItems: 'center',
                   gap: '8px',
                 }}>
-                  <span style={{ 
-                    width: '8px', 
-                    height: '8px', 
-                    backgroundColor: 'var(--workout-gold)', 
+                  <span style={{
+                    width: '8px',
+                    height: '8px',
+                    backgroundColor: 'var(--workout-gold)',
                     borderRadius: '50%',
                     animation: 'pulse 2s infinite',
                   }} />
-                  In Progress
+                  {t('history.in_progress')}
                 </h3>
-                
+
                 {inProgressWorkouts.map(workout => {
-                  const exerciseCount = workout.exercises.length;
+                  const n = workout.exercises.length;
                   
                   return (
                     <div
@@ -163,13 +167,13 @@ export default function HistoryPage() {
                             🏋️ {workout.workoutName}
                           </div>
                           <div className="history-item-date">
-                            {new Date(workout.date).toLocaleDateString('en-US', {
+                            {formatDate(workout.date, language, {
                               weekday: 'short',
                               month: 'short',
                               day: 'numeric',
                             })}
                             {' · '}
-                            {exerciseCount} exercise{exerciseCount !== 1 ? 's' : ''}
+                            {exerciseCount(n, language)}
                           </div>
                         </div>
                         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
@@ -178,7 +182,7 @@ export default function HistoryPage() {
                             style={{ padding: '8px 16px', fontSize: '14px' }}
                             onClick={() => resumeWorkout(workout.id)}
                           >
-                            Resume
+                            {t('history.resume')}
                           </button>
                           <button
                             className="exercise-card-action"
@@ -212,7 +216,7 @@ export default function HistoryPage() {
                     textTransform: 'uppercase',
                     letterSpacing: '0.05em',
                   }}>
-                    Completed
+                    {t('history.completed')}
                   </h3>
                 )}
                 
@@ -231,14 +235,14 @@ export default function HistoryPage() {
                       </h4>
                       
                       {monthWorkouts.map(workout => {
-                        const exerciseCount = workout.exercises.length;
-                        
+                        const n = workout.exercises.length;
+
                         return (
                           <div
                             key={workout.id}
                             className="history-item"
                           >
-                            <div 
+                            <div
                               style={{ flex: 1, cursor: 'pointer' }}
                               onClick={() => router.push(`/workout/history/${workout.id}`)}
                             >
@@ -247,7 +251,7 @@ export default function HistoryPage() {
                                   🏋️ {workout.workoutName}
                                 </div>
                                 <div className="history-item-date">
-                                  {new Date(workout.date).toLocaleDateString('en-US', {
+                                  {formatDate(workout.date, language, {
                                     weekday: 'short',
                                     month: 'short',
                                     day: 'numeric',
@@ -257,7 +261,7 @@ export default function HistoryPage() {
                             </div>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                               <span className="history-item-count">
-                                {exerciseCount}
+                                {n}
                               </span>
                               <button
                                 className="workout-btn workout-btn-secondary"
@@ -267,7 +271,7 @@ export default function HistoryPage() {
                                   resumeWorkout(workout.id);
                                 }}
                               >
-                                Resume
+                                {t('history.resume')}
                               </button>
                               <button
                                 className="exercise-card-action"

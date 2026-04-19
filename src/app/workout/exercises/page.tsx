@@ -3,48 +3,31 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useWorkoutUser } from '@/context/WorkoutUserContext';
+import { useWorkoutLanguage } from '@/context/WorkoutLanguageContext';
+import { useT, getCategoryLabel } from '@/lib/workout-i18n';
+import { getLocalizedExercise, getExerciseSearchNames } from '@/lib/exercise-translations';
 import LoginScreen from '@/components/workout/LoginScreen';
 import Header from '@/components/workout/Header';
 import BottomNav from '@/components/workout/BottomNav';
 import AddExerciseForm from '@/components/workout/AddExerciseForm';
-import { PersonalBest, ExerciseDefinition } from '@/types/workout';
+import { PersonalBest, ExerciseDefinition, ExerciseCategory } from '@/types/workout';
 import { EXERCISE_LIBRARY } from '@/data/exercise-library';
 
-// Muscle group filters
-const MUSCLE_GROUPS = [
-  { id: 'chest', label: 'Chest' },
-  { id: 'back', label: 'Back' },
-  { id: 'shoulders', label: 'Shoulders' },
-  { id: 'biceps', label: 'Biceps' },
-  { id: 'triceps', label: 'Triceps' },
-  { id: 'legs', label: 'Legs' },
-  { id: 'abs', label: 'Abs' },
-  { id: 'glutes', label: 'Glutes' },
+const MUSCLE_GROUP_IDS: ExerciseCategory[] = [
+  'chest', 'back', 'shoulders', 'biceps', 'triceps', 'legs', 'abs', 'glutes',
 ];
-
-// Get muscle group from exercise name
-function getMuscleGroup(exerciseName: string): string | null {
-  const nameLower = exerciseName.toLowerCase();
-  if (nameLower.startsWith('chest')) return 'chest';
-  if (nameLower.startsWith('back')) return 'back';
-  if (nameLower.startsWith('shoulder')) return 'shoulders';
-  if (nameLower.startsWith('bicep')) return 'biceps';
-  if (nameLower.startsWith('tricep')) return 'triceps';
-  if (nameLower.startsWith('leg') || nameLower.startsWith('calf') || nameLower.startsWith('squat') || nameLower.includes('deadlift')) return 'legs';
-  if (nameLower.startsWith('hip') || nameLower.startsWith('glute')) return 'glutes';
-  if (nameLower.startsWith('ab') || nameLower.includes('crunch') || nameLower.includes('plank')) return 'abs';
-  return null;
-}
 
 export default function ExercisesPage() {
   const router = useRouter();
   const { currentUser, isLoading } = useWorkoutUser();
-  
+  const { language } = useWorkoutLanguage();
+  const t = useT();
+
   const [personalBests, setPersonalBests] = useState<Record<string, PersonalBest>>({});
   const [customExercises, setCustomExercises] = useState<ExerciseDefinition[]>([]);
   const [search, setSearch] = useState('');
   const [showAddForm, setShowAddForm] = useState(false);
-  const [muscleFilters, setMuscleFilters] = useState<Set<string>>(new Set());
+  const [muscleFilters, setMuscleFilters] = useState<Set<ExerciseCategory>>(new Set());
 
   // Fetch personal bests
   const fetchPersonalBests = useCallback(async () => {
@@ -82,7 +65,7 @@ export default function ExercisesPage() {
   }, [fetchPersonalBests, fetchCustomExercises]);
 
   // Toggle muscle filter
-  const toggleMuscleFilter = (muscleId: string) => {
+  const toggleMuscleFilter = (muscleId: ExerciseCategory) => {
     setMuscleFilters(prev => {
       const next = new Set(prev);
       if (next.has(muscleId)) {
@@ -99,20 +82,19 @@ export default function ExercisesPage() {
     return [...EXERCISE_LIBRARY, ...customExercises];
   }, [customExercises]);
 
-  // Filter exercises by muscle group and search
+  // Filter exercises by muscle group and search (matches English or Hebrew name)
   const filteredExercises = useMemo(() => {
     return allExercises.filter(exercise => {
-      // Filter by muscle group (if any selected)
       if (muscleFilters.size > 0) {
-        const exerciseMuscle = getMuscleGroup(exercise.name);
-        if (!exerciseMuscle || !muscleFilters.has(exerciseMuscle)) return false;
+        const matchesMuscle = exercise.categories.some(cat => muscleFilters.has(cat));
+        if (!matchesMuscle) return false;
       }
-      
-      // Filter by search
+
       if (search) {
-        return exercise.name.toLowerCase().includes(search.toLowerCase());
+        const q = search.toLowerCase();
+        return getExerciseSearchNames(exercise).some(n => n.toLowerCase().includes(q));
       }
-      
+
       return true;
     });
   }, [allExercises, search, muscleFilters]);
@@ -155,15 +137,15 @@ export default function ExercisesPage() {
 
   return (
     <main className="workout-main">
-      <Header title="Exercises" />
-      
+      <Header title={t('exercises.title')} />
+
       <div className="workout-page">
         {/* Search and Add */}
         <div style={{ marginBottom: '12px', display: 'flex', gap: '8px' }}>
           <input
             type="text"
             className="workout-input"
-            placeholder="Search exercises..."
+            placeholder={t('picker.search')}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             style={{ flex: 1 }}
@@ -173,19 +155,19 @@ export default function ExercisesPage() {
             onClick={() => setShowAddForm(true)}
             style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}
           >
-            + New
+            +
           </button>
         </div>
-        
+
         {/* Muscle group filters */}
         <div className="muscle-filter-row" style={{ marginBottom: '16px' }}>
-          {MUSCLE_GROUPS.map(muscle => (
+          {MUSCLE_GROUP_IDS.map(muscleId => (
             <button
-              key={muscle.id}
-              className={`muscle-filter-btn ${muscleFilters.has(muscle.id) ? 'active' : ''}`}
-              onClick={() => toggleMuscleFilter(muscle.id)}
+              key={muscleId}
+              className={`muscle-filter-btn ${muscleFilters.has(muscleId) ? 'active' : ''}`}
+              onClick={() => toggleMuscleFilter(muscleId)}
             >
-              {muscle.label}
+              {getCategoryLabel(muscleId, language)}
             </button>
           ))}
         </div>
@@ -195,11 +177,12 @@ export default function ExercisesPage() {
           {sortedExercises.length === 0 ? (
             <div className="empty-state">
               <div className="empty-state-icon">🔍</div>
-              <div className="empty-state-text">No exercises found</div>
+              <div className="empty-state-text">{t('picker.none_found')}</div>
             </div>
           ) : (
             sortedExercises.map(exercise => {
               const pb = personalBests[exercise.id];
+              const listName = getLocalizedExercise(exercise, language).name;
               
               return (
                 <div
@@ -230,39 +213,39 @@ export default function ExercisesPage() {
                     </div>
                     <div className="history-item-info">
                       <div className="history-item-type">
-                        {exercise.name}
+                        {listName}
                       </div>
                       <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
                         {pb && pb.completedKg !== null && (
                           <span style={{ fontSize: '13px', color: 'var(--workout-gold)' }}>
-                            🥇 {pb.completedKg}kg: {pb.completedReps.join('×')}
+                            🥇 {pb.completedKg}{t('card.kg_suffix')}: {pb.completedReps.join('×')}
                           </span>
                         )}
                         {pb && pb.completedKg === null && (
                           <span style={{ fontSize: '13px', color: 'var(--workout-text-secondary)' }}>
-                            💪 {pb.currentKg}kg: {pb.currentReps.join('×')}
+                            💪 {pb.currentKg}{t('card.kg_suffix')}: {pb.currentReps.join('×')}
                           </span>
                         )}
                         {pb && (
-                          <span style={{ 
-                            fontSize: '12px', 
+                          <span style={{
+                            fontSize: '12px',
                             color: 'var(--workout-accent)',
                             backgroundColor: 'rgba(251, 191, 36, 0.15)',
                             padding: '2px 6px',
                             borderRadius: '4px',
                           }}>
-                            Next: {pb.recommendedKg}kg
+                            {language === 'he' ? 'הבא' : 'Next'}: {pb.recommendedKg}{t('card.kg_suffix')}
                           </span>
                         )}
                         {exercise.isCustom && (
-                          <span style={{ 
-                            fontSize: '12px', 
+                          <span style={{
+                            fontSize: '12px',
                             color: 'var(--workout-blue)',
                             backgroundColor: 'rgba(59, 130, 246, 0.2)',
                             padding: '2px 6px',
                             borderRadius: '4px',
                           }}>
-                            Custom
+                            {t('picker.custom_badge')}
                           </span>
                         )}
                       </div>
