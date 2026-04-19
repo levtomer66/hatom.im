@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import mongoose from 'mongoose';
 import WorkoutModel from '@/models/Workout';
-import { UserId } from '@/types/workout';
+import { UserId, USER_IDS, isValidUserId } from '@/types/workout';
 
 // Connect to MongoDB using mongoose
 async function connectDB() {
@@ -19,9 +19,9 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const userId = searchParams.get('userId') as UserId | null;
     
-    if (!userId || !['tom', 'tomer'].includes(userId)) {
+    if (!isValidUserId(userId)) {
       return NextResponse.json(
-        { error: 'Valid userId is required (tom or tomer)' },
+        { error: `Valid userId is required (${USER_IDS.join(', ')})` },
         { status: 400 }
       );
     }
@@ -60,9 +60,9 @@ export async function POST(request: NextRequest) {
       date: string;
     };
     
-    if (!userId || !['tom', 'tomer'].includes(userId)) {
+    if (!isValidUserId(userId)) {
       return NextResponse.json(
-        { error: 'Valid userId is required (tom or tomer)' },
+        { error: `Valid userId is required (${USER_IDS.join(', ')})` },
         { status: 400 }
       );
     }

@@ -1,5 +1,5 @@
 // User types
-export type UserId = 'tom' | 'tomer';
+export type UserId = 'tom' | 'tomer' | 'amit';
 
 export interface User {
   id: UserId;
@@ -9,7 +9,16 @@ export interface User {
 export const USERS: User[] = [
   { id: 'tom', name: 'Tom' },
   { id: 'tomer', name: 'Tomer' },
+  { id: 'amit', name: 'Amit' },
 ];
+
+// Canonical list of valid user IDs — use this everywhere that needs to validate
+// an incoming `userId` or seed a Mongoose enum, so adding a new user is one edit.
+export const USER_IDS: readonly UserId[] = USERS.map(u => u.id);
+
+export function isValidUserId(value: unknown): value is UserId {
+  return typeof value === 'string' && (USER_IDS as readonly string[]).includes(value);
+}
 
 // Legacy workout type categories (kept for backwards compatibility and exercise filtering)
 export type WorkoutType = 

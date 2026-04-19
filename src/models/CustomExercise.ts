@@ -1,5 +1,5 @@
 import mongoose, { Schema, Document, Model } from 'mongoose';
-import { ExerciseCategory, UserId } from '@/types/workout';
+import { ExerciseCategory, UserId, USER_IDS } from '@/types/workout';
 
 // Custom exercise document interface
 export interface CustomExerciseDocument extends Document {
@@ -16,7 +16,7 @@ const CustomExerciseSchema = new Schema<CustomExerciseDocument>({
   userId: { 
     type: String, 
     required: true,
-    enum: ['tom', 'tomer'],
+    enum: USER_IDS as readonly UserId[],
     index: true,
   },
   exerciseId: { 

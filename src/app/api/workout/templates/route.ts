@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import mongoose from 'mongoose';
 import WorkoutTemplateModel from '@/models/WorkoutTemplate';
-import { UserId, TemplateExercise, DEFAULT_NUM_SETS, MIN_SETS, MAX_SETS } from '@/types/workout';
+import { UserId, TemplateExercise, DEFAULT_NUM_SETS, MIN_SETS, MAX_SETS, USER_IDS, isValidUserId } from '@/types/workout';
 import { resolveExerciseId } from '@/data/exercise-library';
 
 // Connect to MongoDB using mongoose
@@ -89,9 +89,9 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const userId = searchParams.get('userId') as UserId | null;
 
-    if (!userId || !['tom', 'tomer'].includes(userId)) {
+    if (!isValidUserId(userId)) {
       return NextResponse.json(
-        { error: 'Valid userId is required (tom or tomer)' },
+        { error: `Valid userId is required (${USER_IDS.join(', ')})` },
         { status: 400 }
       );
     }
@@ -127,9 +127,9 @@ export async function POST(request: NextRequest) {
           )
         : [];
 
-    if (!userId || !['tom', 'tomer'].includes(userId)) {
+    if (!isValidUserId(userId)) {
       return NextResponse.json(
-        { error: 'Valid userId is required (tom or tomer)' },
+        { error: `Valid userId is required (${USER_IDS.join(', ')})` },
         { status: 400 }
       );
     }

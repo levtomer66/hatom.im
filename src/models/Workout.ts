@@ -1,5 +1,5 @@
 import mongoose, { Schema, Document, Model } from 'mongoose';
-import { Workout, WorkoutExercise, WorkoutSet, UserId } from '@/types/workout';
+import { Workout, WorkoutExercise, WorkoutSet, UserId, USER_IDS } from '@/types/workout';
 
 // Mongoose document interface
 export interface WorkoutDocument extends Omit<Workout, '_id' | 'id'>, Document {}
@@ -25,7 +25,7 @@ const WorkoutSchema = new Schema<WorkoutDocument>({
   userId: { 
     type: String, 
     required: true,
-    enum: ['tom', 'tomer'] as UserId[],
+    enum: USER_IDS as readonly UserId[],
     index: true,
   },
   templateId: {
