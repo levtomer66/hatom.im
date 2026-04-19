@@ -18,20 +18,6 @@ const MUSCLE_GROUPS = [
   { id: 'glutes', label: 'Glutes', icon: '🍑' },
 ];
 
-// Get muscle group from exercise name
-function getMuscleGroup(exerciseName: string): string | null {
-  const nameLower = exerciseName.toLowerCase();
-  if (nameLower.startsWith('chest')) return 'chest';
-  if (nameLower.startsWith('back')) return 'back';
-  if (nameLower.startsWith('shoulder')) return 'shoulders';
-  if (nameLower.startsWith('bicep')) return 'biceps';
-  if (nameLower.startsWith('tricep')) return 'triceps';
-  if (nameLower.startsWith('leg') || nameLower.startsWith('calf') || nameLower.startsWith('squat') || nameLower.includes('deadlift')) return 'legs';
-  if (nameLower.startsWith('hip') || nameLower.startsWith('glute')) return 'glutes';
-  if (nameLower.startsWith('ab') || nameLower.includes('crunch') || nameLower.includes('plank')) return 'abs';
-  return null;
-}
-
 interface ExercisePickerProps {
   isOpen: boolean;
   onClose: () => void;
@@ -119,16 +105,20 @@ export default function ExercisePicker({
         if (!matchesCategory) return false;
       }
       
-      // Filter by muscle group (if any selected)
+      // Filter by muscle group: match against the exercise's categories,
+      // not a name-prefix heuristic (which misses entries like "Active Hang"
+      // or "Nordic Hamstring Curl" whose categories are set but whose English
+      // name doesn't start with the muscle label).
       if (muscleFilters.size > 0) {
-        const exerciseMuscle = getMuscleGroup(exercise.name);
-        if (!exerciseMuscle || !muscleFilters.has(exerciseMuscle)) return false;
+        const matchesMuscle = exercise.categories.some(cat => muscleFilters.has(cat));
+        if (!matchesMuscle) return false;
       }
       
-      // Filter by search
+      // Filter by search (matches English name or Hebrew name)
       if (search) {
         const searchLower = search.toLowerCase();
-        return exercise.name.toLowerCase().includes(searchLower);
+        return exercise.name.toLowerCase().includes(searchLower)
+          || (exercise.hebrewName?.toLowerCase().includes(searchLower) ?? false);
       }
       
       return true;
