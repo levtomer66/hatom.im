@@ -1,7 +1,34 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { WorkoutTemplate, ExerciseDefinition, ExerciseCategory, EXERCISE_FILTER_CATEGORIES } from '@/types/workout';
+import {
+  DndContext,
+  DragEndEvent,
+  PointerSensor,
+  TouchSensor,
+  KeyboardSensor,
+  useSensor,
+  useSensors,
+  closestCenter,
+} from '@dnd-kit/core';
+import {
+  SortableContext,
+  arrayMove,
+  useSortable,
+  verticalListSortingStrategy,
+  sortableKeyboardCoordinates,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+import {
+  WorkoutTemplate,
+  TemplateExercise,
+  ExerciseDefinition,
+  ExerciseCategory,
+  EXERCISE_FILTER_CATEGORIES,
+  DEFAULT_NUM_SETS,
+  MIN_SETS,
+  MAX_SETS,
+} from '@/types/workout';
 import { EXERCISE_LIBRARY } from '@/data/exercise-library';
 import { useWorkoutUser } from '@/context/WorkoutUserContext';
 
@@ -37,6 +64,99 @@ interface TemplateEditorProps {
   onSave: (template: WorkoutTemplate) => void;
 }
 
+// One sortable row in the "Selected Exercises" list
+function SelectedExerciseRow({
+  entry,
+  exerciseDef,
+  onUpdate,
+  onRemove,
+}: {
+  entry: TemplateExercise;
+  exerciseDef: ExerciseDefinition | undefined;
+  onUpdate: (next: TemplateExercise) => void;
+  onRemove: () => void;
+}) {
+  const {
+    setNodeRef,
+    attributes,
+    listeners,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: entry.exerciseId });
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={{
+        transform: CSS.Transform.toString(transform),
+        transition,
+        opacity: isDragging ? 0.6 : 1,
+        zIndex: isDragging ? 10 : undefined,
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '8px',
+        padding: '10px 12px',
+        backgroundColor: 'var(--workout-bg-card)',
+        border: '1px solid var(--workout-border)',
+        borderRadius: '10px',
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <button
+          type="button"
+          className="exercise-card-action"
+          title="Drag to reorder"
+          style={{ cursor: 'grab', touchAction: 'none', flexShrink: 0 }}
+          {...attributes}
+          {...listeners}
+        >
+          ≡
+        </button>
+        <div style={{ flex: 1, minWidth: 0, fontSize: '14px', fontWeight: 500 }}>
+          {exerciseDef?.name || entry.exerciseId}
+        </div>
+        <div className="set-count-controls" style={{ flexShrink: 0 }}>
+          <button
+            type="button"
+            className="set-count-btn"
+            onClick={() => onUpdate({ ...entry, numSets: Math.max(MIN_SETS, entry.numSets - 1) })}
+            disabled={entry.numSets <= MIN_SETS}
+          >
+            −
+          </button>
+          <span className="set-count-value">{entry.numSets}</span>
+          <button
+            type="button"
+            className="set-count-btn"
+            onClick={() => onUpdate({ ...entry, numSets: Math.min(MAX_SETS, entry.numSets + 1) })}
+            disabled={entry.numSets >= MAX_SETS}
+          >
+            +
+          </button>
+        </div>
+        <button
+          type="button"
+          className="exercise-card-action"
+          onClick={onRemove}
+          title="Remove exercise"
+          style={{ flexShrink: 0 }}
+        >
+          ✕
+        </button>
+      </div>
+      <input
+        type="text"
+        className="workout-input"
+        placeholder="Notes for this exercise (optional)…"
+        value={entry.notes}
+        onChange={(e) => onUpdate({ ...entry, notes: e.target.value })}
+        style={{ fontSize: '13px', padding: '6px 10px' }}
+      />
+    </div>
+  );
+}
+
 export default function TemplateEditor({
   isOpen,
   template,
@@ -45,17 +165,23 @@ export default function TemplateEditor({
 }: TemplateEditorProps) {
   const { currentUser } = useWorkoutUser();
   const [name, setName] = useState('');
-  const [selectedExerciseIds, setSelectedExerciseIds] = useState<Set<string>>(new Set());
+  const [selectedExercises, setSelectedExercises] = useState<TemplateExercise[]>([]);
   const [search, setSearch] = useState('');
   const [categoryFilters, setCategoryFilters] = useState<Set<ExerciseCategory>>(new Set());
   const [muscleFilters, setMuscleFilters] = useState<Set<string>>(new Set());
   const [customExercises, setCustomExercises] = useState<ExerciseDefinition[]>([]);
   const [isSaving, setIsSaving] = useState(false);
 
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 150, tolerance: 8 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
+
   // Fetch custom exercises
   const fetchCustomExercises = useCallback(async () => {
     if (!currentUser) return;
-    
+
     try {
       const res = await fetch(`/api/workout/exercises/custom?userId=${currentUser.id}`);
       if (res.ok) {
@@ -73,10 +199,16 @@ export default function TemplateEditor({
       fetchCustomExercises();
       if (template) {
         setName(template.name);
-        setSelectedExerciseIds(new Set(template.exerciseIds));
+        setSelectedExercises(
+          (template.exercises ?? []).map(e => ({
+            exerciseId: e.exerciseId,
+            numSets: e.numSets ?? DEFAULT_NUM_SETS,
+            notes: e.notes ?? '',
+          }))
+        );
       } else {
         setName('');
-        setSelectedExerciseIds(new Set());
+        setSelectedExercises([]);
       }
       setSearch('');
       setCategoryFilters(new Set());
@@ -96,26 +228,25 @@ export default function TemplateEditor({
     return map;
   }, [allExercises]);
 
+  const selectedIds = useMemo(
+    () => new Set(selectedExercises.map(e => e.exerciseId)),
+    [selectedExercises]
+  );
+
   // Filter exercises
   const filteredExercises = useMemo(() => {
     return allExercises.filter(exercise => {
-      // Filter by category
       if (categoryFilters.size > 0) {
         const matchesCategory = exercise.categories.some(cat => categoryFilters.has(cat));
         if (!matchesCategory) return false;
       }
-      
-      // Filter by muscle group
       if (muscleFilters.size > 0) {
         const exerciseMuscle = getMuscleGroup(exercise.name);
         if (!exerciseMuscle || !muscleFilters.has(exerciseMuscle)) return false;
       }
-      
-      // Filter by search
       if (search) {
         return exercise.name.toLowerCase().includes(search.toLowerCase());
       }
-      
       return true;
     });
   }, [allExercises, categoryFilters, muscleFilters, search]);
@@ -123,39 +254,52 @@ export default function TemplateEditor({
   // Sort: selected first, then custom, then alphabetically
   const sortedExercises = useMemo(() => {
     return [...filteredExercises].sort((a, b) => {
-      // Selected first
-      const aSelected = selectedExerciseIds.has(a.id);
-      const bSelected = selectedExerciseIds.has(b.id);
+      const aSelected = selectedIds.has(a.id);
+      const bSelected = selectedIds.has(b.id);
       if (aSelected && !bSelected) return -1;
       if (!aSelected && bSelected) return 1;
-      // Custom exercises next
       if (a.isCustom && !b.isCustom) return -1;
       if (!a.isCustom && b.isCustom) return 1;
-      // Alphabetically
       return a.name.localeCompare(b.name);
     });
-  }, [filteredExercises, selectedExerciseIds]);
+  }, [filteredExercises, selectedIds]);
 
   const toggleExercise = (id: string) => {
-    setSelectedExerciseIds(prev => {
-      const next = new Set(prev);
-      if (next.has(id)) {
-        next.delete(id);
-      } else {
-        next.add(id);
+    setSelectedExercises(prev => {
+      if (prev.some(e => e.exerciseId === id)) {
+        return prev.filter(e => e.exerciseId !== id);
       }
-      return next;
+      return [...prev, { exerciseId: id, numSets: DEFAULT_NUM_SETS, notes: '' }];
+    });
+  };
+
+  const updateSelectedEntry = (index: number, next: TemplateExercise) => {
+    setSelectedExercises(prev => {
+      const copy = [...prev];
+      copy[index] = next;
+      return copy;
+    });
+  };
+
+  const removeSelectedEntry = (index: number) => {
+    setSelectedExercises(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    setSelectedExercises(prev => {
+      const oldIndex = prev.findIndex(e => e.exerciseId === active.id);
+      const newIndex = prev.findIndex(e => e.exerciseId === over.id);
+      if (oldIndex < 0 || newIndex < 0) return prev;
+      return arrayMove(prev, oldIndex, newIndex);
     });
   };
 
   const toggleCategoryFilter = (categoryId: ExerciseCategory) => {
     setCategoryFilters(prev => {
       const next = new Set(prev);
-      if (next.has(categoryId)) {
-        next.delete(categoryId);
-      } else {
-        next.add(categoryId);
-      }
+      if (next.has(categoryId)) next.delete(categoryId); else next.add(categoryId);
       return next;
     });
   };
@@ -163,47 +307,39 @@ export default function TemplateEditor({
   const toggleMuscleFilter = (muscleId: string) => {
     setMuscleFilters(prev => {
       const next = new Set(prev);
-      if (next.has(muscleId)) {
-        next.delete(muscleId);
-      } else {
-        next.add(muscleId);
-      }
+      if (next.has(muscleId)) next.delete(muscleId); else next.add(muscleId);
       return next;
     });
   };
 
   const handleSave = async () => {
     if (!name.trim() || !currentUser) return;
-    
+
     setIsSaving(true);
     try {
-      const exerciseIds = Array.from(selectedExerciseIds);
-      
       if (template) {
-        // Update existing template
         const res = await fetch(`/api/workout/templates/${template.id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name: name.trim(), exerciseIds }),
+          body: JSON.stringify({ name: name.trim(), exercises: selectedExercises }),
         });
-        
+
         if (res.ok) {
           const updated = await res.json();
           onSave(updated);
           onClose();
         }
       } else {
-        // Create new template
         const res = await fetch('/api/workout/templates', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             userId: currentUser.id,
             name: name.trim(),
-            exerciseIds,
+            exercises: selectedExercises,
           }),
         });
-        
+
         if (res.ok) {
           const created = await res.json();
           onSave(created);
@@ -219,11 +355,6 @@ export default function TemplateEditor({
 
   if (!isOpen) return null;
 
-  // Get selected exercises for display
-  const selectedExercises = Array.from(selectedExerciseIds)
-    .map(id => exerciseMap[id])
-    .filter(Boolean);
-
   return (
     <div className="workout-modal-overlay" onClick={onClose}>
       <div className="workout-modal" onClick={(e) => e.stopPropagation()} style={{ maxHeight: '90vh' }}>
@@ -235,16 +366,16 @@ export default function TemplateEditor({
             ✕
           </button>
         </div>
-        
+
         <div className="workout-modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           {/* Workout Name */}
           <div>
-            <label style={{ 
-              display: 'block', 
-              marginBottom: '8px', 
+            <label style={{
+              display: 'block',
+              marginBottom: '8px',
               fontSize: '14px',
               fontWeight: 600,
-              color: 'var(--workout-text-secondary)' 
+              color: 'var(--workout-text-secondary)'
             }}>
               Workout Name
             </label>
@@ -258,69 +389,51 @@ export default function TemplateEditor({
             />
           </div>
 
-          {/* Selected Exercises Preview */}
+          {/* Selected Exercises (ordered, per-entry defaults, drag to reorder) */}
           {selectedExercises.length > 0 && (
             <div>
-              <label style={{ 
-                display: 'block', 
-                marginBottom: '8px', 
+              <label style={{
+                display: 'block',
+                marginBottom: '8px',
                 fontSize: '14px',
                 fontWeight: 600,
-                color: 'var(--workout-text-secondary)' 
+                color: 'var(--workout-text-secondary)'
               }}>
-                Selected Exercises ({selectedExercises.length})
+                Selected Exercises ({selectedExercises.length}) — drag to reorder
               </label>
-              <div style={{ 
-                display: 'flex', 
-                flexWrap: 'wrap', 
-                gap: '6px',
-                padding: '12px',
-                backgroundColor: 'var(--workout-bg-secondary)',
-                borderRadius: '8px',
-              }}>
-                {selectedExercises.map(ex => (
-                  <span 
-                    key={ex.id}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '6px',
-                      padding: '4px 10px',
-                      backgroundColor: 'var(--workout-green-dim)',
-                      border: '1px solid var(--workout-green)',
-                      borderRadius: '16px',
-                      fontSize: '12px',
-                      fontWeight: 500,
-                    }}
-                  >
-                    {ex.name}
-                    <button
-                      onClick={() => toggleExercise(ex.id)}
-                      style={{
-                        background: 'none',
-                        border: 'none',
-                        color: 'var(--workout-text-secondary)',
-                        cursor: 'pointer',
-                        padding: 0,
-                        fontSize: '14px',
-                      }}
-                    >
-                      ×
-                    </button>
-                  </span>
-                ))}
-              </div>
+              <DndContext
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                onDragEnd={handleDragEnd}
+              >
+                <SortableContext
+                  items={selectedExercises.map(e => e.exerciseId)}
+                  strategy={verticalListSortingStrategy}
+                >
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    {selectedExercises.map((entry, index) => (
+                      <SelectedExerciseRow
+                        key={entry.exerciseId}
+                        entry={entry}
+                        exerciseDef={exerciseMap[entry.exerciseId]}
+                        onUpdate={(next) => updateSelectedEntry(index, next)}
+                        onRemove={() => removeSelectedEntry(index)}
+                      />
+                    ))}
+                  </div>
+                </SortableContext>
+              </DndContext>
             </div>
           )}
 
           {/* Exercise Selection */}
           <div style={{ display: 'flex', flexDirection: 'column', minHeight: 0 }}>
-            <label style={{ 
-              display: 'block', 
-              marginBottom: '8px', 
+            <label style={{
+              display: 'block',
+              marginBottom: '8px',
               fontSize: '14px',
               fontWeight: 600,
-              color: 'var(--workout-text-secondary)' 
+              color: 'var(--workout-text-secondary)'
             }}>
               Add Exercises
             </label>
@@ -335,11 +448,11 @@ export default function TemplateEditor({
               style={{ marginBottom: '12px', flexShrink: 0 }}
             />
 
-            {/* Category filters - wrap on multiple lines */}
-            <div style={{ 
-              display: 'flex', 
-              flexWrap: 'wrap', 
-              gap: '8px', 
+            {/* Category filters */}
+            <div style={{
+              display: 'flex',
+              flexWrap: 'wrap',
+              gap: '8px',
               marginBottom: '10px',
               flexShrink: 0,
             }}>
@@ -357,10 +470,10 @@ export default function TemplateEditor({
             </div>
 
             {/* Muscle group filters */}
-            <div style={{ 
-              display: 'flex', 
-              flexWrap: 'wrap', 
-              gap: '6px', 
+            <div style={{
+              display: 'flex',
+              flexWrap: 'wrap',
+              gap: '6px',
               marginBottom: '12px',
               flexShrink: 0,
             }}>
@@ -376,19 +489,19 @@ export default function TemplateEditor({
             </div>
 
             {/* Exercise list - scrollable */}
-            <div style={{ 
-              flex: 1, 
-              overflowY: 'auto', 
-              display: 'flex', 
-              flexDirection: 'column', 
+            <div style={{
+              flex: 1,
+              overflowY: 'auto',
+              display: 'flex',
+              flexDirection: 'column',
               gap: '8px',
               minHeight: '200px',
               maxHeight: '40vh',
               paddingRight: '4px',
             }}>
               {sortedExercises.length === 0 ? (
-                <div style={{ 
-                  textAlign: 'center', 
+                <div style={{
+                  textAlign: 'center',
                   padding: '24px',
                   color: 'var(--workout-text-muted)',
                 }}>
@@ -398,22 +511,22 @@ export default function TemplateEditor({
                 sortedExercises.map(exercise => (
                   <div
                     key={exercise.id}
-                    className={`exercise-picker-item ${selectedExerciseIds.has(exercise.id) ? 'selected' : ''}`}
+                    className={`exercise-picker-item ${selectedIds.has(exercise.id) ? 'selected' : ''}`}
                     onClick={() => toggleExercise(exercise.id)}
-                    style={{ 
-                      padding: '12px', 
+                    style={{
+                      padding: '12px',
                       cursor: 'pointer',
                       flexShrink: 0,
                     }}
                   >
-                    <div 
+                    <div
                       className="exercise-picker-photo"
                       style={{
                         width: '40px',
                         height: '40px',
                         flexShrink: 0,
-                        backgroundImage: exercise.defaultPhoto 
-                          ? `url(${exercise.defaultPhoto})` 
+                        backgroundImage: exercise.defaultPhoto
+                          ? `url(${exercise.defaultPhoto})`
                           : 'none',
                         backgroundColor: exercise.defaultPhoto ? undefined : 'var(--workout-bg-card)',
                       }}
@@ -425,8 +538,8 @@ export default function TemplateEditor({
                         {exercise.name}
                       </span>
                       {exercise.isCustom && (
-                        <span style={{ 
-                          fontSize: '11px', 
+                        <span style={{
+                          fontSize: '11px',
                           color: 'var(--workout-blue)',
                           display: 'block',
                         }}>
@@ -435,7 +548,7 @@ export default function TemplateEditor({
                       )}
                     </div>
                     <div className="exercise-picker-check" style={{ width: '24px', height: '24px', flexShrink: 0 }}>
-                      {selectedExerciseIds.has(exercise.id) && '✓'}
+                      {selectedIds.has(exercise.id) && '✓'}
                     </div>
                   </div>
                 ))
@@ -443,9 +556,9 @@ export default function TemplateEditor({
             </div>
           </div>
         </div>
-        
+
         <div className="workout-modal-footer">
-          <button 
+          <button
             className="workout-btn workout-btn-primary workout-btn-full"
             onClick={handleSave}
             disabled={!name.trim() || isSaving}

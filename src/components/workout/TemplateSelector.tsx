@@ -54,12 +54,13 @@ export default function TemplateSelector({
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
               {templates.map(template => {
-                const exerciseNames = template.exerciseIds
+                const exercises = template.exercises ?? [];
+                const exerciseNames = exercises
                   .slice(0, 3)
-                  .map(id => exerciseMap[id]?.name || 'Unknown')
+                  .map(e => exerciseMap[e.exerciseId]?.name || 'Unknown')
                   .join(', ');
-                const moreCount = template.exerciseIds.length > 3 
-                  ? ` +${template.exerciseIds.length - 3} more` 
+                const moreCount = exercises.length > 3
+                  ? ` +${exercises.length - 3} more`
                   : '';
 
                 return (
@@ -92,7 +93,7 @@ export default function TemplateSelector({
                         color: 'var(--workout-text-secondary)',
                         marginBottom: '8px',
                       }}>
-                        {template.exerciseIds.length} exercise{template.exerciseIds.length !== 1 ? 's' : ''}
+                        {exercises.length} exercise{exercises.length !== 1 ? 's' : ''}
                       </div>
                       {exerciseNames && (
                         <div style={{ 

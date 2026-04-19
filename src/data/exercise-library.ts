@@ -267,6 +267,14 @@ export const EXERCISE_LIBRARY: ExerciseDefinition[] = [
     categories: ['pull', 'back'],
     defaultPhoto: pexels(4162579), // Shrug
   },
+  {
+    id: 'trap-row-machine',
+    name: 'Trap Row Machine',
+    hebrewName: 'חתירה לטרפזים במכונה',
+    description: 'Seated machine row targeting upper back and traps',
+    categories: ['pull', 'back'],
+    defaultPhoto: pexels(4162579), // Machine row
+  },
 
   // =====================
   // BICEPS (Pull)

@@ -80,6 +80,7 @@ export async function GET(request: NextRequest) {
           historyEntries.push({
             date: workout.date,
             order: exercise.order || 0,  // Include exercise order in workout
+            workoutName: workout.workoutName || '',  // Workout/template name at the time
             sets,
             workoutId: workout._id.toString(),
             isPB: false, // Will be calculated below

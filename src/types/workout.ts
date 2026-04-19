@@ -108,13 +108,21 @@ export const DEFAULT_NUM_SETS = 3;
 export const MIN_SETS = 1;
 export const MAX_SETS = 5;
 
+// One entry in a workout template — carries default set count + notes
+// that will be applied when a workout is started from this template.
+export interface TemplateExercise {
+  exerciseId: string;
+  numSets: number;   // default number of sets (MIN_SETS..MAX_SETS)
+  notes: string;     // default notes for this exercise in this template
+}
+
 // Workout Template - reusable workout configuration
 export interface WorkoutTemplate {
   _id?: string;
   id: string;
   userId: UserId;
   name: string;
-  exerciseIds: string[];  // List of exercise IDs included in this template
+  exercises: TemplateExercise[];  // Ordered list of exercise entries (with per-exercise defaults)
   createdAt: string;
   updatedAt: string;
 }
@@ -154,7 +162,8 @@ export interface PersonalBest {
 // Exercise history entry (for display)
 export interface ExerciseHistoryEntry {
   date: string;
-  order: number;  // Position in that workout
+  order: number;         // Position in that workout
+  workoutName: string;   // Name of the workout (template) this exercise was part of
   sets: WorkoutSet[];
   workoutId: string;
   isPB: boolean;

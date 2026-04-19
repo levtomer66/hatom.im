@@ -1,12 +1,12 @@
 import mongoose, { Schema, Document, Model } from 'mongoose';
-import { UserId } from '@/types/workout';
+import { UserId, TemplateExercise } from '@/types/workout';
 
 // Workout Template interface
 export interface WorkoutTemplateData {
   id: string;
   userId: UserId;
   name: string;
-  exerciseIds: string[];  // List of exercise IDs to include in this workout
+  exercises: TemplateExercise[];
   createdAt: string;
   updatedAt: string;
 }
@@ -14,24 +14,34 @@ export interface WorkoutTemplateData {
 // Mongoose document interface
 export interface WorkoutTemplateDocument extends Omit<WorkoutTemplateData, 'id'>, Document {}
 
+// Per-exercise entry in a template (default set count + notes)
+const TemplateExerciseSchema = new Schema<TemplateExercise>({
+  exerciseId: { type: String, required: true },
+  numSets: { type: Number, required: true, default: 3, min: 1, max: 5 },
+  notes: { type: String, default: '' },
+}, { _id: false });
+
 // Main workout template schema
 const WorkoutTemplateSchema = new Schema<WorkoutTemplateDocument>({
-  userId: { 
-    type: String, 
+  userId: {
+    type: String,
     required: true,
     enum: ['tom', 'tomer'] as UserId[],
     index: true,
   },
-  name: { 
-    type: String, 
+  name: {
+    type: String,
     required: true,
   },
-  exerciseIds: { 
-    type: [String], 
-    default: [] 
+  exercises: {
+    type: [TemplateExerciseSchema],
+    default: [],
   },
 }, {
   timestamps: { createdAt: 'createdAt', updatedAt: 'updatedAt' },
+  // Allow unknown fields (e.g. legacy exerciseIds on old docs) so reads don't strip them
+  // before the route-layer fallback runs.
+  strict: false,
 });
 
 // Compound index for efficient queries

@@ -1,17 +1,33 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import {
+  DndContext,
+  DragEndEvent,
+  PointerSensor,
+  TouchSensor,
+  KeyboardSensor,
+  useSensor,
+  useSensors,
+  closestCenter,
+} from '@dnd-kit/core';
+import {
+  SortableContext,
+  arrayMove,
+  verticalListSortingStrategy,
+  sortableKeyboardCoordinates,
+} from '@dnd-kit/sortable';
 import { useWorkoutUser } from '@/context/WorkoutUserContext';
 import LoginScreen from '@/components/workout/LoginScreen';
 import Header from '@/components/workout/Header';
 import BottomNav from '@/components/workout/BottomNav';
-import ExerciseCard from '@/components/workout/ExerciseCard';
+import SortableExerciseCard from '@/components/workout/SortableExerciseCard';
 import ExercisePicker from '@/components/workout/ExercisePicker';
 import TemplateSelector from '@/components/workout/TemplateSelector';
 import TemplateEditor from '@/components/workout/TemplateEditor';
-import { 
-  Workout, 
-  WorkoutExercise, 
+import {
+  Workout,
+  WorkoutExercise,
   WorkoutTemplate,
   PersonalBest,
   ExerciseDefinition,
@@ -178,18 +194,18 @@ export default function WorkoutsPage() {
     return () => clearTimeout(timeoutId);
   }, [activeWorkout, saveWorkout]);
 
-  // Start new workout from template
+  // Start new workout from template — carry per-exercise defaults (numSets, notes)
   const startWorkoutFromTemplate = async (template: WorkoutTemplate) => {
     if (!currentUser) return;
-    
+
     try {
-      // Create exercises from template's exercise IDs with order
-      const exercises: WorkoutExercise[] = template.exerciseIds.map((exerciseId, index) => ({
+      const templateExercises = template.exercises ?? [];
+      const exercises: WorkoutExercise[] = templateExercises.map((te, index) => ({
         id: uuidv4(),
-        exerciseId,
-        order: index + 1,  // 1-based order
-        sets: createDefaultSets(),
-        notes: '',
+        exerciseId: te.exerciseId,
+        order: index + 1,  // 1-based order matches array position
+        sets: createDefaultSets(te.numSets),
+        notes: te.notes ?? '',
         photos: [],
       }));
 
@@ -244,11 +260,12 @@ export default function WorkoutsPage() {
     }
   };
 
-  // Complete workout (end it)
+  // Complete workout (end it) — renumber order so stored data has no gaps
   const completeWorkout = async () => {
     if (!activeWorkout) return;
-    
-    const updated = { ...activeWorkout, isCompleted: true };
+
+    const exercises = activeWorkout.exercises.map((ex, i) => ({ ...ex, order: i + 1 }));
+    const updated = { ...activeWorkout, exercises, isCompleted: true };
     await saveWorkout(updated);
     setActiveWorkout(null);
     setHasInProgressWorkout(false);
@@ -286,12 +303,38 @@ export default function WorkoutsPage() {
     setActiveWorkout({ ...activeWorkout, exercises });
   };
 
-  // Remove exercise
+  // Remove exercise — renumber remaining so order stays 1..N
   const removeExercise = (index: number) => {
     if (!activeWorkout) return;
-    
-    const exercises = activeWorkout.exercises.filter((_, i) => i !== index);
+
+    const exercises = activeWorkout.exercises
+      .filter((_, i) => i !== index)
+      .map((ex, i) => ({ ...ex, order: i + 1 }));
     setActiveWorkout({ ...activeWorkout, exercises });
+  };
+
+  // Reorder exercise (via drag-and-drop) — renumber order to match new array position
+  const moveExercise = (fromId: string, toId: string) => {
+    if (!activeWorkout || fromId === toId) return;
+    const from = activeWorkout.exercises.findIndex(e => e.id === fromId);
+    const to = activeWorkout.exercises.findIndex(e => e.id === toId);
+    if (from < 0 || to < 0) return;
+    const reordered = arrayMove(activeWorkout.exercises, from, to)
+      .map((ex, i) => ({ ...ex, order: i + 1 }));
+    setActiveWorkout({ ...activeWorkout, exercises: reordered });
+  };
+
+  // dnd-kit sensors for the active-workout exercise list
+  const dragSensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 150, tolerance: 8 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    moveExercise(String(active.id), String(over.id));
   };
 
   // Loading state
@@ -380,7 +423,7 @@ export default function WorkoutsPage() {
               </button>
             </div>
 
-            {/* Exercise cards */}
+            {/* Exercise cards (drag-sortable) */}
             {activeWorkout.exercises.length === 0 ? (
               <div className="empty-state">
                 <div className="empty-state-icon">📋</div>
@@ -389,17 +432,30 @@ export default function WorkoutsPage() {
                 </div>
               </div>
             ) : (
-              activeWorkout.exercises.map((exercise, index) => (
-                <ExerciseCard
-                  key={exercise.id}
-                  exercise={exercise}
-                  exerciseDefinition={exerciseMap[exercise.exerciseId] || null}
-                  pb={personalBests[exercise.exerciseId] || null}
-                  mode="edit"
-                  onUpdate={(updated) => updateExercise(index, updated)}
-                  onRemove={() => removeExercise(index)}
-                />
-              ))
+              <DndContext
+                sensors={dragSensors}
+                collisionDetection={closestCenter}
+                onDragEnd={handleDragEnd}
+              >
+                <SortableContext
+                  items={activeWorkout.exercises.map(e => e.id)}
+                  strategy={verticalListSortingStrategy}
+                >
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    {activeWorkout.exercises.map((exercise, index) => (
+                      <SortableExerciseCard
+                        key={exercise.id}
+                        id={exercise.id}
+                        exercise={exercise}
+                        exerciseDefinition={exerciseMap[exercise.exerciseId] || null}
+                        pb={personalBests[exercise.exerciseId] || null}
+                        onUpdate={(updated) => updateExercise(index, updated)}
+                        onRemove={() => removeExercise(index)}
+                      />
+                    ))}
+                  </div>
+                </SortableContext>
+              </DndContext>
             )}
 
             {/* Add exercise button */}

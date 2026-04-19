@@ -5,6 +5,14 @@ import { WorkoutExercise, WorkoutSet, PersonalBest, ExerciseDefinition, Exercise
 import { getExerciseById } from '@/data/exercise-library';
 import { useWorkoutUser } from '@/context/WorkoutUserContext';
 
+export interface ExerciseCardDraggable {
+  setNodeRef: (node: HTMLElement | null) => void;
+  handleAttributes: Record<string, unknown>;
+  handleListeners: Record<string, unknown> | undefined;
+  style?: React.CSSProperties;
+  isDragging?: boolean;
+}
+
 interface ExerciseCardProps {
   exercise: WorkoutExercise;
   exerciseDefinition?: ExerciseDefinition | null;
@@ -13,6 +21,7 @@ interface ExerciseCardProps {
   onUpdate?: (exercise: WorkoutExercise) => void;
   onRemove?: () => void;
   onReplace?: () => void;
+  draggable?: ExerciseCardDraggable;
 }
 
 export default function ExerciseCard({
@@ -22,28 +31,53 @@ export default function ExerciseCard({
   mode,
   onUpdate,
   onRemove,
+  draggable,
 }: ExerciseCardProps) {
   const { currentUser } = useWorkoutUser();
-  
+
   // Use provided definition or fall back to library lookup
   const exerciseDef = exerciseDefinition || getExerciseById(exercise.exerciseId);
   const isCompleted = isExerciseCompleted(exercise);
   const isEditable = mode === 'edit';
-  
+
   // Check if form has any data filled
   const hasData = exercise.sets.some(s => s.kg !== null || s.reps !== null);
-  
+
   // Track if card is expanded for editing - always start collapsed
   const [isExpanded, setIsExpanded] = useState(false);
-  
+
   // History modal state
   const [showHistory, setShowHistory] = useState(false);
   const [history, setHistory] = useState<ExerciseHistoryEntry[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
-  
+
   // Refs for keyboard navigation and focus tracking
   const cardRef = useRef<HTMLDivElement>(null);
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
+
+  // Merge dnd-kit's setNodeRef with our cardRef (needed for click-outside collapse).
+  const setCardRef = useCallback((node: HTMLDivElement | null) => {
+    cardRef.current = node;
+    draggable?.setNodeRef(node);
+  }, [draggable]);
+
+  const dragStyle = draggable?.style;
+
+  // Drag handle — only render when a draggable context is provided AND we're editing.
+  // stopPropagation on click so tapping the handle doesn't also toggle expansion.
+  const dragHandle = (draggable && isEditable) ? (
+    <button
+      type="button"
+      className="exercise-card-action"
+      title="Drag to reorder"
+      onClick={(e) => e.stopPropagation()}
+      style={{ cursor: 'grab', touchAction: 'none' }}
+      {...draggable.handleAttributes}
+      {...(draggable.handleListeners ?? {})}
+    >
+      ≡
+    </button>
+  ) : null;
   
   // Fetch exercise history when modal opens
   const fetchHistory = useCallback(async () => {
@@ -216,16 +250,19 @@ export default function ExerciseCard({
   // Collapsed view for all non-expanded cards in edit mode
   if (isEditable && !isExpanded) {
     return (
-      <div 
-        className={`workout-card workout-card-collapsed ${isCompleted ? 'workout-card-completed' : ''}`}
+      <div
+        ref={setCardRef}
+        style={dragStyle}
+        className={`workout-card workout-card-collapsed ${isCompleted ? 'workout-card-completed' : ''} ${draggable?.isDragging ? 'workout-card-dragging' : ''}`}
         onClick={() => setIsExpanded(true)}
       >
         <div className="exercise-collapsed-row">
-          <div 
+          {dragHandle}
+          <div
             className="exercise-collapsed-photo"
             style={{
-              backgroundImage: exerciseDef?.defaultPhoto 
-                ? `url(${exerciseDef.defaultPhoto})` 
+              backgroundImage: exerciseDef?.defaultPhoto
+                ? `url(${exerciseDef.defaultPhoto})`
                 : 'none',
               backgroundColor: exerciseDef?.defaultPhoto ? undefined : 'var(--workout-bg-secondary)',
             }}
@@ -240,7 +277,7 @@ export default function ExerciseCard({
           </div>
           {isCompleted && <div className="exercise-collapsed-badge">✓</div>}
           {onRemove && (
-            <button 
+            <button
               className="exercise-card-action"
               onClick={(e) => { e.stopPropagation(); onRemove(); }}
               title="Remove exercise"
@@ -254,9 +291,10 @@ export default function ExerciseCard({
   }
 
   return (
-    <div 
-      ref={cardRef}
-      className={`workout-card ${isCompleted ? 'workout-card-completed' : ''} ${isPBMatch ? 'workout-card-pb' : ''}`}
+    <div
+      ref={setCardRef}
+      style={dragStyle}
+      className={`workout-card ${isCompleted ? 'workout-card-completed' : ''} ${isPBMatch ? 'workout-card-pb' : ''} ${draggable?.isDragging ? 'workout-card-dragging' : ''}`}
     >
       {/* Header */}
       <div className="exercise-card-header">
@@ -291,8 +329,9 @@ export default function ExerciseCard({
         
         {isEditable && (
           <div className="exercise-card-actions">
+            {dragHandle}
             {onRemove && (
-              <button 
+              <button
                 className="exercise-card-action"
                 onClick={onRemove}
                 title="Remove exercise"
@@ -437,11 +476,11 @@ export default function ExerciseCard({
                       className={`workout-card ${entry.isPB ? 'workout-card-pb' : ''} ${entry.isCompleted ? 'workout-card-completed' : ''}`}
                       style={{ padding: '12px' }}
                     >
-                      <div style={{ 
-                        display: 'flex', 
+                      <div style={{
+                        display: 'flex',
                         justifyContent: 'space-between',
                         alignItems: 'center',
-                        marginBottom: '8px',
+                        marginBottom: '4px',
                       }}>
                         <div style={{ fontWeight: 600 }}>
                           {entry.isPB && <span style={{ marginRight: '4px' }}>🥇</span>}
@@ -452,8 +491,8 @@ export default function ExerciseCard({
                           })}
                         </div>
                         {entry.isCompleted && (
-                          <span style={{ 
-                            fontSize: '12px', 
+                          <span style={{
+                            fontSize: '12px',
                             color: 'var(--workout-green)',
                             fontWeight: 600,
                           }}>
@@ -461,8 +500,18 @@ export default function ExerciseCard({
                           </span>
                         )}
                       </div>
-                      <div style={{ 
-                        display: 'flex', 
+                      {(entry.workoutName || entry.order > 0) && (
+                        <div style={{
+                          fontSize: '12px',
+                          color: 'var(--workout-text-muted)',
+                          marginBottom: '8px',
+                        }}>
+                          {entry.workoutName || 'Workout'}
+                          {entry.order > 0 && ` · #${entry.order}`}
+                        </div>
+                      )}
+                      <div style={{
+                        display: 'flex',
                         gap: '8px',
                         flexWrap: 'wrap',
                       }}>
