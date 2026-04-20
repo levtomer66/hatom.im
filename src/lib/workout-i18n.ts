@@ -100,6 +100,14 @@ const DICT = {
   'exercises.title':                { en: 'Exercises',                                      he: 'תרגילים' },
   'exercises.all':                  { en: 'All',                                            he: 'הכל' },
 
+  // Exercise detail page
+  'exercise_detail.fallback_title': { en: 'Exercise',                                       he: 'תרגיל' },
+  'exercise_detail.not_found':      { en: 'Exercise not found',                             he: 'התרגיל לא נמצא' },
+  'exercise_detail.history_title':  { en: 'History',                                        he: 'היסטוריה' },
+  'exercise_detail.pb_label':       { en: 'PB',                                             he: 'שיא' },
+  'exercise_detail.working_label':  { en: 'Working',                                        he: 'עובד על' },
+  'exercise_detail.next_rec_label': { en: 'Next recommended',                               he: 'מומלץ להמשך' },
+
   // Generic
   'generic.close':                  { en: 'Close',                                          he: 'סגור' },
   'generic.back':                   { en: 'Back',                                           he: 'חזור' },

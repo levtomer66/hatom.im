@@ -3,6 +3,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useWorkoutUser } from '@/context/WorkoutUserContext';
+import { useWorkoutLanguage } from '@/context/WorkoutLanguageContext';
+import { useT, formatDate, getCategoryLabel, getLocalizedTemplateName } from '@/lib/workout-i18n';
+import { getLocalizedExercise } from '@/lib/exercise-translations';
 import LoginScreen from '@/components/workout/LoginScreen';
 import Header from '@/components/workout/Header';
 import BottomNav from '@/components/workout/BottomNav';
@@ -13,6 +16,8 @@ export default function ExerciseDetailPage() {
   const params = useParams();
   const router = useRouter();
   const { currentUser, isLoading } = useWorkoutUser();
+  const { language } = useWorkoutLanguage();
+  const t = useT();
   
   const exerciseId = params?.id as string;
   
@@ -115,11 +120,11 @@ export default function ExerciseDetailPage() {
   if (!exercise) {
     return (
       <main className="workout-main">
-        <Header title="Exercise" showBack onBack={() => router.back()} />
+        <Header title={t('exercise_detail.fallback_title')} showBack onBack={() => router.back()} />
         <div className="workout-page">
           <div className="empty-state">
             <div className="empty-state-icon">❓</div>
-            <div className="empty-state-text">Exercise not found</div>
+            <div className="empty-state-text">{t('exercise_detail.not_found')}</div>
           </div>
         </div>
         <BottomNav />
@@ -128,23 +133,24 @@ export default function ExerciseDetailPage() {
   }
 
   const pb = personalBests[exerciseId];
+  const localized = getLocalizedExercise(exercise, language);
 
   return (
     <main className="workout-main">
-      <Header title={exercise.name} showBack onBack={() => router.back()} />
-      
+      <Header title={localized.name} showBack onBack={() => router.back()} />
+
       <div className="workout-page">
         {/* Exercise header card */}
         <div className="workout-card" style={{ marginBottom: '24px' }}>
           <div style={{ display: 'flex', gap: '16px', alignItems: 'flex-start' }}>
-            <div 
+            <div
               style={{
                 width: '80px',
                 height: '80px',
                 borderRadius: '12px',
                 backgroundColor: 'var(--workout-bg-secondary)',
-                backgroundImage: exercise.defaultPhoto 
-                  ? `url(${exercise.defaultPhoto})` 
+                backgroundImage: exercise.defaultPhoto
+                  ? `url(${exercise.defaultPhoto})`
                   : 'none',
                 backgroundSize: 'cover',
                 backgroundPosition: 'center',
@@ -159,29 +165,29 @@ export default function ExerciseDetailPage() {
             </div>
             <div style={{ flex: 1 }}>
               <h2 style={{ fontSize: '20px', fontWeight: 700, marginBottom: '8px' }}>
-                {exercise.name}
+                {localized.name}
                 {exercise.isCustom && (
-                  <span style={{ 
-                    fontSize: '12px', 
+                  <span style={{
+                    fontSize: '12px',
                     color: 'var(--workout-blue)',
                     backgroundColor: 'rgba(59, 130, 246, 0.2)',
                     padding: '2px 8px',
                     borderRadius: '4px',
-                    marginLeft: '8px',
+                    marginInlineStart: '8px',
                     verticalAlign: 'middle',
                   }}>
-                    Custom
+                    {t('picker.custom_badge')}
                   </span>
                 )}
               </h2>
-              <div style={{ 
-                display: 'flex', 
-                flexWrap: 'wrap', 
+              <div style={{
+                display: 'flex',
+                flexWrap: 'wrap',
                 gap: '6px',
                 marginBottom: '12px',
               }}>
                 {exercise.categories.map(cat => (
-                  <span 
+                  <span
                     key={cat}
                     style={{
                       padding: '4px 8px',
@@ -189,17 +195,16 @@ export default function ExerciseDetailPage() {
                       borderRadius: '4px',
                       fontSize: '12px',
                       color: 'var(--workout-text-secondary)',
-                      textTransform: 'capitalize',
                     }}
                   >
-                    {cat.replace('-', ' ')}
+                    {getCategoryLabel(cat, language)}
                   </span>
                 ))}
               </div>
               {pb && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                   {pb.completedKg !== null ? (
-                    <div 
+                    <div
                       style={{
                         display: 'inline-flex',
                         alignItems: 'center',
@@ -212,11 +217,11 @@ export default function ExerciseDetailPage() {
                     >
                       <span style={{ fontSize: '20px' }}>🥇</span>
                       <span style={{ fontWeight: 700, color: 'var(--workout-gold)' }}>
-                        PB: {pb.completedKg}kg ({pb.completedReps.join('×')})
+                        {t('exercise_detail.pb_label')}: {pb.completedKg}{t('card.kg_suffix')} ({pb.completedReps.join('×')})
                       </span>
                     </div>
                   ) : (
-                    <div 
+                    <div
                       style={{
                         display: 'inline-flex',
                         alignItems: 'center',
@@ -229,11 +234,11 @@ export default function ExerciseDetailPage() {
                     >
                       <span style={{ fontSize: '20px' }}>💪</span>
                       <span style={{ fontWeight: 700, color: 'var(--workout-text-secondary)' }}>
-                        Working: {pb.currentKg}kg ({pb.currentReps.join('×')})
+                        {t('exercise_detail.working_label')}: {pb.currentKg}{t('card.kg_suffix')} ({pb.currentReps.join('×')})
                       </span>
                     </div>
                   )}
-                  <div 
+                  <div
                     style={{
                       display: 'inline-flex',
                       alignItems: 'center',
@@ -246,7 +251,7 @@ export default function ExerciseDetailPage() {
                   >
                     <span>💡</span>
                     <span style={{ color: 'var(--workout-accent)' }}>
-                      Next recommended: <strong>{pb.recommendedKg}kg</strong>
+                      {t('exercise_detail.next_rec_label')}: <strong>{pb.recommendedKg}{t('card.kg_suffix')}</strong>
                     </span>
                   </div>
                 </div>
@@ -257,55 +262,67 @@ export default function ExerciseDetailPage() {
 
         {/* History table */}
         <h3 style={{ fontSize: '16px', fontWeight: 600, marginBottom: '12px' }}>
-          History
+          {t('exercise_detail.history_title')}
         </h3>
-        
+
         {loadingHistory ? (
           <div className="loading-spinner" />
         ) : history.length === 0 ? (
           <div className="empty-state">
             <div className="empty-state-icon">📊</div>
-            <div className="empty-state-text">No records yet for this exercise</div>
+            <div className="empty-state-text">{t('card.history_empty')}</div>
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
             {history.map((entry, index) => (
-              <div 
+              <div
                 key={index}
                 className={`workout-card ${entry.isPB ? 'workout-card-pb' : ''} ${entry.isCompleted ? 'workout-card-completed' : ''}`}
                 style={{ padding: '12px' }}
               >
-                <div style={{ 
-                  display: 'flex', 
+                <div style={{
+                  display: 'flex',
                   justifyContent: 'space-between',
                   alignItems: 'center',
-                  marginBottom: '8px',
+                  marginBottom: '4px',
                 }}>
                   <div style={{ fontWeight: 600 }}>
-                    {entry.isPB && <span style={{ marginRight: '4px' }}>🥇</span>}
-                    {new Date(entry.date).toLocaleDateString('en-US', {
+                    {entry.isPB && <span style={{ marginInlineEnd: '4px' }}>🥇</span>}
+                    {formatDate(entry.date, language, {
                       weekday: 'short',
                       month: 'short',
                       day: 'numeric',
                     })}
                   </div>
                   {entry.isCompleted && (
-                    <span style={{ 
-                      fontSize: '12px', 
+                    <span style={{
+                      fontSize: '12px',
                       color: 'var(--workout-green)',
                       fontWeight: 600,
                     }}>
-                      ✓ Completed
+                      {t('card.history_completed')}
                     </span>
                   )}
                 </div>
-                <div style={{ 
-                  display: 'flex', 
+                {(entry.workoutName || entry.order > 0) && (
+                  <div style={{
+                    fontSize: '12px',
+                    color: 'var(--workout-text-muted)',
+                    marginBottom: '8px',
+                  }}>
+                    {entry.workoutName
+                      ? getLocalizedTemplateName(entry.workoutName, language)
+                      : t('workout.title')}
+                    {entry.order > 0 && ` · #${entry.order}`}
+                  </div>
+                )}
+                <div style={{
+                  display: 'flex',
                   gap: '8px',
                   flexWrap: 'wrap',
                 }}>
                   {entry.sets.map((set, setIndex) => (
-                    <div 
+                    <div
                       key={setIndex}
                       style={{
                         padding: '6px 10px',
@@ -316,7 +333,7 @@ export default function ExerciseDetailPage() {
                     >
                       <span style={{ color: 'var(--workout-text-secondary)' }}>S{setIndex + 1}: </span>
                       <span style={{ fontWeight: 600 }}>
-                        {set.kg ?? '-'}kg × {set.reps ?? '-'}
+                        {set.kg ?? '-'}{t('card.kg_suffix')} × {set.reps ?? '-'}
                       </span>
                     </div>
                   ))}
