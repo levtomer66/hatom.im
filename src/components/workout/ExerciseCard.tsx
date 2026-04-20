@@ -7,6 +7,7 @@ import { getLocalizedExercise } from '@/lib/exercise-translations';
 import { useWorkoutUser } from '@/context/WorkoutUserContext';
 import { useWorkoutLanguage } from '@/context/WorkoutLanguageContext';
 import { useT, formatDate, getLocalizedTemplateName } from '@/lib/workout-i18n';
+import ExerciseExternalLinks from './ExerciseExternalLinks';
 
 export interface ExerciseCardDraggable {
   setNodeRef: (node: HTMLElement | null) => void;
@@ -333,6 +334,11 @@ export default function ExerciseCard({
           {displayDescription && (
             <div className="exercise-card-description" style={{ fontSize: '12px', color: 'var(--workout-text-secondary)', marginTop: '2px' }}>
               {displayDescription}
+            </div>
+          )}
+          {exerciseDef?.name && (
+            <div style={{ marginTop: '6px' }}>
+              <ExerciseExternalLinks englishName={exerciseDef.name} size={16} />
             </div>
           )}
           {isEditable && recommendedScale && !hasData && (

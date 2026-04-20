@@ -9,6 +9,7 @@ import { getLocalizedExercise } from '@/lib/exercise-translations';
 import LoginScreen from '@/components/workout/LoginScreen';
 import Header from '@/components/workout/Header';
 import BottomNav from '@/components/workout/BottomNav';
+import ExerciseExternalLinks from '@/components/workout/ExerciseExternalLinks';
 import { ExerciseHistoryEntry, PersonalBest, ExerciseDefinition } from '@/types/workout';
 import { getExerciseById } from '@/data/exercise-library';
 
@@ -180,6 +181,9 @@ export default function ExerciseDetailPage() {
                   </span>
                 )}
               </h2>
+              <div style={{ marginBottom: '12px' }}>
+                <ExerciseExternalLinks englishName={exercise.name} size={20} />
+              </div>
               <div style={{
                 display: 'flex',
                 flexWrap: 'wrap',
