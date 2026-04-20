@@ -3,7 +3,7 @@
 import React from 'react';
 import { WorkoutTemplate, ExerciseDefinition } from '@/types/workout';
 import { useWorkoutLanguage } from '@/context/WorkoutLanguageContext';
-import { useT, exerciseCount } from '@/lib/workout-i18n';
+import { useT, exerciseCount, getLocalizedTemplateName } from '@/lib/workout-i18n';
 import { getLocalizedExercise } from '@/lib/exercise-translations';
 
 interface TemplateSelectorProps {
@@ -95,7 +95,7 @@ export default function TemplateSelector({
                         alignItems: 'center',
                         gap: '8px',
                       }}>
-                        🏋️ {template.name}
+                        🏋️ {getLocalizedTemplateName(template.name, language)}
                       </div>
                       <div style={{
                         fontSize: '13px',

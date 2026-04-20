@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useWorkoutUser } from '@/context/WorkoutUserContext';
 import { useWorkoutLanguage } from '@/context/WorkoutLanguageContext';
-import { useT, formatDate, exerciseCount } from '@/lib/workout-i18n';
+import { useT, formatDate, exerciseCount, getLocalizedTemplateName } from '@/lib/workout-i18n';
 import LoginScreen from '@/components/workout/LoginScreen';
 import Header from '@/components/workout/Header';
 import BottomNav from '@/components/workout/BottomNav';
@@ -164,7 +164,7 @@ export default function HistoryPage() {
                           onClick={() => router.push(`/workout/history/${workout.id}`)}
                         >
                           <div className="history-item-type">
-                            🏋️ {workout.workoutName}
+                            🏋️ {getLocalizedTemplateName(workout.workoutName, language)}
                           </div>
                           <div className="history-item-date">
                             {formatDate(workout.date, language, {
@@ -248,7 +248,7 @@ export default function HistoryPage() {
                             >
                               <div className="history-item-info">
                                 <div className="history-item-type">
-                                  🏋️ {workout.workoutName}
+                                  🏋️ {getLocalizedTemplateName(workout.workoutName, language)}
                                 </div>
                                 <div className="history-item-date">
                                   {formatDate(workout.date, language, {

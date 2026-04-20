@@ -6,7 +6,7 @@ import { getExerciseById } from '@/data/exercise-library';
 import { getLocalizedExercise } from '@/lib/exercise-translations';
 import { useWorkoutUser } from '@/context/WorkoutUserContext';
 import { useWorkoutLanguage } from '@/context/WorkoutLanguageContext';
-import { useT, formatDate } from '@/lib/workout-i18n';
+import { useT, formatDate, getLocalizedTemplateName } from '@/lib/workout-i18n';
 
 export interface ExerciseCardDraggable {
   setNodeRef: (node: HTMLElement | null) => void;
@@ -521,7 +521,7 @@ export default function ExerciseCard({
                           color: 'var(--workout-text-muted)',
                           marginBottom: '8px',
                         }}>
-                          {entry.workoutName || 'Workout'}
+                          {entry.workoutName ? getLocalizedTemplateName(entry.workoutName, language) : t('workout.title')}
                           {entry.order > 0 && ` · #${entry.order}`}
                         </div>
                       )}

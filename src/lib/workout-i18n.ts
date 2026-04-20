@@ -166,3 +166,35 @@ export function exerciseCount(n: number, language: Language): string {
     : translate(language, 'count.exercise_many');
   return `${n} ${word}`;
 }
+
+// Template / workout names are user-authored strings stored in the DB. When a
+// well-known name has a canonical translation (Atlas program templates, plus
+// the long-standing gym splits), surface the localised form. Anything we
+// don't recognise falls back to the stored name so custom user-created
+// templates keep rendering exactly as typed.
+const TEMPLATE_NAME_TRANSLATIONS: Record<string, Record<Language, string>> = {
+  'Tomers Upper Body':       { en: 'Tomers Upper Body',        he: 'גפה עליונה של תומר' },
+  "Tomer's Pull Day":        { en: "Tomer's Pull Day",         he: 'יום משיכה של תומר' },
+  "Tomer's Push Day - Chest": { en: "Tomer's Push Day - Chest", he: 'יום דחיפה של תומר – חזה' },
+};
+
+// Atlas templates follow a predictable "Atlas L<N> — <Upper|Lower>" pattern;
+// translate them algorithmically so every level is covered without a per-row
+// dictionary entry.
+const ATLAS_NAME_RE = /^Atlas L(\d+) — (Upper|Lower)$/;
+
+export function getLocalizedTemplateName(name: string, language: Language): string {
+  if (language === 'en') return name;
+
+  const direct = TEMPLATE_NAME_TRANSLATIONS[name]?.[language];
+  if (direct) return direct;
+
+  const m = ATLAS_NAME_RE.exec(name);
+  if (m) {
+    const level = m[1];
+    const part = m[2] === 'Upper' ? 'עליון' : 'תחתון';
+    return `אטלס רמה ${level} – ${part}`;
+  }
+
+  return name;
+}

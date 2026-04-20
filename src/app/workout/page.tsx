@@ -19,7 +19,7 @@ import {
 } from '@dnd-kit/sortable';
 import { useWorkoutUser } from '@/context/WorkoutUserContext';
 import { useWorkoutLanguage } from '@/context/WorkoutLanguageContext';
-import { useT, formatDate } from '@/lib/workout-i18n';
+import { useT, formatDate, getLocalizedTemplateName } from '@/lib/workout-i18n';
 import LoginScreen from '@/components/workout/LoginScreen';
 import Header from '@/components/workout/Header';
 import BottomNav from '@/components/workout/BottomNav';
@@ -358,7 +358,7 @@ export default function WorkoutsPage() {
   return (
     <main className="workout-main">
       <Header
-        title={activeWorkout ? `🏋️ ${activeWorkout.workoutName}` : t('workout.title')}
+        title={activeWorkout ? `🏋️ ${getLocalizedTemplateName(activeWorkout.workoutName, language)}` : t('workout.title')}
       />
 
       <div className="workout-page">

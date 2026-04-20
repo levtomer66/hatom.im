@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useWorkoutUser } from '@/context/WorkoutUserContext';
 import { useWorkoutLanguage } from '@/context/WorkoutLanguageContext';
-import { useT, formatDate, exerciseCount } from '@/lib/workout-i18n';
+import { useT, formatDate, exerciseCount, getLocalizedTemplateName } from '@/lib/workout-i18n';
 import LoginScreen from '@/components/workout/LoginScreen';
 import Header from '@/components/workout/Header';
 import BottomNav from '@/components/workout/BottomNav';
@@ -132,7 +132,7 @@ export default function WorkoutDetailPage() {
   return (
     <main className="workout-main">
       <Header 
-        title={`🏋️ ${workout.workoutName}`} 
+        title={`🏋️ ${getLocalizedTemplateName(workout.workoutName, language)}`}
         showBack 
         onBack={() => router.back()} 
       />
