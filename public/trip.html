@@ -312,6 +312,53 @@
     z-index: 2;
   }
 
+  /* Trip-day state markers (past / today / upcoming). Applied only to calendar
+     cells that fall inside the 15.4–20.5 range. Non-trip days stay default. */
+  .cal-day.trip-completed {
+    background: rgba(46, 204, 113, 0.08);
+    border-color: rgba(46, 204, 113, 0.35);
+  }
+  .cal-day.trip-completed::after {
+    content: '✓';
+    position: absolute;
+    top: 4px;
+    left: 6px;
+    font-size: 0.75rem;
+    color: #2ecc71;
+    font-weight: 700;
+    line-height: 1;
+  }
+  .cal-day.trip-completed .day-num { color: #2ecc71; }
+  .cal-day.trip-completed .day-event { opacity: 0.55; }
+
+  .cal-day.trip-today {
+    background: rgba(253, 203, 110, 0.14);
+    border-color: var(--accent4);
+    box-shadow: 0 0 0 2px rgba(253, 203, 110, 0.35), 0 0 18px rgba(253, 203, 110, 0.25);
+    animation: todayPulse 2.4s ease-in-out infinite;
+  }
+  .cal-day.trip-today::after {
+    content: 'היום';
+    position: absolute;
+    top: 4px;
+    left: 6px;
+    font-size: 0.6rem;
+    padding: 1px 5px;
+    border-radius: 4px;
+    background: var(--accent4);
+    color: #1a1400;
+    font-weight: 800;
+    letter-spacing: 0.02em;
+  }
+  .cal-day.trip-today .day-num { color: var(--accent4); }
+
+  @keyframes todayPulse {
+    0%, 100% { box-shadow: 0 0 0 2px rgba(253, 203, 110, 0.35), 0 0 18px rgba(253, 203, 110, 0.25); }
+    50%      { box-shadow: 0 0 0 2px rgba(253, 203, 110, 0.55), 0 0 28px rgba(253, 203, 110, 0.45); }
+  }
+
+  .cal-day.trip-upcoming .day-num { color: var(--accent2); }
+
   .cal-day .day-num { font-weight: 700; font-size: 0.9rem; margin-bottom: 2px; }
 
   .cal-day .day-event {
@@ -1502,6 +1549,18 @@ function buildCalendar() {
   const cal = document.getElementById('calendar');
   const days = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 
+  // Trip range — used to tag each cell as completed / today / upcoming.
+  const TRIP_START = new Date(2026, 3, 15);  // 15 Apr 2026
+  const TRIP_END   = new Date(2026, 4, 20);  // 20 May 2026
+  const TODAY      = (() => { const t = new Date(); t.setHours(0,0,0,0); return t; })();
+
+  function tripStateFor(year, month, day) {
+    const d = new Date(year, month, day);
+    if (d < TRIP_START || d > TRIP_END) return null;
+    if (d.getTime() === TODAY.getTime()) return 'trip-today';
+    return d < TODAY ? 'trip-completed' : 'trip-upcoming';
+  }
+
   const events = [
     // === APRIL ===
     { m:3, d:15, label:"✈️ TLV→ATH", cls:"event-flight" },
@@ -1578,7 +1637,8 @@ function buildCalendar() {
 
     for (let d = 1; d <= daysInMonth; d++) {
       const cell = document.createElement('div');
-      cell.className = 'cal-day';
+      const tripState = tripStateFor(year, month, d);
+      cell.className = `cal-day${tripState ? ' ' + tripState : ''}`;
 
       const num = document.createElement('div');
       num.className = 'day-num';
