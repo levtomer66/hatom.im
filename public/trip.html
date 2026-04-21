@@ -746,6 +746,55 @@
     color: var(--text-dim);
     font-variant-numeric: tabular-nums;
   }
+  .trip-progress-legs {
+    display: flex;
+    justify-content: space-between;
+    align-items: stretch;
+    gap: 0.5rem;
+    margin-top: 0.85rem;
+    direction: rtl;
+  }
+  .trip-leg {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    padding: 0.55rem 0.75rem;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--border);
+    min-width: 0;
+  }
+  .trip-leg-label {
+    font-size: 0.7rem;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    font-weight: 600;
+  }
+  .trip-leg-name {
+    font-weight: 700;
+    color: var(--text);
+    font-size: 0.95rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .trip-leg-sub {
+    font-size: 0.72rem;
+    color: var(--text-dim);
+  }
+  .trip-leg.current {
+    border-color: var(--accent2);
+    background: rgba(0, 206, 201, 0.08);
+  }
+  .trip-leg.current .trip-leg-name { color: var(--accent2); }
+  .trip-leg.next {
+    border-color: var(--accent3);
+    background: rgba(253, 121, 168, 0.06);
+  }
+  .trip-leg.next .trip-leg-name { color: var(--accent3); }
+
   .trip-progress.done .trip-progress-fill {
     background: linear-gradient(90deg, #2ecc71, #00cec9);
   }
@@ -782,6 +831,18 @@
       <span>15.04.2026</span>
       <span>20.05.2026</span>
     </div>
+    <div class="trip-progress-legs" id="tp-legs" hidden>
+      <div class="trip-leg current" id="tp-leg-current">
+        <span class="trip-leg-label">📍 עכשיו</span>
+        <span class="trip-leg-name" id="tp-leg-current-name"></span>
+        <span class="trip-leg-sub" id="tp-leg-current-sub"></span>
+      </div>
+      <div class="trip-leg next" id="tp-leg-next">
+        <span class="trip-leg-label">⏭ הבא בתור</span>
+        <span class="trip-leg-name" id="tp-leg-next-name"></span>
+        <span class="trip-leg-sub" id="tp-leg-next-sub"></span>
+      </div>
+    </div>
   </div>
 
   <div class="scroll-indicator" onclick="document.getElementById('nav').scrollIntoView({behavior:'smooth'})">▼</div>
@@ -799,7 +860,39 @@
     const DAY = 86400000;
     const totalDays = Math.round((end - start) / DAY) + 1;
 
+    // Trip legs, in order. `start` is the arrival/check-in day, `end` is the
+    // departure/check-out day. The "current" leg is the first one whose range
+    // contains today; "next" is the one after it.
+    const legs = [
+      { emoji: '🏛️', name: 'אתונה',          en: 'Athens',        start: '2026-04-15', end: '2026-04-16' },
+      { emoji: '🗽', name: 'ניו יורק',        en: 'New York',      start: '2026-04-16', end: '2026-04-22' },
+      { emoji: '💦', name: 'ניאגרה',          en: 'Niagara',       start: '2026-04-22', end: '2026-04-25' },
+      { emoji: '🎰', name: 'לאס וגאס',        en: 'Las Vegas',     start: '2026-04-25', end: '2026-04-29' },
+      { emoji: '🌉', name: 'סן פרנסיסקו',    en: 'San Francisco', start: '2026-04-29', end: '2026-05-02' },
+      { emoji: '🌲', name: 'יוסמיטי',         en: 'Yosemite',      start: '2026-05-02', end: '2026-05-04' },
+      { emoji: '🛣️', name: 'כביש 1',          en: 'Highway 1',     start: '2026-05-04', end: '2026-05-06' },
+      { emoji: '🌴', name: 'לוס אנג׳לס',      en: 'Los Angeles',   start: '2026-05-06', end: '2026-05-11' },
+      { emoji: '🏖️', name: 'פלאיה בלנקה',     en: 'Playa Blanca',  start: '2026-05-11', end: '2026-05-15' },
+      { emoji: '🏝️', name: 'איסלה מוחרס',     en: 'Isla Mujeres',  start: '2026-05-15', end: '2026-05-18' },
+      { emoji: '🔁', name: 'חזרה הביתה',      en: 'Return',        start: '2026-05-18', end: '2026-05-20' },
+    ].map(l => ({ ...l, startDate: new Date(l.start + 'T00:00:00'), endDate: new Date(l.end + 'T00:00:00') }));
+
+    const fmt = d => `${d.getDate()}.${d.getMonth() + 1}`;
+
+    // Half-open ranges [start, end): on a check-out / check-in day, the
+    // new destination wins. The final leg's end is treated as inclusive
+    // so the last trip day stays pinned to the last location.
+    function findCurrentLegIndex(t) {
+      for (let i = 0; i < legs.length; i++) {
+        const isLast = i === legs.length - 1;
+        const beforeEnd = isLast ? t <= legs[i].endDate : t < legs[i].endDate;
+        if (t >= legs[i].startDate && beforeEnd) return i;
+      }
+      return -1;
+    }
+
     let state, pct, mainText, pctText, remainText;
+    let currentLeg = null, nextLeg = null;
 
     if (now < start) {
       state = 'before';
@@ -808,6 +901,7 @@
       mainText = `הטיול מתחיל בקרוב`;
       pctText = '';
       remainText = `עוד ${daysUntil} ימים ליציאה`;
+      nextLeg = legs[0];
     } else if (now > end) {
       state = 'done';
       pct = 100;
@@ -824,6 +918,9 @@
       remainText = remainingDays > 0
         ? `עוד ${remainingDays} ${remainingDays === 1 ? 'יום' : 'ימים'}`
         : 'היום היום האחרון';
+      const idx = findCurrentLegIndex(now);
+      currentLeg = idx >= 0 ? legs[idx] : null;
+      nextLeg = idx >= 0 && idx + 1 < legs.length ? legs[idx + 1] : null;
     }
 
     el.classList.add(state);
@@ -831,6 +928,32 @@
     document.getElementById('tp-main').textContent = mainText;
     document.getElementById('tp-pct').textContent = pctText;
     document.getElementById('tp-remaining').textContent = remainText;
+
+    // Render current / next leg badges only when there's something meaningful to show.
+    const legsEl = document.getElementById('tp-legs');
+    const curEl  = document.getElementById('tp-leg-current');
+    const nxtEl  = document.getElementById('tp-leg-next');
+    if (currentLeg || nextLeg) {
+      legsEl.hidden = false;
+      if (currentLeg) {
+        curEl.hidden = false;
+        document.getElementById('tp-leg-current-name').textContent = `${currentLeg.emoji} ${currentLeg.name}`;
+        document.getElementById('tp-leg-current-sub').textContent  = `${fmt(currentLeg.startDate)} – ${fmt(currentLeg.endDate)}`;
+      } else {
+        curEl.hidden = true;
+      }
+      if (nextLeg) {
+        nxtEl.hidden = false;
+        const daysToNext = Math.ceil((nextLeg.startDate - now) / DAY);
+        document.getElementById('tp-leg-next-name').textContent = `${nextLeg.emoji} ${nextLeg.name}`;
+        document.getElementById('tp-leg-next-sub').textContent =
+          daysToNext > 0 ? `בעוד ${daysToNext} ${daysToNext === 1 ? 'יום' : 'ימים'}` : `מתחיל היום`;
+      } else {
+        nxtEl.hidden = true;
+      }
+    } else {
+      legsEl.hidden = true;
+    }
   })();
 </script>
 
