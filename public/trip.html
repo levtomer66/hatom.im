@@ -644,6 +644,67 @@
   ::-webkit-scrollbar-track { background: var(--bg); }
   ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
   ::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+
+  /* ===== Trip progress bar (hero) ===== */
+  /* Force LTR so the timeline reads past→future regardless of page direction. */
+  .trip-progress {
+    direction: ltr;
+    width: min(720px, 92vw);
+    margin: 2rem auto 0;
+    padding: 1rem 1.25rem;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    backdrop-filter: blur(6px);
+  }
+  .trip-progress-summary {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    font-size: 0.95rem;
+    color: var(--text-dim);
+    margin-bottom: 0.75rem;
+  }
+  .trip-progress-summary .tp-main {
+    color: var(--text);
+    font-weight: 700;
+    font-size: 1.05rem;
+  }
+  .trip-progress-summary .tp-pct {
+    color: var(--accent2);
+    font-weight: 700;
+  }
+  .trip-progress-track {
+    position: relative;
+    height: 10px;
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 999px;
+    overflow: hidden;
+  }
+  .trip-progress-fill {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, var(--accent), var(--accent2), var(--accent3));
+    border-radius: 999px;
+    transition: width 0.8s cubic-bezier(0.22, 1, 0.36, 1);
+    box-shadow: 0 0 12px rgba(0, 206, 201, 0.35);
+  }
+  .trip-progress-dates {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 0.45rem;
+    font-size: 0.8rem;
+    color: var(--text-dim);
+    font-variant-numeric: tabular-nums;
+  }
+  .trip-progress.done .trip-progress-fill {
+    background: linear-gradient(90deg, #2ecc71, #00cec9);
+  }
+  .trip-progress.before .trip-progress-fill {
+    background: linear-gradient(90deg, var(--accent4), var(--accent));
+  }
 </style>
 </head>
 <body>
@@ -659,8 +720,72 @@
     <div class="stat"><div class="number">35</div><div class="label">לילות</div></div>
     <div class="stat"><div class="number">4</div><div class="label">מדינות</div></div>
   </div>
+
+  <!-- Trip progress — populated by computeTripProgress() below -->
+  <div class="trip-progress" id="trip-progress" data-start="2026-04-15" data-end="2026-05-20">
+    <div class="trip-progress-summary">
+      <span class="tp-main" id="tp-main">טוען…</span>
+      <span class="tp-pct" id="tp-pct"></span>
+      <span class="tp-remaining" id="tp-remaining"></span>
+    </div>
+    <div class="trip-progress-track" aria-hidden="true">
+      <div class="trip-progress-fill" id="tp-fill"></div>
+    </div>
+    <div class="trip-progress-dates">
+      <span>15.04.2026</span>
+      <span>20.05.2026</span>
+    </div>
+  </div>
+
   <div class="scroll-indicator" onclick="document.getElementById('nav').scrollIntoView({behavior:'smooth'})">▼</div>
 </div>
+
+<script>
+  // Trip progress — computes where we are on the 15.04–20.05.2026 timeline.
+  // Dates are read from data-* attrs so editing them later is a one-liner.
+  (function computeTripProgress() {
+    const el = document.getElementById('trip-progress');
+    if (!el) return;
+    const start = new Date(el.dataset.start + 'T00:00:00');
+    const end   = new Date(el.dataset.end   + 'T23:59:59');
+    const now   = new Date();
+    const DAY = 86400000;
+    const totalDays = Math.round((end - start) / DAY) + 1;
+
+    let state, pct, mainText, pctText, remainText;
+
+    if (now < start) {
+      state = 'before';
+      pct = 0;
+      const daysUntil = Math.ceil((start - now) / DAY);
+      mainText = `הטיול מתחיל בקרוב`;
+      pctText = '';
+      remainText = `עוד ${daysUntil} ימים ליציאה`;
+    } else if (now > end) {
+      state = 'done';
+      pct = 100;
+      mainText = `הטיול הסתיים`;
+      pctText = '100%';
+      remainText = `${totalDays} ימים`;
+    } else {
+      state = 'active';
+      const elapsedDays = Math.floor((now - start) / DAY) + 1;
+      const remainingDays = totalDays - elapsedDays;
+      pct = ((now - start) / (end - start)) * 100;
+      mainText = `יום ${elapsedDays} מתוך ${totalDays}`;
+      pctText = `${pct.toFixed(1)}%`;
+      remainText = remainingDays > 0
+        ? `עוד ${remainingDays} ${remainingDays === 1 ? 'יום' : 'ימים'}`
+        : 'היום היום האחרון';
+    }
+
+    el.classList.add(state);
+    document.getElementById('tp-fill').style.width = `${pct}%`;
+    document.getElementById('tp-main').textContent = mainText;
+    document.getElementById('tp-pct').textContent = pctText;
+    document.getElementById('tp-remaining').textContent = remainText;
+  })();
+</script>
 
 <!-- ==================== NAV ==================== -->
 <nav id="nav">
