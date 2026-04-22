@@ -10,6 +10,19 @@ export function youtubeSearchUrl(englishName: string): string {
 }
 
 export function instagramSearchUrl(englishName: string): string {
-  const q = encodeURIComponent(englishName);
-  return `https://www.instagram.com/explore/search/keyword/?q=${q}`;
+  // Use Instagram's hashtag page (`/explore/tags/{slug}/`). Reason: it's a
+  // proper universal link — tapping it on mobile opens the Instagram app's
+  // in-app hashtag view directly. The generic `/explore/search/keyword/?q=…`
+  // path is NOT a universal link and falls back to Instagram's in-app web
+  // browser on iOS/Android, which is what the user was seeing.
+  //
+  // Hashtags must be [a-z0-9] only, so strip spaces, hyphens, and any other
+  // punctuation: "Bench Press" → "benchpress", "Pull-Up" → "pullup".
+  const slug = englishName.toLowerCase().replace(/[^a-z0-9]/g, '');
+  if (!slug) {
+    // Defensive: fall back to keyword search if the name somehow slugs away
+    // to nothing. Shouldn't happen for any library entry in practice.
+    return `https://www.instagram.com/explore/search/keyword/?q=${encodeURIComponent(englishName)}`;
+  }
+  return `https://www.instagram.com/explore/tags/${slug}/`;
 }
