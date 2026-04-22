@@ -115,6 +115,16 @@ const DICT = {
   'generic.save':                   { en: 'Save',                                           he: 'שמור' },
   'generic.delete':                 { en: 'Delete',                                         he: 'מחק' },
   'generic.loading':                { en: 'Loading…',                                       he: 'טוען…' },
+
+  // Help / feedback floating button
+  'help.button_aria':               { en: 'Missing exercise? Suggestions?',                 he: 'חסר תרגיל? הצעות לשיפור?' },
+  'help.modal_title':               { en: 'Missing exercise? Suggestions?',                 he: 'חסר תרגיל? הצעות לשיפור?' },
+  'help.modal_subtitle':            { en: 'Tell us what\u2019s missing or how we can improve.', he: 'ספרו לנו מה חסר או מה אפשר לשפר.' },
+  'help.placeholder':               { en: 'Your feedback\u2026',                            he: 'המשוב שלכם\u2026' },
+  'help.submit':                    { en: 'Send',                                           he: 'שלח' },
+  'help.sending':                   { en: 'Sending\u2026',                                  he: 'שולח\u2026' },
+  'help.sent':                      { en: 'Sent, thanks!',                                  he: 'נשלח, תודה!' },
+  'help.error':                     { en: 'Failed to send. Try again?',                     he: 'השליחה נכשלה, לנסות שוב?' },
 } as const;
 
 export type TranslationKey = keyof typeof DICT;

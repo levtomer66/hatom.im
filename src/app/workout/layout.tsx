@@ -21,13 +21,15 @@ export default function WorkoutLayout({
 }: {
   children: React.ReactNode;
 }) {
+  // WorkoutUserProvider is now above WorkoutShell so that anything rendered
+  // by the shell itself (e.g. the help FAB) can read the current user.
   return (
     <WorkoutLanguageProvider>
-      <WorkoutShell>
-        <WorkoutUserProvider>
+      <WorkoutUserProvider>
+        <WorkoutShell>
           {children}
-        </WorkoutUserProvider>
-      </WorkoutShell>
+        </WorkoutShell>
+      </WorkoutUserProvider>
     </WorkoutLanguageProvider>
   );
 }
