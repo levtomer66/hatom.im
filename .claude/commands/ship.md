@@ -1,6 +1,5 @@
 ---
 description: Review, fix, lint, build, commit, and push pending work
-argument-hint: [optional commit message]
 ---
 
 Orchestrate the full "ship it" workflow for this repo:
