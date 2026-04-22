@@ -13,8 +13,11 @@
    edge so it doesn't collide with the primary action area. */
 .workout-help-fab {
   position: fixed;
-  bottom: calc(var(--bottom-nav-height, 64px) + 12px);
-  inset-inline-end: 16px;
+  /* Stack above the bottom nav, respecting the iOS safe-area home-indicator
+     gap. The bottom nav itself already adds env(safe-area-inset-bottom) to
+     its height further down in this stylesheet, so mirror that here. */
+  bottom: calc(var(--bottom-nav-height, 64px) + 12px + env(safe-area-inset-bottom, 0px));
+  inset-inline-end: calc(16px + env(safe-area-inset-right, 0px));
   width: 48px;
   height: 48px;
   border: none;
