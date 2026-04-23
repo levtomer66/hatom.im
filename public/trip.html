@@ -2418,8 +2418,20 @@ document.querySelectorAll('.timeline-item').forEach(item => {
       const dayDate = takenAt ? takenAt.slice(0, 10) : null;
       const sizeKB = Math.round(resized.size / 1024);
       const geoLabel = (latitude && longitude) ? '📍' : '📵';
+
+      // Gate: photos without an EXIF date aren't uploaded at all. They show
+      // up in the preview list with an explicit error so you can see which
+      // files are being skipped, but they never get queued. Any files with
+      // a valid date are still uploaded even when they're mixed in with
+      // undated ones in the same batch.
+      if (!takenAt) {
+        row.className = 'admin-upload-row-item err';
+        row.textContent = `${file.name} — ❌ אין תאריך EXIF · לא יועלה`;
+        continue;
+      }
+
       row.className = 'admin-upload-row-item ok';
-      row.textContent = `${file.name} → ${dayDate || '⚠ ללא תאריך'} · ${geoLabel} · ${sizeKB} KB`;
+      row.textContent = `${file.name} → ${dayDate} · ${geoLabel} · ${sizeKB} KB`;
 
       pendingFiles.push({
         file, resized, takenAt, latitude, longitude,
