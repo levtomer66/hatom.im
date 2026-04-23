@@ -2370,11 +2370,23 @@ document.querySelectorAll('.timeline-item').forEach(item => {
       const row = addPreviewRow(`${file.name} — מנתח EXIF…`);
       let exif = null;
       try {
-        exif = await window.exifr.parse(file, {
-          gps: true,
-          pick: ['DateTimeOriginal', 'OffsetTimeOriginal', 'latitude', 'longitude'],
+        // Parse against the ORIGINAL file (before resize) so we capture GPS
+        // tags that the canvas-based resize would strip.
+        // NOTE: we deliberately don't pass `pick` — combining `pick` with
+        // `gps: true` can suppress the computed `latitude`/`longitude`
+        // outputs in some exifr builds, which is what was making iPhone
+        // photos render with "אין מיקום" even though Photos.app showed a
+        // location. Reading the whole block is cheap.
+        exif = await window.exifr.parse(file, { gps: true });
+        console.log('[trip/journey] EXIF for', file.name, {
+          DateTimeOriginal: exif?.DateTimeOriginal,
+          OffsetTimeOriginal: exif?.OffsetTimeOriginal,
+          latitude: exif?.latitude,
+          longitude: exif?.longitude,
         });
-      } catch {/* unreadable file; treat as unassigned */}
+      } catch (err) {
+        console.warn('[trip/journey] EXIF parse failed for', file.name, err);
+      }
 
       let takenAt = null;
       if (exif?.DateTimeOriginal instanceof Date) {
