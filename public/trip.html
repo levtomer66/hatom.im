@@ -2452,31 +2452,65 @@ document.querySelectorAll('.timeline-item').forEach(item => {
       localStorage.setItem(ADMIN_TOKEN_KEY, t);
       token = t;
     }
+    // Snapshot the batch so we can report totals at the end (queue.shift()
+    // empties the array). Each entry picks up a `ok: true|false` flag
+    // inside uploadOne() so we can count without re-inspecting DOM.
+    const batch = pendingFiles.slice();
+    pendingFiles = [];
     adminSubmit.disabled = true;
-    adminSubmit.textContent = 'מעלה…';
+    let completed = 0;
+    const total = batch.length;
+    adminSubmit.textContent = `מעלה 0 / ${total}…`;
 
     // Simple parallel pool of 4 concurrent uploads.
-    const queue = pendingFiles.slice();
-    pendingFiles = [];
+    const queue = batch.slice();
     let inFlight = 0;
     await new Promise(resolve => {
       function kick() {
         while (inFlight < 4 && queue.length) {
           const entry = queue.shift();
           inFlight++;
-          uploadOne(entry, token).finally(() => {
-            inFlight--;
-            if (!queue.length && inFlight === 0) resolve();
-            else kick();
-          });
+          uploadOne(entry, token)
+            .then(() => {
+              completed++;
+              adminSubmit.textContent = `מעלה ${completed} / ${total}…`;
+            })
+            .finally(() => {
+              inFlight--;
+              if (!queue.length && inFlight === 0) resolve();
+              else kick();
+            });
         }
       }
       if (!queue.length) resolve();
       else kick();
     });
 
-    adminSubmit.textContent = 'העלאה';
-    // Refresh calendar badges + map pins.
+    const okCount = batch.filter(e => e.ok).length;
+    const failCount = total - okCount;
+
+    // Surface a clear end-of-batch summary row at the bottom of the
+    // preview list, so the user doesn't have to scan every row to know
+    // whether the whole batch succeeded.
+    const summaryRow = document.createElement('div');
+    summaryRow.className = 'admin-upload-row-item ' + (failCount ? 'err' : 'ok');
+    summaryRow.style.marginTop = '8px';
+    summaryRow.style.paddingTop = '8px';
+    summaryRow.style.borderTop = '1px solid rgba(255,255,255,0.12)';
+    summaryRow.style.fontWeight = '700';
+    summaryRow.textContent = failCount
+      ? `סיכום: ${okCount} הועלו · ${failCount} נכשלו`
+      : `✅ ${okCount} תמונות הועלו בהצלחה`;
+    adminPreviews.appendChild(summaryRow);
+    summaryRow.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+    // Brief "done" state on the button so the transition away from
+    // "מעלה N / M…" is unmistakable, then revert to the normal label.
+    adminSubmit.disabled = false;
+    adminSubmit.textContent = failCount ? '⚠ בוצע עם שגיאות' : '✓ הועלה!';
+    setTimeout(() => { adminSubmit.textContent = 'העלאה'; }, 2500);
+
+    // Refresh calendar badges + map pins from the new state.
     dayCache.clear();
     try {
       const summary = await fetchJourneySummary();
@@ -2488,6 +2522,7 @@ document.querySelectorAll('.timeline-item').forEach(item => {
   }
 
   async function uploadOne(entry, token) {
+    entry.ok = false;  // default — flipped to true only on a real 2xx
     const fd = new FormData();
     fd.append('file', entry.resized, entry.file.name.replace(/\.[^.]+$/, '') + '.jpg');
     if (entry.takenAt) fd.append('takenAt', entry.takenAt);
@@ -2512,6 +2547,7 @@ document.querySelectorAll('.timeline-item').forEach(item => {
       const data = await res.json();
       entry.row.className = 'admin-upload-row-item ok';
       entry.row.textContent += data.unassigned ? ' ✓ (לא שויך)' : ' ✓';
+      entry.ok = true;
     } catch (err) {
       console.error(err);
       entry.row.className = 'admin-upload-row-item err';
