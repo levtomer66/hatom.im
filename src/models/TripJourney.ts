@@ -43,6 +43,11 @@ export async function getAllJourneySummaries(): Promise<{
       unassignedCount = d.photos.length;
       continue;
     }
+    // Skip documents with no photos. A day doc can exist with empty
+    // photos[] after saving a note on an empty day, or after deleting the
+    // last photo. Without this guard the frontend renders `📸 0` badges
+    // and the API's stated contract ("days with photos") is broken.
+    if (d.photos.length === 0) continue;
     days.push({
       dayDate: d.dayDate,
       photoCount: d.photos.length,

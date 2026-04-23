@@ -2161,7 +2161,11 @@ document.querySelectorAll('.timeline-item').forEach(item => {
       const dayDate = `2026-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
 
       // Wire a click handler on every trip-range cell, regardless of photos.
-      if (dayDate >= TRIP_START && dayDate <= TRIP_END) {
+      // Guard against duplicate listeners — decorateCalendar() re-runs after
+      // every upload/delete, and we don't want the modal to open N times per
+      // click after a few refreshes.
+      if (dayDate >= TRIP_START && dayDate <= TRIP_END && !cell.dataset.journeyHandler) {
+        cell.dataset.journeyHandler = '1';
         cell.addEventListener('click', () => openDayModal(dayDate));
         cell.style.cursor = 'pointer';
       }
