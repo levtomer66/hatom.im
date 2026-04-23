@@ -2320,26 +2320,56 @@ document.querySelectorAll('.timeline-item').forEach(item => {
       cell.appendChild(badge);
     });
 
-    // Drop GPS pins on the main Leaflet map for every photo with coords.
+    // Draw the actual-journey layer on the main Leaflet map:
+    //   - one continuous cyan polyline connecting every GPS-tagged photo in
+    //     chronological order (the "trip I actually took")
+    //   - a circleMarker per photo, each wired to open that day's modal
+    //
+    // The existing planned-itinerary polylines above (dashed violet outbound,
+    // dashed pink return) stay as-is — they represent the plan. The cyan
+    // journey layer overlays on top so "planned vs actual" reads at a glance.
     if (journeyLayer) {
       journeyLayer.clearLayers();
-      for (const d of summary.days) {
-        if (!d.photoCount) continue;
-        // Pull the full day to get GPS data. Batched in parallel.
-        fetchDay(d.dayDate).then(doc => {
-          for (const p of doc.photos || []) {
-            if (typeof p.latitude !== 'number' || typeof p.longitude !== 'number') continue;
-            L.circleMarker([p.latitude, p.longitude], {
-              radius: 5,
-              color: '#ff8fb1',
-              weight: 2,
-              fillColor: '#fd79a8',
-              fillOpacity: 0.9,
-            })
-              .bindTooltip(`${d.dayDate} · ${formatTime(p.takenAt)}`)
-              .addTo(journeyLayer);
+      // Pull every day's full doc in parallel so we can sort across days
+      // before drawing the polyline.
+      const dayDocs = await Promise.all(
+        summary.days
+          .filter(d => d.photoCount)
+          .map(d => fetchDay(d.dayDate).catch(() => null))
+      );
+      // Flatten to one chronological list of photos-with-GPS across the trip.
+      const points = [];
+      for (const doc of dayDocs) {
+        if (!doc) continue;
+        for (const p of doc.photos || []) {
+          if (typeof p.latitude === 'number' && typeof p.longitude === 'number') {
+            points.push({ ...p, dayDate: doc.dayDate });
           }
-        }).catch(() => {});
+        }
+      }
+      points.sort((a, b) => new Date(a.takenAt).getTime() - new Date(b.takenAt).getTime());
+
+      // Continuous journey polyline (main + glow companion, matching the
+      // planned-route recipe above for visual consistency).
+      if (points.length >= 2) {
+        const path = points.map(p => [p.latitude, p.longitude]);
+        L.polyline(path, { color: '#81ecec', weight: 7, opacity: 0.18, smoothFactor: 1 }).addTo(journeyLayer);
+        L.polyline(path, { color: '#00cec9', weight: 3, opacity: 0.85, smoothFactor: 1 }).addTo(journeyLayer);
+      }
+
+      // Pins. Click → open the day modal (the user is saying "tell me about
+      // photos taken here", plural — day modal holds that context).
+      for (const p of points) {
+        L.circleMarker([p.latitude, p.longitude], {
+          radius: 5,
+          color: '#ff8fb1',
+          weight: 2,
+          fillColor: '#fd79a8',
+          fillOpacity: 0.9,
+        })
+          .bindTooltip(`${p.dayDate} · ${formatTime(p.takenAt)}${p.locationLabel ? ' · ' + p.locationLabel : ''}`)
+          .on('click', () => openDayModal(p.dayDate))
+          .addTo(journeyLayer);
       }
     }
   }
@@ -2425,9 +2455,12 @@ document.querySelectorAll('.timeline-item').forEach(item => {
       gridEl.appendChild(cell);
     }
 
-    // Mini-map for this day's photos with GPS.
-    const pts = doc.photos
+    // Mini-map for this day's photos with GPS. Sort defensively by `takenAt`
+    // so the polyline connects points in true chronological order even if a
+    // cached doc or a future server change returns photos in upload order.
+    const pts = [...doc.photos]
       .filter(p => typeof p.latitude === 'number' && typeof p.longitude === 'number')
+      .sort((a, b) => new Date(a.takenAt).getTime() - new Date(b.takenAt).getTime())
       .map(p => [p.latitude, p.longitude]);
     if (pts.length) {
       miniMapEl.hidden = false;
@@ -2438,7 +2471,17 @@ document.querySelectorAll('.timeline-item').forEach(item => {
         }).addTo(miniMap);
       } else {
         miniMap.invalidateSize();
-        miniMap.eachLayer(l => { if (l instanceof L.CircleMarker) miniMap.removeLayer(l); });
+        // Clear markers AND polylines so swapping day modals doesn't
+        // accumulate geometry from the previous day.
+        miniMap.eachLayer(l => {
+          if (l instanceof L.CircleMarker || l instanceof L.Polyline) miniMap.removeLayer(l);
+        });
+      }
+      // Same cyan palette as the main-map journey line, so the two views
+      // read as the same "actual trip" layer at different scales.
+      if (pts.length >= 2) {
+        L.polyline(pts, { color: '#81ecec', weight: 6, opacity: 0.2, smoothFactor: 1 }).addTo(miniMap);
+        L.polyline(pts, { color: '#00cec9', weight: 3, opacity: 0.85, smoothFactor: 1 }).addTo(miniMap);
       }
       pts.forEach(([lat, lng]) => {
         L.circleMarker([lat, lng], { radius: 6, color: '#fd79a8', fillColor: '#fd79a8', fillOpacity: 0.9 }).addTo(miniMap);
