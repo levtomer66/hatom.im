@@ -964,7 +964,9 @@
     font-size: 0.9rem;
   }
 
-  /* Admin upload panel — pinned below the hero, only rendered in ?admin=1. */
+  /* Admin upload panel — pinned at the top of the page, always visible.
+     Writes are still gated server-side by the TRIP_ADMIN_TOKEN, which the
+     client prompts for on first load and caches in localStorage. */
   .admin-upload-panel {
     position: sticky;
     top: 0;
@@ -974,9 +976,7 @@
     border-bottom: 1px solid var(--border);
     padding: 0.75rem 1.25rem;
     direction: rtl;
-    display: none;
   }
-  .admin-upload-panel.active { display: block; }
   .admin-upload-row {
     display: flex;
     flex-wrap: wrap;
@@ -1046,8 +1046,8 @@
 </head>
 <body>
 
-<!-- Admin upload panel — only visible when ?admin=1 + token saved. -->
-<div id="admin-upload-panel" class="admin-upload-panel" hidden>
+<!-- Admin upload panel — always visible; server-side TRIP_ADMIN_TOKEN gates writes. -->
+<div id="admin-upload-panel" class="admin-upload-panel">
   <div class="admin-upload-row">
     <span class="admin-upload-title">📸 העלאת תמונות</span>
     <label class="admin-upload-drop" id="admin-upload-drop">
@@ -2106,9 +2106,11 @@ document.querySelectorAll('.timeline-item').forEach(item => {
   const TRIP_START = '2026-04-15';
   const TRIP_END   = '2026-05-20';
 
-  const urlParams = new URLSearchParams(window.location.search);
-  const isAdminMode = urlParams.get('admin') === '1';
   const ADMIN_TOKEN_KEY = 'hatomim-trip-admin-token';
+  // Admin mode is derived from token presence — having a token in
+  // localStorage enables the day-modal admin bits (delete photo, save note).
+  // Uploads still go through the server token check regardless.
+  function isAdmin() { return !!adminToken(); }
 
   // Cache: dayDate -> { dayDate, photos: [], note: '' } once fetched.
   const dayCache = new Map();
@@ -2234,7 +2236,7 @@ document.querySelectorAll('.timeline-item').forEach(item => {
     noteEl.value = '';
     overlay.classList.add('open');
 
-    if (isAdminMode && adminToken()) {
+    if (isAdmin()) {
       modal.classList.add('admin');
       noteEl.removeAttribute('readonly');
     } else {
@@ -2417,10 +2419,14 @@ document.querySelectorAll('.timeline-item').forEach(item => {
   }
 
   async function uploadPending() {
-    const token = adminToken();
+    // Ask for the token lazily, once per device. Cached in localStorage so
+    // the prompt only appears the very first time the user hits upload.
+    let token = adminToken();
     if (!token) {
-      alert('חסר admin token');
-      return;
+      const t = prompt('סיסמת אדמין:');
+      if (!t) return;
+      localStorage.setItem(ADMIN_TOKEN_KEY, t);
+      token = t;
     }
     adminSubmit.disabled = true;
     adminSubmit.textContent = 'מעלה…';
@@ -2470,6 +2476,14 @@ document.querySelectorAll('.timeline-item').forEach(item => {
         headers: { 'X-Admin-Token': token },
         body: fd,
       });
+      // On 401 the cached token is stale — clear it so the next upload
+      // attempt re-prompts instead of looping on the wrong value.
+      if (res.status === 401) {
+        localStorage.removeItem(ADMIN_TOKEN_KEY);
+        entry.row.className = 'admin-upload-row-item err';
+        entry.row.textContent += ' ✗ סיסמה שגויה';
+        return;
+      }
       if (!res.ok) throw new Error(`upload ${res.status}`);
       const data = await res.json();
       entry.row.className = 'admin-upload-row-item ok';
@@ -2507,18 +2521,13 @@ document.querySelectorAll('.timeline-item').forEach(item => {
 
   // ----- bootstrap -----
   async function boot() {
-    if (isAdminMode) {
-      if (!adminToken()) {
-        const t = prompt('Admin token:');
-        if (t) localStorage.setItem(ADMIN_TOKEN_KEY, t);
-      }
-      adminPanel.hidden = false;
-      adminPanel.classList.add('active');
-    }
+    // Panel is always visible; prompt for the token lazily on the first
+    // upload attempt rather than at page load so casual visitors aren't
+    // interrupted by a credentials prompt.
     try {
       const summary = await fetchJourneySummary();
       await decorateCalendar(summary);
-      if (isAdminMode) updateUnassignedPill(summary.unassignedCount || 0);
+      updateUnassignedPill(summary.unassignedCount || 0);
     } catch (err) {
       console.warn('journey init failed', err);
     }
