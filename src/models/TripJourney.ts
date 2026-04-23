@@ -20,11 +20,16 @@ export async function getJourneyDay(dayDate: string): Promise<TripJourneyDay | n
   const col = await getCollection();
   const doc = await col.findOne({ dayDate });
   if (!doc) return null;
-  // Sort photos within the day by takenAt so the day modal renders in
-  // chronological order regardless of upload order.
+  // Sort photos within the day by the actual instant they were taken,
+  // not by string order on the ISO `takenAt` — the latter only matches
+  // chronological order when every photo shares the same UTC offset.
+  // `new Date(iso).getTime()` gives the true UTC instant, so crossing a
+  // timezone during the day still orders correctly.
   return {
     ...doc,
-    photos: [...doc.photos].sort((a, b) => a.takenAt.localeCompare(b.takenAt)),
+    photos: [...doc.photos].sort(
+      (a, b) => new Date(a.takenAt).getTime() - new Date(b.takenAt).getTime()
+    ),
   };
 }
 
