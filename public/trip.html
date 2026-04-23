@@ -801,9 +801,279 @@
   .trip-progress.before .trip-progress-fill {
     background: linear-gradient(90deg, var(--accent4), var(--accent));
   }
+
+  /* ===== Trip journey — photo badges, day modal, admin upload panel ===== */
+
+  /* Photo-count badge on calendar cells that have uploaded photos. */
+  .cal-day[data-has-photos="true"] {
+    cursor: pointer;
+  }
+  .cal-day .photo-badge {
+    position: absolute;
+    bottom: 4px;
+    inset-inline-end: 6px;
+    font-size: 0.65rem;
+    padding: 1px 6px;
+    border-radius: 10px;
+    background: rgba(0, 206, 201, 0.22);
+    color: #81ecec;
+    border: 1px solid rgba(0, 206, 201, 0.4);
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    line-height: 1.4;
+  }
+
+  /* Day-journey modal — opens when you click any trip day. */
+  .journey-modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(5, 5, 15, 0.82);
+    backdrop-filter: blur(6px);
+    z-index: 1000;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+  }
+  .journey-modal-overlay.open { display: flex; }
+  .journey-modal {
+    width: min(860px, 100%);
+    max-height: 90vh;
+    overflow-y: auto;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 1.25rem 1.5rem;
+    color: var(--text);
+    direction: rtl;
+  }
+  .journey-modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1rem;
+  }
+  .journey-modal-title {
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: var(--accent2);
+  }
+  .journey-modal-close {
+    background: transparent;
+    border: none;
+    color: var(--text-dim);
+    font-size: 1.4rem;
+    cursor: pointer;
+    line-height: 1;
+    padding: 0.25rem 0.5rem;
+  }
+  .journey-modal-close:hover { color: var(--text); }
+  .journey-photo-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+  }
+  .journey-photo {
+    position: relative;
+    aspect-ratio: 1;
+    border-radius: 10px;
+    overflow: hidden;
+    background: rgba(255,255,255,0.03);
+  }
+  .journey-photo img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+  .journey-photo .photo-time {
+    position: absolute;
+    top: 4px;
+    inset-inline-start: 6px;
+    font-size: 0.65rem;
+    padding: 1px 6px;
+    border-radius: 6px;
+    background: rgba(0, 0, 0, 0.6);
+    color: #fff;
+    font-variant-numeric: tabular-nums;
+  }
+  .journey-photo .photo-delete {
+    position: absolute;
+    top: 4px;
+    inset-inline-end: 4px;
+    background: rgba(239, 68, 68, 0.9);
+    color: white;
+    border: none;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 0.9rem;
+    line-height: 1;
+    display: none;
+  }
+  .journey-modal.admin .photo-delete { display: inline-flex; align-items: center; justify-content: center; }
+  .journey-photo .photo-no-gps {
+    position: absolute;
+    bottom: 4px;
+    inset-inline-start: 6px;
+    font-size: 0.6rem;
+    padding: 1px 5px;
+    border-radius: 5px;
+    background: rgba(253, 203, 110, 0.85);
+    color: #1a1400;
+    font-weight: 600;
+  }
+  .journey-mini-map {
+    width: 100%;
+    height: 220px;
+    border-radius: 12px;
+    margin-bottom: 1rem;
+    background: rgba(255,255,255,0.02);
+  }
+  .journey-note {
+    width: 100%;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 0.65rem 0.85rem;
+    color: var(--text);
+    font-family: inherit;
+    font-size: 0.9rem;
+    resize: vertical;
+    min-height: 70px;
+  }
+  .journey-note[readonly] { opacity: 0.85; }
+  .journey-note-save {
+    margin-top: 0.5rem;
+    padding: 0.45rem 0.9rem;
+    border-radius: 8px;
+    border: none;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    color: white;
+    font-weight: 600;
+    cursor: pointer;
+    display: none;
+  }
+  .journey-modal.admin .journey-note-save { display: inline-flex; }
+  .journey-empty {
+    text-align: center;
+    color: var(--text-dim);
+    padding: 1.5rem 0;
+    font-size: 0.9rem;
+  }
+
+  /* Admin upload panel — pinned below the hero, only rendered in ?admin=1. */
+  .admin-upload-panel {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    background: rgba(12, 12, 30, 0.85);
+    backdrop-filter: blur(8px);
+    border-bottom: 1px solid var(--border);
+    padding: 0.75rem 1.25rem;
+    direction: rtl;
+    display: none;
+  }
+  .admin-upload-panel.active { display: block; }
+  .admin-upload-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.75rem;
+  }
+  .admin-upload-title {
+    font-weight: 700;
+    color: var(--accent2);
+  }
+  .admin-upload-drop {
+    flex: 1;
+    min-width: 240px;
+    padding: 0.55rem 0.9rem;
+    border: 1.5px dashed var(--border);
+    border-radius: 10px;
+    text-align: center;
+    color: var(--text-dim);
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: border-color 0.2s, background 0.2s;
+  }
+  .admin-upload-drop.hover,
+  .admin-upload-drop:hover {
+    border-color: var(--accent2);
+    background: rgba(0, 206, 201, 0.05);
+    color: var(--text);
+  }
+  .admin-upload-drop input { display: none; }
+  .admin-unassigned-pill {
+    font-size: 0.75rem;
+    padding: 3px 9px;
+    border-radius: 999px;
+    background: rgba(253, 203, 110, 0.2);
+    color: var(--accent4);
+    border: 1px solid rgba(253, 203, 110, 0.4);
+    display: none;
+  }
+  .admin-unassigned-pill.visible { display: inline-block; }
+  .admin-upload-previews {
+    margin-top: 0.6rem;
+    max-height: 220px;
+    overflow-y: auto;
+    font-size: 0.8rem;
+    color: var(--text-dim);
+  }
+  .admin-upload-row-item {
+    display: flex;
+    justify-content: space-between;
+    gap: 0.5rem;
+    padding: 3px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+  }
+  .admin-upload-row-item.ok  { color: #81ecec; }
+  .admin-upload-row-item.err { color: #fab1a0; }
+  .admin-upload-submit {
+    padding: 0.5rem 1rem;
+    border-radius: 8px;
+    border: none;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    color: white;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  .admin-upload-submit[disabled] { opacity: 0.5; cursor: not-allowed; }
 </style>
 </head>
 <body>
+
+<!-- Admin upload panel — only visible when ?admin=1 + token saved. -->
+<div id="admin-upload-panel" class="admin-upload-panel" hidden>
+  <div class="admin-upload-row">
+    <span class="admin-upload-title">📸 העלאת תמונות</span>
+    <label class="admin-upload-drop" id="admin-upload-drop">
+      <input id="admin-upload-input" type="file" multiple accept="image/*" />
+      גרור תמונות או הקלק לבחירה
+    </label>
+    <span id="admin-unassigned-pill" class="admin-unassigned-pill">⚠ N ללא תאריך</span>
+    <button id="admin-upload-submit" class="admin-upload-submit" disabled>העלאה</button>
+  </div>
+  <div id="admin-upload-previews" class="admin-upload-previews"></div>
+</div>
+
+<!-- Day journey modal — click a calendar day to open. -->
+<div id="journey-modal-overlay" class="journey-modal-overlay" role="dialog" aria-modal="true">
+  <div id="journey-modal" class="journey-modal">
+    <div class="journey-modal-header">
+      <span id="journey-modal-title" class="journey-modal-title">יום</span>
+      <button class="journey-modal-close" id="journey-modal-close" aria-label="סגור">✕</button>
+    </div>
+    <div id="journey-mini-map" class="journey-mini-map" hidden></div>
+    <div id="journey-photo-grid" class="journey-photo-grid"></div>
+    <div id="journey-empty" class="journey-empty" hidden>אין עדיין תמונות מהיום הזה.</div>
+    <textarea id="journey-note" class="journey-note" rows="2" placeholder="הערה ליום…" readonly></textarea>
+    <button id="journey-note-save" class="journey-note-save">שמור הערה</button>
+  </div>
+</div>
 
 <!-- ==================== HERO ==================== -->
 <div class="hero" id="top">
@@ -1599,6 +1869,9 @@
 <script>
 // ============ MAP ============
 const map = L.map('map', { center: [37, -50], zoom: 3, zoomControl: true, scrollWheelZoom: true });
+// Expose the map so the journey script (loaded below) can drop photo pins
+// onto the same canvas without re-initialising Leaflet.
+window._tripMap = map;
 
 L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
   attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/">CARTO</a>',
@@ -1817,6 +2090,440 @@ document.querySelectorAll('.timeline-item').forEach(item => {
   item.style.animationPlayState = 'paused';
   timelineObserver.observe(item);
 });
+</script>
+
+<!-- Client libs for the journey feature. `exifr` extracts photo date + GPS;
+     `browser-image-compression` resizes HEIC/JPEG before upload so we stay
+     inside the Vercel Blob Hobby-tier quota. Both are CDN'd because
+     trip.html is a standalone static file, not bundled by Next.js. -->
+<script src="https://unpkg.com/exifr@7.1.3/dist/full.umd.js"></script>
+<script src="https://unpkg.com/browser-image-compression@2.0.2/dist/browser-image-compression.js"></script>
+
+<script>
+// ============ TRIP JOURNEY ============
+(function initJourney() {
+  // ----- constants & state -----
+  const TRIP_START = '2026-04-15';
+  const TRIP_END   = '2026-05-20';
+
+  const urlParams = new URLSearchParams(window.location.search);
+  const isAdminMode = urlParams.get('admin') === '1';
+  const ADMIN_TOKEN_KEY = 'hatomim-trip-admin-token';
+
+  // Cache: dayDate -> { dayDate, photos: [], note: '' } once fetched.
+  const dayCache = new Map();
+  // journey pins layer group on the main Leaflet map (if present).
+  const mainMap = window._tripMap || null;
+  const journeyLayer = mainMap ? L.layerGroup().addTo(mainMap) : null;
+
+  // ----- tiny helpers -----
+  function adminToken() {
+    return localStorage.getItem(ADMIN_TOKEN_KEY) || '';
+  }
+  async function fetchJourneySummary() {
+    const res = await fetch('/api/trip/journey', { cache: 'no-store' });
+    if (!res.ok) throw new Error('summary fetch failed');
+    return res.json();
+  }
+  async function fetchDay(dayDate) {
+    if (dayCache.has(dayDate)) return dayCache.get(dayDate);
+    const res = await fetch(`/api/trip/journey/${dayDate}`, { cache: 'no-store' });
+    if (!res.ok) throw new Error('day fetch failed');
+    const doc = await res.json();
+    dayCache.set(dayDate, doc);
+    return doc;
+  }
+  function formatTime(iso) {
+    const m = /T(\d{2}:\d{2})/.exec(iso);
+    return m ? m[1] : '';
+  }
+
+  // ----- calendar decoration -----
+  async function decorateCalendar(summary) {
+    const cells = document.querySelectorAll('.cal-day:not(.empty)');
+    const byDate = new Map(summary.days.map(d => [d.dayDate, d]));
+    cells.forEach(cell => {
+      // Each cell has a day-num child with the day-of-month; the month is
+      // inferred from which renderMonth() pass inserted it — we walk the
+      // previous siblings to find the cal-month-label.
+      const numEl = cell.querySelector('.day-num');
+      if (!numEl) return;
+      const day = parseInt(numEl.textContent, 10);
+      if (!day) return;
+      let label = cell.previousElementSibling;
+      while (label && !label.classList.contains('cal-month-label')) {
+        label = label.previousElementSibling;
+      }
+      if (!label) return;
+      const monthText = label.textContent || '';
+      const month = monthText.includes('April') ? 4 : monthText.includes('May') ? 5 : null;
+      if (!month) return;
+      const dayDate = `2026-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+
+      // Wire a click handler on every trip-range cell, regardless of photos.
+      if (dayDate >= TRIP_START && dayDate <= TRIP_END) {
+        cell.addEventListener('click', () => openDayModal(dayDate));
+        cell.style.cursor = 'pointer';
+      }
+
+      const hit = byDate.get(dayDate);
+      if (!hit) return;
+      cell.dataset.hasPhotos = 'true';
+      // Avoid double badges on re-decorate after uploads.
+      cell.querySelector('.photo-badge')?.remove();
+      const badge = document.createElement('span');
+      badge.className = 'photo-badge';
+      badge.textContent = `📸 ${hit.photoCount}`;
+      cell.appendChild(badge);
+    });
+
+    // Drop GPS pins on the main Leaflet map for every photo with coords.
+    if (journeyLayer) {
+      journeyLayer.clearLayers();
+      for (const d of summary.days) {
+        if (!d.photoCount) continue;
+        // Pull the full day to get GPS data. Batched in parallel.
+        fetchDay(d.dayDate).then(doc => {
+          for (const p of doc.photos || []) {
+            if (typeof p.latitude !== 'number' || typeof p.longitude !== 'number') continue;
+            L.circleMarker([p.latitude, p.longitude], {
+              radius: 5,
+              color: '#ff8fb1',
+              weight: 2,
+              fillColor: '#fd79a8',
+              fillOpacity: 0.9,
+            })
+              .bindTooltip(`${d.dayDate} · ${formatTime(p.takenAt)}`)
+              .addTo(journeyLayer);
+          }
+        }).catch(() => {});
+      }
+    }
+  }
+
+  // ----- day modal -----
+  const overlay    = document.getElementById('journey-modal-overlay');
+  const modal      = document.getElementById('journey-modal');
+  const titleEl    = document.getElementById('journey-modal-title');
+  const closeBtn   = document.getElementById('journey-modal-close');
+  const gridEl     = document.getElementById('journey-photo-grid');
+  const emptyEl    = document.getElementById('journey-empty');
+  const noteEl     = document.getElementById('journey-note');
+  const noteSave   = document.getElementById('journey-note-save');
+  const miniMapEl  = document.getElementById('journey-mini-map');
+  let miniMap = null;
+  let currentDay = null;
+
+  function closeModal() {
+    overlay.classList.remove('open');
+    currentDay = null;
+  }
+  overlay.addEventListener('click', e => { if (e.target === overlay) closeModal(); });
+  closeBtn.addEventListener('click', closeModal);
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+
+  async function openDayModal(dayDate) {
+    currentDay = dayDate;
+    titleEl.textContent = `📅 ${dayDate}`;
+    gridEl.innerHTML = '<div class="journey-empty">טוען…</div>';
+    emptyEl.hidden = true;
+    noteEl.value = '';
+    overlay.classList.add('open');
+
+    if (isAdminMode && adminToken()) {
+      modal.classList.add('admin');
+      noteEl.removeAttribute('readonly');
+    } else {
+      modal.classList.remove('admin');
+      noteEl.setAttribute('readonly', 'readonly');
+    }
+
+    let doc;
+    try {
+      doc = await fetchDay(dayDate);
+    } catch (err) {
+      gridEl.innerHTML = '<div class="journey-empty">שגיאה בטעינה.</div>';
+      return;
+    }
+    noteEl.value = doc.note || '';
+
+    gridEl.innerHTML = '';
+    if (!doc.photos || !doc.photos.length) {
+      emptyEl.hidden = false;
+      miniMapEl.hidden = true;
+      return;
+    }
+    for (const p of doc.photos) {
+      const cell = document.createElement('div');
+      cell.className = 'journey-photo';
+      cell.innerHTML = `
+        <a href="${p.blobUrl}" target="_blank" rel="noopener noreferrer">
+          <img src="${p.blobUrl}" loading="lazy" alt="photo" />
+        </a>
+        <span class="photo-time">${formatTime(p.takenAt)}</span>
+        ${typeof p.latitude !== 'number' ? '<span class="photo-no-gps">📍 אין מיקום</span>' : ''}
+        <button class="photo-delete" data-blob="${p.blobPath}" title="מחק">✕</button>
+      `;
+      cell.querySelector('.photo-delete').addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        onDeletePhoto(p.blobPath);
+      });
+      gridEl.appendChild(cell);
+    }
+
+    // Mini-map for this day's photos with GPS.
+    const pts = doc.photos
+      .filter(p => typeof p.latitude === 'number' && typeof p.longitude === 'number')
+      .map(p => [p.latitude, p.longitude]);
+    if (pts.length) {
+      miniMapEl.hidden = false;
+      if (!miniMap) {
+        miniMap = L.map(miniMapEl, { attributionControl: false, zoomControl: false });
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png', {
+          subdomains: 'abcd', maxZoom: 20,
+        }).addTo(miniMap);
+      } else {
+        miniMap.invalidateSize();
+        miniMap.eachLayer(l => { if (l instanceof L.CircleMarker) miniMap.removeLayer(l); });
+      }
+      pts.forEach(([lat, lng]) => {
+        L.circleMarker([lat, lng], { radius: 6, color: '#fd79a8', fillColor: '#fd79a8', fillOpacity: 0.9 }).addTo(miniMap);
+      });
+      miniMap.fitBounds(pts, { padding: [24, 24], maxZoom: 14 });
+    } else {
+      miniMapEl.hidden = true;
+    }
+  }
+
+  noteSave.addEventListener('click', async () => {
+    if (!currentDay) return;
+    const token = adminToken();
+    if (!token) return;
+    try {
+      const res = await fetch(`/api/trip/journey/${currentDay}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', 'X-Admin-Token': token },
+        body: JSON.stringify({ note: noteEl.value }),
+      });
+      if (!res.ok) throw new Error(`save note failed ${res.status}`);
+      dayCache.delete(currentDay);
+      noteSave.textContent = '✓ נשמר';
+      setTimeout(() => { noteSave.textContent = 'שמור הערה'; }, 1400);
+    } catch (err) {
+      console.error(err);
+      noteSave.textContent = '✗ שגיאה';
+    }
+  });
+
+  async function onDeletePhoto(blobPath) {
+    if (!currentDay) return;
+    if (!confirm('למחוק את התמונה?')) return;
+    const token = adminToken();
+    if (!token) return;
+    try {
+      const res = await fetch(`/api/trip/journey/${currentDay}/photos`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json', 'X-Admin-Token': token },
+        body: JSON.stringify({ blobPath }),
+      });
+      if (!res.ok) throw new Error(`delete failed ${res.status}`);
+      dayCache.delete(currentDay);
+      await openDayModal(currentDay);
+      const summary = await fetchJourneySummary();
+      document.querySelectorAll('.cal-day .photo-badge').forEach(el => el.remove());
+      document.querySelectorAll('.cal-day').forEach(el => delete el.dataset.hasPhotos);
+      await decorateCalendar(summary);
+    } catch (err) {
+      console.error(err);
+      alert('שגיאה במחיקה');
+    }
+  }
+
+  // ----- admin upload panel -----
+  const adminPanel    = document.getElementById('admin-upload-panel');
+  const adminDrop     = document.getElementById('admin-upload-drop');
+  const adminInput    = document.getElementById('admin-upload-input');
+  const adminSubmit   = document.getElementById('admin-upload-submit');
+  const adminPreviews = document.getElementById('admin-upload-previews');
+  const unassignedPill = document.getElementById('admin-unassigned-pill');
+  let pendingFiles = []; // { file, resized, takenAt, latitude, longitude, dayDate, row }
+
+  function addPreviewRow(label, kind) {
+    const row = document.createElement('div');
+    row.className = `admin-upload-row-item${kind ? ' ' + kind : ''}`;
+    row.textContent = label;
+    adminPreviews.appendChild(row);
+    return row;
+  }
+
+  async function ingestFiles(fileList) {
+    const files = Array.from(fileList || []);
+    if (!files.length) return;
+    for (const file of files) {
+      const row = addPreviewRow(`${file.name} — מנתח EXIF…`);
+      let exif = null;
+      try {
+        exif = await window.exifr.parse(file, {
+          gps: true,
+          pick: ['DateTimeOriginal', 'OffsetTimeOriginal', 'latitude', 'longitude'],
+        });
+      } catch {/* unreadable file; treat as unassigned */}
+
+      let takenAt = null;
+      if (exif?.DateTimeOriginal instanceof Date) {
+        // Build an ISO string using the offset if present; else assume the
+        // trip's local offset (UTC-4 for NYC in April). The offset only
+        // affects display; the server slices dayDate directly from this.
+        const dt = exif.DateTimeOriginal;
+        const offset = exif.OffsetTimeOriginal || '-04:00';
+        const pad = n => String(n).padStart(2, '0');
+        takenAt = `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())}T${pad(dt.getHours())}:${pad(dt.getMinutes())}:${pad(dt.getSeconds())}${offset}`;
+      }
+      const latitude  = typeof exif?.latitude  === 'number' ? exif.latitude  : null;
+      const longitude = typeof exif?.longitude === 'number' ? exif.longitude : null;
+
+      // Client-side resize — max 2000 px, ~0.8 MB target, JPEG.
+      let resized = file;
+      try {
+        resized = await window.imageCompression(file, {
+          maxSizeMB: 0.8,
+          maxWidthOrHeight: 2000,
+          useWebWorker: true,
+          fileType: 'image/jpeg',
+          initialQuality: 0.82,
+        });
+      } catch (err) {
+        console.warn('resize failed, using original', file.name, err);
+      }
+
+      const dayDate = takenAt ? takenAt.slice(0, 10) : null;
+      const sizeKB = Math.round(resized.size / 1024);
+      const geoLabel = (latitude && longitude) ? '📍' : '📵';
+      row.className = 'admin-upload-row-item ok';
+      row.textContent = `${file.name} → ${dayDate || '⚠ ללא תאריך'} · ${geoLabel} · ${sizeKB} KB`;
+
+      pendingFiles.push({
+        file, resized, takenAt, latitude, longitude,
+        originalMime: file.type || undefined,
+        row,
+      });
+    }
+    adminSubmit.disabled = pendingFiles.length === 0;
+  }
+
+  async function uploadPending() {
+    const token = adminToken();
+    if (!token) {
+      alert('חסר admin token');
+      return;
+    }
+    adminSubmit.disabled = true;
+    adminSubmit.textContent = 'מעלה…';
+
+    // Simple parallel pool of 4 concurrent uploads.
+    const queue = pendingFiles.slice();
+    pendingFiles = [];
+    let inFlight = 0;
+    await new Promise(resolve => {
+      function kick() {
+        while (inFlight < 4 && queue.length) {
+          const entry = queue.shift();
+          inFlight++;
+          uploadOne(entry, token).finally(() => {
+            inFlight--;
+            if (!queue.length && inFlight === 0) resolve();
+            else kick();
+          });
+        }
+      }
+      if (!queue.length) resolve();
+      else kick();
+    });
+
+    adminSubmit.textContent = 'העלאה';
+    // Refresh calendar badges + map pins.
+    dayCache.clear();
+    try {
+      const summary = await fetchJourneySummary();
+      document.querySelectorAll('.cal-day .photo-badge').forEach(el => el.remove());
+      document.querySelectorAll('.cal-day').forEach(el => delete el.dataset.hasPhotos);
+      await decorateCalendar(summary);
+      updateUnassignedPill(summary.unassignedCount || 0);
+    } catch {/* ignore */}
+  }
+
+  async function uploadOne(entry, token) {
+    const fd = new FormData();
+    fd.append('file', entry.resized, entry.file.name.replace(/\.[^.]+$/, '') + '.jpg');
+    if (entry.takenAt) fd.append('takenAt', entry.takenAt);
+    if (typeof entry.latitude  === 'number') fd.append('latitude',  String(entry.latitude));
+    if (typeof entry.longitude === 'number') fd.append('longitude', String(entry.longitude));
+    if (entry.originalMime) fd.append('originalMime', entry.originalMime);
+    try {
+      const res = await fetch('/api/trip/journey/upload', {
+        method: 'POST',
+        headers: { 'X-Admin-Token': token },
+        body: fd,
+      });
+      if (!res.ok) throw new Error(`upload ${res.status}`);
+      const data = await res.json();
+      entry.row.className = 'admin-upload-row-item ok';
+      entry.row.textContent += data.unassigned ? ' ✓ (לא שויך)' : ' ✓';
+    } catch (err) {
+      console.error(err);
+      entry.row.className = 'admin-upload-row-item err';
+      entry.row.textContent += ' ✗ נכשל';
+    }
+  }
+
+  function updateUnassignedPill(n) {
+    if (n > 0) {
+      unassignedPill.textContent = `⚠ ${n} ללא תאריך`;
+      unassignedPill.classList.add('visible');
+    } else {
+      unassignedPill.classList.remove('visible');
+    }
+  }
+
+  // Drag-drop + file picker
+  if (adminInput) {
+    adminInput.addEventListener('change', e => ingestFiles(e.target.files));
+  }
+  if (adminDrop) {
+    ['dragenter', 'dragover'].forEach(type =>
+      adminDrop.addEventListener(type, e => { e.preventDefault(); adminDrop.classList.add('hover'); })
+    );
+    ['dragleave', 'drop'].forEach(type =>
+      adminDrop.addEventListener(type, e => { e.preventDefault(); adminDrop.classList.remove('hover'); })
+    );
+    adminDrop.addEventListener('drop', e => ingestFiles(e.dataTransfer?.files));
+  }
+  if (adminSubmit) adminSubmit.addEventListener('click', uploadPending);
+
+  // ----- bootstrap -----
+  async function boot() {
+    if (isAdminMode) {
+      if (!adminToken()) {
+        const t = prompt('Admin token:');
+        if (t) localStorage.setItem(ADMIN_TOKEN_KEY, t);
+      }
+      adminPanel.hidden = false;
+      adminPanel.classList.add('active');
+    }
+    try {
+      const summary = await fetchJourneySummary();
+      await decorateCalendar(summary);
+      if (isAdminMode) updateUnassignedPill(summary.unassignedCount || 0);
+    } catch (err) {
+      console.warn('journey init failed', err);
+    }
+  }
+
+  // The calendar is rendered synchronously above by buildCalendar(); kick off
+  // on the next tick so cells are in the DOM.
+  setTimeout(boot, 0);
+})();
 </script>
 
 </body>
