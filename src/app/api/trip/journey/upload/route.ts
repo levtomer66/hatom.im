@@ -3,6 +3,7 @@ import { put } from '@vercel/blob';
 import { randomUUID } from 'crypto';
 import { requireTripAdmin } from '@/lib/tripAdmin';
 import { appendPhoto } from '@/models/TripJourney';
+import { reverseGeocode } from '@/lib/reverseGeocode';
 import { JourneyPhoto, UNASSIGNED_DAY } from '@/types/trip';
 
 // Trip window — photos whose EXIF date falls outside this land in the
@@ -79,10 +80,15 @@ export async function POST(req: NextRequest) {
   const blobPath = `trip/${dayDate}/${id}.jpg`;
 
   try {
-    const blob = await put(blobPath, file, {
-      access: 'public',
-      contentType: 'image/jpeg',
-    });
+    // Fire the Blob put + Nominatim reverse-geocode in parallel — they don't
+    // depend on each other and we'd rather have the photo live with or
+    // without a label than block on geocoding. `reverseGeocode` never
+    // throws; it returns null on any failure.
+    const geocodePromise = hasGps ? reverseGeocode(latitude!, longitude!) : Promise.resolve(null);
+    const [blob, locationLabel] = await Promise.all([
+      put(blobPath, file, { access: 'public', contentType: 'image/jpeg' }),
+      geocodePromise,
+    ]);
 
     const photo: JourneyPhoto = {
       blobUrl:  blob.url,
@@ -90,6 +96,7 @@ export async function POST(req: NextRequest) {
       takenAt:  effectiveTakenAt,
       latitude:  hasGps ? latitude  : undefined,
       longitude: hasGps ? longitude : undefined,
+      locationLabel: locationLabel ?? undefined,
       caption:  captionRaw && captionRaw.length > 0 ? captionRaw : undefined,
       sizeBytes: file.size,
       originalMime,

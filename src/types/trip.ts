@@ -14,6 +14,10 @@ export interface JourneyPhoto {
   // Optional EXIF GPS. Absent when iOS "Include Location" was off on share.
   latitude?: number;
   longitude?: number;
+  // Human-readable location resolved from lat/lng at upload time (Nominatim).
+  // Examples: "Times Square", "Hotel Zoe", "Highway 1, Big Sur". Absent when
+  // GPS is missing, or when the reverse-geocode call fails/times out.
+  locationLabel?: string;
   // Optional user caption for the individual photo.
   caption?: string;
   // Post-resize byte size (so we can audit quota use in the admin UI).

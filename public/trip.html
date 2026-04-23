@@ -925,6 +925,96 @@
     color: #1a1400;
     font-weight: 600;
   }
+  .journey-photo .photo-location {
+    position: absolute;
+    bottom: 4px;
+    inset-inline-start: 6px;
+    inset-inline-end: 6px;
+    font-size: 0.62rem;
+    padding: 2px 6px;
+    border-radius: 5px;
+    background: rgba(0, 0, 0, 0.68);
+    color: #e0f8f7;
+    font-weight: 500;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    backdrop-filter: blur(3px);
+  }
+
+  /* Full-screen photo lightbox — opens inside the site rather than linking
+     the raw Blob URL, so we can render captions + location alongside. */
+  .photo-lightbox {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.95);
+    z-index: 2000;
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 1.5rem;
+    direction: rtl;
+  }
+  .photo-lightbox.open { display: flex; }
+  .photo-lightbox img {
+    max-width: 100%;
+    max-height: 78vh;
+    object-fit: contain;
+    border-radius: 10px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+  }
+  .photo-lightbox .lb-meta {
+    margin-top: 1rem;
+    text-align: center;
+    color: #e0e0f0;
+    max-width: 720px;
+  }
+  .photo-lightbox .lb-time {
+    font-size: 0.85rem;
+    color: var(--text-dim);
+    font-variant-numeric: tabular-nums;
+  }
+  .photo-lightbox .lb-location {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--accent2);
+    margin-top: 0.25rem;
+  }
+  .photo-lightbox .lb-caption {
+    font-size: 0.9rem;
+    color: #c8c0ff;
+    margin-top: 0.45rem;
+  }
+  .photo-lightbox .lb-close {
+    position: absolute;
+    top: 1rem;
+    inset-inline-end: 1rem;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: white;
+    font-size: 1.3rem;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .photo-lightbox .lb-close:hover { background: rgba(255, 255, 255, 0.2); }
+  .photo-lightbox .lb-external {
+    position: absolute;
+    top: 1rem;
+    inset-inline-start: 1rem;
+    color: var(--text-dim);
+    font-size: 0.8rem;
+    text-decoration: none;
+    padding: 6px 10px;
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.08);
+  }
+  .photo-lightbox .lb-external:hover { color: white; }
   .journey-mini-map {
     width: 100%;
     height: 220px;
@@ -1058,6 +1148,18 @@
     <button id="admin-upload-submit" class="admin-upload-submit" disabled>העלאה</button>
   </div>
   <div id="admin-upload-previews" class="admin-upload-previews"></div>
+</div>
+
+<!-- Full-size photo lightbox — opened when clicking a photo in the day grid. -->
+<div id="photo-lightbox" class="photo-lightbox" role="dialog" aria-modal="true">
+  <button class="lb-close" id="photo-lightbox-close" aria-label="סגור">✕</button>
+  <a id="photo-lightbox-external" class="lb-external" target="_blank" rel="noopener noreferrer">פתח במקור ↗</a>
+  <img id="photo-lightbox-img" alt="" />
+  <div class="lb-meta">
+    <div id="photo-lightbox-time" class="lb-time"></div>
+    <div id="photo-lightbox-location" class="lb-location"></div>
+    <div id="photo-lightbox-caption" class="lb-caption"></div>
+  </div>
 </div>
 
 <!-- Day journey modal — click a calendar day to open. -->
@@ -2139,6 +2241,41 @@ document.querySelectorAll('.timeline-item').forEach(item => {
     const m = /T(\d{2}:\d{2})/.exec(iso);
     return m ? m[1] : '';
   }
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, c => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+    }[c]));
+  }
+  function escapeAttr(s) { return escapeHtml(s); }
+
+  // ----- photo lightbox -----
+  const lbOverlay   = document.getElementById('photo-lightbox');
+  const lbImg       = document.getElementById('photo-lightbox-img');
+  const lbTime      = document.getElementById('photo-lightbox-time');
+  const lbLocation  = document.getElementById('photo-lightbox-location');
+  const lbCaption   = document.getElementById('photo-lightbox-caption');
+  const lbClose     = document.getElementById('photo-lightbox-close');
+  const lbExternal  = document.getElementById('photo-lightbox-external');
+  function openLightbox(photo) {
+    lbImg.src = photo.blobUrl;
+    lbExternal.href = photo.blobUrl;
+    lbTime.textContent = formatTime(photo.takenAt);
+    lbLocation.textContent = photo.locationLabel
+      ? `📍 ${photo.locationLabel}`
+      : (typeof photo.latitude === 'number' ? '📍 מיקום נרשם' : '');
+    lbCaption.textContent = photo.caption || '';
+    lbOverlay.classList.add('open');
+  }
+  function closeLightbox() {
+    lbOverlay.classList.remove('open');
+    // Drop the big image source so the browser can free it.
+    lbImg.removeAttribute('src');
+  }
+  lbClose.addEventListener('click', closeLightbox);
+  lbOverlay.addEventListener('click', e => { if (e.target === lbOverlay) closeLightbox(); });
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && lbOverlay.classList.contains('open')) closeLightbox();
+  });
 
   // ----- calendar decoration -----
   async function decorateCalendar(summary) {
@@ -2262,14 +2399,24 @@ document.querySelectorAll('.timeline-item').forEach(item => {
     for (const p of doc.photos) {
       const cell = document.createElement('div');
       cell.className = 'journey-photo';
+      // Build the overlay bits conditionally so an un-geocoded photo with
+      // GPS simply shows no bottom label (rather than an empty pill).
+      let bottomOverlay = '';
+      if (p.locationLabel) {
+        bottomOverlay = `<span class="photo-location" title="${escapeAttr(p.locationLabel)}">📍 ${escapeHtml(p.locationLabel)}</span>`;
+      } else if (typeof p.latitude !== 'number') {
+        bottomOverlay = '<span class="photo-no-gps">📵 אין מיקום</span>';
+      }
       cell.innerHTML = `
-        <a href="${p.blobUrl}" target="_blank" rel="noopener noreferrer">
-          <img src="${p.blobUrl}" loading="lazy" alt="photo" />
-        </a>
+        <img src="${p.blobUrl}" loading="lazy" alt="" />
         <span class="photo-time">${formatTime(p.takenAt)}</span>
-        ${typeof p.latitude !== 'number' ? '<span class="photo-no-gps">📍 אין מיקום</span>' : ''}
+        ${bottomOverlay}
         <button class="photo-delete" data-blob="${p.blobPath}" title="מחק">✕</button>
       `;
+      // Clicking anywhere on the cell (except the delete button) opens
+      // the lightbox with the full-res image + its location label.
+      cell.style.cursor = 'zoom-in';
+      cell.addEventListener('click', () => openLightbox(p));
       cell.querySelector('.photo-delete').addEventListener('click', (e) => {
         e.preventDefault();
         e.stopPropagation();
