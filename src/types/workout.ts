@@ -1,3 +1,15 @@
+// Display unit for weights. Storage is always kg — this is a per-device
+// display preference. Input values typed in lb are converted to kg before
+// they hit Mongo, and kg values from the DB are converted to lb for
+// display when the user has selected lb. PBs, history, and
+// recommendations all stay in kg internally so cross-user comparisons
+// remain consistent.
+export type WeightUnit = 'kg' | 'lb';
+export const WEIGHT_UNITS: readonly WeightUnit[] = ['kg', 'lb'];
+export function isWeightUnit(v: unknown): v is WeightUnit {
+  return v === 'kg' || v === 'lb';
+}
+
 // Language selection
 export type Language = 'en' | 'he';
 

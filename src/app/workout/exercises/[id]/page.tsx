@@ -4,8 +4,10 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useWorkoutUser } from '@/context/WorkoutUserContext';
 import { useWorkoutLanguage } from '@/context/WorkoutLanguageContext';
+import { useWorkoutUnit } from '@/context/WorkoutUnitContext';
 import { useT, formatDate, getCategoryLabel, getLocalizedTemplateName } from '@/lib/workout-i18n';
 import { getLocalizedExercise } from '@/lib/exercise-translations';
+import { formatWeight, getUnitSuffix } from '@/lib/weight';
 import LoginScreen from '@/components/workout/LoginScreen';
 import Header from '@/components/workout/Header';
 import BottomNav from '@/components/workout/BottomNav';
@@ -18,7 +20,9 @@ export default function ExerciseDetailPage() {
   const router = useRouter();
   const { currentUser, isLoading } = useWorkoutUser();
   const { language } = useWorkoutLanguage();
+  const { unit } = useWorkoutUnit();
   const t = useT();
+  const unitSuffix = getUnitSuffix(unit, language);
   
   const exerciseId = params?.id as string;
   
@@ -221,7 +225,7 @@ export default function ExerciseDetailPage() {
                     >
                       <span style={{ fontSize: '20px' }}>🥇</span>
                       <span style={{ fontWeight: 700, color: 'var(--workout-gold)' }}>
-                        {t('exercise_detail.pb_label')}: {pb.completedKg}{t('card.kg_suffix')} ({pb.completedReps.join('×')})
+                        {t('exercise_detail.pb_label')}: {formatWeight(pb.completedKg, unit)}{unitSuffix} ({pb.completedReps.join('×')})
                       </span>
                     </div>
                   ) : (
@@ -238,7 +242,7 @@ export default function ExerciseDetailPage() {
                     >
                       <span style={{ fontSize: '20px' }}>💪</span>
                       <span style={{ fontWeight: 700, color: 'var(--workout-text-secondary)' }}>
-                        {t('exercise_detail.working_label')}: {pb.currentKg}{t('card.kg_suffix')} ({pb.currentReps.join('×')})
+                        {t('exercise_detail.working_label')}: {formatWeight(pb.currentKg, unit)}{unitSuffix} ({pb.currentReps.join('×')})
                       </span>
                     </div>
                   )}
@@ -255,7 +259,7 @@ export default function ExerciseDetailPage() {
                   >
                     <span>💡</span>
                     <span style={{ color: 'var(--workout-accent)' }}>
-                      {t('exercise_detail.next_rec_label')}: <strong>{pb.recommendedKg}{t('card.kg_suffix')}</strong>
+                      {t('exercise_detail.next_rec_label')}: <strong>{formatWeight(pb.recommendedKg, unit)}{unitSuffix}</strong>
                     </span>
                   </div>
                 </div>
@@ -337,7 +341,7 @@ export default function ExerciseDetailPage() {
                     >
                       <span style={{ color: 'var(--workout-text-secondary)' }}>S{setIndex + 1}: </span>
                       <span style={{ fontWeight: 600 }}>
-                        {set.kg ?? '-'}{t('card.kg_suffix')} × {set.reps ?? '-'}
+                        {formatWeight(set.kg, unit)}{unitSuffix} × {set.reps ?? '-'}
                       </span>
                     </div>
                   ))}

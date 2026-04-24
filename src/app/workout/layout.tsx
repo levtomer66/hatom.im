@@ -1,6 +1,7 @@
 import { Metadata, Viewport } from 'next';
 import { WorkoutUserProvider } from '@/context/WorkoutUserContext';
 import { WorkoutLanguageProvider } from '@/context/WorkoutLanguageContext';
+import { WorkoutUnitProvider } from '@/context/WorkoutUnitContext';
 import WorkoutShell from '@/components/workout/WorkoutShell';
 import './workout.css';
 
@@ -25,11 +26,13 @@ export default function WorkoutLayout({
   // by the shell itself (e.g. the help FAB) can read the current user.
   return (
     <WorkoutLanguageProvider>
-      <WorkoutUserProvider>
-        <WorkoutShell>
-          {children}
-        </WorkoutShell>
-      </WorkoutUserProvider>
+      <WorkoutUnitProvider>
+        <WorkoutUserProvider>
+          <WorkoutShell>
+            {children}
+          </WorkoutShell>
+        </WorkoutUserProvider>
+      </WorkoutUnitProvider>
     </WorkoutLanguageProvider>
   );
 }

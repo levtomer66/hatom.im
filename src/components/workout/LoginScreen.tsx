@@ -5,6 +5,7 @@ import { useWorkoutUser } from '@/context/WorkoutUserContext';
 import { USERS } from '@/types/workout';
 import { useT } from '@/lib/workout-i18n';
 import LanguageToggle from './LanguageToggle';
+import WeightUnitToggle from './WeightUnitToggle';
 
 export default function LoginScreen() {
   const { setCurrentUser } = useWorkoutUser();
@@ -12,7 +13,8 @@ export default function LoginScreen() {
 
   return (
     <div className="login-container">
-      <div style={{ position: 'absolute', top: '16px', insetInlineEnd: '16px' }}>
+      <div style={{ position: 'absolute', top: '16px', insetInlineEnd: '16px', display: 'flex', gap: '8px', alignItems: 'center' }}>
+        <WeightUnitToggle />
         <LanguageToggle />
       </div>
 

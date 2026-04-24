@@ -4,8 +4,10 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useWorkoutUser } from '@/context/WorkoutUserContext';
 import { useWorkoutLanguage } from '@/context/WorkoutLanguageContext';
+import { useWorkoutUnit } from '@/context/WorkoutUnitContext';
 import { useT, getCategoryLabel } from '@/lib/workout-i18n';
 import { getLocalizedExercise, getExerciseSearchNames } from '@/lib/exercise-translations';
+import { formatWeight, getUnitSuffix } from '@/lib/weight';
 import LoginScreen from '@/components/workout/LoginScreen';
 import Header from '@/components/workout/Header';
 import BottomNav from '@/components/workout/BottomNav';
@@ -21,7 +23,9 @@ export default function ExercisesPage() {
   const router = useRouter();
   const { currentUser, isLoading } = useWorkoutUser();
   const { language } = useWorkoutLanguage();
+  const { unit } = useWorkoutUnit();
   const t = useT();
+  const unitSuffix = getUnitSuffix(unit, language);
 
   const [personalBests, setPersonalBests] = useState<Record<string, PersonalBest>>({});
   const [customExercises, setCustomExercises] = useState<ExerciseDefinition[]>([]);
@@ -218,12 +222,12 @@ export default function ExercisesPage() {
                       <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
                         {pb && pb.completedKg !== null && (
                           <span style={{ fontSize: '13px', color: 'var(--workout-gold)' }}>
-                            🥇 {pb.completedKg}{t('card.kg_suffix')}: {pb.completedReps.join('×')}
+                            🥇 {formatWeight(pb.completedKg, unit)}{unitSuffix}: {pb.completedReps.join('×')}
                           </span>
                         )}
                         {pb && pb.completedKg === null && (
                           <span style={{ fontSize: '13px', color: 'var(--workout-text-secondary)' }}>
-                            💪 {pb.currentKg}{t('card.kg_suffix')}: {pb.currentReps.join('×')}
+                            💪 {formatWeight(pb.currentKg, unit)}{unitSuffix}: {pb.currentReps.join('×')}
                           </span>
                         )}
                         {pb && (
@@ -234,7 +238,7 @@ export default function ExercisesPage() {
                             padding: '2px 6px',
                             borderRadius: '4px',
                           }}>
-                            {language === 'he' ? 'הבא' : 'Next'}: {pb.recommendedKg}{t('card.kg_suffix')}
+                            {language === 'he' ? 'הבא' : 'Next'}: {formatWeight(pb.recommendedKg, unit)}{unitSuffix}
                           </span>
                         )}
                         {exercise.isCustom && (

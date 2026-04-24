@@ -6,7 +6,15 @@ import { getExerciseById } from '@/data/exercise-library';
 import { getLocalizedExercise } from '@/lib/exercise-translations';
 import { useWorkoutUser } from '@/context/WorkoutUserContext';
 import { useWorkoutLanguage } from '@/context/WorkoutLanguageContext';
+import { useWorkoutUnit } from '@/context/WorkoutUnitContext';
 import { useT, formatDate, getLocalizedTemplateName } from '@/lib/workout-i18n';
+import {
+  displayToKg,
+  formatWeight,
+  getUnitLabel,
+  getUnitSuffix,
+  roundForDisplay,
+} from '@/lib/weight';
 import ExerciseExternalLinks from './ExerciseExternalLinks';
 
 export interface ExerciseCardDraggable {
@@ -39,7 +47,10 @@ export default function ExerciseCard({
 }: ExerciseCardProps) {
   const { currentUser } = useWorkoutUser();
   const { language } = useWorkoutLanguage();
+  const { unit } = useWorkoutUnit();
   const t = useT();
+  const unitLabel = getUnitLabel(unit, language);
+  const unitSuffix = getUnitSuffix(unit, language);
 
   // Use provided definition or fall back to library lookup
   const exerciseDef = exerciseDefinition || getExerciseById(exercise.exerciseId);
@@ -182,17 +193,34 @@ export default function ExerciseCard({
 
   const handleKgChange = (setIndex: number, value: string) => {
     if (!onUpdate) return;
-    
+
     if (value !== '' && !/^\d*\.?\d*$/.test(value)) return;
-    
-    const numValue = value === '' ? null : parseFloat(value);
-    if (value !== '' && numValue !== null && (isNaN(numValue) || numValue < 0 || numValue > 999)) return;
-    
+
+    // `value` is whatever the user typed in the ACTIVE unit. The bound
+    // `value` on <input> is also in the active unit, so the stored kg is
+    // derived from it on change. Storage stays kg-canonical so PBs and
+    // history remain consistent across devices / users.
+    const displayValue = value === '' ? null : parseFloat(value);
+    if (value !== '' && displayValue !== null && (isNaN(displayValue) || displayValue < 0 || displayValue > 999)) return;
+
+    // Round-trip guard against silent drift in lb mode: 20 kg renders as
+    // "44.1 lb"; if the user re-submits "44.1" untouched, naively
+    // converting back would store 19.9989… kg and falsify the PB.
+    // When the typed display value matches what the stored kg would
+    // render as, keep the canonical kg bit-exact and no-op.
+    const currentKg = exercise.sets[setIndex].kg;
+    const currentDisplay = currentKg === null ? null : roundForDisplay(currentKg, unit);
+    if (displayValue === currentDisplay) return;
+
+    const kgValue = displayValue === null ? null : displayToKg(displayValue, unit);
+
     const newSets = [...exercise.sets];
-    newSets[setIndex] = { ...newSets[setIndex], kg: numValue };
+    newSets[setIndex] = { ...newSets[setIndex], kg: kgValue };
     onUpdate({ ...exercise, sets: newSets });
-    
-    // Auto-jump when 3+ digits entered (before decimal)
+
+    // Auto-jump when 3+ digits entered (before decimal) — threshold applies
+    // to the string the user typed, not the stored kg, so the behaviour
+    // matches what they see on screen in either unit.
     const integerPart = value.split('.')[0];
     const nextRefIndex = setIndex * 2 + 1; // Index of reps input for same set
     if (integerPart.length >= 3 && !value.includes('.') && inputRefs.current[nextRefIndex]) {
@@ -250,9 +278,9 @@ export default function ExerciseCard({
   const formatSummary = () => {
     const setsWithData = exercise.sets.filter(s => s.kg !== null || s.reps !== null);
     if (setsWithData.length === 0) return '-';
-    
+
     return exercise.sets.map((s) => {
-      const kg = s.kg !== null ? `${s.kg}kg` : '-';
+      const kg = s.kg !== null ? `${formatWeight(s.kg, unit)}${unitSuffix}` : '-';
       const reps = s.reps !== null ? `${s.reps}` : '-';
       return `${kg}×${reps}`;
     }).join(' | ');
@@ -343,7 +371,7 @@ export default function ExerciseCard({
           )}
           {isEditable && recommendedScale && !hasData && (
             <div className="exercise-card-recommended" onClick={applyRecommendedScale}>
-              {t('card.recommended_prefix')} {recommendedScale}{t('card.kg_suffix')}
+              {t('card.recommended_prefix')} {formatWeight(recommendedScale, unit)}{unitSuffix}
             </div>
           )}
         </div>
@@ -395,17 +423,19 @@ export default function ExerciseCard({
               <div key={setIndex} className="exercise-set-row-edit">
                 <div className="set-number">{t('card.set_n')} {setIndex + 1}</div>
                 <div className="exercise-form-field">
-                  <label>{t('card.kg')}</label>
+                  <label>{unitLabel}</label>
                   <input
                     ref={(el) => { inputRefs.current[setIndex * 2] = el; }}
                     type="number"
                     inputMode="decimal"
                     enterKeyHint="next"
                     className="workout-input workout-input-number"
-                    value={set.kg ?? ''}
+                    // Display in the active unit; handleKgChange converts
+                    // back to kg before persisting.
+                    value={set.kg === null ? '' : (roundForDisplay(set.kg, unit) as number)}
                     onChange={(e) => handleKgChange(setIndex, e.target.value)}
                     onKeyDown={(e) => handleKeyDown(e, setIndex * 2 + 1)}
-                    placeholder={recommendedScale ? `${recommendedScale}` : '0'}
+                    placeholder={recommendedScale ? `${formatWeight(recommendedScale, unit)}` : '0'}
                     min="0"
                     max="999"
                     step="0.5"
@@ -447,7 +477,7 @@ export default function ExerciseCard({
             <div key={i} className="exercise-set-row">
               <span className="exercise-set-label">{t('card.set_n')} {i + 1}</span>
               <span>
-                {set.kg ?? '-'} {t('card.kg_suffix')} × {set.reps ?? '-'} {t('card.reps_suffix')}
+                {formatWeight(set.kg, unit)} {unitSuffix} × {set.reps ?? '-'} {t('card.reps_suffix')}
               </span>
             </div>
           ))}
@@ -465,7 +495,7 @@ export default function ExerciseCard({
       {/* Completion badge */}
       {isCompleted && !isEditable && (
         <div className="completion-badge">
-          {t('card.completed_at_prefix')} {highestKg}{t('card.kg_suffix')}
+          {t('card.completed_at_prefix')} {formatWeight(highestKg, unit)}{unitSuffix}
         </div>
       )}
 
@@ -548,7 +578,7 @@ export default function ExerciseCard({
                           >
                             <span style={{ color: 'var(--workout-text-secondary)' }}>S{setIndex + 1}: </span>
                             <span style={{ fontWeight: 600 }}>
-                              {set.kg ?? '-'}kg × {set.reps ?? '-'}
+                              {formatWeight(set.kg, unit)}{unitSuffix} × {set.reps ?? '-'}
                             </span>
                           </div>
                         ))}

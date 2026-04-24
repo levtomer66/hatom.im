@@ -4,6 +4,7 @@ import React from 'react';
 import { useWorkoutUser } from '@/context/WorkoutUserContext';
 import { useT } from '@/lib/workout-i18n';
 import LanguageToggle from './LanguageToggle';
+import WeightUnitToggle from './WeightUnitToggle';
 
 interface HeaderProps {
   title?: string;
@@ -41,6 +42,7 @@ export default function Header({ title, showBack, onBack }: HeaderProps) {
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <WeightUnitToggle size="sm" />
         <LanguageToggle size="sm" />
         {currentUser && (
           <button className="workout-header-user" onClick={logout}>
