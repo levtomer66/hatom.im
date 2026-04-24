@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useWorkoutUser } from '@/context/WorkoutUserContext';
 import { useWorkoutLanguage } from '@/context/WorkoutLanguageContext';
@@ -13,7 +13,7 @@ import Header from '@/components/workout/Header';
 import BottomNav from '@/components/workout/BottomNav';
 import ExerciseExternalLinks from '@/components/workout/ExerciseExternalLinks';
 import { ExerciseHistoryEntry, PersonalBest, ExerciseDefinition } from '@/types/workout';
-import { getExerciseById } from '@/data/exercise-library';
+import { getExerciseById, EXERCISE_LIBRARY } from '@/data/exercise-library';
 
 export default function ExerciseDetailPage() {
   const params = useParams();
@@ -29,38 +29,53 @@ export default function ExerciseDetailPage() {
   const [exercise, setExercise] = useState<ExerciseDefinition | null>(null);
   const [history, setHistory] = useState<ExerciseHistoryEntry[]>([]);
   const [personalBests, setPersonalBests] = useState<Record<string, PersonalBest>>({});
+  const [customExercises, setCustomExercises] = useState<ExerciseDefinition[]>([]);
   const [loadingExercise, setLoadingExercise] = useState(true);
   const [loadingHistory, setLoadingHistory] = useState(true);
 
-  // Fetch exercise info (check library first, then custom)
+  // Combined library + custom lookup — needed to resolve a "swapped from X"
+  // annotation back to a localized name when the old slot was a custom
+  // exercise. Without custom data we'd fall back to the opaque uuid.
+  const exerciseMap = useMemo(() => {
+    const map: Record<string, ExerciseDefinition> = {};
+    EXERCISE_LIBRARY.forEach(e => { map[e.id] = e; });
+    customExercises.forEach(e => { map[e.id] = e; });
+    return map;
+  }, [customExercises]);
+
+  const resolveExerciseName = useCallback((id: string): string => {
+    const def = exerciseMap[id];
+    return def ? getLocalizedExercise(def, language).name : id;
+  }, [exerciseMap, language]);
+
+  // Fetch exercise info (check library first, then custom). Also caches the
+  // full custom list on state so we can resolve names for any *replaced*
+  // exercise referenced in history, not just the currently-viewed one.
   const fetchExercise = useCallback(async () => {
     if (!exerciseId) return;
-    
-    // Check static library first
+
     const libraryExercise = getExerciseById(exerciseId);
     if (libraryExercise) {
       setExercise(libraryExercise);
-      setLoadingExercise(false);
-      return;
     }
-    
-    // If not in library, fetch from custom exercises
+
     if (!currentUser) {
       setLoadingExercise(false);
       return;
     }
-    
+
     try {
       const res = await fetch(`/api/workout/exercises/custom?userId=${currentUser.id}`);
       if (res.ok) {
-        const customExercises = await res.json();
-        const customExercise = customExercises.find((e: ExerciseDefinition) => e.id === exerciseId);
-        if (customExercise) {
-          setExercise(customExercise);
+        const customs: ExerciseDefinition[] = await res.json();
+        setCustomExercises(customs);
+        if (!libraryExercise) {
+          const match = customs.find(e => e.id === exerciseId);
+          if (match) setExercise(match);
         }
       }
     } catch (error) {
-      console.error('Error fetching custom exercise:', error);
+      console.error('Error fetching custom exercises:', error);
     } finally {
       setLoadingExercise(false);
     }
@@ -322,6 +337,15 @@ export default function ExerciseDetailPage() {
                       ? getLocalizedTemplateName(entry.workoutName, language)
                       : t('workout.title')}
                     {entry.order > 0 && ` · #${entry.order}`}
+                  </div>
+                )}
+                {entry.replacedFromExerciseId && (
+                  <div style={{
+                    fontSize: '12px',
+                    color: 'var(--workout-blue)',
+                    marginBottom: '8px',
+                  }}>
+                    ↻ {t('card.history_replaced_prefix')} {resolveExerciseName(entry.replacedFromExerciseId)}
                   </div>
                 )}
                 <div style={{

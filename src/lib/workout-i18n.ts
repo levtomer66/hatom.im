@@ -43,15 +43,18 @@ const DICT = {
   'card.completed_at_prefix':       { en: '✓ Completed at',                                 he: '✓ הושלם ב' },
   'card.tap_to_log':                { en: 'Tap to log sets',                                he: 'הקש כדי לתעד סטים' },
   'card.remove':                    { en: 'Remove exercise',                                he: 'הסר תרגיל' },
+  'card.replace':                   { en: 'Replace exercise',                               he: 'החלף תרגיל' },
   'card.drag_to_reorder':           { en: 'Drag to reorder',                                he: 'גרור כדי לשנות סדר' },
   'card.history_empty':             { en: 'No records yet for this exercise',               he: 'אין עדיין רישומים לתרגיל הזה' },
   'card.history_completed':         { en: '✓ Completed',                                    he: '✓ הושלם' },
+  'card.history_replaced_prefix':   { en: 'swapped from',                                   he: 'הוחלף מ־' },
   'card.notes_label':               { en: 'Notes',                                          he: 'הערות' },
   'card.kg_suffix':                 { en: 'kg',                                              he: 'ק"ג' },
   'card.reps_suffix':               { en: 'reps',                                            he: 'חזרות' },
 
   // Exercise picker
   'picker.title':                   { en: 'Add Exercises',                                  he: 'הוסף תרגילים' },
+  'picker.replace_title':           { en: 'Replace with…',                                  he: 'החלף ב…' },
   'picker.search':                  { en: 'Search exercises…',                              he: 'חפש תרגילים…' },
   'picker.none_found':              { en: 'No exercises found',                             he: 'לא נמצאו תרגילים' },
   'picker.custom_badge':            { en: 'Custom',                                         he: 'מותאם אישית' },

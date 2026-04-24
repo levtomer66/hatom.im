@@ -34,6 +34,7 @@ import { getLocalizedExercise, getExerciseSearchNames } from '@/lib/exercise-tra
 import { useWorkoutUser } from '@/context/WorkoutUserContext';
 import { useWorkoutLanguage } from '@/context/WorkoutLanguageContext';
 import { useT, getCategoryLabel } from '@/lib/workout-i18n';
+import ExercisePicker from './ExercisePicker';
 
 // Muscle group filter IDs (labels come from getCategoryLabel at render time).
 const MUSCLE_GROUP_IDS: ExerciseCategory[] = [
@@ -53,11 +54,13 @@ function SelectedExerciseRow({
   exerciseDef,
   onUpdate,
   onRemove,
+  onReplace,
 }: {
   entry: TemplateExercise;
   exerciseDef: ExerciseDefinition | undefined;
   onUpdate: (next: TemplateExercise) => void;
   onRemove: () => void;
+  onReplace: () => void;
 }) {
   const { language } = useWorkoutLanguage();
   const t = useT();
@@ -126,6 +129,16 @@ function SelectedExerciseRow({
         <button
           type="button"
           className="exercise-card-action"
+          onClick={onReplace}
+          title={t('card.replace')}
+          aria-label={t('card.replace')}
+          style={{ flexShrink: 0 }}
+        >
+          ↻
+        </button>
+        <button
+          type="button"
+          className="exercise-card-action"
           onClick={onRemove}
           title={t('card.remove')}
           style={{ flexShrink: 0 }}
@@ -161,6 +174,10 @@ export default function TemplateEditor({
   const [muscleFilters, setMuscleFilters] = useState<Set<ExerciseCategory>>(new Set());
   const [customExercises, setCustomExercises] = useState<ExerciseDefinition[]>([]);
   const [isSaving, setIsSaving] = useState(false);
+  // Index of the row the user tapped "replace" on. null = no replace flow
+  // active. Template replace is a pure id swap — numSets and notes are
+  // preserved, same as the active-workout flow keeps sets + logged data.
+  const [replaceRowIndex, setReplaceRowIndex] = useState<number | null>(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -279,6 +296,20 @@ export default function TemplateEditor({
     setSelectedExercises(prev => prev.filter((_, i) => i !== index));
   };
 
+  const replaceSelectedEntry = (index: number, newExerciseId: string) => {
+    setSelectedExercises(prev => {
+      const target = prev[index];
+      if (!target) return prev;
+      if (target.exerciseId === newExerciseId) return prev;
+      // Duplicate guard — the picker already excludes ids in the list, but
+      // the race between open and select is cheap to cover.
+      if (prev.some((e, i) => i !== index && e.exerciseId === newExerciseId)) return prev;
+      const copy = [...prev];
+      copy[index] = { ...target, exerciseId: newExerciseId };
+      return copy;
+    });
+  };
+
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
     if (!over || active.id === over.id) return;
@@ -350,6 +381,7 @@ export default function TemplateEditor({
   if (!isOpen) return null;
 
   return (
+    <>
     <div className="workout-modal-overlay" onClick={onClose}>
       <div className="workout-modal" onClick={(e) => e.stopPropagation()} style={{ maxHeight: '90vh' }}>
         <div className="workout-modal-header">
@@ -412,6 +444,7 @@ export default function TemplateEditor({
                         exerciseDef={exerciseMap[entry.exerciseId]}
                         onUpdate={(next) => updateSelectedEntry(index, next)}
                         onRemove={() => removeSelectedEntry(index)}
+                        onReplace={() => setReplaceRowIndex(index)}
                       />
                     ))}
                   </div>
@@ -565,6 +598,26 @@ export default function TemplateEditor({
           </button>
         </div>
       </div>
+
     </div>
+
+    {/* Rendered as a sibling (not nested inside the overlay above) so that
+        clicks on the picker's own overlay don't bubble up and close the
+        template editor underneath. */}
+    {replaceRowIndex !== null && (
+      <ExercisePicker
+        isOpen={true}
+        onClose={() => setReplaceRowIndex(null)}
+        replaceMode
+        onSelect={(exercises) => {
+          if (exercises[0]) replaceSelectedEntry(replaceRowIndex, exercises[0].id);
+          setReplaceRowIndex(null);
+        }}
+        // Exclude everything already in the template; the picked swap
+        // target must not collide with another row.
+        excludeIds={selectedExercises.map(e => e.exerciseId)}
+      />
+    )}
+    </>
   );
 }

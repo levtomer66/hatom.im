@@ -134,6 +134,11 @@ export interface WorkoutExercise {
   sets: WorkoutSet[];  // Variable number of sets (2-5), each with their own kg/reps
   notes: string;
   photos: string[];
+  // When the user swaps an exercise mid-workout via the replace flow, we
+  // keep the original exerciseId here so history views can surface a
+  // "was: Bench Press" annotation. Not set for fresh or template-started
+  // exercises.
+  replacedFromExerciseId?: string | null;
 }
 
 // Default number of sets for new exercises
@@ -201,6 +206,7 @@ export interface ExerciseHistoryEntry {
   workoutId: string;
   isPB: boolean;
   isCompleted: boolean;
+  replacedFromExerciseId?: string | null;  // If set, this slot was swapped in during the workout — history UIs surface "was: X"
 }
 
 // Helper to format reps display (e.g., "10×12×10")

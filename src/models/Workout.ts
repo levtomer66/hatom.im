@@ -18,6 +18,7 @@ const WorkoutExerciseSchema = new Schema<WorkoutExercise>({
   sets: { type: [WorkoutSetSchema], default: [] },
   notes: { type: String, default: '' },
   photos: { type: [String], default: [] },
+  replacedFromExerciseId: { type: String, default: null },
 }, { _id: false });
 
 // Main workout schema

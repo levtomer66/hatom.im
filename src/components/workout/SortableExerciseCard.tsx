@@ -13,6 +13,8 @@ interface SortableExerciseCardProps {
   pb?: PersonalBest | null;
   onUpdate: (exercise: WorkoutExercise) => void;
   onRemove: () => void;
+  onReplace?: () => void;
+  exerciseMap?: Record<string, ExerciseDefinition>;
 }
 
 // Thin wrapper that keeps ExerciseCard itself dnd-kit-agnostic. Each active-workout
@@ -24,6 +26,8 @@ export default function SortableExerciseCard({
   pb,
   onUpdate,
   onRemove,
+  onReplace,
+  exerciseMap,
 }: SortableExerciseCardProps) {
   const {
     setNodeRef,
@@ -42,6 +46,8 @@ export default function SortableExerciseCard({
       mode="edit"
       onUpdate={onUpdate}
       onRemove={onRemove}
+      onReplace={onReplace}
+      exerciseMap={exerciseMap}
       draggable={{
         setNodeRef,
         handleAttributes: attributes as unknown as Record<string, unknown>,

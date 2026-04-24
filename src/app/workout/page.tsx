@@ -50,6 +50,10 @@ export default function WorkoutsPage() {
   const [showTemplateEditor, setShowTemplateEditor] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<WorkoutTemplate | null>(null);
   const [showExercisePicker, setShowExercisePicker] = useState(false);
+  // Index of the exercise the user tapped "replace" on. null = no replace flow
+  // active. Held at page level (not card level) so the picker modal lives at
+  // the page root and doesn't unmount with the card when it collapses.
+  const [replaceExerciseIndex, setReplaceExerciseIndex] = useState<number | null>(null);
   const [personalBests, setPersonalBests] = useState<Record<string, PersonalBest>>({});
   const [customExercises, setCustomExercises] = useState<ExerciseDefinition[]>([]);
   const [isSaving, setIsSaving] = useState(false);
@@ -307,6 +311,31 @@ export default function WorkoutsPage() {
     setActiveWorkout({ ...activeWorkout, exercises });
   };
 
+  // Replace exercise in the active workout. Preserves sets (with their
+  // logged kg/reps), notes, photos, and order — only the exerciseId
+  // changes. The previous exerciseId is stored on replacedFromExerciseId
+  // so history views can surface "swapped from X". If the user keeps
+  // swapping, we preserve the ORIGINAL replacedFrom (the actual starting
+  // exercise), not the intermediate hop. If the user swaps back to that
+  // original, clear the marker entirely — otherwise history would render
+  // "X swapped from X".
+  const replaceExerciseAt = (index: number, newExerciseDef: ExerciseDefinition) => {
+    if (!activeWorkout) return;
+    const current = activeWorkout.exercises[index];
+    if (!current) return;
+    if (current.exerciseId === newExerciseDef.id) return;
+
+    const originalReplacedFrom = current.replacedFromExerciseId ?? current.exerciseId;
+    const isRevert = newExerciseDef.id === originalReplacedFrom;
+    const exercises = [...activeWorkout.exercises];
+    exercises[index] = {
+      ...current,
+      exerciseId: newExerciseDef.id,
+      replacedFromExerciseId: isRevert ? null : originalReplacedFrom,
+    };
+    setActiveWorkout({ ...activeWorkout, exercises });
+  };
+
   // Remove exercise — renumber remaining so order stays 1..N
   const removeExercise = (index: number) => {
     if (!activeWorkout) return;
@@ -455,6 +484,8 @@ export default function WorkoutsPage() {
                         pb={personalBests[exercise.exerciseId] || null}
                         onUpdate={(updated) => updateExercise(index, updated)}
                         onRemove={() => removeExercise(index)}
+                        onReplace={() => setReplaceExerciseIndex(index)}
+                        exerciseMap={exerciseMap}
                       />
                     ))}
                   </div>
@@ -513,6 +544,23 @@ export default function WorkoutsPage() {
           isOpen={showExercisePicker}
           onClose={() => setShowExercisePicker(false)}
           onSelect={addExercises}
+          excludeIds={activeWorkout.exercises.map(e => e.exerciseId)}
+        />
+      )}
+
+      {activeWorkout && replaceExerciseIndex !== null && (
+        <ExercisePicker
+          isOpen={true}
+          onClose={() => setReplaceExerciseIndex(null)}
+          replaceMode
+          onSelect={(exercises) => {
+            // replaceMode always commits with exactly one exercise.
+            if (exercises[0]) replaceExerciseAt(replaceExerciseIndex, exercises[0]);
+            setReplaceExerciseIndex(null);
+          }}
+          // Exclude every exercise already in the workout so the user can't
+          // pick a duplicate. The current slot is implicitly excluded too —
+          // it's already in that list.
           excludeIds={activeWorkout.exercises.map(e => e.exerciseId)}
         />
       )}

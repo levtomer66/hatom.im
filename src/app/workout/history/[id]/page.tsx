@@ -181,6 +181,7 @@ export default function WorkoutDetailPage() {
               exerciseDefinition={exerciseMap[exercise.exerciseId] || null}
               pb={personalBests[exercise.exerciseId] || null}
               mode="readonly"
+              exerciseMap={exerciseMap}
             />
           ))
         )}

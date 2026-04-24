@@ -19,6 +19,10 @@ interface ExercisePickerProps {
   onClose: () => void;
   onSelect: (exercises: ExerciseDefinition[]) => void;
   excludeIds?: string[];
+  // When true, picker behaves as single-select: tapping a row commits
+  // onSelect([one]) immediately and closes. Used by the replace flow so
+  // the user doesn't have to tap twice (select → confirm) for one swap.
+  replaceMode?: boolean;
 }
 
 export default function ExercisePicker({
@@ -26,6 +30,7 @@ export default function ExercisePicker({
   onClose,
   onSelect,
   excludeIds = [],
+  replaceMode = false,
 }: ExercisePickerProps) {
   const { currentUser } = useWorkoutUser();
   const { language } = useWorkoutLanguage();
@@ -135,6 +140,19 @@ export default function ExercisePicker({
   }, [filteredExercises]);
 
   const toggleSelection = (id: string) => {
+    if (replaceMode) {
+      // Single-select: commit immediately. No intermediate checkbox state
+      // and no confirm button — one tap swaps and closes.
+      const picked = allExercises.find(e => e.id === id);
+      if (!picked) return;
+      onSelect([picked]);
+      setSelectedIds(new Set());
+      setSearch('');
+      setMuscleFilters(new Set());
+      setCategoryFilters(new Set());
+      onClose();
+      return;
+    }
     setSelectedIds(prev => {
       const next = new Set(prev);
       if (next.has(id)) {
@@ -166,6 +184,17 @@ export default function ExercisePicker({
 
   const handleExerciseCreated = (exercise: ExerciseDefinition) => {
     setCustomExercises(prev => [...prev, exercise]);
+    if (replaceMode) {
+      // In replace flow, creating a custom exercise is the swap target —
+      // commit immediately and close, matching one-tap semantics.
+      onSelect([exercise]);
+      setSelectedIds(new Set());
+      setSearch('');
+      setMuscleFilters(new Set());
+      setCategoryFilters(new Set());
+      onClose();
+      return;
+    }
     // Optionally auto-select the new exercise
     setSelectedIds(prev => new Set([...prev, exercise.id]));
   };
@@ -177,7 +206,7 @@ export default function ExercisePicker({
       <div className="workout-modal-overlay" onClick={handleClose}>
         <div className="workout-modal" onClick={(e) => e.stopPropagation()}>
           <div className="workout-modal-header">
-            <h2 className="workout-modal-title">{t('picker.title')}</h2>
+            <h2 className="workout-modal-title">{t(replaceMode ? 'picker.replace_title' : 'picker.title')}</h2>
             <button className="workout-modal-close" onClick={handleClose} aria-label={t('generic.close')}>
               ✕
             </button>
@@ -291,16 +320,18 @@ export default function ExercisePicker({
             </div>
           </div>
           
-          <div className="workout-modal-footer">
-            <button
-              className="workout-btn workout-btn-primary workout-btn-full"
-              onClick={handleConfirm}
-              disabled={selectedIds.size === 0}
-              style={{ opacity: selectedIds.size === 0 ? 0.5 : 1 }}
-            >
-              {t('picker.add_selected_prefix')}{selectedIds.size > 0 ? ` ${selectedIds.size} ${selectedIds.size === 1 ? t('picker.add_selected_one') : t('picker.add_selected_many')}` : ` ${t('picker.add_selected_many')}`}
-            </button>
-          </div>
+          {!replaceMode && (
+            <div className="workout-modal-footer">
+              <button
+                className="workout-btn workout-btn-primary workout-btn-full"
+                onClick={handleConfirm}
+                disabled={selectedIds.size === 0}
+                style={{ opacity: selectedIds.size === 0 ? 0.5 : 1 }}
+              >
+                {t('picker.add_selected_prefix')}{selectedIds.size > 0 ? ` ${selectedIds.size} ${selectedIds.size === 1 ? t('picker.add_selected_one') : t('picker.add_selected_many')}` : ` ${t('picker.add_selected_many')}`}
+              </button>
+            </div>
+          )}
         </div>
       </div>
 

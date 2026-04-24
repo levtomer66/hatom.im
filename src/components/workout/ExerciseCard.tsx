@@ -33,6 +33,11 @@ interface ExerciseCardProps {
   onUpdate?: (exercise: WorkoutExercise) => void;
   onRemove?: () => void;
   onReplace?: () => void;
+  // Optional lookup for resolving arbitrary ids — needed to show the
+  // localized name of a replaced exercise when it's a custom one (the
+  // library-only getExerciseById doesn't know about those). Callers that
+  // already maintain a combined library + custom map should pass it here.
+  exerciseMap?: Record<string, ExerciseDefinition>;
   draggable?: ExerciseCardDraggable;
 }
 
@@ -43,6 +48,8 @@ export default function ExerciseCard({
   mode,
   onUpdate,
   onRemove,
+  onReplace,
+  exerciseMap,
   draggable,
 }: ExerciseCardProps) {
   const { currentUser } = useWorkoutUser();
@@ -54,6 +61,15 @@ export default function ExerciseCard({
 
   // Use provided definition or fall back to library lookup
   const exerciseDef = exerciseDefinition || getExerciseById(exercise.exerciseId);
+
+  // Resolve a (possibly custom) exercise id to its localized name. The caller's
+  // exerciseMap — if any — covers custom exercises too; we still fall back to
+  // the English library lookup for purely library ids. Returns the id itself
+  // as a last resort so we never render "undefined".
+  const resolveExerciseName = (id: string): string => {
+    const def = exerciseMap?.[id] ?? getExerciseById(id);
+    return def ? getLocalizedExercise(def, language).name : id;
+  };
   const localized = exerciseDef
     ? getLocalizedExercise(exerciseDef, language)
     : { name: exercise.exerciseId, description: undefined };
@@ -315,6 +331,16 @@ export default function ExerciseCard({
             </span>
           </div>
           {isCompleted && <div className="exercise-collapsed-badge">✓</div>}
+          {onReplace && (
+            <button
+              className="exercise-card-action"
+              onClick={(e) => { e.stopPropagation(); onReplace(); }}
+              title={t('card.replace')}
+              aria-label={t('card.replace')}
+            >
+              ↻
+            </button>
+          )}
           {onRemove && (
             <button
               className="exercise-card-action"
@@ -379,6 +405,16 @@ export default function ExerciseCard({
         {isEditable && (
           <div className="exercise-card-actions">
             {dragHandle}
+            {onReplace && (
+              <button
+                className="exercise-card-action"
+                onClick={onReplace}
+                title={t('card.replace')}
+                aria-label={t('card.replace')}
+              >
+                ↻
+              </button>
+            )}
             {onRemove && (
               <button
                 className="exercise-card-action"
@@ -473,6 +509,15 @@ export default function ExerciseCard({
       ) : (
         /* Read-only view */
         <div className="exercise-sets">
+          {exercise.replacedFromExerciseId && (
+            <div style={{
+              fontSize: '12px',
+              color: 'var(--workout-blue)',
+              marginBottom: '8px',
+            }}>
+              ↻ {t('card.history_replaced_prefix')} {resolveExerciseName(exercise.replacedFromExerciseId)}
+            </div>
+          )}
           {exercise.sets.map((set, i) => (
             <div key={i} className="exercise-set-row">
               <span className="exercise-set-label">{t('card.set_n')} {i + 1}</span>
@@ -559,6 +604,15 @@ export default function ExerciseCard({
                         }}>
                           {entry.workoutName ? getLocalizedTemplateName(entry.workoutName, language) : t('workout.title')}
                           {entry.order > 0 && ` · #${entry.order}`}
+                        </div>
+                      )}
+                      {entry.replacedFromExerciseId && (
+                        <div style={{
+                          fontSize: '12px',
+                          color: 'var(--workout-blue)',
+                          marginBottom: '8px',
+                        }}>
+                          ↻ {t('card.history_replaced_prefix')} {resolveExerciseName(entry.replacedFromExerciseId)}
                         </div>
                       )}
                       <div style={{

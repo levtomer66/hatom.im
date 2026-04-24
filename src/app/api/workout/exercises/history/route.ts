@@ -85,6 +85,7 @@ export async function GET(request: NextRequest) {
             workoutId: workout._id.toString(),
             isPB: false, // Will be calculated below
             isCompleted: isCompleted(sets),
+            replacedFromExerciseId: exercise.replacedFromExerciseId ?? null,
           });
         }
       }
