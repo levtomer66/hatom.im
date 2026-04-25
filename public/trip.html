@@ -1133,6 +1133,231 @@
     cursor: pointer;
   }
   .admin-upload-submit[disabled] { opacity: 0.5; cursor: not-allowed; }
+
+  /* ===== Full photo map ===== */
+  #fullmap-section { padding-top: 0.5rem; }
+  .fullmap-filter {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+    padding: 0.85rem 1rem;
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 14px;
+    backdrop-filter: blur(8px);
+  }
+  .fullmap-quickbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.55rem;
+  }
+  .fullmap-quick {
+    appearance: none;
+    border: 1px solid rgba(255,255,255,0.18);
+    background: rgba(255,255,255,0.04);
+    color: var(--text);
+    padding: 0.4rem 0.95rem;
+    border-radius: 999px;
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 120ms ease, border-color 120ms ease;
+  }
+  .fullmap-quick:hover { background: rgba(255,255,255,0.08); }
+  .fullmap-quick.active {
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border-color: transparent;
+    color: white;
+  }
+  .fullmap-range-label {
+    margin-inline-start: 0.5rem;
+    color: var(--text-muted);
+    font-size: 0.92rem;
+    font-variant-numeric: tabular-nums;
+  }
+  .fullmap-status {
+    margin-inline-start: auto;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+  }
+  /* Dual-handle range slider — two stacked native ranges sharing a track. */
+  .fullmap-slider {
+    position: relative;
+    height: 28px;
+    direction: ltr;  /* keep visual L→R regardless of page direction */
+  }
+  .fullmap-slider-track,
+  .fullmap-slider-fill {
+    position: absolute;
+    inset: 50% 0 auto 0;
+    height: 4px;
+    border-radius: 4px;
+    transform: translateY(-50%);
+    pointer-events: none;
+  }
+  .fullmap-slider-track {
+    background: rgba(255,255,255,0.12);
+  }
+  .fullmap-slider-fill {
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+  }
+  .fullmap-slider input[type="range"] {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 28px;
+    background: transparent;
+    pointer-events: none;
+    appearance: none;
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  .fullmap-slider input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    pointer-events: auto;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: var(--accent);
+    border: 2px solid #fff;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.4);
+    cursor: pointer;
+    margin-top: 0;
+  }
+  .fullmap-slider input[type="range"]::-moz-range-thumb {
+    pointer-events: auto;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: var(--accent);
+    border: 2px solid #fff;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.4);
+    cursor: pointer;
+  }
+  .fullmap-slider input[type="range"]::-webkit-slider-runnable-track { background: transparent; }
+  .fullmap-slider input[type="range"]::-moz-range-track { background: transparent; }
+
+  .fullmap-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(280px, 360px);
+    gap: 1rem;
+  }
+  .fullmap-canvas {
+    width: 100%;
+    height: clamp(460px, 70vh, 720px);
+    border-radius: 14px;
+    overflow: hidden;
+    border: 1px solid var(--card-border);
+    background: #1a1a2e;
+  }
+  .fullmap-panel {
+    height: clamp(460px, 70vh, 720px);
+    overflow-y: auto;
+    padding: 1rem;
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 14px;
+    backdrop-filter: blur(8px);
+    direction: ltr;
+  }
+  .fullmap-panel-empty,
+  .fullmap-panel-loading {
+    color: var(--text-muted);
+    font-size: 0.95rem;
+    padding: 0.5rem 0.25rem;
+    text-align: center;
+  }
+  .fullmap-panel-header {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    margin-bottom: 0.85rem;
+  }
+  .fullmap-panel-title {
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: var(--text);
+  }
+  .fullmap-panel-meta {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    font-variant-numeric: tabular-nums;
+  }
+  .fullmap-panel-photos {
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
+  }
+  .fullmap-photo-row {
+    display: grid;
+    grid-template-columns: 96px 1fr;
+    gap: 0.65rem;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 10px;
+    padding: 0.5rem;
+    cursor: zoom-in;
+    transition: background 120ms ease;
+  }
+  .fullmap-photo-row:hover { background: rgba(255,255,255,0.07); }
+  .fullmap-photo-row img {
+    width: 96px;
+    height: 72px;
+    object-fit: cover;
+    border-radius: 6px;
+    display: block;
+  }
+  .fullmap-photo-meta {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    min-width: 0;
+  }
+  .fullmap-photo-time {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text);
+    font-variant-numeric: tabular-nums;
+  }
+  .fullmap-photo-day {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+  }
+  .fullmap-photo-day-link {
+    appearance: none;
+    background: none;
+    border: none;
+    color: var(--accent2);
+    cursor: pointer;
+    font-size: 0.78rem;
+    padding: 0;
+    margin-top: 0.25rem;
+    text-align: start;
+  }
+  .fullmap-photo-day-link:hover { text-decoration: underline; }
+
+  /* Cluster pin marker. */
+  .fullmap-cluster-pin {
+    background: linear-gradient(135deg, #fd79a8, #fab1a0);
+    color: #fff;
+    border-radius: 999px;
+    border: 2px solid rgba(255,255,255,0.85);
+    box-shadow: 0 2px 6px rgba(0,0,0,0.45);
+    font-weight: 700;
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+  }
+
+  @media (max-width: 900px) {
+    .fullmap-grid { grid-template-columns: 1fr; }
+    .fullmap-panel { height: auto; max-height: 60vh; }
+    .fullmap-canvas { height: clamp(360px, 55vh, 520px); }
+  }
 </style>
 </head>
 <body>
@@ -1147,6 +1372,7 @@
     </label>
     <span id="admin-unassigned-pill" class="admin-unassigned-pill">⚠ N ללא תאריך</span>
     <button id="admin-upload-submit" class="admin-upload-submit" disabled>העלאה</button>
+    <button id="admin-regeocode" class="admin-upload-submit" type="button" title="ירוץ על כל התמונות הקיימות וירענן את שם המיקום עם הלוגיקה החדשה">📍 רענן תוויות</button>
   </div>
   <div id="admin-upload-previews" class="admin-upload-previews"></div>
 </div>
@@ -1334,6 +1560,7 @@
 <nav id="nav">
   <div class="nav-inner">
     <button class="nav-btn active" onclick="scrollToSection('map-section')">🗺️ Map</button>
+    <button class="nav-btn" onclick="scrollToSection('fullmap-section')">📸 Photo Map</button>
     <button class="nav-btn" onclick="scrollToSection('calendar-section')">📅 Calendar</button>
     <button class="nav-btn" onclick="scrollToSection('athens')">🏛️ Athens</button>
     <button class="nav-btn" onclick="scrollToSection('nyc')">🗽 New York</button>
@@ -1373,6 +1600,33 @@
 <section id="map-section">
   <div class="section-title"><span class="icon">🗺️</span><span>מפת המסלול</span></div>
   <div id="map"></div>
+</section>
+
+<!-- ==================== FULL PHOTO MAP ==================== -->
+<section id="fullmap-section">
+  <div class="section-title"><span class="icon">📸</span><span>מפת תמונות הטיול</span></div>
+
+  <div class="fullmap-filter">
+    <div class="fullmap-quickbar">
+      <button type="button" class="fullmap-quick" data-fullmap-range="today">📍 היום</button>
+      <button type="button" class="fullmap-quick active" data-fullmap-range="all">🗺️ הכל</button>
+      <span id="fullmap-range-label" class="fullmap-range-label">15.4 → 20.5</span>
+      <span id="fullmap-status" class="fullmap-status"></span>
+    </div>
+    <div class="fullmap-slider" id="fullmap-slider">
+      <div class="fullmap-slider-track"></div>
+      <div class="fullmap-slider-fill" id="fullmap-slider-fill"></div>
+      <input type="range" id="fullmap-slider-from" aria-label="תאריך התחלה" />
+      <input type="range" id="fullmap-slider-to"   aria-label="תאריך סיום" />
+    </div>
+  </div>
+
+  <div class="fullmap-grid">
+    <div id="fullmap" class="fullmap-canvas"></div>
+    <aside id="fullmap-panel" class="fullmap-panel" aria-live="polite">
+      <div class="fullmap-panel-empty">בחר נקודה במפה כדי לראות תמונות שצולמו שם.</div>
+    </aside>
+  </div>
 </section>
 
 <!-- ==================== CALENDAR ==================== -->
@@ -2601,6 +2855,7 @@ document.querySelectorAll('.timeline-item').forEach(item => {
       document.querySelectorAll('.cal-day .photo-badge').forEach(el => el.remove());
       document.querySelectorAll('.cal-day').forEach(el => delete el.dataset.hasPhotos);
       await decorateCalendar(summary);
+      if (fullMap) fullMap.refresh();
     } catch (err) {
       console.error(err);
       alert('שגיאה במחיקה');
@@ -2779,6 +3034,7 @@ document.querySelectorAll('.timeline-item').forEach(item => {
       document.querySelectorAll('.cal-day').forEach(el => delete el.dataset.hasPhotos);
       await decorateCalendar(summary);
       updateUnassignedPill(summary.unassignedCount || 0);
+      if (fullMap) fullMap.refresh();
     } catch {/* ignore */}
   }
 
@@ -2840,6 +3096,342 @@ document.querySelectorAll('.timeline-item').forEach(item => {
   }
   if (adminSubmit) adminSubmit.addEventListener('click', uploadPending);
 
+  // Re-geocode existing photos: one-shot admin action that re-runs the
+  // (now stabilised) Nominatim picker against every photo with GPS so
+  // existing labels stop drifting between e.g. "Starbucks, Midtown" and
+  // "Times Square, New York" for points that are visibly the same place.
+  const regeocodeBtn = document.getElementById('admin-regeocode');
+  if (regeocodeBtn) {
+    regeocodeBtn.addEventListener('click', async () => {
+      let token = adminToken();
+      if (!token) {
+        const t = prompt('סיסמת אדמין:');
+        if (!t) return;
+        localStorage.setItem(ADMIN_TOKEN_KEY, t);
+        token = t;
+      }
+      if (!confirm('להריץ רענון תוויות מיקום על כל התמונות? הפעולה עשויה לקחת מספר דקות.')) return;
+      const originalText = regeocodeBtn.textContent;
+      regeocodeBtn.disabled = true;
+      regeocodeBtn.textContent = 'מרענן…';
+      try {
+        const res = await fetch('/api/trip/journey/regeocode', {
+          method: 'POST',
+          headers: { 'X-Admin-Token': token },
+        });
+        if (!res.ok) {
+          const body = await res.json().catch(() => null);
+          throw new Error(body?.error || ('HTTP ' + res.status));
+        }
+        const { scanned, updated, unchanged, skipped } = await res.json();
+        alert(`רענון הסתיים\nנסרקו: ${scanned}\nעודכנו: ${updated}\nללא שינוי: ${unchanged}\nללא GPS: ${skipped}`);
+        // Drop the day cache so the next modal/full-map render fetches the
+        // freshly-rewritten labels.
+        dayCache.clear();
+        try {
+          const summary = await fetchJourneySummary();
+          document.querySelectorAll('.cal-day .photo-badge').forEach(el => el.remove());
+          document.querySelectorAll('.cal-day').forEach(el => delete el.dataset.hasPhotos);
+          await decorateCalendar(summary);
+          if (fullMap) fullMap.refresh();
+        } catch (err) {
+          console.warn('post-regeocode refresh failed', err);
+        }
+      } catch (err) {
+        console.error('regeocode failed', err);
+        alert('שגיאה ברענון: ' + (err && err.message ? err.message : err));
+      } finally {
+        regeocodeBtn.disabled = false;
+        regeocodeBtn.textContent = originalText;
+      }
+    });
+  }
+
+  // ===== Full Photo Map =====
+  // Single-canvas browse view of every GPS-tagged trip photo. Photos are
+  // grouped by GPS proximity (Haversine, 150 m threshold) — NOT by the
+  // locationLabel string, since two photos at the same physical place can
+  // still drift between Nominatim labels (the regeocode admin button helps
+  // narrow that gap, but proximity is the reliable grouping key).
+  const fullMap = (() => {
+    const container = document.getElementById('fullmap');
+    if (!container || !window.L) return null;
+
+    // Slider works in day-index space relative to TRIP_START so swapping
+    // the bounds, comparing, and clamping stay integer-cheap.
+    const startDate = new Date(TRIP_START + 'T00:00:00Z');
+    const endDate   = new Date(TRIP_END   + 'T00:00:00Z');
+    const totalDays = Math.round((endDate.getTime() - startDate.getTime()) / 86400000);
+    const dayIdxFromIso = iso => Math.round((new Date(iso + 'T00:00:00Z').getTime() - startDate.getTime()) / 86400000);
+    const isoFromDayIdx = idx => new Date(startDate.getTime() + idx * 86400000).toISOString().slice(0, 10);
+
+    const map = L.map('fullmap', {
+      center: [37, -50],
+      zoom: 3,
+      zoomControl: true,
+      scrollWheelZoom: true,
+    });
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png', {
+      subdomains: 'abcd',
+      maxZoom: 20,
+    }).addTo(map);
+    const markerLayer = L.layerGroup().addTo(map);
+
+    const sliderFrom = document.getElementById('fullmap-slider-from');
+    const sliderTo   = document.getElementById('fullmap-slider-to');
+    const sliderFill = document.getElementById('fullmap-slider-fill');
+    const rangeLabel = document.getElementById('fullmap-range-label');
+    const status     = document.getElementById('fullmap-status');
+    const panel      = document.getElementById('fullmap-panel');
+    const quickBtns  = document.querySelectorAll('[data-fullmap-range]');
+
+    sliderFrom.min = '0';
+    sliderFrom.max = String(totalDays);
+    sliderFrom.value = '0';
+    sliderTo.min = '0';
+    sliderTo.max = String(totalDays);
+    sliderTo.value = String(totalDays);
+
+    let fromIdx = 0;
+    let toIdx = totalDays;
+    let allPhotos = [];   // flat list with `dayDate` glued on
+    let activeClusterKey = null;
+
+    function fmtRangeLabel(iso) {
+      const m = /^\d{4}-(\d{2})-(\d{2})$/.exec(iso);
+      if (!m) return iso;
+      return `${parseInt(m[2], 10)}.${parseInt(m[1], 10)}`;
+    }
+    function clamp(n) { return Math.max(0, Math.min(totalDays, Math.round(n))); }
+    function setActiveQuick(name) {
+      quickBtns.forEach(b => b.classList.toggle('active', b.dataset.fullmapRange === name));
+    }
+    function updateSliderUi() {
+      const a = totalDays === 0 ? 0 : (fromIdx / totalDays) * 100;
+      const b = totalDays === 0 ? 100 : (toIdx / totalDays) * 100;
+      sliderFill.style.left  = a + '%';
+      sliderFill.style.right = (100 - b) + '%';
+      rangeLabel.textContent = `${fmtRangeLabel(isoFromDayIdx(fromIdx))} → ${fmtRangeLabel(isoFromDayIdx(toIdx))}`;
+    }
+
+    function readSlider() {
+      let a = clamp(Number(sliderFrom.value));
+      let b = clamp(Number(sliderTo.value));
+      if (a > b) [a, b] = [b, a];
+      fromIdx = a;
+      toIdx = b;
+      setActiveQuick('custom');
+      updateSliderUi();
+      render();
+    }
+    sliderFrom.addEventListener('input', readSlider);
+    sliderTo.addEventListener('input', readSlider);
+
+    quickBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        const r = btn.dataset.fullmapRange;
+        if (r === 'all') {
+          fromIdx = 0;
+          toIdx = totalDays;
+        } else if (r === 'today') {
+          const today = new Date().toISOString().slice(0, 10);
+          if (today < TRIP_START)      { fromIdx = 0;         toIdx = 0;         }
+          else if (today > TRIP_END)   { fromIdx = totalDays; toIdx = totalDays; }
+          else { const idx = clamp(dayIdxFromIso(today)); fromIdx = idx; toIdx = idx; }
+        }
+        sliderFrom.value = String(fromIdx);
+        sliderTo.value   = String(toIdx);
+        setActiveQuick(r);
+        updateSliderUi();
+        render();
+      });
+    });
+
+    // Haversine distance in metres.
+    function haversine(a, b) {
+      const R = 6371000;
+      const toRad = d => d * Math.PI / 180;
+      const dLat = toRad(b.latitude - a.latitude);
+      const dLng = toRad(b.longitude - a.longitude);
+      const lat1 = toRad(a.latitude);
+      const lat2 = toRad(b.latitude);
+      const x = Math.sin(dLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLng / 2) ** 2;
+      return 2 * R * Math.asin(Math.sqrt(x));
+    }
+    const CLUSTER_RADIUS_M = 150;
+
+    function clusterPhotos(photos) {
+      const clusters = [];
+      for (const p of photos) {
+        let placed = false;
+        for (const c of clusters) {
+          if (haversine(c.centroid, p) <= CLUSTER_RADIUS_M) {
+            c.photos.push(p);
+            const n = c.photos.length;
+            // Running mean centroid keeps the pin on the cluster's midpoint.
+            c.centroid = {
+              latitude:  c.centroid.latitude  + (p.latitude  - c.centroid.latitude)  / n,
+              longitude: c.centroid.longitude + (p.longitude - c.centroid.longitude) / n,
+            };
+            placed = true;
+            break;
+          }
+        }
+        if (!placed) {
+          clusters.push({
+            centroid: { latitude: p.latitude, longitude: p.longitude },
+            photos: [p],
+          });
+        }
+      }
+      // Stable id keyed by the seed photo's blobPath so panel state survives
+      // re-renders (e.g. moving a slider doesn't lose the open cluster).
+      for (const c of clusters) c.id = c.photos[0].blobPath;
+      return clusters;
+    }
+
+    function clusterLabel(c) {
+      const counts = new Map();
+      for (const p of c.photos) {
+        const lbl = p.locationLabel || '';
+        counts.set(lbl, (counts.get(lbl) || 0) + 1);
+      }
+      let best = '';
+      let max = -1;
+      for (const [lbl, n] of counts) {
+        if (lbl && n > max) { best = lbl; max = n; }
+      }
+      return best;
+    }
+
+    function filteredPhotos() {
+      const fromIso = isoFromDayIdx(fromIdx);
+      const toIso   = isoFromDayIdx(toIdx);
+      return allPhotos.filter(p => p.dayDate >= fromIso && p.dayDate <= toIso);
+    }
+
+    function resetPanel() {
+      panel.innerHTML = '<div class="fullmap-panel-empty">בחר נקודה במפה כדי לראות תמונות שצולמו שם.</div>';
+    }
+
+    function showCluster(c) {
+      activeClusterKey = c.id;
+      const lbl = clusterLabel(c);
+      const sorted = [...c.photos].sort(
+        (a, b) => new Date(a.takenAt).getTime() - new Date(b.takenAt).getTime()
+      );
+      const photosHtml = sorted.map(p => `
+        <div class="fullmap-photo-row" data-blob="${escapeAttr(p.blobPath)}">
+          <img src="${p.blobUrl}" loading="lazy" alt="" />
+          <div class="fullmap-photo-meta">
+            <div>
+              <div class="fullmap-photo-time">${formatTime(p.takenAt)}</div>
+              <div class="fullmap-photo-day">${escapeHtml(p.dayDate)}${p.locationLabel ? ' · ' + escapeHtml(p.locationLabel) : ''}</div>
+            </div>
+            <button class="fullmap-photo-day-link" data-day="${escapeAttr(p.dayDate)}">פתח את היום ↗</button>
+          </div>
+        </div>
+      `).join('');
+      panel.innerHTML = `
+        <div class="fullmap-panel-header">
+          <div class="fullmap-panel-title">${escapeHtml(lbl || 'מיקום')}</div>
+          <div class="fullmap-panel-meta">${c.photos.length} תמונות · ${c.centroid.latitude.toFixed(4)}, ${c.centroid.longitude.toFixed(4)}</div>
+        </div>
+        <div class="fullmap-panel-photos">${photosHtml}</div>
+      `;
+      panel.querySelectorAll('.fullmap-photo-row').forEach(row => {
+        row.addEventListener('click', e => {
+          if (e.target.closest('.fullmap-photo-day-link')) return;
+          const blob = row.dataset.blob;
+          const photo = sorted.find(p => p.blobPath === blob);
+          if (photo) openLightbox(photo);
+        });
+      });
+      panel.querySelectorAll('.fullmap-photo-day-link').forEach(link => {
+        link.addEventListener('click', e => {
+          e.stopPropagation();
+          const day = link.dataset.day;
+          if (day) openDayModal(day);
+        });
+      });
+    }
+
+    function render() {
+      markerLayer.clearLayers();
+      const photos = filteredPhotos();
+      if (!allPhotos.length) {
+        status.textContent = 'אין עדיין תמונות עם מיקום';
+        resetPanel();
+        return;
+      }
+      if (!photos.length) {
+        status.textContent = 'אין תמונות בטווח התאריכים שבחרת';
+        panel.innerHTML = '<div class="fullmap-panel-empty">אין תמונות בטווח התאריכים שבחרת.</div>';
+        return;
+      }
+      const clusters = clusterPhotos(photos);
+      status.textContent = `${photos.length} תמונות · ${clusters.length} מיקומים`;
+
+      const bounds = [];
+      for (const c of clusters) {
+        const lbl = clusterLabel(c);
+        const size = 28 + Math.min(20, c.photos.length * 2);
+        const icon = L.divIcon({
+          className: '',
+          html: `<div class="fullmap-cluster-pin" style="width:${size}px;height:${size}px;">${c.photos.length}</div>`,
+          iconSize: [size, size],
+          iconAnchor: [size / 2, size / 2],
+        });
+        L.marker([c.centroid.latitude, c.centroid.longitude], { icon })
+          .bindTooltip(lbl || `${c.photos.length} תמונות`)
+          .on('click', () => showCluster(c))
+          .addTo(markerLayer);
+        bounds.push([c.centroid.latitude, c.centroid.longitude]);
+      }
+
+      if (bounds.length === 1) {
+        map.setView(bounds[0], Math.max(map.getZoom(), 12));
+      } else if (bounds.length > 1) {
+        map.fitBounds(bounds, { padding: [40, 40], maxZoom: 14 });
+      }
+
+      // Preserve the open cluster across re-renders (slider drag, refresh
+      // after upload) — but only if it's still in the filtered output.
+      if (activeClusterKey) {
+        const still = clusters.find(c => c.id === activeClusterKey);
+        if (still) showCluster(still);
+        else { activeClusterKey = null; resetPanel(); }
+      }
+    }
+
+    async function refresh() {
+      status.textContent = 'טוען…';
+      try {
+        const summary = await fetchJourneySummary();
+        const docs = await Promise.all(summary.days.map(d => fetchDay(d.dayDate).catch(() => null)));
+        const flat = [];
+        for (const doc of docs) {
+          if (!doc) continue;
+          for (const p of doc.photos) {
+            if (typeof p.latitude === 'number' && typeof p.longitude === 'number') {
+              flat.push({ ...p, dayDate: doc.dayDate });
+            }
+          }
+        }
+        flat.sort((a, b) => new Date(a.takenAt).getTime() - new Date(b.takenAt).getTime());
+        allPhotos = flat;
+        render();
+      } catch (err) {
+        console.warn('full-map refresh failed', err);
+        status.textContent = 'שגיאה בטעינה';
+      }
+    }
+
+    updateSliderUi();
+    resetPanel();
+    return { refresh };
+  })();
+
   // ----- bootstrap -----
   async function boot() {
     // Panel is always visible; prompt for the token lazily on the first
@@ -2852,6 +3444,9 @@ document.querySelectorAll('.timeline-item').forEach(item => {
     } catch (err) {
       console.warn('journey init failed', err);
     }
+    // Full-map data fills in independently — even if calendar fails, it can
+    // still try to render whatever it can fetch.
+    if (fullMap) fullMap.refresh();
   }
 
   // The calendar is rendered synchronously above by buildCalendar(); kick off
