@@ -383,6 +383,7 @@
   .event-hotel-isla { background: rgba(0,210,211,0.3); color: #00d2d3; }
   .event-show { background: rgba(255,165,0,0.35); color: #ffcc80; }
   .event-return { background: rgba(162,155,254,0.35); color: #d5ccff; }
+  .event-car { background: rgba(99,110,114,0.45); color: #dfe6e9; }
 
   .cal-month-label {
     grid-column: 1 / -1;
@@ -1390,6 +1391,7 @@
     <div class="legend-item"><div class="legend-dot event-hotel-mexico"></div> פלאיה בלנקה</div>
     <div class="legend-item"><div class="legend-dot event-hotel-isla"></div> איסלה מוחרס</div>
     <div class="legend-item"><div class="legend-dot event-show"></div> הופעה / מופע</div>
+    <div class="legend-item"><div class="legend-dot event-car"></div> רכב שכור</div>
     <div class="legend-item"><div class="legend-dot event-return"></div> חזרה</div>
   </div>
   <div class="calendar-container">
@@ -1727,6 +1729,42 @@
           <div class="info-item"><span class="info-label">לילות</span><span class="info-value">3</span></div>
         </div>
         <a href="https://www.booking.com/hotel/us/zoe-fishermanswharf.html" target="_blank" class="booking-link link-booking">📲 Booking.com – Hotel Zoe</a>
+      </div>
+    </div>
+
+    <!-- Avis car rental: SF Fisherman's Wharf → Santa Monica, 8 days -->
+    <div class="timeline-item">
+      <div class="card card-destination">
+        <div class="card-header">
+          <div class="card-icon icon-drive">🚗</div>
+          <div>
+            <div class="card-title">השכרת רכב – Avis</div>
+            <div class="card-subtitle">Ford Escape (Group F) &nbsp;|&nbsp; 8 ימים &nbsp;|&nbsp; קליפורניה ללא דמי החזר</div>
+          </div>
+        </div>
+        <div class="flight-route">
+          <div class="route-city"><div class="code">SFO</div><div class="name">Fisherman's Wharf</div></div>
+          <div class="route-line"><span class="plane-icon">🚗</span></div>
+          <div class="route-city"><div class="code">SMO</div><div class="name">Santa Monica</div></div>
+        </div>
+        <div class="card-body">
+          <div class="info-item"><span class="info-label">איסוף</span><span class="info-value">2.5.2026 &nbsp;10:00</span></div>
+          <div class="info-item"><span class="info-label">החזרה</span><span class="info-value">10.5.2026 &nbsp;10:00</span></div>
+          <div class="info-item"><span class="info-label">קבוצה</span><span class="info-value">Group F – Ford Escape (2x4) או דומה</span></div>
+          <div class="info-item"><span class="info-label">מפרט</span><span class="info-value">אוטומטי, מיזוג, 4 דלתות, 5 מושבים</span></div>
+          <div class="info-item"><span class="info-label">תכנית</span><span class="info-value">KA-Inclusive (ק"מ ללא הגבלה, ביטוח מלא + צד ג׳ עד $300K, מיסים ודמי נמל)</span></div>
+          <div class="info-item"><span class="info-label">נהג ראשי</span><span class="info-value">Lev Tomer</span></div>
+          <div class="info-item"><span class="info-label">מספר הזמנה</span><span class="info-value">13096631IL2 / 2224293</span></div>
+          <div class="info-item"><span class="info-label">סה"כ</span><span class="info-value">$605.97 (~₪1,836)</span></div>
+        </div>
+        <div class="note-card">
+          <span class="note-icon">📞</span>
+          <span>מוקד הזמנות Avis ישראל: 2722* | להפקת שובר רשמי לפני האיסוף יש ליצור קשר עם המוקד.</span>
+        </div>
+        <div class="note-card">
+          <span class="note-icon">🪪</span>
+          <span>נדרשים: רישיון נהיגה ישראלי + רישיון בינלאומי + דרכון + כרטיס אשראי בינלאומי פיזי על שם הנהג. רישיון אמריקאי לא יתקבל. תשלום דרך Apple/Google Pay לא יתקבל.</span>
+        </div>
       </div>
     </div>
   </div>
@@ -2116,6 +2154,7 @@ function buildCalendar() {
     { m:3, d:30, label:"🌉 סן פרנסיסקו", cls:"event-hotel-sf" },
     // === MAY ===
     { m:4, d:1, label:"🌉 סן פרנסיסקו", cls:"event-hotel-sf" },
+    { m:4, d:2, label:"🚗 איסוף רכב Avis", cls:"event-car" },
     { m:4, d:2, label:"🌲 Yosemite Lodge", cls:"event-hotel-yosemite" },
     { m:4, d:3, label:"🌲 יוסמיטי", cls:"event-hotel-yosemite" },
     { m:4, d:4, label:"🛣️ Highway 1", cls:"event-hotel-hw1" },
@@ -2125,6 +2164,7 @@ function buildCalendar() {
     { m:4, d:8, label:"🌴 LA", cls:"event-hotel-la" },
     { m:4, d:9, label:"🌴 LA", cls:"event-hotel-la" },
     { m:4, d:10, label:"🌴 LA", cls:"event-hotel-la" },
+    { m:4, d:10, label:"🚗 החזרת רכב Avis", cls:"event-car" },
     { m:4, d:11, label:"✈️ LAX→CUN", cls:"event-flight" },
     { m:4, d:11, label:"🏖️ Secrets PB", cls:"event-hotel-mexico" },
     { m:4, d:12, label:"🏖️ פלאיה בלנקה", cls:"event-hotel-mexico" },
