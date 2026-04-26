@@ -53,6 +53,12 @@ export default function MekafkefimPage() {
   });
 
   return (
+    <>
+      <link rel="preconnect" href="https://medias.timeout.co.il" crossOrigin="anonymous" />
+      <link rel="preconnect" href="https://cityrattelaviv.wordpress.com" crossOrigin="anonymous" />
+      <link rel="preconnect" href="https://img02.restaurantguru.com" crossOrigin="anonymous" />
+      <link rel="preconnect" href="https://eatintlv.com" crossOrigin="anonymous" />
+      <link rel="preconnect" href="https://img.haarets.co.il" crossOrigin="anonymous" />
     <div style={{
       minHeight: '100vh',
       background: '#f2e8d5',
@@ -180,6 +186,7 @@ export default function MekafkefimPage() {
                   onDelete={handleDeleteReview}
                   onUpdate={fetchReviews}
                   rank={index + 1}
+                  isPriority={index === 0}
                 />
               </div>
             ))}
@@ -196,5 +203,6 @@ export default function MekafkefimPage() {
         )}
       </div>
     </div>
+    </>
   );
 }

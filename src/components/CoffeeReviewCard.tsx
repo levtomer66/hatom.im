@@ -14,6 +14,7 @@ interface CoffeeReviewCardProps {
   onDelete: (id: string) => Promise<void>;
   onUpdate: () => void;
   rank?: number;
+  isPriority?: boolean;
 }
 
 const nonZeroAvg = (vals: number[]) => {
@@ -49,7 +50,7 @@ const ScoreRing = ({ score, label, size = 72 }: { score: number; label: string; 
   );
 };
 
-const CoffeeReviewCard: React.FC<CoffeeReviewCardProps> = ({ review, onDelete, onUpdate, rank }) => {
+const CoffeeReviewCard: React.FC<CoffeeReviewCardProps> = ({ review, onDelete, onUpdate, rank, isPriority = false }) => {
   const [imageError, setImageError] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -147,7 +148,8 @@ const CoffeeReviewCard: React.FC<CoffeeReviewCardProps> = ({ review, onDelete, o
             fill
             style={{ objectFit: 'cover', filter: 'sepia(30%) saturate(0.85) contrast(1.05)' }}
             onError={() => setImageError(true)}
-            sizes="(max-width: 768px) 100vw, 50vw"
+            sizes="(max-width: 600px) 100vw, (max-width: 1000px) 50vw, 320px"
+            priority={isPriority}
           />
         ) : (
           <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '4rem', opacity: 0.2 }}>☕</div>
