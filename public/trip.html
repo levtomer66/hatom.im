@@ -3,10 +3,17 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="preconnect" href="https://unpkg.com">
+<link rel="preconnect" href="https://a.basemaps.cartocdn.com" crossorigin>
+<link rel="preconnect" href="https://b.basemaps.cartocdn.com" crossorigin>
+<link rel="preconnect" href="https://c.basemaps.cartocdn.com" crossorigin>
+<link rel="preconnect" href="https://d.basemaps.cartocdn.com" crossorigin>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <title>✈️ USA & Mexico Trip 2026</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Heebo:wght@400;700;900&display=swap');
 
   :root {
     --bg: #0a0a1a;
@@ -279,8 +286,8 @@
     padding: 0.75rem 0.5rem;
     font-weight: 700;
     font-size: 0.85rem;
-    color: var(--accent);
-    background: rgba(108,92,231,0.1);
+    color: #ffffff;
+    background: rgba(108,92,231,0.55);
     border-radius: 8px;
   }
 
@@ -2287,9 +2294,11 @@
 </footer>
 
 <!-- Leaflet JS -->
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script defer src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
 <script>
+// Wait for DOMContentLoaded — Leaflet is `defer`, so `L` isn't ready yet.
+document.addEventListener('DOMContentLoaded', () => {
 // ============ MAP ============
 const map = L.map('map', { center: [37, -50], zoom: 3, zoomControl: true, scrollWheelZoom: true });
 // Expose the map so the journey script (loaded below) can drop photo pins
@@ -2516,14 +2525,8 @@ document.querySelectorAll('.timeline-item').forEach(item => {
   item.style.animationPlayState = 'paused';
   timelineObserver.observe(item);
 });
+});
 </script>
-
-<!-- Client libs for the journey feature. `exifr` extracts photo date + GPS;
-     `browser-image-compression` resizes HEIC/JPEG before upload so we stay
-     inside the Vercel Blob Hobby-tier quota. Both are CDN'd because
-     trip.html is a standalone static file, not bundled by Next.js. -->
-<script src="https://unpkg.com/exifr@7.1.3/dist/full.umd.js"></script>
-<script src="https://unpkg.com/browser-image-compression@2.0.2/dist/browser-image-compression.js"></script>
 
 <script>
 // ============ TRIP JOURNEY ============
@@ -2540,9 +2543,32 @@ document.querySelectorAll('.timeline-item').forEach(item => {
 
   // Cache: dayDate -> { dayDate, photos: [], note: '' } once fetched.
   const dayCache = new Map();
-  // journey pins layer group on the main Leaflet map (if present).
-  const mainMap = window._tripMap || null;
-  const journeyLayer = mainMap ? L.layerGroup().addTo(mainMap) : null;
+  // journey pins layer group on the main Leaflet map (if present). Resolved
+  // lazily inside boot() because Leaflet now loads with `defer`, so the map
+  // and `window._tripMap` aren't ready when this IIFE first runs.
+  let mainMap = null;
+  let journeyLayer = null;
+
+  // exifr + browser-image-compression are admin-only (~46 KB combined). Lazy-
+  // injected so non-admin visitors never pay for them.
+  let adminLibsPromise = null;
+  function injectScript(src) {
+    return new Promise((res, rej) => {
+      const s = document.createElement('script');
+      s.src = src;
+      s.onload = res;
+      s.onerror = rej;
+      document.head.appendChild(s);
+    });
+  }
+  function loadAdminLibs() {
+    if (adminLibsPromise) return adminLibsPromise;
+    adminLibsPromise = Promise.all([
+      injectScript('https://unpkg.com/exifr@7.1.3/dist/full.umd.js'),
+      injectScript('https://unpkg.com/browser-image-compression@2.0.2/dist/browser-image-compression.js'),
+    ]);
+    return adminLibsPromise;
+  }
 
   // ----- tiny helpers -----
   function adminToken() {
@@ -2881,6 +2907,13 @@ document.querySelectorAll('.timeline-item').forEach(item => {
   async function ingestFiles(fileList) {
     const files = Array.from(fileList || []);
     if (!files.length) return;
+    try {
+      await loadAdminLibs();
+    } catch (err) {
+      console.warn('[trip/journey] failed to load admin libs', err);
+      addPreviewRow('שגיאה בטעינת הספריות', 'err');
+      return;
+    }
     for (const file of files) {
       const row = addPreviewRow(`${file.name} — מנתח EXIF…`);
       let exif = null;
@@ -3382,6 +3415,8 @@ document.querySelectorAll('.timeline-item').forEach(item => {
 
   // ----- bootstrap -----
   async function boot() {
+    mainMap = window._tripMap || null;
+    journeyLayer = mainMap ? L.layerGroup().addTo(mainMap) : null;
     // Panel is always visible; prompt for the token lazily on the first
     // upload attempt rather than at page load so casual visitors aren't
     // interrupted by a credentials prompt.
@@ -3397,9 +3432,13 @@ document.querySelectorAll('.timeline-item').forEach(item => {
     if (fullMap) fullMap.refresh();
   }
 
-  // The calendar is rendered synchronously above by buildCalendar(); kick off
-  // on the next tick so cells are in the DOM.
-  setTimeout(boot, 0);
+  // boot needs the calendar in the DOM and Leaflet (`L`) available; defer
+  // scripts run before DOMContentLoaded so this guarantees both.
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', boot);
+  } else {
+    setTimeout(boot, 0);
+  }
 })();
 </script>
 
