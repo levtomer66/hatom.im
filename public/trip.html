@@ -1372,7 +1372,6 @@
     </label>
     <span id="admin-unassigned-pill" class="admin-unassigned-pill">⚠ N ללא תאריך</span>
     <button id="admin-upload-submit" class="admin-upload-submit" disabled>העלאה</button>
-    <button id="admin-regeocode" class="admin-upload-submit" type="button" title="ירוץ על כל התמונות הקיימות וירענן את שם המיקום עם הלוגיקה החדשה">📍 רענן תוויות</button>
   </div>
   <div id="admin-upload-previews" class="admin-upload-previews"></div>
 </div>
@@ -3095,57 +3094,6 @@ document.querySelectorAll('.timeline-item').forEach(item => {
     adminDrop.addEventListener('drop', e => ingestFiles(e.dataTransfer?.files));
   }
   if (adminSubmit) adminSubmit.addEventListener('click', uploadPending);
-
-  // Re-geocode existing photos: one-shot admin action that re-runs the
-  // (now stabilised) Nominatim picker against every photo with GPS so
-  // existing labels stop drifting between e.g. "Starbucks, Midtown" and
-  // "Times Square, New York" for points that are visibly the same place.
-  const regeocodeBtn = document.getElementById('admin-regeocode');
-  if (regeocodeBtn) {
-    regeocodeBtn.addEventListener('click', async () => {
-      let token = adminToken();
-      if (!token) {
-        const t = prompt('סיסמת אדמין:');
-        if (!t) return;
-        localStorage.setItem(ADMIN_TOKEN_KEY, t);
-        token = t;
-      }
-      if (!confirm('להריץ רענון תוויות מיקום על כל התמונות? הפעולה עשויה לקחת מספר דקות.')) return;
-      const originalText = regeocodeBtn.textContent;
-      regeocodeBtn.disabled = true;
-      regeocodeBtn.textContent = 'מרענן…';
-      try {
-        const res = await fetch('/api/trip/journey/regeocode', {
-          method: 'POST',
-          headers: { 'X-Admin-Token': token },
-        });
-        if (!res.ok) {
-          const body = await res.json().catch(() => null);
-          throw new Error(body?.error || ('HTTP ' + res.status));
-        }
-        const { scanned, updated, unchanged, skipped } = await res.json();
-        alert(`רענון הסתיים\nנסרקו: ${scanned}\nעודכנו: ${updated}\nללא שינוי: ${unchanged}\nללא GPS: ${skipped}`);
-        // Drop the day cache so the next modal/full-map render fetches the
-        // freshly-rewritten labels.
-        dayCache.clear();
-        try {
-          const summary = await fetchJourneySummary();
-          document.querySelectorAll('.cal-day .photo-badge').forEach(el => el.remove());
-          document.querySelectorAll('.cal-day').forEach(el => delete el.dataset.hasPhotos);
-          await decorateCalendar(summary);
-          if (fullMap) fullMap.refresh();
-        } catch (err) {
-          console.warn('post-regeocode refresh failed', err);
-        }
-      } catch (err) {
-        console.error('regeocode failed', err);
-        alert('שגיאה ברענון: ' + (err && err.message ? err.message : err));
-      } finally {
-        regeocodeBtn.disabled = false;
-        regeocodeBtn.textContent = originalText;
-      }
-    });
-  }
 
   // ===== Full Photo Map =====
   // Single-canvas browse view of every GPS-tagged trip photo. Photos are
