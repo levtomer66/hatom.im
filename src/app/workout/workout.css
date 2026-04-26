@@ -58,6 +58,7 @@
   --workout-gold-dim: rgba(251, 191, 36, 0.2);
   --workout-red: #ef4444;
   --workout-blue: #3b82f6;
+  --workout-blue-strong: #1d4ed8; /* blue-700 — WCAG AA contrast with white text */
   
   /* Spacing */
   --bottom-nav-height: 64px;

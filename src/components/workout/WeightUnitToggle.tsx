@@ -53,7 +53,7 @@ export default function WeightUnitToggle({ size = 'md' }: WeightUnitToggleProps)
               lineHeight: 1,
               fontWeight: 700,
               letterSpacing: '0.04em',
-              background: active ? 'var(--workout-blue)' : 'transparent',
+              background: active ? 'var(--workout-blue-strong)' : 'transparent',
               color: active ? 'white' : 'var(--workout-text-secondary)',
               border: 'none',
               borderRadius: '999px',

@@ -51,7 +51,7 @@ export default function LanguageToggle({ size = 'md' }: LanguageToggleProps) {
               padding,
               fontSize,
               lineHeight: 1,
-              background: active ? 'var(--workout-blue)' : 'transparent',
+              background: active ? 'var(--workout-blue-strong)' : 'transparent',
               color: active ? 'white' : 'inherit',
               border: 'none',
               borderRadius: '999px',
