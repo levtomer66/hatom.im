@@ -430,7 +430,7 @@ const FamilyTreePrime: React.FC = () => {
         </p>
       </div>
 
-      <div ref={chartRef} className="tree-wrapper bg-white p-8 rounded-xl shadow-xl print:bg-white print:shadow-none border-4 border-amber-200 overflow-x-auto" dir="ltr">
+      <div ref={chartRef} className="tree-wrapper bg-white p-8 rounded-xl shadow-xl print:bg-white print:shadow-none border-4 border-amber-200 overflow-x-auto" dir="ltr" style={{ minHeight: '720px' }}>
         <StyledOrgChart>
           {treeData.length > 0 ? (
             <OrganizationChart
@@ -447,12 +447,14 @@ const FamilyTreePrime: React.FC = () => {
               className="org-chart"
             />
           ) : (
-            <div className="text-center" dir="rtl">
-              <p className="text-amber-800 text-lg mb-4">אין עדיין כלבים בעץ המשפחה! 🐾</p>
-              <Button onClick={() => handleAddMember(null)}>
-                <span>🐶</span>
-                הוסף כלב ראשון
-              </Button>
+            <div style={{ minHeight: '600px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <div className="text-center" dir="rtl">
+                <p className="text-amber-800 text-lg mb-4">אין עדיין כלבים בעץ המשפחה! 🐾</p>
+                <Button onClick={() => handleAddMember(null)}>
+                  <span>🐶</span>
+                  הוסף כלב ראשון
+                </Button>
+              </div>
             </div>
           )}
         </StyledOrgChart>
