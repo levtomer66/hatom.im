@@ -679,7 +679,8 @@ const STYLES = `
   border: 1px solid rgba(255, 255, 255, 0.05);
   border-radius: 1rem;
   padding: 0.5rem 0.35rem;
-  min-height: 120px;
+  /* min-height matches populated tree height so loading skeleton doesn't shift layout (CLS) */
+  min-height: 600px;
 }
 
 /* ── Node row ───────────────────────────────── */
@@ -822,8 +823,8 @@ const STYLES = `
 /* ── Badge ──────────────────────────────────── */
 .ft-badge {
   font-size: 0.7rem;
-  color: rgba(240, 236, 226, 0.3);
-  background: rgba(255, 255, 255, 0.04);
+  color: rgba(240, 236, 226, 0.95);
+  background: rgba(255, 255, 255, 0.12);
   padding: 1px 8px;
   border-radius: 10px;
   flex-shrink: 0;
