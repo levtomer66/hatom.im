@@ -244,7 +244,7 @@ export default function ExerciseDetailPage() {
                         {t('exercise_detail.pb_label')}: {formatWeight(pb.completedKg, unit)}{unitSuffix} ({pb.completedReps.join('×')})
                       </span>
                     </div>
-                  ) : (
+                  ) : pb.currentKg > 0 ? (
                     <div
                       style={{
                         display: 'inline-flex',
@@ -261,23 +261,25 @@ export default function ExerciseDetailPage() {
                         {t('exercise_detail.working_label')}: {formatWeight(pb.currentKg, unit)}{unitSuffix} ({pb.currentReps.join('×')})
                       </span>
                     </div>
+                  ) : null}
+                  {(pb.completedKg !== null || pb.currentKg > 0) && (
+                    <div
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        padding: '6px 10px',
+                        backgroundColor: 'rgba(251, 191, 36, 0.15)',
+                        borderRadius: '6px',
+                        fontSize: '14px',
+                      }}
+                    >
+                      <span>💡</span>
+                      <span style={{ color: 'var(--workout-accent)' }}>
+                        {t('exercise_detail.next_rec_label')}: <strong>{formatWeight(pb.recommendedKg, unit)}{unitSuffix}</strong>
+                      </span>
+                    </div>
                   )}
-                  <div
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '6px',
-                      padding: '6px 10px',
-                      backgroundColor: 'rgba(251, 191, 36, 0.15)',
-                      borderRadius: '6px',
-                      fontSize: '14px',
-                    }}
-                  >
-                    <span>💡</span>
-                    <span style={{ color: 'var(--workout-accent)' }}>
-                      {t('exercise_detail.next_rec_label')}: <strong>{formatWeight(pb.recommendedKg, unit)}{unitSuffix}</strong>
-                    </span>
-                  </div>
                   {pb.bestSeconds !== null && pb.bestSecondsKg !== null && (
                     <div
                       style={{

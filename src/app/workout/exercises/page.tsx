@@ -225,12 +225,12 @@ export default function ExercisesPage() {
                             🥇 {formatWeight(pb.completedKg, unit)}{unitSuffix}: {pb.completedReps.join('×')}
                           </span>
                         )}
-                        {pb && pb.completedKg === null && (
+                        {pb && pb.completedKg === null && pb.currentKg > 0 && (
                           <span style={{ fontSize: '13px', color: 'var(--workout-text-secondary)' }}>
                             💪 {formatWeight(pb.currentKg, unit)}{unitSuffix}: {pb.currentReps.join('×')}
                           </span>
                         )}
-                        {pb && (
+                        {pb && (pb.completedKg !== null || pb.currentKg > 0) && (
                           <span style={{
                             fontSize: '12px',
                             color: 'var(--workout-accent)',
@@ -239,6 +239,14 @@ export default function ExercisesPage() {
                             borderRadius: '4px',
                           }}>
                             {language === 'he' ? 'הבא' : 'Next'}: {formatWeight(pb.recommendedKg, unit)}{unitSuffix}
+                          </span>
+                        )}
+                        {pb && pb.bestSeconds !== null && pb.bestSecondsKg !== null && (
+                          <span style={{ fontSize: '13px', color: 'var(--workout-blue)' }}>
+                            ⏱ {pb.bestSecondsKg > 0
+                              ? `${formatWeight(pb.bestSecondsKg, unit)}${unitSuffix}`
+                              : (language === 'he' ? 'גוף' : 'BW')}{' × '}
+                            {Math.floor(pb.bestSeconds / 60)}:{(pb.bestSeconds % 60).toString().padStart(2, '0')}
                           </span>
                         )}
                         {exercise.isCustom && (

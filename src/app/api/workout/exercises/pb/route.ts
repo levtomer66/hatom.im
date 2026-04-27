@@ -24,9 +24,14 @@ function isCompleted(sets: WorkoutSet[]): boolean {
   return setsAtHighestWeight.every(s => (s.reps as number) > 8);
 }
 
-// Get highest weight from sets
+// Highest weight across REP-MODE sets only. Time-mode sets have their own
+// PB calculation downstream — letting their kg leak into this would make a
+// weighted timed hold overwrite the exercise's rep-based current/working
+// weight (Codex review flagged this).
 function getHighestKg(sets: WorkoutSet[]): number {
-  const validKgs = sets.filter(s => s.kg !== null && s.kg > 0).map(s => s.kg as number);
+  const validKgs = sets
+    .filter(s => s.kg !== null && s.kg > 0 && s.reps !== null)
+    .map(s => s.kg as number);
   return validKgs.length > 0 ? Math.max(...validKgs) : 0;
 }
 
@@ -113,17 +118,20 @@ export async function GET(request: NextRequest) {
         const repsAtHighest = highestKg > 0 ? getRepsAtWeight(sets, highestKg) : [];
         const completed = highestKg > 0 ? isCompleted(sets) : false;
 
-        // Initialize candidate tracking for this exercise
+        // Initialize candidate. Rep-mode fields stay at zero/empty until a
+        // workout actually contributes rep data — otherwise a time-only
+        // exercise (e.g. bodyweight plank) would emit a bogus
+        // "Working: 0 kg ()" rep block on the detail page.
         if (!pbCandidates[exerciseId]) {
           pbCandidates[exerciseId] = {
             completedKg: null,
             completedReps: [],
             completedDate: null,
             completedWorkoutId: null,
-            currentKg: highestKg,
-            currentReps: repsAtHighest,
-            currentDate: workout.date,
-            currentWorkoutId: workout._id.toString(),
+            currentKg: 0,
+            currentReps: [],
+            currentDate: '',
+            currentWorkoutId: '',
             bestSeconds: null,
             bestSecondsKg: null,
             bestSecondsDate: null,
@@ -149,37 +157,42 @@ export async function GET(request: NextRequest) {
           }
         }
 
-        // Track highest completed weight (rep-mode)
-        if (completed) {
-          if (candidate.completedKg === null || highestKg > candidate.completedKg) {
-            candidate.completedKg = highestKg;
-            candidate.completedReps = repsAtHighest;
-            candidate.completedDate = workout.date;
-            candidate.completedWorkoutId = workout._id.toString();
-          } else if (highestKg === candidate.completedKg) {
-            // Same weight - prefer more total reps
-            const currentTotal = candidate.completedReps.reduce((a, b) => a + b, 0);
-            const newTotal = repsAtHighest.reduce((a, b) => a + b, 0);
-            if (newTotal > currentTotal) {
+        // Rep-mode tracking only runs when this iteration has rep data
+        // (highestKg already excludes time-mode sets). Otherwise we'd
+        // overwrite the rep-current weight with a timed-hold's weight.
+        if (highestKg > 0) {
+          if (completed) {
+            if (candidate.completedKg === null || highestKg > candidate.completedKg) {
+              candidate.completedKg = highestKg;
               candidate.completedReps = repsAtHighest;
               candidate.completedDate = workout.date;
               candidate.completedWorkoutId = workout._id.toString();
+            } else if (highestKg === candidate.completedKg) {
+              // Same weight - prefer more total reps
+              const currentTotal = candidate.completedReps.reduce((a, b) => a + b, 0);
+              const newTotal = repsAtHighest.reduce((a, b) => a + b, 0);
+              if (newTotal > currentTotal) {
+                candidate.completedReps = repsAtHighest;
+                candidate.completedDate = workout.date;
+                candidate.completedWorkoutId = workout._id.toString();
+              }
             }
           }
-        }
-        
-        // Track current working weight (highest weight used, most recent if tie)
-        if (highestKg > candidate.currentKg) {
-          candidate.currentKg = highestKg;
-          candidate.currentReps = repsAtHighest;
-          candidate.currentDate = workout.date;
-          candidate.currentWorkoutId = workout._id.toString();
-        } else if (highestKg === candidate.currentKg) {
-          // Same weight - prefer more recent date
-          if (new Date(workout.date) > new Date(candidate.currentDate)) {
+
+          // Track current working weight (highest weight used, most recent if tie).
+          // Bootstraps off the empty sentinel on the first rep-data iteration.
+          if (candidate.currentDate === '' || highestKg > candidate.currentKg) {
+            candidate.currentKg = highestKg;
             candidate.currentReps = repsAtHighest;
             candidate.currentDate = workout.date;
             candidate.currentWorkoutId = workout._id.toString();
+          } else if (highestKg === candidate.currentKg) {
+            // Same weight - prefer more recent date
+            if (new Date(workout.date) > new Date(candidate.currentDate)) {
+              candidate.currentReps = repsAtHighest;
+              candidate.currentDate = workout.date;
+              candidate.currentWorkoutId = workout._id.toString();
+            }
           }
         }
       }
