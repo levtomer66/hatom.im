@@ -8,6 +8,7 @@ import { useWorkoutUnit } from '@/context/WorkoutUnitContext';
 import { useT, formatDate, getCategoryLabel, getLocalizedTemplateName } from '@/lib/workout-i18n';
 import { getLocalizedExercise } from '@/lib/exercise-translations';
 import { formatWeight, getUnitSuffix } from '@/lib/weight';
+import { formatSeconds } from '@/lib/time';
 import LoginScreen from '@/components/workout/LoginScreen';
 import Header from '@/components/workout/Header';
 import BottomNav from '@/components/workout/BottomNav';
@@ -277,6 +278,28 @@ export default function ExerciseDetailPage() {
                       {t('exercise_detail.next_rec_label')}: <strong>{formatWeight(pb.recommendedKg, unit)}{unitSuffix}</strong>
                     </span>
                   </div>
+                  {pb.bestSeconds !== null && pb.bestSecondsKg !== null && (
+                    <div
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        padding: '8px 12px',
+                        backgroundColor: 'rgba(59, 130, 246, 0.15)',
+                        borderRadius: '8px',
+                        border: '1px solid var(--workout-blue)',
+                      }}
+                    >
+                      <span style={{ fontSize: '20px' }}>⏱</span>
+                      <span style={{ fontWeight: 700, color: 'var(--workout-blue)' }}>
+                        {t('exercise_detail.hold_pb_label')}:{' '}
+                        {pb.bestSecondsKg > 0
+                          ? `${formatWeight(pb.bestSecondsKg, unit)}${unitSuffix}`
+                          : t('card.bw_label')}{' '}
+                        × {formatSeconds(pb.bestSeconds)}
+                      </span>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -365,7 +388,11 @@ export default function ExerciseDetailPage() {
                     >
                       <span style={{ color: 'var(--workout-text-secondary)' }}>S{setIndex + 1}: </span>
                       <span style={{ fontWeight: 600 }}>
-                        {formatWeight(set.kg, unit)}{unitSuffix} × {set.reps ?? '-'}
+                        {set.kg !== null && set.kg > 0
+                          ? `${formatWeight(set.kg, unit)}${unitSuffix}`
+                          : (set.seconds !== null ? t('card.bw_label') : `${formatWeight(set.kg, unit)}${unitSuffix}`)}
+                        {' × '}
+                        {set.seconds !== null ? formatSeconds(set.seconds) : (set.reps ?? '-')}
                       </span>
                     </div>
                   ))}

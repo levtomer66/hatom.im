@@ -2,6 +2,7 @@ import { Metadata, Viewport } from 'next';
 import { WorkoutUserProvider } from '@/context/WorkoutUserContext';
 import { WorkoutLanguageProvider } from '@/context/WorkoutLanguageContext';
 import { WorkoutUnitProvider } from '@/context/WorkoutUnitContext';
+import { WorkoutTimerProvider } from '@/context/WorkoutTimerContext';
 import WorkoutShell from '@/components/workout/WorkoutShell';
 import './workout.css';
 
@@ -27,11 +28,13 @@ export default function WorkoutLayout({
   return (
     <WorkoutLanguageProvider>
       <WorkoutUnitProvider>
-        <WorkoutUserProvider>
-          <WorkoutShell>
-            {children}
-          </WorkoutShell>
-        </WorkoutUserProvider>
+        <WorkoutTimerProvider>
+          <WorkoutUserProvider>
+            <WorkoutShell>
+              {children}
+            </WorkoutShell>
+          </WorkoutUserProvider>
+        </WorkoutTimerProvider>
       </WorkoutUnitProvider>
     </WorkoutLanguageProvider>
   );

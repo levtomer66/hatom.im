@@ -48,6 +48,14 @@ const DICT = {
   'card.history_empty':             { en: 'No records yet for this exercise',               he: 'אין עדיין רישומים לתרגיל הזה' },
   'card.history_completed':         { en: '✓ Completed',                                    he: '✓ הושלם' },
   'card.history_replaced_prefix':   { en: 'swapped from',                                   he: 'הוחלף מ־' },
+  'card.toggle_to_time':            { en: 'Switch to timer',                                he: 'עבור לטיימר' },
+  'card.toggle_to_reps':            { en: 'Switch to reps',                                 he: 'עבור לחזרות' },
+  'card.sec':                       { en: 'Sec',                                            he: 'שנ׳' },
+  'card.start_stopwatch':           { en: '▶ Start',                                        he: '▶ התחל' },
+  'card.stop_stopwatch':            { en: '⏸ Stop',                                         he: '⏸ עצור' },
+  'card.reset_stopwatch':           { en: 'Reset',                                          he: 'אפס' },
+  'card.bw_label':                  { en: 'BW',                                             he: 'גוף' },
+  'exercise_detail.hold_pb_label':  { en: 'Longest hold',                                   he: 'אחיזה הכי ארוכה' },
   'card.notes_label':               { en: 'Notes',                                          he: 'הערות' },
   'card.kg_suffix':                 { en: 'kg',                                              he: 'ק"ג' },
   'card.reps_suffix':               { en: 'reps',                                            he: 'חזרות' },
@@ -110,6 +118,18 @@ const DICT = {
   'exercise_detail.pb_label':       { en: 'PB',                                             he: 'שיא' },
   'exercise_detail.working_label':  { en: 'Working',                                        he: 'עובד על' },
   'exercise_detail.next_rec_label': { en: 'Next recommended',                               he: 'מומלץ להמשך' },
+
+  // Rest timer
+  'timer.rest_label':               { en: '⏱ Rest',                                         he: '⏱ מנוחה' },
+  'timer.rest_button':              { en: '⏱ Rest',                                         he: '⏱ מנוחה' },
+  'timer.skip':                     { en: 'Skip',                                           he: 'דלג' },
+  'timer.add_30':                   { en: '+30 seconds',                                    he: '+30 שניות' },
+  'timer.minus_30':                 { en: '−30 seconds',                                    he: '−30 שניות' },
+  'timer.done_label':               { en: '✓ Rest done!',                                   he: '✓ סיים מנוחה!' },
+  'timer.settings_title':           { en: 'Rest timer',                                     he: 'טיימר מנוחה' },
+  'timer.default_label':            { en: 'Default',                                        he: 'ברירת מחדל' },
+  'timer.sound_label':              { en: 'Sound',                                          he: 'צליל' },
+  'timer.settings_aria':            { en: 'Open timer settings',                            he: 'פתח הגדרות טיימר' },
 
   // Generic
   'generic.close':                  { en: 'Close',                                          he: 'סגור' },

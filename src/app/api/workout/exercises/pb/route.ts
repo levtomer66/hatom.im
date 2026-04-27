@@ -52,6 +52,30 @@ interface PBCandidate {
   currentReps: number[];
   currentDate: string;
   currentWorkoutId: string;
+  // Time-mode PB tracked in parallel — same exercise can have both a rep
+  // and a time PB (e.g. weighted plank). Bodyweight planks store kg=0.
+  bestSeconds: number | null;
+  bestSecondsKg: number | null;
+  bestSecondsDate: string | null;
+  bestSecondsWorkoutId: string | null;
+}
+
+// Pick the best time-mode (kg, seconds) tuple from a single workout's sets.
+// Highest kg wins; ties broken by longest seconds.
+function getBestTimeMode(sets: WorkoutSet[]): { kg: number; seconds: number } | null {
+  let best: { kg: number; seconds: number } | null = null;
+  for (const s of sets) {
+    if (s.seconds === null || s.seconds <= 0) continue;
+    const kg = s.kg ?? 0;
+    if (
+      best === null ||
+      kg > best.kg ||
+      (kg === best.kg && s.seconds > best.seconds)
+    ) {
+      best = { kg, seconds: s.seconds };
+    }
+  }
+  return best;
 }
 
 // GET /api/workout/exercises/pb?userId=tom
@@ -80,14 +104,14 @@ export async function GET(request: NextRequest) {
       for (const exercise of workout.exercises) {
         const sets = exercise.sets || [];
         const highestKg = getHighestKg(sets);
-        
-        // Skip if no valid weight
-        if (highestKg <= 0) continue;
-        
-        const repsAtHighest = getRepsAtWeight(sets, highestKg);
-        const completed = isCompleted(sets);
-        
+        const timeBest = getBestTimeMode(sets);
         const exerciseId = resolveExerciseId(exercise.exerciseId);
+
+        // Skip if neither a rep-mode nor time-mode signal exists.
+        if (highestKg <= 0 && timeBest === null) continue;
+
+        const repsAtHighest = highestKg > 0 ? getRepsAtWeight(sets, highestKg) : [];
+        const completed = highestKg > 0 ? isCompleted(sets) : false;
 
         // Initialize candidate tracking for this exercise
         if (!pbCandidates[exerciseId]) {
@@ -100,12 +124,32 @@ export async function GET(request: NextRequest) {
             currentReps: repsAtHighest,
             currentDate: workout.date,
             currentWorkoutId: workout._id.toString(),
+            bestSeconds: null,
+            bestSecondsKg: null,
+            bestSecondsDate: null,
+            bestSecondsWorkoutId: null,
           };
         }
-        
+
         const candidate = pbCandidates[exerciseId];
-        
-        // Track highest completed weight
+
+        // Time-mode PB: highest kg wins, ties broken by longest seconds.
+        if (timeBest !== null) {
+          const isBetter =
+            candidate.bestSecondsKg === null ||
+            timeBest.kg > candidate.bestSecondsKg ||
+            (timeBest.kg === candidate.bestSecondsKg &&
+              candidate.bestSeconds !== null &&
+              timeBest.seconds > candidate.bestSeconds);
+          if (isBetter) {
+            candidate.bestSeconds = timeBest.seconds;
+            candidate.bestSecondsKg = timeBest.kg;
+            candidate.bestSecondsDate = workout.date;
+            candidate.bestSecondsWorkoutId = workout._id.toString();
+          }
+        }
+
+        // Track highest completed weight (rep-mode)
         if (completed) {
           if (candidate.completedKg === null || highestKg > candidate.completedKg) {
             candidate.completedKg = highestKg;
@@ -165,6 +209,10 @@ export async function GET(request: NextRequest) {
         currentDate: candidate.currentDate,
         currentWorkoutId: candidate.currentWorkoutId,
         recommendedKg,
+        bestSeconds: candidate.bestSeconds,
+        bestSecondsKg: candidate.bestSecondsKg,
+        bestSecondsDate: candidate.bestSecondsDate,
+        bestSecondsWorkoutId: candidate.bestSecondsWorkoutId,
       };
       
       pbMap[exerciseId] = pb;

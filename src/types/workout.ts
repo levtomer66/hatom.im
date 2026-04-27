@@ -120,10 +120,21 @@ export interface ExerciseDefinition {
   isCustom?: boolean;
 }
 
-// Single set with its own weight and reps
+// Single set with its own weight, reps, and optional time-mode duration.
+// `seconds !== null` flips this set into time-mode (planks, hangs,
+// isometric holds). The two are mutually exclusive in practice — toggling
+// the row clears the inactive field — but both are nullable so existing
+// data round-trips.
 export interface WorkoutSet {
   kg: number | null;
   reps: number | null;
+  seconds: number | null;
+}
+
+// `set.seconds !== null` means it's a time-mode set. Avoids repeating
+// this check across the codebase.
+export function isTimeSet(s: WorkoutSet): boolean {
+  return s.seconds !== null;
 }
 
 // Exercise entry in a workout
@@ -195,6 +206,12 @@ export interface PersonalBest {
   currentWorkoutId: string;
   // Recommendation
   recommendedKg: number;       // Suggested weight for next session
+  // Time-mode PB tracked in parallel — same exercise can have both a
+  // rep-based and a time-based PB (e.g. weighted plank).
+  bestSeconds: number | null;
+  bestSecondsKg: number | null;
+  bestSecondsDate: string | null;
+  bestSecondsWorkoutId: string | null;
 }
 
 // Exercise history entry (for display)
@@ -248,7 +265,7 @@ export function getHighestWeight(exercise: WorkoutExercise): number {
 
 // Helper to create default sets for a new exercise
 export function createDefaultSets(count: number = DEFAULT_NUM_SETS): WorkoutSet[] {
-  return Array.from({ length: count }, () => ({ kg: null, reps: null }));
+  return Array.from({ length: count }, () => ({ kg: null, reps: null, seconds: null }));
 }
 
 // Workout type to exercise categories mapping for filtering

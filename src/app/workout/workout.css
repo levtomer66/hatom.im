@@ -133,6 +133,233 @@
   font-weight: 700;
 }
 
+/* Rest timer bar — sits above BottomNav while a countdown is active. */
+.rest-timer-bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: calc(var(--bottom-nav-height) + env(safe-area-inset-bottom, 0px));
+  background: var(--workout-bg-card);
+  border-top: 1px solid var(--workout-border);
+  z-index: 99;
+  overflow: hidden;
+  animation: rest-timer-slide-in 180ms ease-out;
+}
+.rest-timer-bar[data-finished] {
+  background: linear-gradient(135deg, var(--workout-blue-strong), #6366f1);
+  border-top-color: transparent;
+}
+.rest-timer-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: linear-gradient(135deg, var(--workout-blue-strong), #6366f1);
+  opacity: 0.18;
+  transition: width 250ms linear;
+}
+.rest-timer-bar[data-finished] .rest-timer-fill { display: none; }
+.rest-timer-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 16px;
+}
+.rest-timer-info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.rest-timer-label {
+  font-size: 12px;
+  color: var(--workout-text-secondary);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  overflow: hidden;
+}
+.rest-timer-bar[data-finished] .rest-timer-label { color: rgba(255,255,255,0.85); }
+.rest-timer-time {
+  font-size: 22px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--workout-text);
+  line-height: 1.1;
+}
+.rest-timer-bar[data-finished] .rest-timer-time { color: #fff; }
+.rest-timer-actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.rest-timer-actions button {
+  appearance: none;
+  border: 1px solid var(--workout-border);
+  background: var(--workout-bg-secondary);
+  color: var(--workout-text);
+  border-radius: 999px;
+  padding: 6px 10px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  font-variant-numeric: tabular-nums;
+}
+.rest-timer-actions button:hover { background: var(--workout-bg-card-hover); }
+.rest-timer-actions .rest-timer-skip {
+  border-color: rgba(239, 68, 68, 0.4);
+  color: var(--workout-red);
+}
+@keyframes rest-timer-slide-in {
+  from { transform: translateY(100%); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+
+/* Per-set reps↔time mode toggle (next to set number). */
+.exercise-set-mode-toggle {
+  appearance: none;
+  background: var(--workout-bg-secondary);
+  border: 1px solid var(--workout-border);
+  color: var(--workout-text-secondary);
+  border-radius: 6px;
+  width: 26px;
+  height: 26px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+.exercise-set-mode-toggle:hover {
+  background: var(--workout-bg-card-hover);
+  color: var(--workout-text);
+}
+
+/* Stopwatch field shown in time-mode rows. */
+.set-stopwatch { gap: 4px; }
+.set-stopwatch-display {
+  appearance: none;
+  background: var(--workout-bg-secondary);
+  border: 1px solid var(--workout-border);
+  color: var(--workout-text);
+  border-radius: 8px;
+  padding: 8px;
+  font-size: 16px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  cursor: text;
+  text-align: center;
+  width: 100%;
+}
+.set-stopwatch-display:hover {
+  background: var(--workout-bg-card-hover);
+}
+.set-stopwatch-actions {
+  display: flex;
+  gap: 4px;
+  justify-content: center;
+  margin-top: 4px;
+}
+.set-stopwatch-actions button {
+  appearance: none;
+  background: var(--workout-blue);
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  width: 32px;
+  height: 28px;
+  cursor: pointer;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+}
+.set-stopwatch-actions button:nth-of-type(2) {
+  background: var(--workout-bg-secondary);
+  color: var(--workout-text-secondary);
+  border: 1px solid var(--workout-border);
+}
+.set-stopwatch-actions button:hover { filter: brightness(1.1); }
+
+/* Set-row rest button — small "⏱ 90s" pill that appears next to a set's reps input. */
+.exercise-set-rest-btn {
+  appearance: none;
+  background: rgba(59, 130, 246, 0.12);
+  border: 1px solid rgba(59, 130, 246, 0.35);
+  color: var(--workout-blue);
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.exercise-set-rest-btn:hover { background: rgba(59, 130, 246, 0.2); }
+
+/* Header timer-prefs popover. */
+.timer-prefs-button {
+  appearance: none;
+  background: none;
+  border: none;
+  color: var(--workout-text-secondary);
+  font-size: 18px;
+  cursor: pointer;
+  padding: 4px 6px;
+  line-height: 1;
+}
+.timer-prefs-button:hover { color: var(--workout-text); }
+.timer-prefs-popover {
+  position: fixed;
+  top: 56px;
+  inset-inline-end: 12px;
+  z-index: 200;
+  background: var(--workout-bg-card);
+  border: 1px solid var(--workout-border);
+  border-radius: 12px;
+  padding: 14px;
+  min-width: 220px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.timer-prefs-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.timer-prefs-row label {
+  font-size: 13px;
+  color: var(--workout-text-secondary);
+}
+.timer-prefs-stepper {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.timer-prefs-stepper button {
+  appearance: none;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  border: 1px solid var(--workout-border);
+  background: var(--workout-bg-secondary);
+  color: var(--workout-text);
+  cursor: pointer;
+  font-weight: 700;
+}
+.timer-prefs-stepper-value {
+  font-variant-numeric: tabular-nums;
+  min-width: 38px;
+  text-align: center;
+  font-weight: 600;
+}
+
 /* Bottom Navigation */
 .workout-bottom-nav {
   position: fixed;

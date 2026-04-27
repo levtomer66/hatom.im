@@ -8,6 +8,7 @@ export interface WorkoutDocument extends Omit<Workout, '_id' | 'id'>, Document {
 const WorkoutSetSchema = new Schema<WorkoutSet>({
   kg: { type: Number, default: null },
   reps: { type: Number, default: null },
+  seconds: { type: Number, default: null },
 }, { _id: false });
 
 // Sub-schema for workout exercises

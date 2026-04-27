@@ -7,6 +7,7 @@ import { getLocalizedExercise } from '@/lib/exercise-translations';
 import { useWorkoutUser } from '@/context/WorkoutUserContext';
 import { useWorkoutLanguage } from '@/context/WorkoutLanguageContext';
 import { useWorkoutUnit } from '@/context/WorkoutUnitContext';
+import { useWorkoutTimer } from '@/context/WorkoutTimerContext';
 import { useT, formatDate, getLocalizedTemplateName } from '@/lib/workout-i18n';
 import {
   displayToKg,
@@ -15,7 +16,9 @@ import {
   getUnitSuffix,
   roundForDisplay,
 } from '@/lib/weight';
+import { formatSeconds } from '@/lib/time';
 import ExerciseExternalLinks from './ExerciseExternalLinks';
+import SetStopwatch from './SetStopwatch';
 
 export interface ExerciseCardDraggable {
   setNodeRef: (node: HTMLElement | null) => void;
@@ -55,6 +58,7 @@ export default function ExerciseCard({
   const { currentUser } = useWorkoutUser();
   const { language } = useWorkoutLanguage();
   const { unit } = useWorkoutUnit();
+  const timer = useWorkoutTimer();
   const t = useT();
   const unitLabel = getUnitLabel(unit, language);
   const unitSuffix = getUnitSuffix(unit, language);
@@ -79,7 +83,7 @@ export default function ExerciseCard({
   const isEditable = mode === 'edit';
 
   // Check if form has any data filled
-  const hasData = exercise.sets.some(s => s.kg !== null || s.reps !== null);
+  const hasData = exercise.sets.some(s => s.kg !== null || s.reps !== null || s.seconds !== null);
 
   // Track if card is expanded for editing - always start collapsed
   const [isExpanded, setIsExpanded] = useState(false);
@@ -197,7 +201,7 @@ export default function ExerciseCard({
       // Add new sets
       newSets = [
         ...currentSets,
-        ...Array.from({ length: newCount - currentSets.length }, () => ({ kg: null, reps: null }))
+        ...Array.from({ length: newCount - currentSets.length }, () => ({ kg: null, reps: null, seconds: null }))
       ];
     } else {
       // Remove sets from the end
@@ -269,6 +273,26 @@ export default function ExerciseCard({
     onUpdate({ ...exercise, notes: value });
   };
 
+  // Flip a single set between reps mode (default) and time mode. The
+  // inactive field is cleared so the discriminator stays clean.
+  const handleSetModeToggle = (setIndex: number) => {
+    if (!onUpdate) return;
+    const newSets = [...exercise.sets];
+    const current = newSets[setIndex];
+    const goingToTime = current.seconds === null;
+    newSets[setIndex] = goingToTime
+      ? { ...current, reps: null, seconds: 0 }
+      : { ...current, seconds: null };
+    onUpdate({ ...exercise, sets: newSets });
+  };
+
+  const handleSecondsChange = (setIndex: number, value: number | null) => {
+    if (!onUpdate) return;
+    const newSets = [...exercise.sets];
+    newSets[setIndex] = { ...newSets[setIndex], seconds: value, reps: null };
+    onUpdate({ ...exercise, sets: newSets });
+  };
+
   const handleKeyDown = (
     e: React.KeyboardEvent<HTMLInputElement>,
     nextRefIndex: number | null
@@ -292,13 +316,17 @@ export default function ExerciseCard({
 
   // Format summary for collapsed view
   const formatSummary = () => {
-    const setsWithData = exercise.sets.filter(s => s.kg !== null || s.reps !== null);
+    const setsWithData = exercise.sets.filter(s => s.kg !== null || s.reps !== null || s.seconds !== null);
     if (setsWithData.length === 0) return '-';
 
     return exercise.sets.map((s) => {
-      const kg = s.kg !== null ? `${formatWeight(s.kg, unit)}${unitSuffix}` : '-';
-      const reps = s.reps !== null ? `${s.reps}` : '-';
-      return `${kg}×${reps}`;
+      const kg = s.kg !== null && s.kg > 0
+        ? `${formatWeight(s.kg, unit)}${unitSuffix}`
+        : (s.seconds !== null ? t('card.bw_label') : '-');
+      const right = s.seconds !== null
+        ? formatSeconds(s.seconds)
+        : (s.reps !== null ? `${s.reps}` : '-');
+      return `${kg}×${right}`;
     }).join(' | ');
   };
 
@@ -453,48 +481,78 @@ export default function ExerciseCard({
             </div>
           </div>
 
-          {/* Sets grid - each set has its own KG and Reps */}
+          {/* Sets grid - each set has its own KG and Reps (or seconds in time mode) */}
           <div className="exercise-sets-grid">
-            {exercise.sets.map((set, setIndex) => (
-              <div key={setIndex} className="exercise-set-row-edit">
-                <div className="set-number">{t('card.set_n')} {setIndex + 1}</div>
-                <div className="exercise-form-field">
-                  <label>{unitLabel}</label>
-                  <input
-                    ref={(el) => { inputRefs.current[setIndex * 2] = el; }}
-                    type="number"
-                    inputMode="decimal"
-                    enterKeyHint="next"
-                    className="workout-input workout-input-number"
-                    // Display in the active unit; handleKgChange converts
-                    // back to kg before persisting.
-                    value={set.kg === null ? '' : (roundForDisplay(set.kg, unit) as number)}
-                    onChange={(e) => handleKgChange(setIndex, e.target.value)}
-                    onKeyDown={(e) => handleKeyDown(e, setIndex * 2 + 1)}
-                    placeholder={recommendedScale ? `${formatWeight(recommendedScale, unit)}` : '0'}
-                    min="0"
-                    max="999"
-                    step="0.5"
-                  />
+            {exercise.sets.map((set, setIndex) => {
+              const isTimeMode = set.seconds !== null;
+              const hasLogged = isTimeMode
+                ? (set.seconds ?? 0) > 0
+                : set.reps !== null && set.reps > 0;
+              return (
+                <div key={setIndex} className="exercise-set-row-edit">
+                  <div className="set-number">{t('card.set_n')} {setIndex + 1}</div>
+                  <button
+                    type="button"
+                    className="exercise-set-mode-toggle"
+                    onClick={() => handleSetModeToggle(setIndex)}
+                    title={isTimeMode ? t('card.toggle_to_reps') : t('card.toggle_to_time')}
+                    aria-label={isTimeMode ? t('card.toggle_to_reps') : t('card.toggle_to_time')}
+                  >
+                    {isTimeMode ? '⏱' : '#'}
+                  </button>
+                  <div className="exercise-form-field">
+                    <label>{unitLabel}</label>
+                    <input
+                      ref={(el) => { inputRefs.current[setIndex * 2] = el; }}
+                      type="number"
+                      inputMode="decimal"
+                      enterKeyHint="next"
+                      className="workout-input workout-input-number"
+                      value={set.kg === null ? '' : (roundForDisplay(set.kg, unit) as number)}
+                      onChange={(e) => handleKgChange(setIndex, e.target.value)}
+                      onKeyDown={(e) => handleKeyDown(e, setIndex * 2 + 1)}
+                      placeholder={recommendedScale ? `${formatWeight(recommendedScale, unit)}` : '0'}
+                      min="0"
+                      max="999"
+                      step="0.5"
+                    />
+                  </div>
+                  {isTimeMode ? (
+                    <SetStopwatch
+                      seconds={set.seconds}
+                      onChange={(v) => handleSecondsChange(setIndex, v)}
+                    />
+                  ) : (
+                    <div className="exercise-form-field">
+                      <label>{t('card.reps')}</label>
+                      <input
+                        ref={(el) => { inputRefs.current[setIndex * 2 + 1] = el; }}
+                        type="number"
+                        inputMode="numeric"
+                        enterKeyHint={setIndex === exercise.sets.length - 1 ? 'done' : 'next'}
+                        className="workout-input workout-input-number"
+                        value={set.reps ?? ''}
+                        onChange={(e) => handleRepsChange(setIndex, e.target.value)}
+                        onKeyDown={(e) => handleKeyDown(e, setIndex < exercise.sets.length - 1 ? (setIndex + 1) * 2 : null)}
+                        placeholder={t('card.reps_placeholder')}
+                        min="0"
+                        max="99"
+                      />
+                    </div>
+                  )}
+                  {hasLogged && (
+                    <button
+                      type="button"
+                      className="exercise-set-rest-btn"
+                      onClick={() => timer.start(timer.prefs.defaultRestSec, displayName)}
+                      title={t('timer.rest_button')}
+                    >
+                      {t('timer.rest_button')} {formatSeconds(timer.prefs.defaultRestSec)}
+                    </button>
+                  )}
                 </div>
-                <div className="exercise-form-field">
-                  <label>{t('card.reps')}</label>
-                  <input
-                    ref={(el) => { inputRefs.current[setIndex * 2 + 1] = el; }}
-                    type="number"
-                    inputMode="numeric"
-                    enterKeyHint={setIndex === exercise.sets.length - 1 ? 'done' : 'next'}
-                    className="workout-input workout-input-number"
-                    value={set.reps ?? ''}
-                    onChange={(e) => handleRepsChange(setIndex, e.target.value)}
-                    onKeyDown={(e) => handleKeyDown(e, setIndex < exercise.sets.length - 1 ? (setIndex + 1) * 2 : null)}
-                    placeholder={t('card.reps_placeholder')}
-                    min="0"
-                    max="99"
-                  />
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
           
           {/* Notes - optional, always available */}
@@ -518,14 +576,21 @@ export default function ExerciseCard({
               ↻ {t('card.history_replaced_prefix')} {resolveExerciseName(exercise.replacedFromExerciseId)}
             </div>
           )}
-          {exercise.sets.map((set, i) => (
-            <div key={i} className="exercise-set-row">
-              <span className="exercise-set-label">{t('card.set_n')} {i + 1}</span>
-              <span>
-                {formatWeight(set.kg, unit)} {unitSuffix} × {set.reps ?? '-'} {t('card.reps_suffix')}
-              </span>
-            </div>
-          ))}
+          {exercise.sets.map((set, i) => {
+            const isTime = set.seconds !== null;
+            const kgText = set.kg !== null && set.kg > 0
+              ? `${formatWeight(set.kg, unit)} ${unitSuffix}`
+              : (isTime ? t('card.bw_label') : `${formatWeight(set.kg, unit)} ${unitSuffix}`);
+            const rightText = isTime
+              ? formatSeconds(set.seconds ?? 0)
+              : `${set.reps ?? '-'} ${t('card.reps_suffix')}`;
+            return (
+              <div key={i} className="exercise-set-row">
+                <span className="exercise-set-label">{t('card.set_n')} {i + 1}</span>
+                <span>{kgText} × {rightText}</span>
+              </div>
+            );
+          })}
           {exercise.notes && (
             <div className="exercise-set-row" style={{ marginTop: '8px' }}>
               <span className="exercise-set-label">{t('card.notes_label')}</span>
@@ -632,7 +697,11 @@ export default function ExerciseCard({
                           >
                             <span style={{ color: 'var(--workout-text-secondary)' }}>S{setIndex + 1}: </span>
                             <span style={{ fontWeight: 600 }}>
-                              {formatWeight(set.kg, unit)}{unitSuffix} × {set.reps ?? '-'}
+                              {set.kg !== null && set.kg > 0
+                                ? `${formatWeight(set.kg, unit)}${unitSuffix}`
+                                : (set.seconds !== null ? t('card.bw_label') : `${formatWeight(set.kg, unit)}${unitSuffix}`)}
+                              {' × '}
+                              {set.seconds !== null ? formatSeconds(set.seconds) : (set.reps ?? '-')}
                             </span>
                           </div>
                         ))}
