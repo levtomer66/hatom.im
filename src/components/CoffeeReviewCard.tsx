@@ -150,7 +150,6 @@ const CoffeeReviewCard: React.FC<CoffeeReviewCardProps> = ({ review, onDelete, o
             onError={() => setImageError(true)}
             sizes="(max-width: 600px) 100vw, (max-width: 1000px) 50vw, 320px"
             priority={isPriority}
-            unoptimized
           />
         ) : (
           <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '4rem', opacity: 0.2 }}>☕</div>

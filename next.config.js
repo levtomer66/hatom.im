@@ -2,31 +2,12 @@
 const nextConfig = {
   reactStrictMode: true,
   images: {
+    // Coffee-review photos can come from any social-media / blog URL the
+    // user pastes — Instagram CDN, Google Maps, restaurant blogs, etc.
+    // Wildcard pattern keeps Next's image optimizer in the loop (resize
+    // + AVIF/WebP) without us having to allowlist every new host.
     remotePatterns: [
-      {
-        protocol: 'https',
-        hostname: 'images.unsplash.com',
-      },
-      {
-        protocol: 'https',
-        hostname: 'medias.timeout.co.il',
-      },
-      {
-        protocol: 'https',
-        hostname: 'img02.restaurantguru.com',
-      },
-      {
-        protocol: 'https',
-        hostname: 'eatintlv.com',
-      },
-      {
-        protocol: 'https',
-        hostname: 'img.haarets.co.il',
-      },
-      {
-        protocol: 'https',
-        hostname: 'cityrattelaviv.wordpress.com',
-      },
+      { protocol: 'https', hostname: '**' },
     ],
   },
   async headers() {
