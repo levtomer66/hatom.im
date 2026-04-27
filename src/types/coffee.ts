@@ -13,10 +13,6 @@ export interface CoffeeReview {
   tomerPriceRating: number;
   // Common fields
   photoUrl?: string;
-  photoData?: string; // Base64 encoded image data
-  photoType?: string; // Image MIME type
-  photoName?: string; // Original filename
-  photoSize?: number; // Size in bytes
   mapsUrl?: string;
   instagramUrl?: string;
   createdAt: string;
@@ -37,10 +33,6 @@ export interface CreateCoffeeReviewDto {
   tomerPriceRating: number;
   // Common fields
   photoUrl?: string;
-  photoData?: string; // Base64 encoded image data
-  photoType?: string; // Image MIME type
-  photoName?: string; // Original filename
-  photoSize?: number; // Size in bytes
   mapsUrl?: string;
   instagramUrl?: string;
 }

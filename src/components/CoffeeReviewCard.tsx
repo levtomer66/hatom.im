@@ -141,15 +141,16 @@ const CoffeeReviewCard: React.FC<CoffeeReviewCardProps> = ({ review, onDelete, o
 
       {/* Image */}
       <div style={{ height: '180px', background: '#ece0c8', overflow: 'hidden', position: 'relative' }}>
-        {(review.photoUrl || review.photoData) && !imageError ? (
+        {review.photoUrl && !imageError ? (
           <Image
-            src={review.photoData ? `/api/coffee-reviews/${review.id}/image` : (review.photoUrl || '')}
+            src={review.photoUrl}
             alt={review.placeName}
             fill
             style={{ objectFit: 'cover', filter: 'sepia(30%) saturate(0.85) contrast(1.05)' }}
             onError={() => setImageError(true)}
             sizes="(max-width: 600px) 100vw, (max-width: 1000px) 50vw, 320px"
             priority={isPriority}
+            unoptimized
           />
         ) : (
           <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '4rem', opacity: 0.2 }}>☕</div>
