@@ -11,9 +11,11 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <title>✈️ USA & Mexico Trip 2026</title>
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;700;900&display=swap" onload="this.onload=null;this.rel='stylesheet'">
+<noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;700;900&display=swap"></noscript>
+<link rel="preload" as="style" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" onload="this.onload=null;this.rel='stylesheet'">
+<noscript><link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"></noscript>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Heebo:wght@400;700;900&display=swap');
 
   :root {
     --bg: #0a0a1a;
@@ -377,19 +379,21 @@
     font-weight: 500;
   }
 
-  .event-flight { background: rgba(108,92,231,0.3); color: #c8c0ff; }
-  .event-hotel-ny { background: rgba(0,206,201,0.3); color: #81ecec; }
-  .event-hotel-niagara { background: rgba(116,185,255,0.3); color: #74b9ff; }
-  .event-hotel-vegas { background: rgba(253,121,168,0.3); color: #fab1a0; }
-  .event-hotel-sf { background: rgba(253,203,110,0.3); color: #ffeaa7; }
-  .event-hotel-yosemite { background: rgba(85,239,196,0.3); color: #55efc4; }
-  .event-hotel-hw1 { background: rgba(162,155,254,0.3); color: #a29bfe; }
-  .event-hotel-la { background: rgba(255,118,117,0.3); color: #ff7675; }
-  .event-hotel-mexico { background: rgba(0,184,148,0.3); color: #00b894; }
-  .event-hotel-athens { background: rgba(255,234,167,0.3); color: #ffeaa7; }
-  .event-hotel-isla { background: rgba(0,210,211,0.3); color: #00d2d3; }
-  .event-show { background: rgba(255,165,0,0.35); color: #ffcc80; }
-  .event-return { background: rgba(162,155,254,0.35); color: #d5ccff; }
+  /* Event chips: white text on a saturated translucent bg passes WCAG AA on the dark page bg. */
+  .cal-day .day-event { color: #ffffff; }
+  .event-flight { background: rgba(108,92,231,0.65); }
+  .event-hotel-ny { background: rgba(0,206,201,0.65); }
+  .event-hotel-niagara { background: rgba(116,185,255,0.65); }
+  .event-hotel-vegas { background: rgba(253,121,168,0.65); }
+  .event-hotel-sf { background: rgba(214,150,46,0.75); }
+  .event-hotel-yosemite { background: rgba(85,170,140,0.7); }
+  .event-hotel-hw1 { background: rgba(162,155,254,0.65); }
+  .event-hotel-la { background: rgba(255,118,117,0.7); }
+  .event-hotel-mexico { background: rgba(0,184,148,0.7); }
+  .event-hotel-athens { background: rgba(214,170,80,0.75); }
+  .event-hotel-isla { background: rgba(0,180,180,0.7); }
+  .event-show { background: rgba(255,140,40,0.7); }
+  .event-return { background: rgba(162,155,254,0.65); }
   .event-car { background: rgba(99,110,114,0.45); color: #dfe6e9; }
 
   .cal-month-label {

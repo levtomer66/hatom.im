@@ -72,13 +72,13 @@ const GreetingPage: React.FC = () => {
                   repeat: Infinity,
                   repeatType: "reverse"
                 }}
-                className="text-5xl"
+                className="text-5xl text-gray-800"
               >
                 🎈 🎁 🎊
               </motion.div>
             </div>
-            
-            <p className="text-lg text-purple-500 font-semibold">
+
+            <p className="text-lg text-purple-700 font-semibold">
               אוהב
               <br />
               תומרינדי

@@ -560,7 +560,7 @@ const STYLES = `
 }
 
 .ft-subtitle {
-  color: rgba(240, 236, 226, 0.35);
+  color: rgba(240, 236, 226, 0.7);
   font-size: 0.85rem;
   margin: 0 0 1.25rem;
 }
@@ -599,7 +599,7 @@ const STYLES = `
 }
 
 .ft-search::placeholder {
-  color: rgba(240, 236, 226, 0.25);
+  color: rgba(240, 236, 226, 0.55);
 }
 
 .ft-search-clear {
@@ -633,10 +633,10 @@ const STYLES = `
 
 .ft-ctrl {
   padding: 0.4rem 0.9rem;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 0.5rem;
-  color: rgba(240, 236, 226, 0.55);
+  color: rgba(240, 236, 226, 0.92);
   font-size: 0.8rem;
   font-family: inherit;
   cursor: pointer;
