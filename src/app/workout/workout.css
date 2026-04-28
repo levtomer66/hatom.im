@@ -283,6 +283,26 @@
 }
 .set-stopwatch-actions button:hover { filter: brightness(1.1); }
 
+/* Card-level rest button — always-visible larger sibling of the per-set
+   pill. Lives in the set-count tuner row so it's reachable without first
+   logging a set. */
+.exercise-card-rest-btn {
+  appearance: none;
+  margin-inline-start: auto;
+  background: linear-gradient(135deg, var(--workout-blue-strong), #6366f1);
+  border: none;
+  color: #fff;
+  border-radius: 999px;
+  padding: 6px 14px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.exercise-card-rest-btn:hover { filter: brightness(1.1); }
+
 /* Set-row rest button — small "⏱ 90s" pill that appears next to a set's reps input. */
 .exercise-set-rest-btn {
   appearance: none;

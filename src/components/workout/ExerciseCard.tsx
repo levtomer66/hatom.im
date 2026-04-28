@@ -459,11 +459,11 @@ export default function ExerciseCard({
       {/* Compact form layout for editing */}
       {isEditable ? (
         <div className="exercise-form-compact">
-          {/* Set count tuner */}
+          {/* Set count tuner + always-visible rest-timer trigger */}
           <div className="set-count-tuner">
             <span className="set-count-label">{t('card.sets_label')}</span>
             <div className="set-count-controls">
-              <button 
+              <button
                 className="set-count-btn"
                 onClick={() => handleSetCountChange(exercise.sets.length - 1)}
                 disabled={exercise.sets.length <= MIN_SETS}
@@ -471,7 +471,7 @@ export default function ExerciseCard({
                 −
               </button>
               <span className="set-count-value">{exercise.sets.length}</span>
-              <button 
+              <button
                 className="set-count-btn"
                 onClick={() => handleSetCountChange(exercise.sets.length + 1)}
                 disabled={exercise.sets.length >= MAX_SETS}
@@ -479,6 +479,14 @@ export default function ExerciseCard({
                 +
               </button>
             </div>
+            <button
+              type="button"
+              className="exercise-card-rest-btn"
+              onClick={() => timer.start(timer.prefs.defaultRestSec, displayName)}
+              title={t('timer.rest_button')}
+            >
+              {t('timer.rest_button')} {formatSeconds(timer.prefs.defaultRestSec)}
+            </button>
           </div>
 
           {/* Sets grid - each set has its own KG and Reps (or seconds in time mode) */}
