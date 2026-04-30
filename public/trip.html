@@ -1145,11 +1145,77 @@ function buildCalendar() {
 buildCalendar();
 
 // ============ NAV ============
-function scrollToSection(id) {
-  document.getElementById(id).scrollIntoView({ behavior: 'smooth', block: 'start' });
+// Hoisted to window because the inline `onclick="scrollToSection(...)"`
+// attributes resolve against the global scope, not this DOMContentLoaded
+// closure. Without this, every nav-bar click was a silent no-op.
+window.scrollToSection = function (id, ev) {
+  const target = document.getElementById(id);
+  if (!target) return;
+  target.scrollIntoView({ behavior: 'smooth', block: 'start' });
   document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
-  event.target.classList.add('active');
-}
+  const triggerBtn = ev?.currentTarget
+    || document.querySelector(`.nav-btn[onclick*="'${id}'"]`);
+  if (triggerBtn) triggerBtn.classList.add('active');
+};
+
+// Mirror the legs array from computeTripProgress so we can tag nav
+// buttons + dest sections with their state. Section ids match the
+// `onclick="scrollToSection('athens')"` keys in the nav.
+(function tagLegStates() {
+  const legs = [
+    { id: 'athens',   start: '2026-04-15', end: '2026-04-16' },
+    { id: 'nyc',      start: '2026-04-16', end: '2026-04-22' },
+    { id: 'niagara',  start: '2026-04-22', end: '2026-04-25' },
+    { id: 'vegas',    start: '2026-04-25', end: '2026-04-29' },
+    { id: 'sf',       start: '2026-04-29', end: '2026-05-02' },
+    { id: 'yosemite', start: '2026-05-02', end: '2026-05-04' },
+    { id: 'hw1',      start: '2026-05-04', end: '2026-05-06' },
+    { id: 'la',       start: '2026-05-06', end: '2026-05-11' },
+    { id: 'playa',    start: '2026-05-11', end: '2026-05-15' },
+    { id: 'isla',     start: '2026-05-15', end: '2026-05-18' },
+    { id: 'return',   start: '2026-05-18', end: '2026-05-20' },
+  ];
+  const now = new Date();
+  for (const leg of legs) {
+    const endDate = new Date(leg.end + 'T23:59:59');
+    const startDate = new Date(leg.start + 'T00:00:00');
+    let state;
+    if (now > endDate) state = 'past';
+    else if (now < startDate) state = 'upcoming';
+    else state = 'current';
+
+    document
+      .querySelectorAll(`.nav-btn[onclick*="'${leg.id}'"]`)
+      .forEach(b => b.setAttribute('data-leg-state', state));
+
+    const header = document.getElementById(leg.id);
+    if (!header) continue;
+    header.setAttribute('data-leg-state', state);
+    // The matching `.timeline` is the dest-header's immediate next sibling.
+    const timeline = header.nextElementSibling;
+    if (timeline && timeline.classList.contains('timeline')) {
+      timeline.setAttribute('data-leg-state', state);
+      if (state === 'past') {
+        header.setAttribute('data-collapsed', '1');
+        timeline.setAttribute('data-collapsed', '1');
+      }
+    }
+    // Tap a past dest-header to toggle its timeline back open.
+    if (state === 'past') {
+      header.style.cursor = 'pointer';
+      header.addEventListener('click', () => {
+        const collapsed = header.getAttribute('data-collapsed') === '1';
+        const next = collapsed ? null : '1';
+        if (next) header.setAttribute('data-collapsed', next);
+        else header.removeAttribute('data-collapsed');
+        if (timeline && timeline.classList.contains('timeline')) {
+          if (next) timeline.setAttribute('data-collapsed', next);
+          else timeline.removeAttribute('data-collapsed');
+        }
+      });
+    }
+  }
+})();
 
 const sections = document.querySelectorAll('.dest-header, #map-section, #calendar-section');
 const navBtns = document.querySelectorAll('.nav-btn');
