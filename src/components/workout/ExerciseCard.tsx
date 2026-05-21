@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { WorkoutExercise, WorkoutSet, PersonalBest, ExerciseDefinition, ExerciseHistoryEntry, isExerciseCompleted, getHighestWeight, MIN_SETS, MAX_SETS } from '@/types/workout';
+import { WorkoutExercise, WorkoutSet, PersonalBest, ExerciseDefinition, ExerciseHistoryEntry, isExerciseCompleted, isTimeSet, getHighestWeight, MIN_SETS, MAX_SETS } from '@/types/workout';
 import { getExerciseById } from '@/data/exercise-library';
 import { getLocalizedExercise } from '@/lib/exercise-translations';
 import { useWorkoutUser } from '@/context/WorkoutUserContext';
@@ -11,6 +11,7 @@ import { useWorkoutTimer } from '@/context/WorkoutTimerContext';
 import { useT, formatDate, getLocalizedTemplateName } from '@/lib/workout-i18n';
 import {
   displayToKg,
+  formatHistorySet,
   formatWeight,
   getUnitLabel,
   getUnitSuffix,
@@ -83,7 +84,7 @@ export default function ExerciseCard({
   const isEditable = mode === 'edit';
 
   // Check if form has any data filled
-  const hasData = exercise.sets.some(s => s.kg !== null || s.reps !== null || s.seconds !== null);
+  const hasData = exercise.sets.some(s => s.kg !== null || s.reps !== null || isTimeSet(s));
 
   // Track if card is expanded for editing - always start collapsed
   const [isExpanded, setIsExpanded] = useState(false);
@@ -279,7 +280,7 @@ export default function ExerciseCard({
     if (!onUpdate) return;
     const newSets = [...exercise.sets];
     const current = newSets[setIndex];
-    const goingToTime = current.seconds === null;
+    const goingToTime = !isTimeSet(current);
     newSets[setIndex] = goingToTime
       ? { ...current, reps: null, seconds: 0 }
       : { ...current, seconds: null };
@@ -314,20 +315,16 @@ export default function ExerciseCard({
     onUpdate({ ...exercise, sets: newSets });
   };
 
-  // Format summary for collapsed view
+  // Format summary for collapsed view. Reuses the shared history-chip
+  // formatter so the collapsed summary and the history modal stay in lockstep.
   const formatSummary = () => {
-    const setsWithData = exercise.sets.filter(s => s.kg !== null || s.reps !== null || s.seconds !== null);
+    const setsWithData = exercise.sets.filter(
+      s => s.kg !== null || s.reps !== null || isTimeSet(s)
+    );
     if (setsWithData.length === 0) return '-';
-
-    return exercise.sets.map((s) => {
-      const kg = s.kg !== null && s.kg > 0
-        ? `${formatWeight(s.kg, unit)}${unitSuffix}`
-        : (s.seconds !== null ? t('card.bw_label') : '-');
-      const right = s.seconds !== null
-        ? formatSeconds(s.seconds)
-        : (s.reps !== null ? `${s.reps}` : '-');
-      return `${kg}×${right}`;
-    }).join(' | ');
+    return exercise.sets
+      .map(s => formatHistorySet(s, unit, unitSuffix, t('card.bw_label')))
+      .join(' | ');
   };
 
   // Collapsed view for all non-expanded cards in edit mode
@@ -492,7 +489,7 @@ export default function ExerciseCard({
           {/* Sets grid - each set has its own KG and Reps (or seconds in time mode) */}
           <div className="exercise-sets-grid">
             {exercise.sets.map((set, setIndex) => {
-              const isTimeMode = set.seconds !== null;
+              const isTimeMode = isTimeSet(set);
               const hasLogged = isTimeMode
                 ? (set.seconds ?? 0) > 0
                 : set.reps !== null && set.reps > 0;
@@ -585,17 +582,11 @@ export default function ExerciseCard({
             </div>
           )}
           {exercise.sets.map((set, i) => {
-            const isTime = set.seconds !== null;
-            const kgText = set.kg !== null && set.kg > 0
-              ? `${formatWeight(set.kg, unit)} ${unitSuffix}`
-              : (isTime ? t('card.bw_label') : `${formatWeight(set.kg, unit)} ${unitSuffix}`);
-            const rightText = isTime
-              ? formatSeconds(set.seconds ?? 0)
-              : `${set.reps ?? '-'} ${t('card.reps_suffix')}`;
+            const chip = formatHistorySet(set, unit, unitSuffix, t('card.bw_label'));
             return (
               <div key={i} className="exercise-set-row">
                 <span className="exercise-set-label">{t('card.set_n')} {i + 1}</span>
-                <span>{kgText} × {rightText}</span>
+                <span>{chip}</span>
               </div>
             );
           })}
@@ -703,13 +694,9 @@ export default function ExerciseCard({
                               fontSize: '13px',
                             }}
                           >
-                            <span style={{ color: 'var(--workout-text-secondary)' }}>S{setIndex + 1}: </span>
+                            <span style={{ color: 'var(--workout-text-secondary)' }}>{t('card.set_short')}{setIndex + 1}: </span>
                             <span style={{ fontWeight: 600 }}>
-                              {set.kg !== null && set.kg > 0
-                                ? `${formatWeight(set.kg, unit)}${unitSuffix}`
-                                : (set.seconds !== null ? t('card.bw_label') : `${formatWeight(set.kg, unit)}${unitSuffix}`)}
-                              {' × '}
-                              {set.seconds !== null ? formatSeconds(set.seconds) : (set.reps ?? '-')}
+                              {formatHistorySet(set, unit, unitSuffix, t('card.bw_label'))}
                             </span>
                           </div>
                         ))}

@@ -35,6 +35,7 @@ const DICT = {
   // Exercise card
   'card.sets_label':                { en: 'Sets:',                                          he: 'סטים:' },
   'card.set_n':                     { en: 'Set',                                            he: 'סט' },
+  'card.set_short':                 { en: 'S',                                              he: 'ס' },
   'card.kg':                        { en: 'KG',                                             he: 'ק"ג' },
   'card.reps':                      { en: 'Reps',                                           he: 'חזרות' },
   'card.reps_placeholder':          { en: 'reps',                                           he: 'חזרות' },

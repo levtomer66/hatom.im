@@ -131,10 +131,13 @@ export interface WorkoutSet {
   seconds: number | null;
 }
 
-// `set.seconds !== null` means it's a time-mode set. Avoids repeating
-// this check across the codebase.
+// A set is in time-mode when it has a `seconds` field. Loose `!= null`
+// covers both null and undefined — legacy workouts saved before the
+// `seconds` field was added arrive over the wire without the field at
+// all, so a strict `!== null` would misclassify them as time-mode and
+// surface "0:00" instead of their reps.
 export function isTimeSet(s: WorkoutSet): boolean {
-  return s.seconds !== null;
+  return s.seconds != null;
 }
 
 // Exercise entry in a workout

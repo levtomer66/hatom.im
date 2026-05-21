@@ -7,7 +7,7 @@ import { useWorkoutLanguage } from '@/context/WorkoutLanguageContext';
 import { useWorkoutUnit } from '@/context/WorkoutUnitContext';
 import { useT, formatDate, getCategoryLabel, getLocalizedTemplateName } from '@/lib/workout-i18n';
 import { getLocalizedExercise } from '@/lib/exercise-translations';
-import { formatWeight, getUnitSuffix } from '@/lib/weight';
+import { formatHistorySet, formatWeight, getUnitSuffix } from '@/lib/weight';
 import { formatSeconds } from '@/lib/time';
 import LoginScreen from '@/components/workout/LoginScreen';
 import Header from '@/components/workout/Header';
@@ -280,7 +280,7 @@ export default function ExerciseDetailPage() {
                       </span>
                     </div>
                   )}
-                  {pb.bestSeconds !== null && pb.bestSecondsKg !== null && (
+                  {typeof pb.bestSeconds === 'number' && pb.bestSeconds > 0 && pb.bestSecondsKg !== null && (
                     <div
                       style={{
                         display: 'inline-flex',
@@ -388,13 +388,9 @@ export default function ExerciseDetailPage() {
                         fontSize: '13px',
                       }}
                     >
-                      <span style={{ color: 'var(--workout-text-secondary)' }}>S{setIndex + 1}: </span>
+                      <span style={{ color: 'var(--workout-text-secondary)' }}>{t('card.set_short')}{setIndex + 1}: </span>
                       <span style={{ fontWeight: 600 }}>
-                        {set.kg !== null && set.kg > 0
-                          ? `${formatWeight(set.kg, unit)}${unitSuffix}`
-                          : (set.seconds !== null ? t('card.bw_label') : `${formatWeight(set.kg, unit)}${unitSuffix}`)}
-                        {' × '}
-                        {set.seconds !== null ? formatSeconds(set.seconds) : (set.reps ?? '-')}
+                        {formatHistorySet(set, unit, unitSuffix, t('card.bw_label'))}
                       </span>
                     </div>
                   ))}

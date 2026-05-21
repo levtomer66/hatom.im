@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import mongoose from 'mongoose';
 import WorkoutModel from '@/models/Workout';
-import { UserId, PersonalBest, WorkoutSet, USER_IDS, isValidUserId } from '@/types/workout';
+import { UserId, PersonalBest, WorkoutSet, USER_IDS, isValidUserId, isTimeSet } from '@/types/workout';
 import { resolveExerciseId } from '@/data/exercise-library';
 
 // Connect to MongoDB using mongoose
@@ -70,14 +70,15 @@ interface PBCandidate {
 function getBestTimeMode(sets: WorkoutSet[]): { kg: number; seconds: number } | null {
   let best: { kg: number; seconds: number } | null = null;
   for (const s of sets) {
-    if (s.seconds === null || s.seconds <= 0) continue;
+    if (!isTimeSet(s) || (s.seconds ?? 0) <= 0) continue;
+    const seconds = s.seconds as number;
     const kg = s.kg ?? 0;
     if (
       best === null ||
       kg > best.kg ||
-      (kg === best.kg && s.seconds > best.seconds)
+      (kg === best.kg && seconds > best.seconds)
     ) {
-      best = { kg, seconds: s.seconds };
+      best = { kg, seconds };
     }
   }
   return best;

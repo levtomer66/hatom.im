@@ -1,4 +1,5 @@
-import { WeightUnit, Language } from '@/types/workout';
+import { WeightUnit, Language, WorkoutSet } from '@/types/workout';
+import { formatSeconds } from '@/lib/time';
 
 // Storage is always kilograms. These helpers only affect what the user
 // sees in the input fields and weight labels — the DB never sees lb.
@@ -46,4 +47,32 @@ export function getUnitSuffix(unit: WeightUnit, language: Language): string {
 export function getUnitLabel(unit: WeightUnit, language: Language): string {
   if (unit === 'kg') return language === 'he' ? 'ק"ג' : 'KG';
   return 'LB';
+}
+
+// History-chip formatter for a single set. Centralizes the rules:
+//   - never emits "0:00" (treats legacy `seconds: undefined` and freshly
+//     toggled `seconds: 0` as not-time-mode);
+//   - drops the weight prefix when there's no real load and shows the BW
+//     label only when it's meaningful (timed hold or rep-mode bodyweight);
+//   - returns a "—" placeholder for totally-empty sets rather than the
+//     misleading "0kg × 0:00" we used to render.
+export function formatHistorySet(
+  set: WorkoutSet,
+  unit: WeightUnit,
+  unitSuffix: string,
+  bwLabel: string
+): string {
+  const hasKg   = set.kg !== null && set.kg !== undefined && set.kg > 0;
+  const hasTime = typeof set.seconds === 'number' && set.seconds > 0;
+  const hasReps = set.reps !== null && set.reps !== undefined && set.reps > 0;
+
+  if (!hasKg && !hasTime && !hasReps) return '—';
+
+  const left  = hasKg ? `${formatWeight(set.kg, unit)}${unitSuffix}`
+              : (hasTime || hasReps) ? bwLabel : '';
+  const right = hasTime ? formatSeconds(set.seconds as number)
+              : hasReps ? `${set.reps}` : '';
+
+  if (left && right) return `${left} × ${right}`;
+  return left || right || '—';
 }

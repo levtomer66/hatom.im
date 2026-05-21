@@ -128,13 +128,11 @@ export async function GET(request: NextRequest) {
       }
     }
     
-    // Sort final results by highest weight then by date
-    historyEntries.sort((a, b) => {
-      const aHighestKg = getHighestKg(a.sets);
-      const bHighestKg = getHighestKg(b.sets);
-      if (bHighestKg !== aHighestKg) return bHighestKg - aHighestKg;
-      return new Date(b.date).getTime() - new Date(a.date).getTime();
-    });
+    // Sort final results by date desc (newest first). The PB pick above
+    // is independent of this display order.
+    historyEntries.sort(
+      (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+    );
     
     return NextResponse.json(historyEntries);
   } catch (error) {

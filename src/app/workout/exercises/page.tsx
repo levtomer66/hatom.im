@@ -8,6 +8,7 @@ import { useWorkoutUnit } from '@/context/WorkoutUnitContext';
 import { useT, getCategoryLabel } from '@/lib/workout-i18n';
 import { getLocalizedExercise, getExerciseSearchNames } from '@/lib/exercise-translations';
 import { formatWeight, getUnitSuffix } from '@/lib/weight';
+import { formatSeconds } from '@/lib/time';
 import LoginScreen from '@/components/workout/LoginScreen';
 import Header from '@/components/workout/Header';
 import BottomNav from '@/components/workout/BottomNav';
@@ -241,12 +242,12 @@ export default function ExercisesPage() {
                             {language === 'he' ? 'הבא' : 'Next'}: {formatWeight(pb.recommendedKg, unit)}{unitSuffix}
                           </span>
                         )}
-                        {pb && pb.bestSeconds !== null && pb.bestSecondsKg !== null && (
+                        {pb && typeof pb.bestSeconds === 'number' && pb.bestSeconds > 0 && pb.bestSecondsKg !== null && (
                           <span style={{ fontSize: '13px', color: 'var(--workout-blue)' }}>
                             ⏱ {pb.bestSecondsKg > 0
                               ? `${formatWeight(pb.bestSecondsKg, unit)}${unitSuffix}`
-                              : (language === 'he' ? 'גוף' : 'BW')}{' × '}
-                            {Math.floor(pb.bestSeconds / 60)}:{(pb.bestSeconds % 60).toString().padStart(2, '0')}
+                              : t('card.bw_label')}{' × '}
+                            {formatSeconds(pb.bestSeconds)}
                           </span>
                         )}
                         {exercise.isCustom && (
