@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import Navbar from '@/components/Navbar';
 import {
   CreateSpaSessionDto,
@@ -54,7 +54,7 @@ export default function SpaPage() {
   const [showConfetti, setShowConfetti] = useState(false);
   const [copyMsg, setCopyMsg] = useState<string | null>(null);
 
-  const happyEndingRef = useRef(false);
+  const [happyEndingArmed, setHappyEndingArmed] = useState(false);
 
   const [giverId, setGiverId] = useState<SpaUserId>('tom');
   const [scheduledAt, setScheduledAt] = useState<string>(todayLocalDateTimeValue());
@@ -107,8 +107,8 @@ export default function SpaPage() {
     e.preventDefault();
     setError(null);
     setSubmitting(true);
-    const happyEnding = happyEndingRef.current;
-    happyEndingRef.current = false;
+    const happyEnding = happyEndingArmed;
+    setHappyEndingArmed(false);
 
     const dto: CreateSpaSessionDto = {
       giverId,
@@ -145,8 +145,8 @@ export default function SpaPage() {
     }
   }
 
-  function triggerSecret() {
-    happyEndingRef.current = true;
+  function toggleHappyEnding() {
+    setHappyEndingArmed((v) => !v);
   }
 
   async function copyLink(url: string) {
@@ -260,13 +260,14 @@ export default function SpaPage() {
                   {submitting ? 'Scheduling…' : 'Schedule Session ✨'}
                 </button>
                 <button
-                  type="submit"
-                  className="spa-secret-btn"
-                  onClick={triggerSecret}
+                  type="button"
+                  className={`spa-secret-btn ${happyEndingArmed ? 'armed' : ''}`}
+                  onClick={toggleHappyEnding}
                   disabled={submitting}
+                  aria-pressed={happyEndingArmed}
                   aria-label="♡"
                 >
-                  ♡
+                  {happyEndingArmed ? '♥' : '♡'}
                 </button>
               </div>
 

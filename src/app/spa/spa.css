@@ -422,6 +422,25 @@
   box-shadow: 0 4px 14px rgba(194, 24, 91, 0.25);
 }
 
+/* armed = the flag is toggled on; next submit carries happyEnding=true */
+.spa-secret-btn.armed {
+  background: linear-gradient(135deg, #c2185b, #6a1b9a);
+  color: #fff;
+  border-color: transparent;
+  box-shadow: 0 4px 14px rgba(194, 24, 91, 0.4);
+  animation: spa-secret-pulse 1.6s ease-in-out infinite;
+}
+
+.spa-secret-btn.armed:hover:not(:disabled) {
+  background: linear-gradient(135deg, #c2185b, #6a1b9a);
+  border-color: transparent;
+}
+
+@keyframes spa-secret-pulse {
+  0%, 100% { transform: translateY(0) scale(1); }
+  50%      { transform: translateY(-1px) scale(1.05); }
+}
+
 .spa-secret-btn:disabled {
   opacity: 0.6;
   cursor: not-allowed;
