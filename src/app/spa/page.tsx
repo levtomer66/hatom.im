@@ -43,7 +43,7 @@ function todayLocalDateTimeValue(): string {
   );
 }
 
-const CONFETTI_EMOJIS = ['💆', '❤️', '🌸', '✨', '🍾', '💕', '🪻'];
+const CONFETTI_EMOJIS = ['🔥', '💋', '🌶️', '🥵', '💦', '😈', '❤️‍🔥', '💄'];
 
 export default function SpaPage() {
   const [sessions, setSessions] = useState<SpaSession[]>([]);
@@ -251,21 +251,24 @@ export default function SpaPage() {
 
               {error && <div className="spa-error">{error}</div>}
 
-              <button
-                type="submit"
-                className="spa-submit"
-                disabled={submitting}
-              >
-                {submitting ? 'Scheduling…' : 'Schedule Session ✨'}
-              </button>
-
-              <button
-                type="submit"
-                className="spa-secret-btn"
-                onClick={triggerSecret}
-                aria-hidden="true"
-                tabIndex={-1}
-              />
+              <div className="spa-submit-row">
+                <button
+                  type="submit"
+                  className="spa-submit"
+                  disabled={submitting}
+                >
+                  {submitting ? 'Scheduling…' : 'Schedule Session ✨'}
+                </button>
+                <button
+                  type="submit"
+                  className="spa-secret-btn"
+                  onClick={triggerSecret}
+                  disabled={submitting}
+                  aria-label="♡"
+                >
+                  ♡
+                </button>
+              </div>
 
               {createdSession && (
                 <div className="spa-result">

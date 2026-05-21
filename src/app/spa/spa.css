@@ -381,19 +381,50 @@
   padding: 1.5rem;
 }
 
-/* hidden happy-ending submit button — anchored to the form card */
+/* submit + easter-egg row */
+.spa-submit-row {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+}
+
+.spa-submit-row .spa-submit {
+  flex: 1;
+}
+
+/* Visible-but-unlabelled easter-egg submit. Same submit semantics as the
+   main button, but routes through triggerSecret() to set the happyEnding
+   flag and rain the hot-emoji confetti. Intentionally no descriptive
+   text/title — curiosity is the discovery mechanism. */
 .spa-secret-btn {
-  position: absolute;
-  right: 2px;
-  bottom: 2px;
-  width: 16px;
-  height: 16px;
+  flex: 0 0 auto;
+  width: 52px;
   padding: 0;
   margin: 0;
-  border: none;
-  background: transparent;
-  cursor: default;
-  opacity: 0;
+  background: rgba(255, 255, 255, 0.7);
+  color: #c2185b;
+  border: 1.5px solid #e5d8ec;
+  border-radius: 12px;
+  font: inherit;
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.1s, background 0.15s, border-color 0.15s, box-shadow 0.15s;
+}
+
+.spa-secret-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #fce4ec, #f3e5f5);
+  border-color: #c2185b;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(194, 24, 91, 0.25);
+}
+
+.spa-secret-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 /* confetti / emoji rain overlay */
