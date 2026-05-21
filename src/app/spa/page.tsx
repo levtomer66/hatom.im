@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useMemo, useState } from 'react';
+import { Tangerine, Cormorant_Garamond, Frank_Ruhl_Libre } from 'next/font/google';
 import Navbar from '@/components/Navbar';
 import {
   CreateSpaSessionDto,
@@ -18,6 +19,29 @@ import {
 } from '@/types/spa';
 import { buildGoogleCalendarUrl } from '@/lib/googleCalendarUrl';
 import './spa.css';
+
+// Tangerine handles the love-letter cursive moments (page title, accents).
+// Cormorant Garamond carries everything else with an italic-friendly serif.
+// Frank Ruhl Libre fills in for Hebrew so the same family-feel persists in RTL.
+const tangerine = Tangerine({
+  subsets: ['latin'],
+  weight: ['400', '700'],
+  variable: '--font-tangerine',
+  display: 'swap',
+});
+const cormorant = Cormorant_Garamond({
+  subsets: ['latin'],
+  weight: ['300', '400', '500', '600', '700'],
+  style: ['normal', 'italic'],
+  variable: '--font-cormorant',
+  display: 'swap',
+});
+const frankRuhl = Frank_Ruhl_Libre({
+  subsets: ['hebrew', 'latin'],
+  weight: ['300', '400', '500', '700'],
+  variable: '--font-frank',
+  display: 'swap',
+});
 
 function formatWhen(iso: string): string {
   const d = new Date(iso);
@@ -161,14 +185,57 @@ export default function SpaPage() {
   }
 
   return (
-    <>
+    <div className={`${tangerine.variable} ${cormorant.variable} ${frankRuhl.variable}`}>
       <Navbar />
       <div className="spa-page">
+        {/* Drifting petals — pure decoration, low z-index */}
+        <div className="spa-petals" aria-hidden="true">
+          {Array.from({ length: 14 }).map((_, i) => (
+            <span
+              key={i}
+              className="spa-petal"
+              style={{
+                left: `${(i * 7.3) % 100}%`,
+                animationDuration: `${18 + (i % 6) * 4}s`,
+                animationDelay: `${-i * 2.4}s`,
+                fontSize: `${0.9 + (i % 4) * 0.35}rem`,
+              }}
+            >
+              {i % 3 === 0 ? '🌹' : i % 3 === 1 ? '❀' : '🌸'}
+            </span>
+          ))}
+        </div>
+
+        {/* Decorative rose-vine corners (SVG, low opacity) */}
+        <svg className="spa-corner-vine spa-corner-vine--tl" viewBox="0 0 200 200" aria-hidden="true">
+          <path d="M0,0 Q90,30 100,100 T200,200" fill="none" stroke="currentColor" strokeWidth="0.6" />
+          <circle cx="30" cy="20" r="4" fill="currentColor" opacity="0.4" />
+          <circle cx="70" cy="55" r="3" fill="currentColor" opacity="0.5" />
+          <circle cx="110" cy="100" r="5" fill="currentColor" opacity="0.35" />
+          <circle cx="150" cy="160" r="3" fill="currentColor" opacity="0.45" />
+        </svg>
+        <svg className="spa-corner-vine spa-corner-vine--br" viewBox="0 0 200 200" aria-hidden="true">
+          <path d="M0,0 Q90,30 100,100 T200,200" fill="none" stroke="currentColor" strokeWidth="0.6" />
+          <circle cx="30" cy="20" r="4" fill="currentColor" opacity="0.4" />
+          <circle cx="70" cy="55" r="3" fill="currentColor" opacity="0.5" />
+          <circle cx="110" cy="100" r="5" fill="currentColor" opacity="0.35" />
+          <circle cx="150" cy="160" r="3" fill="currentColor" opacity="0.45" />
+        </svg>
+
         <div className="spa-container">
-          <div className="spa-hero">
-            <h1>💆‍♀️ Spa של התומ.ים 💆‍♂️</h1>
-            <p>Schedule a massage for the other Tom. Calendar invite included.</p>
-          </div>
+          <header className="spa-hero">
+            <p className="spa-hero-overline">— with love —</p>
+            <h1 className="spa-hero-title">Spa</h1>
+            <p className="spa-hero-hebrew">ספא של התומ.ים</p>
+            <div className="spa-hero-divider" aria-hidden="true">
+              <span className="spa-hero-divider-rule" />
+              <span className="spa-hero-divider-mark">✿</span>
+              <span className="spa-hero-divider-rule" />
+            </div>
+            <p className="spa-hero-sub">
+              An evening for two. Schedule a moment, send the invite, dim the lights.
+            </p>
+          </header>
 
           <div className="spa-grid">
             <form
@@ -176,7 +243,9 @@ export default function SpaPage() {
               onSubmit={handleSubmit}
               autoComplete="off"
             >
-              <p className="spa-section-title">Who&apos;s giving the massage?</p>
+              <h2 className="spa-section-title">
+                <span className="spa-section-num">i.</span> The Hands
+              </h2>
               <div className="spa-segmented" role="tablist">
                 {SPA_USERS.map((u) => (
                   <button
@@ -189,12 +258,17 @@ export default function SpaPage() {
                   </button>
                 ))}
               </div>
-              <p style={{ marginTop: '0.75rem', marginBottom: '1rem' }}>
+              <p className="spa-receiver-row">
                 <span className="spa-receiver-pill">
-                  for {getSpaUser(receiverId).name} 💕
+                  pour <em>{getSpaUser(receiverId).name}</em>
                 </span>
               </p>
 
+              <div className="spa-divider-ornament" aria-hidden="true">❦</div>
+
+              <h2 className="spa-section-title">
+                <span className="spa-section-num">ii.</span> The Hour
+              </h2>
               <div className="spa-row">
                 <div className="spa-field">
                   <label htmlFor="spa-when">When</label>
@@ -207,7 +281,7 @@ export default function SpaPage() {
                   />
                 </div>
                 <div className="spa-field">
-                  <label htmlFor="spa-duration">Duration</label>
+                  <label htmlFor="spa-duration">How long</label>
                   <select
                     id="spa-duration"
                     value={durationMinutes}
@@ -217,15 +291,19 @@ export default function SpaPage() {
                   >
                     {SPA_DURATIONS.map((d) => (
                       <option key={d} value={d}>
-                        {d} min
+                        {d} minutes
                       </option>
                     ))}
                   </select>
                 </div>
               </div>
 
-              <p className="spa-section-title">Massage type</p>
-              <div className="spa-massage-grid" style={{ marginBottom: '1rem' }}>
+              <div className="spa-divider-ornament" aria-hidden="true">❦</div>
+
+              <h2 className="spa-section-title">
+                <span className="spa-section-num">iii.</span> The Ritual
+              </h2>
+              <div className="spa-massage-grid">
                 {MASSAGE_TYPES.map((m) => (
                   <button
                     type="button"
@@ -234,18 +312,23 @@ export default function SpaPage() {
                     onClick={() => setMassageType(m.id)}
                   >
                     <span className="emoji">{m.emoji}</span>
-                    {m.label}
+                    <span className="label">{m.label}</span>
                   </button>
                 ))}
               </div>
 
+              <div className="spa-divider-ornament" aria-hidden="true">❦</div>
+
+              <h2 className="spa-section-title">
+                <span className="spa-section-num">iv.</span> Whispers
+              </h2>
               <div className="spa-field">
-                <label htmlFor="spa-prefs">Preferences</label>
+                <label htmlFor="spa-prefs" className="sr-only">Preferences</label>
                 <textarea
                   id="spa-prefs"
                   value={preferences}
                   onChange={(e) => setPreferences(e.target.value)}
-                  placeholder="Pressure, focus areas, oil, music, candles..."
+                  placeholder="Pressure, focus areas, oil, music, candles…"
                 />
               </div>
 
@@ -257,7 +340,9 @@ export default function SpaPage() {
                   className="spa-submit"
                   disabled={submitting}
                 >
-                  {submitting ? 'Scheduling…' : 'Schedule Session ✨'}
+                  <span className="spa-submit-flourish" aria-hidden="true">❧</span>
+                  {submitting ? 'Sealing the envelope…' : 'Send with love'}
+                  <span className="spa-submit-flourish" aria-hidden="true">❧</span>
                 </button>
                 <button
                   type="button"
@@ -273,12 +358,15 @@ export default function SpaPage() {
 
               {createdSession && (
                 <div className="spa-result">
-                  <h3>Session scheduled ✨</h3>
-                  <p style={{ margin: 0, fontSize: '0.9rem', color: '#555' }}>
-                    {getSpaUser(createdSession.giverId).name} →{' '}
-                    {getSpaUser(createdSession.receiverId).name} ·{' '}
+                  <h3>The invitation is sealed.</h3>
+                  <p className="spa-result-recap">
+                    <strong>{getSpaUser(createdSession.giverId).name}</strong>
+                    {' '}pour{' '}
+                    <strong>{getSpaUser(createdSession.receiverId).name}</strong>
+                    {' · '}
                     {getMassageTypeEmoji(createdSession.massageType)}{' '}
-                    {getMassageTypeLabel(createdSession.massageType)} ·{' '}
+                    {getMassageTypeLabel(createdSession.massageType)}
+                    {' · '}
                     {formatWhen(createdSession.scheduledAt)}
                   </p>
                   <div className="spa-result-actions">
@@ -304,32 +392,45 @@ export default function SpaPage() {
               )}
             </form>
 
-            <div className="spa-card">
-              <p className="spa-section-title">Scheduled sessions</p>
+            <aside className="spa-card spa-list-card">
+              <h2 className="spa-section-title">
+                <span className="spa-section-num">❀</span> Our calendar of caresses
+              </h2>
               {loading ? (
                 <p className="spa-empty">Loading…</p>
               ) : sortedSessions.length === 0 ? (
-                <p className="spa-empty">No sessions yet. Book the first one ✨</p>
+                <p className="spa-empty">
+                  Nothing scheduled yet — <br />
+                  <em>send the first letter.</em>
+                </p>
               ) : (
                 <div className="spa-session-list">
-                  {sortedSessions.map((s) => {
+                  {sortedSessions.map((s, i) => {
                     const isPast = new Date(s.scheduledAt).getTime() < Date.now();
                     return (
-                      <div
+                      <article
                         key={s.id}
                         className={`spa-session-card ${isPast ? 'past' : ''}`}
+                        style={{
+                          // tiny postcard-stack rotation, deterministic per index
+                          ['--tilt' as string]: `${((i % 5) - 2) * 0.6}deg`,
+                        }}
                       >
+                        <div className="spa-session-stamp" aria-hidden="true">
+                          {getMassageTypeEmoji(s.massageType)}
+                        </div>
                         <div className="spa-session-header">
                           <span className="spa-session-flow">
-                            {getSpaUser(s.giverId).name} → {getSpaUser(s.receiverId).name}
+                            <em>{getSpaUser(s.giverId).name}</em>
+                            <span className="spa-session-arrow"> ❤ </span>
+                            <em>{getSpaUser(s.receiverId).name}</em>
                           </span>
                           <span className="spa-session-type">
-                            {getMassageTypeEmoji(s.massageType)}{' '}
                             {getMassageTypeLabel(s.massageType)}
                           </span>
                         </div>
                         <p className="spa-session-when">
-                          {formatWhen(s.scheduledAt)} · {s.durationMinutes} min
+                          {formatWhen(s.scheduledAt)} · {s.durationMinutes}′
                         </p>
                         {s.preferences && (
                           <p className="spa-session-prefs">“{s.preferences}”</p>
@@ -340,7 +441,7 @@ export default function SpaPage() {
                             target="_blank"
                             rel="noreferrer noopener"
                           >
-                            📅 Add to Calendar
+                            ✦ add to calendar
                           </a>
                         </div>
                         {s.happyEnding && (
@@ -348,15 +449,15 @@ export default function SpaPage() {
                             className="spa-session-sparkle"
                             aria-hidden="true"
                           >
-                            ✨
+                            ♥
                           </span>
                         )}
-                      </div>
+                      </article>
                     );
                   })}
                 </div>
               )}
-            </div>
+            </aside>
           </div>
         </div>
       </div>
@@ -386,6 +487,6 @@ export default function SpaPage() {
           })}
         </div>
       )}
-    </>
+    </div>
   );
 }
