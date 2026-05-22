@@ -421,6 +421,10 @@
   font-style: italic;
   font-size: 1.05rem;
   color: var(--spa-rose-deep);
+  /* Force LTR so "Giver gives to Receiver" stays in that order under the
+     site's html[dir=rtl] — inline-flex would otherwise reverse the
+     children and render "Receiver gives to Giver". */
+  direction: ltr;
 }
 
 .spa-receiver-pill em {
