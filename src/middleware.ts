@@ -1,6 +1,11 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/auth';
 
+// Run in Node.js (Fluid Compute) so the MongoDB session adapter loaded
+// transitively by `@/auth` works at runtime. The default Edge runtime
+// can't load the mongodb driver and 500s with MIDDLEWARE_INVOCATION_FAILED.
+export const runtime = 'nodejs';
+
 // Page-level gates. Auth.js middleware runs `auth()` against every matched
 // request; we redirect to /login when the session is missing.
 //
