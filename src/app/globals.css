@@ -439,4 +439,38 @@ body {
     min-width: 44px;
     min-height: 44px;
   }
+
+  /* Navbar on mobile: stack the logo above a wrap-friendly link row so
+     every item (including the SSO add-ons /spa and the auth button) is
+     visible without horizontal scroll. */
+  .navbar {
+    padding: 0.55rem 0.75rem;
+  }
+  .navbar-container {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.4rem;
+  }
+  .navbar-logo {
+    text-align: center;
+    font-size: 1.2rem;
+  }
+  .navbar-links {
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.45rem 0.85rem;
+    font-size: 0.85rem;
+  }
+  .navbar-link {
+    font-size: 0.85rem;
+    white-space: nowrap;
+  }
+  .navbar-auth {
+    margin-inline-start: 0;
+  }
+  .navbar-auth-btn {
+    font-size: 0.78rem;
+    padding: 0.2rem 0.6rem;
+    white-space: nowrap;
+  }
 }

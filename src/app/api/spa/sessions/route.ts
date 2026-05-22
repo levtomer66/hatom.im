@@ -1,13 +1,48 @@
 import { NextRequest, NextResponse } from 'next/server';
 import {
   CreateSpaSessionDto,
+  SpaSession,
   coerceFlags,
+  flagsLabel,
+  getSpaUser,
   isValidSpaDuration,
   otherSpaUser,
   spaUserIdFromEmail,
 } from '@/types/spa';
 import { getAllSpaSessions, createSpaSession } from '@/models/SpaSession';
 import { requireOwner } from '@/lib/auth-helpers';
+
+const NTFY_TOPIC = 'hatomim_spa';
+
+// Fire-and-forget push notification to the public ntfy.sh topic so the
+// other Tom gets pinged the moment a session lands. Same pattern as the
+// workout HelpButton (hatomim_workout_help). Failure is logged but
+// never blocks the API response.
+function notifySpaSchedule(session: SpaSession): void {
+  const giver = getSpaUser(session.giverId).name;
+  const receiver = getSpaUser(session.receiverId).name;
+  const flags = flagsLabel(session.flags);
+  const bodyLines = [
+    `${giver} → ${receiver}`,
+    `When: ${session.scheduledAt}`,
+    `Duration: ${session.durationMinutes} min`,
+  ];
+  if (flags && flags !== '—') bodyLines.push(`Flags: ${flags}`);
+  if (session.preferences?.trim()) bodyLines.push(`Notes: ${session.preferences.trim()}`);
+
+  fetch(`https://ntfy.sh/${NTFY_TOPIC}`, {
+    method: 'POST',
+    body: bodyLines.join('\n'),
+    headers: {
+      'Content-Type': 'text/plain; charset=utf-8',
+      // `Title` and `Tags` must be ASCII for ntfy.sh.
+      Title: `New spa session: ${giver} -> ${receiver}`,
+      Tags: 'sparkles,rose',
+    },
+  }).catch((err) => {
+    console.error('ntfy spa notify failed', err);
+  });
+}
 
 // GET — spa session history. Visible to any signed-in owner. The model
 // already returns sessions sorted newest-first.
@@ -77,6 +112,7 @@ export async function POST(request: NextRequest) {
       preferences: data.preferences.slice(0, 2000),
       happyEnding: data.happyEnding === true,
     });
+    notifySpaSchedule(session);
     return NextResponse.json(session, { status: 201 });
   } catch (error) {
     console.error('Error creating spa session:', error);
