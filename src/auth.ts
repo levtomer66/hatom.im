@@ -4,6 +4,21 @@ import { MongoDBAdapter } from '@auth/mongodb-adapter';
 import clientPromise from '@/lib/mongodb';
 import { isOwnerEmail } from '@/types/auth';
 
+// Surface a missing-config one-liner at server startup so a forgotten
+// Vercel env var doesn't only manifest as a confusing 500 deep inside the
+// OAuth callback. Warn rather than throw so `next build` still works in
+// CI shells where the secret isn't injected.
+if (
+  process.env.NODE_ENV === 'production' &&
+  (!process.env.AUTH_GOOGLE_ID ||
+    !process.env.AUTH_GOOGLE_SECRET ||
+    !process.env.AUTH_SECRET)
+) {
+  console.warn(
+    '[auth] AUTH_GOOGLE_ID / AUTH_GOOGLE_SECRET / AUTH_SECRET missing — Google sign-in will fail.'
+  );
+}
+
 // PR 1 of the SSO rollout: this enables Google sign-in but does not yet
 // enforce the allowlist (that lands in PR 2). For now any Google account
 // can sign in — useful so we can wire up the OAuth client without first

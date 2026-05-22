@@ -8,16 +8,25 @@ interface LoginPageProps {
   searchParams: Promise<{ from?: string }>;
 }
 
+// Reject protocol-relative (`//evil.com/...`) and backslash (`/\evil.com`)
+// redirects — both are treated as absolute URLs by browsers. We only
+// accept paths that start with a single `/` followed by a non-slash,
+// non-backslash character. Plain `/` is allowed.
+function safeRedirectTarget(target: string | undefined): string {
+  if (!target) return '/';
+  if (target === '/') return '/';
+  return /^\/[^/\\]/.test(target) ? target : '/';
+}
+
 export default async function LoginPage({ searchParams }: LoginPageProps) {
   const session = await auth();
   const { from } = await searchParams;
+  const callbackUrl = safeRedirectTarget(from);
 
   // If already signed in, bounce straight back to where they came from.
   if (session?.user) {
-    redirect(from && from.startsWith('/') ? from : '/');
+    redirect(callbackUrl);
   }
-
-  const callbackUrl = from && from.startsWith('/') ? from : '/';
 
   return (
     <>
