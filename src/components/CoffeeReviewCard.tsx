@@ -11,8 +11,10 @@ const courier = Courier_Prime({ subsets: ['latin'], weight: ['400', '700'] });
 
 interface CoffeeReviewCardProps {
   review: CoffeeReview;
-  onDelete: (id: string) => Promise<void>;
-  onUpdate: () => void;
+  // Both callbacks are owner-only. When omitted the card hides the
+  // edit + delete affordances, so non-owners get a read-only view.
+  onDelete?: (id: string) => Promise<void>;
+  onUpdate?: () => void;
   rank?: number;
   isPriority?: boolean;
 }
@@ -86,14 +88,17 @@ const CoffeeReviewCard: React.FC<CoffeeReviewCardProps> = ({ review, onDelete, o
 
   const rankBadge = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : null;
 
+  const canEdit = typeof onDelete === 'function' && typeof onUpdate === 'function';
+
   const handleDelete = async () => {
+    if (!onDelete) return;
     if (window.confirm('האם אתה בטוח שברצונך למחוק ביקורת זו?')) {
       setIsDeleting(true);
       try { await onDelete(review.id); } catch { setIsDeleting(false); }
     }
   };
 
-  if (isEditing) {
+  if (isEditing && onUpdate) {
     return <EditCoffeeReviewForm review={review} onSuccess={() => { setIsEditing(false); onUpdate(); }} onCancel={() => setIsEditing(false)} />;
   }
 
@@ -127,17 +132,19 @@ const CoffeeReviewCard: React.FC<CoffeeReviewCardProps> = ({ review, onDelete, o
         </div>
       )}
 
-      {/* Action buttons */}
-      <div style={{ position: 'absolute', top: '10px', left: '10px', zIndex: 10, display: 'flex', gap: '4px' }}>
-        <button onClick={() => setIsEditing(true)}
-          style={{ background: 'rgba(255,255,255,0.7)', border: '1px solid #c4b080', borderRadius: '50%', width: '30px', height: '30px', cursor: 'pointer', fontSize: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(4px)' }}>
-          ✏️
-        </button>
-        <button onClick={handleDelete} disabled={isDeleting}
-          style={{ background: 'rgba(255,255,255,0.7)', border: '1px solid #c4b080', borderRadius: '50%', width: '30px', height: '30px', cursor: 'pointer', fontSize: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(4px)' }}>
-          🗑️
-        </button>
-      </div>
+      {/* Action buttons (owners only — hidden when onDelete/onUpdate absent) */}
+      {canEdit && (
+        <div style={{ position: 'absolute', top: '10px', left: '10px', zIndex: 10, display: 'flex', gap: '4px' }}>
+          <button onClick={() => setIsEditing(true)}
+            style={{ background: 'rgba(255,255,255,0.7)', border: '1px solid #c4b080', borderRadius: '50%', width: '30px', height: '30px', cursor: 'pointer', fontSize: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(4px)' }}>
+            ✏️
+          </button>
+          <button onClick={handleDelete} disabled={isDeleting}
+            style={{ background: 'rgba(255,255,255,0.7)', border: '1px solid #c4b080', borderRadius: '50%', width: '30px', height: '30px', cursor: 'pointer', fontSize: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(4px)' }}>
+            🗑️
+          </button>
+        </div>
+      )}
 
       {/* Image */}
       <div style={{ height: '180px', background: '#ece0c8', overflow: 'hidden', position: 'relative' }}>

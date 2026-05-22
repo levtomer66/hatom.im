@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import clientPromise from '@/lib/mongodb';
 import { FamilyMember } from '@/models/FamilyMember';
+import { requireOwner } from '@/lib/auth-helpers';
 import fs from 'fs';
 import path from 'path';
 
@@ -37,8 +38,11 @@ export async function GET() {
   }
 }
 
-// POST handler to save family tree data
+// POST handler to save family tree data (owners only)
 export async function POST(request: Request) {
+  const gate = await requireOwner();
+  if (gate instanceof NextResponse) return gate;
+
   try {
     const familyMembers = await request.json() as FamilyMember[];
 

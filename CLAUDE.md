@@ -89,7 +89,6 @@ Vars the app expects:
 |-------------------------|--------------------------------------------|
 | `MONGODB_URI`           | Every API route (via `src/lib/mongodb.ts`). |
 | `BLOB_READ_WRITE_TOKEN` | `/api/trip/journey/upload` via `@vercel/blob`. |
-| `TRIP_ADMIN_TOKEN`      | `src/lib/tripAdmin.ts` — legacy admin gate on `/api/trip/journey/*` writes. Being replaced by Auth.js owner check (PR 3 of the SSO rollout). |
 | `AUTH_SECRET`           | Auth.js session encryption — `openssl rand -base64 32`. |
 | `AUTH_GOOGLE_ID`        | Google OAuth client id. |
 | `AUTH_GOOGLE_SECRET`    | Google OAuth client secret. |

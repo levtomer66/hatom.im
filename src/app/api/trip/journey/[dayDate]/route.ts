@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireTripAdmin } from '@/lib/tripAdmin';
+import { requireOwner } from '@/lib/auth-helpers';
 import { getJourneyDay, updateDayNote } from '@/models/TripJourney';
 
 // Day-dates have the shape 'YYYY-MM-DD' + the UNASSIGNED sentinel. Guard so
@@ -27,13 +27,13 @@ export async function GET(
 }
 
 // PATCH /api/trip/journey/[dayDate]
-// Admin only. Updates the day's free-text note. Body: { note: string }.
+// Owners only (Tom / Tomer). Updates the day's free-text note. Body: { note: string }.
 export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ dayDate: string }> }
 ) {
-  const authErr = requireTripAdmin(req);
-  if (authErr) return authErr;
+  const gate = await requireOwner();
+  if (gate instanceof NextResponse) return gate;
 
   const { dayDate } = await params;
   if (!VALID_DAY.test(dayDate)) {

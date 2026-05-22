@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { 
-  getCoffeeReviewById, 
-  updateCoffeeReview, 
-  deleteCoffeeReview 
+import {
+  getCoffeeReviewById,
+  updateCoffeeReview,
+  deleteCoffeeReview
 } from '@/models/CoffeeReview';
+import { requireOwner } from '@/lib/auth-helpers';
 
 // GET handler to retrieve a single coffee review by ID
 export async function GET(
@@ -31,11 +32,14 @@ export async function GET(
   }
 }
 
-// PATCH handler to update a coffee review
+// PATCH handler to update a coffee review (owners only)
 export async function PATCH(
   request: NextRequest,
   context: { params: Promise<{ id: string }> }
 ) {
+  const gate = await requireOwner();
+  if (gate instanceof NextResponse) return gate;
+
   try {
     const { id } = await context.params;
     const data = await request.json();
@@ -85,11 +89,14 @@ export async function PATCH(
   }
 }
 
-// DELETE handler to delete a coffee review
+// DELETE handler to delete a coffee review (owners only)
 export async function DELETE(
   request: NextRequest,
   context: { params: Promise<{ id: string }> }
 ) {
+  const gate = await requireOwner();
+  if (gate instanceof NextResponse) return gate;
+
   try {
     const { id } = await context.params;
     const success = await deleteCoffeeReview(id);

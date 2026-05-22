@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { CreateCoffeeReviewDto } from '@/types/coffee';
-import { 
-  getAllCoffeeReviews, 
+import {
+  getAllCoffeeReviews,
   createCoffeeReview
 } from '@/models/CoffeeReview';
+import { requireOwner } from '@/lib/auth-helpers';
 
 // GET handler to retrieve all coffee reviews
 export async function GET() {
@@ -38,8 +39,11 @@ export async function GET() {
   }
 }
 
-// POST handler to create a new coffee review
+// POST handler to create a new coffee review (owners only)
 export async function POST(request: NextRequest) {
+  const gate = await requireOwner();
+  if (gate instanceof NextResponse) return gate;
+
   try {
     const data: CreateCoffeeReviewDto = await request.json();
     

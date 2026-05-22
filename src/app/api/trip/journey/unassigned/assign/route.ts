@@ -1,15 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireTripAdmin } from '@/lib/tripAdmin';
+import { requireOwner } from '@/lib/auth-helpers';
 import { reassignPhoto, UNASSIGNED_DAY } from '@/models/TripJourney';
 
 const VALID_DAY = /^\d{4}-\d{2}-\d{2}$/;
 
 // POST /api/trip/journey/unassigned/assign
-// Admin only. Body: { blobPath: string, toDay: 'YYYY-MM-DD' }.
+// Owners only (Tom / Tomer). Body: { blobPath: string, toDay: 'YYYY-MM-DD' }.
 // Moves a photo from the unassigned bucket onto a concrete day.
 export async function POST(req: NextRequest) {
-  const authErr = requireTripAdmin(req);
-  if (authErr) return authErr;
+  const gate = await requireOwner();
+  if (gate instanceof NextResponse) return gate;
 
   let body: { blobPath?: unknown; toDay?: unknown };
   try {
