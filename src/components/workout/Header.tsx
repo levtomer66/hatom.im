@@ -1,7 +1,6 @@
 'use client';
 
 import React from 'react';
-import { useWorkoutUser } from '@/context/WorkoutUserContext';
 import { useT } from '@/lib/workout-i18n';
 import LanguageToggle from './LanguageToggle';
 import WeightUnitToggle from './WeightUnitToggle';
@@ -13,8 +12,10 @@ interface HeaderProps {
   onBack?: () => void;
 }
 
+// The workout user is now identified by Google SSO (PR 4 of the SSO
+// rollout). The Navbar's right-side cluster owns sign-in / sign-out, so
+// this header no longer renders a per-page "switch user" button.
 export default function Header({ title, showBack, onBack }: HeaderProps) {
-  const { currentUser, logout } = useWorkoutUser();
   const t = useT();
   const effectiveTitle = title ?? t('workout.title');
 
@@ -46,17 +47,6 @@ export default function Header({ title, showBack, onBack }: HeaderProps) {
         <TimerPrefsMenu />
         <WeightUnitToggle size="sm" />
         <LanguageToggle size="sm" />
-        {currentUser && (
-          <button className="workout-header-user" onClick={logout}>
-            <div className="workout-header-user-avatar">
-              {currentUser.name.charAt(0).toUpperCase()}
-            </div>
-            <span>{currentUser.name}</span>
-            <span style={{ fontSize: '12px', color: 'var(--workout-text-secondary)' }}>
-              {t('header.switch_user')}
-            </span>
-          </button>
-        )}
       </div>
     </header>
   );
