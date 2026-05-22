@@ -7,9 +7,12 @@ import { isOwnerEmail } from '@/types/auth';
 // Surface a missing-config one-liner at server startup so a forgotten
 // Vercel env var doesn't only manifest as a confusing 500 deep inside the
 // OAuth callback. Warn rather than throw so `next build` still works in
-// CI shells where the secret isn't injected.
+// CI shells where the secret isn't injected. Skip during the static
+// build phase — env vars are injected at deploy time, not build time,
+// and Husky `next build` locally would otherwise spam the warning.
 if (
   process.env.NODE_ENV === 'production' &&
+  process.env.NEXT_PHASE !== 'phase-production-build' &&
   (!process.env.AUTH_GOOGLE_ID ||
     !process.env.AUTH_GOOGLE_SECRET ||
     !process.env.AUTH_SECRET)
