@@ -31,10 +31,7 @@ export default async function AllowlistPage() {
               able to sign in needs an entry below.
             </p>
           </header>
-          <AllowlistManager
-            initial={initial}
-            ownerEmail={session.user.email ?? ''}
-          />
+          <AllowlistManager initial={initial} />
         </div>
       </main>
     </>

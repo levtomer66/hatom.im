@@ -5,7 +5,6 @@ import type { AuthorizedEmail } from '@/models/AuthorizedEmail';
 
 interface Props {
   initial: AuthorizedEmail[];
-  ownerEmail: string;
 }
 
 export default function AllowlistManager({ initial }: Props) {
