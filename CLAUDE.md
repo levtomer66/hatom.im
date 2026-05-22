@@ -89,7 +89,40 @@ Vars the app expects:
 |-------------------------|--------------------------------------------|
 | `MONGODB_URI`           | Every API route (via `src/lib/mongodb.ts`). |
 | `BLOB_READ_WRITE_TOKEN` | `/api/trip/journey/upload` via `@vercel/blob`. |
-| `TRIP_ADMIN_TOKEN`      | `src/lib/tripAdmin.ts` — admin gate on `/api/trip/journey/*` writes. Client sends `X-Admin-Token`. |
+| `TRIP_ADMIN_TOKEN`      | `src/lib/tripAdmin.ts` — legacy admin gate on `/api/trip/journey/*` writes. Being replaced by Auth.js owner check (PR 3 of the SSO rollout). |
+| `AUTH_SECRET`           | Auth.js session encryption — `openssl rand -base64 32`. |
+| `AUTH_GOOGLE_ID`        | Google OAuth client id. |
+| `AUTH_GOOGLE_SECRET`    | Google OAuth client secret. |
+| `AUTH_URL`              | Required in production only (`https://www.hatom.im`). Auth.js auto-detects in dev and on Vercel previews. |
+
+## Auth (Google SSO)
+
+The site uses **Auth.js v5** (`next-auth@5`) with the Google provider and the
+`@auth/mongodb-adapter`. Source of truth: `src/auth.ts` re-exports
+`{ handlers, auth, signIn, signOut }`. Every page can call
+`const session = await auth()` server-side; client components use
+`useSession()` via the `SessionProvider` mounted in `src/app/layout.tsx`.
+
+Identity = Gmail address. Two roles:
+
+- **owner** — `tomzari347@gmail.com` (Tom) or `levtomer66@gmail.com` (Tomer).
+  Source: `src/types/auth.ts` `OWNER_EMAILS`.
+- **allowlisted** — any email present in the Mongo `authorizedEmails`
+  collection (introduced in PR 2 of the SSO rollout).
+
+### Google Cloud Console one-time setup
+
+1. Create an OAuth 2.0 Client ID, type = Web application, in your Google Cloud project.
+2. Authorized JavaScript origins:
+   - `https://www.hatom.im`
+   - `http://localhost:3000`
+3. Authorized redirect URIs:
+   - `https://www.hatom.im/api/auth/callback/google`
+   - `http://localhost:3000/api/auth/callback/google`
+   - Plus the preview pattern, or add each preview URL on demand.
+4. Paste the client ID + secret into Vercel env (`AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET`)
+   for Preview + Production. Generate `AUTH_SECRET` with `openssl rand -base64 32`.
+   Set `AUTH_URL` to `https://www.hatom.im` on Production only.
 
 ## Vercel CLI gotchas
 

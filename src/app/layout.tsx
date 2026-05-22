@@ -1,8 +1,10 @@
 import './globals.css';
 import { Rubik } from 'next/font/google';
+import { SessionProvider } from 'next-auth/react';
 import type { Metadata, Viewport } from 'next';
+import { auth } from '@/auth';
 
-const rubik = Rubik({ 
+const rubik = Rubik({
   subsets: ['latin', 'hebrew'],
   display: 'swap',
 });
@@ -21,15 +23,18 @@ export const viewport: Viewport = {
   viewportFit: 'cover',
 }
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
+  const session = await auth();
   return (
     <html lang="he" dir="rtl">
       <body className={rubik.className}>
-        {children}
+        <SessionProvider session={session}>
+          {children}
+        </SessionProvider>
       </body>
     </html>
   )
