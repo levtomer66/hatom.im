@@ -274,7 +274,7 @@ export default function SpaPage() {
               </div>
               <p className="spa-receiver-row">
                 <span className="spa-receiver-pill">
-                  pour <em>{getSpaUser(receiverId).name}</em>
+                  gives to <em>{getSpaUser(receiverId).name}</em>
                 </span>
               </p>
 
@@ -372,7 +372,7 @@ export default function SpaPage() {
                   <h3>The invitation is sealed.</h3>
                   <p className="spa-result-recap">
                     <strong>{getSpaUser(createdSession.giverId).name}</strong>
-                    {' '}pour{' '}
+                    {' '}gives to{' '}
                     <strong>{getSpaUser(createdSession.receiverId).name}</strong>
                     {' · '}
                     {formatWhen(createdSession.scheduledAt)}
