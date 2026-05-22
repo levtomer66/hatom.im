@@ -1,0 +1,191 @@
+.admin-page {
+  min-height: calc(100vh - 56px);
+  padding: 2rem 1rem 3rem;
+  background:
+    linear-gradient(180deg, #fafafa 0%, #f0f0f0 100%);
+}
+
+.admin-container {
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+.admin-hero {
+  text-align: start;
+  margin-bottom: 1.5rem;
+}
+
+.admin-hero h1 {
+  font-size: 1.6rem;
+  font-weight: 700;
+  margin: 0 0 0.4rem;
+  color: #1a1a1a;
+}
+
+.admin-hero p {
+  font-size: 0.95rem;
+  color: #555;
+  margin: 0;
+  line-height: 1.45;
+}
+
+.admin-card {
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 1.5rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.admin-add-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) auto;
+  gap: 0.75rem;
+  align-items: end;
+  margin-bottom: 1rem;
+}
+
+@media (max-width: 560px) {
+  .admin-add-form {
+    grid-template-columns: 1fr;
+  }
+}
+
+.admin-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.admin-field label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #555;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.admin-field input {
+  padding: 0.55rem 0.7rem;
+  border: 1px solid #d0d0d0;
+  border-radius: 6px;
+  font: inherit;
+  font-size: 0.95rem;
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.admin-field input:focus {
+  border-color: #1a73e8;
+  box-shadow: 0 0 0 3px rgba(26, 115, 232, 0.15);
+}
+
+.admin-add-btn {
+  padding: 0.6rem 1.1rem;
+  background: #1a73e8;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  font: inherit;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, transform 0.1s;
+}
+
+.admin-add-btn:hover:not(:disabled) {
+  background: #1765c4;
+  transform: translateY(-1px);
+}
+
+.admin-add-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.admin-error {
+  background: #fff1f2;
+  border: 1px solid #f5c6cb;
+  color: #721c24;
+  border-radius: 6px;
+  padding: 0.55rem 0.8rem;
+  font-size: 0.88rem;
+  margin-bottom: 0.85rem;
+}
+
+.admin-empty {
+  text-align: center;
+  color: #888;
+  font-style: italic;
+  font-size: 0.92rem;
+  margin: 1.5rem 0;
+}
+
+.admin-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.admin-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  grid-template-areas:
+    "main remove"
+    "meta remove";
+  gap: 0.15rem 0.85rem;
+  padding: 0.65rem 0.85rem;
+  background: #fafbfc;
+  border: 1px solid #e6e6e6;
+  border-radius: 6px;
+}
+
+.admin-row-main {
+  grid-area: main;
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.admin-row-email {
+  font-weight: 600;
+  color: #1a1a1a;
+}
+
+.admin-row-note {
+  font-size: 0.85rem;
+  color: #555;
+  font-style: italic;
+}
+
+.admin-row-meta {
+  grid-area: meta;
+  font-size: 0.78rem;
+  color: #888;
+}
+
+.admin-remove-btn {
+  grid-area: remove;
+  align-self: center;
+  width: 28px;
+  height: 28px;
+  background: transparent;
+  border: 1px solid #d0d0d0;
+  border-radius: 50%;
+  color: #888;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  padding: 0;
+}
+
+.admin-remove-btn:hover {
+  background: #ffe1e3;
+  color: #c62828;
+  border-color: #f5c6cb;
+}

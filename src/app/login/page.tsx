@@ -5,7 +5,7 @@ import Navbar from '@/components/Navbar';
 import './login.css';
 
 interface LoginPageProps {
-  searchParams: Promise<{ from?: string }>;
+  searchParams: Promise<{ from?: string; error?: string }>;
 }
 
 // Reject protocol-relative (`//evil.com/...`) and backslash (`/\evil.com`)
@@ -20,13 +20,15 @@ function safeRedirectTarget(target: string | undefined): string {
 
 export default async function LoginPage({ searchParams }: LoginPageProps) {
   const session = await auth();
-  const { from } = await searchParams;
+  const { from, error } = await searchParams;
   const callbackUrl = safeRedirectTarget(from);
 
   // If already signed in, bounce straight back to where they came from.
   if (session?.user) {
     redirect(callbackUrl);
   }
+
+  const accessDenied = error === 'AccessDenied';
 
   return (
     <>
@@ -38,6 +40,12 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
             Sign in to view personal pages.<br />
             <span className="login-sub-fine">Public pages stay open to everyone.</span>
           </p>
+
+          {accessDenied && (
+            <div className="login-error" role="alert">
+              That email isn&apos;t on the allowlist yet. Ask Tom or Tomer to add you.
+            </div>
+          )}
 
           <form
             action={async () => {

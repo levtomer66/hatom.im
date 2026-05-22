@@ -3,6 +3,7 @@ import Google from 'next-auth/providers/google';
 import { MongoDBAdapter } from '@auth/mongodb-adapter';
 import clientPromise from '@/lib/mongodb';
 import { isOwnerEmail } from '@/types/auth';
+import { isEmailAuthorized } from '@/models/AuthorizedEmail';
 
 // Surface a missing-config one-liner at server startup so a forgotten
 // Vercel env var doesn't only manifest as a confusing 500 deep inside the
@@ -36,6 +37,16 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     }),
   ],
   callbacks: {
+    // Allowlist gate. Owners (Tom & Tomer) are implicitly allowed; everyone
+    // else must have their email present in the `authorizedEmails`
+    // collection (managed via /admin/allowlist). Returning false sends the
+    // user to /login?error=AccessDenied.
+    async signIn({ user }) {
+      const email = user.email?.toLowerCase();
+      if (!email) return false;
+      if (isOwnerEmail(email)) return true;
+      return await isEmailAuthorized(email);
+    },
     // Decorate every session with an `isOwner` flag derived from email.
     // Pages/APIs read this instead of re-checking the email against the
     // OWNER_EMAILS list at every call site.
@@ -46,5 +57,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   },
   pages: {
     signIn: '/login',
+    error: '/login', // surface AccessDenied on the same screen
   },
 });

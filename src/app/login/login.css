@@ -85,6 +85,18 @@
   text-align: center;
 }
 
+.login-error {
+  background: #fff1f2;
+  border: 1px solid #f5c6cb;
+  color: #721c24;
+  border-radius: 4px;
+  padding: 0.6rem 0.85rem;
+  font-size: 0.9rem;
+  margin: 0 0 1rem;
+  text-align: start;
+  line-height: 1.4;
+}
+
 .login-fine {
   font-family: Georgia, serif;
   font-size: 0.78rem;
