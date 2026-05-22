@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import {
   CreateSpaSessionDto,
+  coerceFlags,
   isValidSpaUserId,
-  isValidMassageType,
   isValidSpaDuration,
 } from '@/types/spa';
 import { getAllSpaSessions, createSpaSession } from '@/models/SpaSession';
@@ -26,12 +26,6 @@ export async function POST(request: NextRequest) {
 
     if (!isValidSpaUserId(data.giverId)) {
       return NextResponse.json({ error: 'Invalid giverId' }, { status: 400 });
-    }
-    if (!isValidMassageType(data.massageType)) {
-      return NextResponse.json(
-        { error: 'Invalid massageType' },
-        { status: 400 }
-      );
     }
     if (!isValidSpaDuration(data.durationMinutes)) {
       return NextResponse.json(
@@ -63,7 +57,7 @@ export async function POST(request: NextRequest) {
       giverId: data.giverId,
       scheduledAt: data.scheduledAt,
       durationMinutes: data.durationMinutes,
-      massageType: data.massageType,
+      flags: coerceFlags(data.flags),
       preferences: data.preferences.slice(0, 2000),
       happyEnding: data.happyEnding === true,
     };

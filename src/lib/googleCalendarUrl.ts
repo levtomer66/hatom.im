@@ -1,7 +1,7 @@
 import {
   SpaSession,
   SPA_USERS,
-  getMassageTypeLabel,
+  flagsLabel,
   getSpaUser,
 } from '@/types/spa';
 
@@ -20,15 +20,14 @@ export function buildGoogleCalendarUrl(session: SpaSession): string {
 
   const giver = getSpaUser(session.giverId);
   const receiver = getSpaUser(session.receiverId);
-  const massageLabel = getMassageTypeLabel(session.massageType);
 
-  const text = `💆 Spa: ${giver.name} → ${receiver.name} (${massageLabel})`;
+  const text = `💆 Spa: ${giver.name} → ${receiver.name}`;
 
   const detailLines = [
     `Giver: ${giver.name}`,
     `Receiver: ${receiver.name}`,
-    `Massage type: ${massageLabel}`,
     `Duration: ${session.durationMinutes} min`,
+    `Flags: ${flagsLabel(session.flags)}`,
   ];
   if (session.preferences.trim()) {
     detailLines.push('', 'Preferences:', session.preferences.trim());

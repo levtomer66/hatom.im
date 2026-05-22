@@ -3,6 +3,7 @@ import clientPromise from '@/lib/mongodb';
 import {
   SpaSession,
   CreateSpaSessionDto,
+  emptyFlags,
   otherSpaUser,
 } from '@/types/spa';
 
@@ -43,7 +44,7 @@ export async function createSpaSession(
     receiverId: otherSpaUser(data.giverId),
     scheduledAt: data.scheduledAt,
     durationMinutes: data.durationMinutes,
-    massageType: data.massageType,
+    flags: data.flags ?? emptyFlags(),
     preferences: data.preferences,
     happyEnding: data.happyEnding ?? false,
     createdAt: now,

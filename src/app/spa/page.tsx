@@ -1,19 +1,19 @@
 'use client';
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Tangerine, Cormorant_Garamond, Frank_Ruhl_Libre } from 'next/font/google';
 import Navbar from '@/components/Navbar';
 import {
   CreateSpaSessionDto,
-  MASSAGE_TYPES,
-  MassageType,
   SPA_DURATIONS,
+  SPA_FLAGS,
   SPA_USERS,
   SpaDuration,
+  SpaFlags,
   SpaSession,
   SpaUserId,
-  getMassageTypeEmoji,
-  getMassageTypeLabel,
+  emptyFlags,
+  flagsLabel,
   getSpaUser,
   otherSpaUser,
 } from '@/types/spa';
@@ -79,12 +79,28 @@ export default function SpaPage() {
   const [copyMsg, setCopyMsg] = useState<string | null>(null);
 
   const [happyEndingArmed, setHappyEndingArmed] = useState(false);
+  const confettiTimerRef = useRef<number | null>(null);
+
+  function fireConfetti() {
+    if (confettiTimerRef.current !== null) {
+      window.clearTimeout(confettiTimerRef.current);
+    }
+    setShowConfetti(true);
+    confettiTimerRef.current = window.setTimeout(() => {
+      setShowConfetti(false);
+      confettiTimerRef.current = null;
+    }, 2800);
+  }
 
   const [giverId, setGiverId] = useState<SpaUserId>('tom');
   const [scheduledAt, setScheduledAt] = useState<string>(todayLocalDateTimeValue());
   const [durationMinutes, setDurationMinutes] = useState<SpaDuration>(60);
-  const [massageType, setMassageType] = useState<MassageType>('swedish');
+  const [flags, setFlags] = useState<SpaFlags>(emptyFlags);
   const [preferences, setPreferences] = useState<string>('');
+
+  function toggleFlag(id: keyof SpaFlags) {
+    setFlags((prev) => ({ ...prev, [id]: !prev[id] }));
+  }
 
   const receiverId = otherSpaUser(giverId);
 
@@ -138,7 +154,7 @@ export default function SpaPage() {
       giverId,
       scheduledAt: new Date(scheduledAt).toISOString(),
       durationMinutes,
-      massageType,
+      flags,
       preferences: preferences.trim(),
       happyEnding,
     };
@@ -157,10 +173,8 @@ export default function SpaPage() {
       setSessions((prev) => [created, ...prev]);
       setCreatedSession(created);
       setPreferences('');
-      if (created.happyEnding) {
-        setShowConfetti(true);
-        window.setTimeout(() => setShowConfetti(false), 2800);
-      }
+      setFlags(emptyFlags());
+      if (created.happyEnding) fireConfetti();
     } catch (err) {
       console.error(err);
       setError(err instanceof Error ? err.message : 'Failed to schedule session.');
@@ -170,7 +184,11 @@ export default function SpaPage() {
   }
 
   function toggleHappyEnding() {
-    setHappyEndingArmed((v) => !v);
+    setHappyEndingArmed((prev) => {
+      const next = !prev;
+      if (next) fireConfetti();
+      return next;
+    });
   }
 
   async function copyLink(url: string) {
@@ -226,15 +244,11 @@ export default function SpaPage() {
           <header className="spa-hero">
             <p className="spa-hero-overline">— with love —</p>
             <h1 className="spa-hero-title">Spa</h1>
-            <p className="spa-hero-hebrew">ספא של התומ.ים</p>
             <div className="spa-hero-divider" aria-hidden="true">
               <span className="spa-hero-divider-rule" />
               <span className="spa-hero-divider-mark">✿</span>
               <span className="spa-hero-divider-rule" />
             </div>
-            <p className="spa-hero-sub">
-              An evening for two. Schedule a moment, send the invite, dim the lights.
-            </p>
           </header>
 
           <div className="spa-grid">
@@ -301,60 +315,57 @@ export default function SpaPage() {
               <div className="spa-divider-ornament" aria-hidden="true">❦</div>
 
               <h2 className="spa-section-title">
-                <span className="spa-section-num">iii.</span> The Ritual
+                <span className="spa-section-num">iii.</span> Flags
               </h2>
-              <div className="spa-massage-grid">
-                {MASSAGE_TYPES.map((m) => (
+              <div className="spa-flag-row">
+                {SPA_FLAGS.map((f) => (
                   <button
                     type="button"
-                    key={m.id}
-                    className={`spa-massage-btn ${massageType === m.id ? 'active' : ''}`}
-                    onClick={() => setMassageType(m.id)}
+                    key={f.id}
+                    className={`spa-flag-btn ${flags[f.id] ? 'active' : ''}`}
+                    onClick={() => toggleFlag(f.id)}
+                    aria-pressed={flags[f.id]}
                   >
-                    <span className="emoji">{m.emoji}</span>
-                    <span className="label">{m.label}</span>
+                    <span className="emoji">{f.emoji}</span>
+                    <span className="label">{f.label}</span>
                   </button>
                 ))}
+                <button
+                  type="button"
+                  className={`spa-flag-btn spa-flag-btn--secret ${happyEndingArmed ? 'active armed' : ''}`}
+                  onClick={toggleHappyEnding}
+                  aria-pressed={happyEndingArmed}
+                  aria-label="♡"
+                >
+                  <span className="emoji">{happyEndingArmed ? '♥' : '♡'}</span>
+                </button>
               </div>
 
-              <div className="spa-divider-ornament" aria-hidden="true">❦</div>
-
-              <h2 className="spa-section-title">
+              <h2 className="spa-section-title spa-section-title--tight">
                 <span className="spa-section-num">iv.</span> Whispers
               </h2>
-              <div className="spa-field">
+              <div className="spa-field spa-field--tight">
                 <label htmlFor="spa-prefs" className="sr-only">Preferences</label>
                 <textarea
                   id="spa-prefs"
                   value={preferences}
                   onChange={(e) => setPreferences(e.target.value)}
-                  placeholder="Pressure, focus areas, oil, music, candles…"
+                  placeholder="Pressure, focus areas, music, candles…"
+                  rows={2}
                 />
               </div>
 
               {error && <div className="spa-error">{error}</div>}
 
-              <div className="spa-submit-row">
-                <button
-                  type="submit"
-                  className="spa-submit"
-                  disabled={submitting}
-                >
-                  <span className="spa-submit-flourish" aria-hidden="true">❧</span>
-                  {submitting ? 'Sealing the envelope…' : 'Send with love'}
-                  <span className="spa-submit-flourish" aria-hidden="true">❧</span>
-                </button>
-                <button
-                  type="button"
-                  className={`spa-secret-btn ${happyEndingArmed ? 'armed' : ''}`}
-                  onClick={toggleHappyEnding}
-                  disabled={submitting}
-                  aria-pressed={happyEndingArmed}
-                  aria-label="♡"
-                >
-                  {happyEndingArmed ? '♥' : '♡'}
-                </button>
-              </div>
+              <button
+                type="submit"
+                className="spa-submit"
+                disabled={submitting}
+              >
+                <span className="spa-submit-flourish" aria-hidden="true">❧</span>
+                {submitting ? 'Sealing the envelope…' : 'Send with love'}
+                <span className="spa-submit-flourish" aria-hidden="true">❧</span>
+              </button>
 
               {createdSession && (
                 <div className="spa-result">
@@ -364,10 +375,9 @@ export default function SpaPage() {
                     {' '}pour{' '}
                     <strong>{getSpaUser(createdSession.receiverId).name}</strong>
                     {' · '}
-                    {getMassageTypeEmoji(createdSession.massageType)}{' '}
-                    {getMassageTypeLabel(createdSession.massageType)}
-                    {' · '}
                     {formatWhen(createdSession.scheduledAt)}
+                    {' · '}
+                    {flagsLabel(createdSession.flags)}
                   </p>
                   <div className="spa-result-actions">
                     <a
@@ -416,22 +426,30 @@ export default function SpaPage() {
                           ['--tilt' as string]: `${((i % 5) - 2) * 0.6}deg`,
                         }}
                       >
-                        <div className="spa-session-stamp" aria-hidden="true">
-                          {getMassageTypeEmoji(s.massageType)}
-                        </div>
+                        <div className="spa-session-stamp" aria-hidden="true">♥</div>
                         <div className="spa-session-header">
                           <span className="spa-session-flow">
                             <em>{getSpaUser(s.giverId).name}</em>
                             <span className="spa-session-arrow"> ❤ </span>
                             <em>{getSpaUser(s.receiverId).name}</em>
                           </span>
-                          <span className="spa-session-type">
-                            {getMassageTypeLabel(s.massageType)}
-                          </span>
                         </div>
                         <p className="spa-session-when">
                           {formatWhen(s.scheduledAt)} · {s.durationMinutes}′
                         </p>
+                        {(s.flags.music ||
+                          s.flags.oil ||
+                          s.flags.deepPressure ||
+                          s.flags.candles) && (
+                          <div className="spa-session-flags">
+                            {SPA_FLAGS.filter((f) => s.flags[f.id]).map((f) => (
+                              <span key={f.id} className="spa-session-flag">
+                                <span aria-hidden="true">{f.emoji}</span>{' '}
+                                <span className="label">{f.label}</span>
+                              </span>
+                            ))}
+                          </div>
+                        )}
                         {s.preferences && (
                           <p className="spa-session-prefs">“{s.preferences}”</p>
                         )}
