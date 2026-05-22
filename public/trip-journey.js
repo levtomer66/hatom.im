@@ -4,11 +4,23 @@
   const TRIP_START = '2026-04-15';
   const TRIP_END   = '2026-05-20';
 
-  const ADMIN_TOKEN_KEY = 'hatomim-trip-admin-token';
-  // Admin mode is derived from token presence — having a token in
-  // localStorage enables the day-modal admin bits (delete photo, save note).
-  // Uploads still go through the server token check regardless.
-  function isAdmin() { return !!adminToken(); }
+  // Admin mode comes from /api/auth/me — true only for the two owners
+  // (Tom or Tomer). Resolved once at boot; the page re-renders any
+  // admin-only UI based on this flag. Session cookies are sent
+  // automatically same-origin on every /api/trip/* call, so no header
+  // plumbing is needed below.
+  let isAdminFlag = false;
+  function isAdmin() { return isAdminFlag; }
+  async function loadAdminFlag() {
+    try {
+      const res = await fetch('/api/auth/me', { cache: 'no-store' });
+      if (!res.ok) return;
+      const me = await res.json();
+      isAdminFlag = !!(me && me.isOwner);
+    } catch (err) {
+      console.warn('[trip/journey] failed to resolve /api/auth/me', err);
+    }
+  }
 
   // Cache: dayDate -> { dayDate, photos: [], note: '' } once fetched.
   const dayCache = new Map();
@@ -40,9 +52,6 @@
   }
 
   // ----- tiny helpers -----
-  function adminToken() {
-    return localStorage.getItem(ADMIN_TOKEN_KEY) || '';
-  }
   async function fetchJourneySummary() {
     const res = await fetch('/api/trip/journey', { cache: 'no-store' });
     if (!res.ok) throw new Error('summary fetch failed');
@@ -313,12 +322,11 @@
 
   noteSave.addEventListener('click', async () => {
     if (!currentDay) return;
-    const token = adminToken();
-    if (!token) return;
+    if (!isAdmin()) return;
     try {
       const res = await fetch(`/api/trip/journey/${currentDay}`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json', 'X-Admin-Token': token },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ note: noteEl.value }),
       });
       if (!res.ok) throw new Error(`save note failed ${res.status}`);
@@ -334,12 +342,11 @@
   async function onDeletePhoto(blobPath) {
     if (!currentDay) return;
     if (!confirm('למחוק את התמונה?')) return;
-    const token = adminToken();
-    if (!token) return;
+    if (!isAdmin()) return;
     try {
       const res = await fetch(`/api/trip/journey/${currentDay}/photos`, {
         method: 'DELETE',
-        headers: { 'Content-Type': 'application/json', 'X-Admin-Token': token },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ blobPath }),
       });
       if (!res.ok) throw new Error(`delete failed ${res.status}`);
@@ -460,15 +467,7 @@
   }
 
   async function uploadPending() {
-    // Ask for the token lazily, once per device. Cached in localStorage so
-    // the prompt only appears the very first time the user hits upload.
-    let token = adminToken();
-    if (!token) {
-      const t = prompt('סיסמת אדמין:');
-      if (!t) return;
-      localStorage.setItem(ADMIN_TOKEN_KEY, t);
-      token = t;
-    }
+    if (!isAdmin()) return;
     // Snapshot the batch so we can report totals at the end (queue.shift()
     // empties the array). Each entry picks up a `ok: true|false` flag
     // inside uploadOne() so we can count without re-inspecting DOM.
@@ -487,7 +486,7 @@
         while (inFlight < 4 && queue.length) {
           const entry = queue.shift();
           inFlight++;
-          uploadOne(entry, token)
+          uploadOne(entry)
             .then(() => {
               completed++;
               adminSubmit.textContent = `מעלה ${completed} / ${total}…`;
@@ -539,7 +538,7 @@
     } catch {/* ignore */}
   }
 
-  async function uploadOne(entry, token) {
+  async function uploadOne(entry) {
     entry.ok = false;  // default — flipped to true only on a real 2xx
     const fd = new FormData();
     fd.append('file', entry.resized, entry.file.name.replace(/\.[^.]+$/, '') + '.jpg');
@@ -550,15 +549,14 @@
     try {
       const res = await fetch('/api/trip/journey/upload', {
         method: 'POST',
-        headers: { 'X-Admin-Token': token },
         body: fd,
       });
-      // On 401 the cached token is stale — clear it so the next upload
-      // attempt re-prompts instead of looping on the wrong value.
       if (res.status === 401) {
-        localStorage.removeItem(ADMIN_TOKEN_KEY);
+        // Session expired / not an owner — flip the admin UI back off.
+        isAdminFlag = false;
+        if (adminPanel) adminPanel.classList.add('admin-hidden');
         entry.row.className = 'admin-upload-row-item err';
-        entry.row.textContent += ' ✗ סיסמה שגויה';
+        entry.row.textContent += ' ✗ אין הרשאה';
         return;
       }
       if (!res.ok) throw new Error(`upload ${res.status}`);
@@ -886,9 +884,13 @@
   async function boot() {
     mainMap = window._tripMap || null;
     journeyLayer = mainMap ? L.layerGroup().addTo(mainMap) : null;
-    // Panel is always visible; prompt for the token lazily on the first
-    // upload attempt rather than at page load so casual visitors aren't
-    // interrupted by a credentials prompt.
+    // Resolve the session-derived admin flag and hide the upload panel
+    // for non-owners. Middleware already redirected anonymous visitors;
+    // here we just distinguish allowlisted-not-owner from owner.
+    await loadAdminFlag();
+    if (adminPanel && !isAdmin()) {
+      adminPanel.classList.add('admin-hidden');
+    }
     try {
       const summary = await fetchJourneySummary();
       await decorateCalendar(summary);

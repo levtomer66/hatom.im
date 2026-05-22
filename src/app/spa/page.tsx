@@ -1,21 +1,22 @@
 'use client';
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 import { Tangerine, Cormorant_Garamond, Frank_Ruhl_Libre } from 'next/font/google';
 import Navbar from '@/components/Navbar';
 import {
   CreateSpaSessionDto,
   SPA_DURATIONS,
   SPA_FLAGS,
-  SPA_USERS,
   SpaDuration,
   SpaFlags,
   SpaSession,
-  SpaUserId,
   emptyFlags,
   flagsLabel,
   getSpaUser,
   otherSpaUser,
+  spaUserIdFromEmail,
 } from '@/types/spa';
 import { buildGoogleCalendarUrl } from '@/lib/googleCalendarUrl';
 import './spa.css';
@@ -70,6 +71,27 @@ function todayLocalDateTimeValue(): string {
 const CONFETTI_EMOJIS = ['🔥', '💋', '🌶️', '🥵', '💦', '😈', '❤️‍🔥', '💄'];
 
 export default function SpaPage() {
+  const router = useRouter();
+  const { data: session, status } = useSession();
+
+  // The receiver is the signed-in Tom; the giver is the other one. Non-spa
+  // users (Amit, future allowlisted friends) get bounced — only Tom and
+  // Tomer can use this page.
+  const receiverId = spaUserIdFromEmail(session?.user?.email);
+  const giverId = receiverId ? otherSpaUser(receiverId) : null;
+
+  useEffect(() => {
+    if (status === 'loading') return;
+    if (!session?.user) {
+      router.replace('/login?from=/spa');
+      return;
+    }
+    if (!receiverId) {
+      // Signed in but not Tom/Tomer.
+      router.replace('/');
+    }
+  }, [status, session, receiverId, router]);
+
   const [sessions, setSessions] = useState<SpaSession[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -92,7 +114,6 @@ export default function SpaPage() {
     }, 2800);
   }
 
-  const [giverId, setGiverId] = useState<SpaUserId>('tom');
   const [scheduledAt, setScheduledAt] = useState<string>(todayLocalDateTimeValue());
   const [durationMinutes, setDurationMinutes] = useState<SpaDuration>(60);
   const [flags, setFlags] = useState<SpaFlags>(emptyFlags);
@@ -101,8 +122,6 @@ export default function SpaPage() {
   function toggleFlag(id: keyof SpaFlags) {
     setFlags((prev) => ({ ...prev, [id]: !prev[id] }));
   }
-
-  const receiverId = otherSpaUser(giverId);
 
   useEffect(() => {
     let cancelled = false;
@@ -151,7 +170,6 @@ export default function SpaPage() {
     setHappyEndingArmed(false);
 
     const dto: CreateSpaSessionDto = {
-      giverId,
       scheduledAt: new Date(scheduledAt).toISOString(),
       durationMinutes,
       flags,
@@ -200,6 +218,11 @@ export default function SpaPage() {
       setCopyMsg('Copy failed');
       window.setTimeout(() => setCopyMsg(null), 1500);
     }
+  }
+
+  // Waiting on session OR not-yet-redirected non-Tom/Tomer → blank wrapper.
+  if (status === 'loading' || !receiverId || !giverId) {
+    return <div className={`${tangerine.variable} ${cormorant.variable} ${frankRuhl.variable}`} />;
   }
 
   return (
@@ -257,31 +280,14 @@ export default function SpaPage() {
               onSubmit={handleSubmit}
               autoComplete="off"
             >
-              <h2 className="spa-section-title">
-                <span className="spa-section-num">i.</span> The Hands
-              </h2>
-              <div className="spa-segmented" role="tablist">
-                {SPA_USERS.map((u) => (
-                  <button
-                    type="button"
-                    key={u.id}
-                    className={giverId === u.id ? 'active' : ''}
-                    onClick={() => setGiverId(u.id)}
-                  >
-                    {u.name}
-                  </button>
-                ))}
-              </div>
               <p className="spa-receiver-row">
                 <span className="spa-receiver-pill">
-                  gives to <em>{getSpaUser(receiverId).name}</em>
+                  <em>{getSpaUser(giverId).name}</em> gives to <em>{getSpaUser(receiverId).name}</em>
                 </span>
               </p>
 
-              <div className="spa-divider-ornament" aria-hidden="true">❦</div>
-
               <h2 className="spa-section-title">
-                <span className="spa-section-num">ii.</span> The Hour
+                <span className="spa-section-num">i.</span> The Hour
               </h2>
               <div className="spa-row">
                 <div className="spa-field">
@@ -315,7 +321,7 @@ export default function SpaPage() {
               <div className="spa-divider-ornament" aria-hidden="true">❦</div>
 
               <h2 className="spa-section-title">
-                <span className="spa-section-num">iii.</span> Flags
+                <span className="spa-section-num">ii.</span> Flags
               </h2>
               <div className="spa-flag-row">
                 {SPA_FLAGS.map((f) => (
@@ -342,7 +348,7 @@ export default function SpaPage() {
               </div>
 
               <h2 className="spa-section-title spa-section-title--tight">
-                <span className="spa-section-num">iv.</span> Whispers
+                <span className="spa-section-num">iii.</span> Whispers
               </h2>
               <div className="spa-field spa-field--tight">
                 <label htmlFor="spa-prefs" className="sr-only">Preferences</label>

@@ -3,6 +3,7 @@ import clientPromise from '@/lib/mongodb';
 import {
   SpaSession,
   CreateSpaSessionDto,
+  SpaUserId,
   emptyFlags,
   otherSpaUser,
 } from '@/types/spa';
@@ -33,8 +34,11 @@ export async function getAllSpaSessions(): Promise<SpaSession[]> {
   return docs.map(docToSession);
 }
 
+// `giverId` is no longer part of the client DTO (server derives it from
+// the session). The model takes it as a separate argument so the route is
+// the sole authority on who's giving the massage.
 export async function createSpaSession(
-  data: CreateSpaSessionDto
+  data: CreateSpaSessionDto & { giverId: SpaUserId }
 ): Promise<SpaSession> {
   const collection = await getSpaSessionsCollection();
   const now = new Date().toISOString();

@@ -1090,9 +1090,10 @@
     font-size: 0.9rem;
   }
 
-  /* Admin upload panel — pinned at the top of the page, always visible.
-     Writes are still gated server-side by the TRIP_ADMIN_TOKEN, which the
-     client prompts for on first load and caches in localStorage. */
+  /* Admin upload panel — pinned at the top of the page for owners only.
+     Visibility now flips based on /api/auth/me (owner = Tom or Tomer);
+     non-owners get .admin-hidden applied at boot. */
+  .admin-upload-panel.admin-hidden { display: none; }
   .admin-upload-panel {
     position: sticky;
     top: 0;

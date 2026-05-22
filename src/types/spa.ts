@@ -25,6 +25,14 @@ export function getSpaUser(id: SpaUserId): SpaUser {
   return SPA_USERS.find((u) => u.id === id) as SpaUser;
 }
 
+// Maps a signed-in email to a SpaUserId. Returns null if the email isn't
+// one of the two spa users — the route should 401/redirect in that case.
+export function spaUserIdFromEmail(email: string | null | undefined): SpaUserId | null {
+  if (!email) return null;
+  const match = SPA_USERS.find((u) => u.email.toLowerCase() === email.toLowerCase());
+  return match?.id ?? null;
+}
+
 export type SpaDuration = 30 | 60 | 90;
 export const SPA_DURATIONS: readonly SpaDuration[] = [30, 60, 90];
 
@@ -91,8 +99,10 @@ export interface SpaSession {
   updatedAt?: string;
 }
 
+// CreateSpaSessionDto no longer carries `giverId` — the server derives it
+// from the Auth.js session (the receiver is the signed-in Tom; the giver is
+// the other one).
 export interface CreateSpaSessionDto {
-  giverId: SpaUserId;
   scheduledAt: string;
   durationMinutes: SpaDuration;
   flags: SpaFlags;

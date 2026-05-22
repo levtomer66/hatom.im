@@ -19,7 +19,8 @@
 </head>
 <body>
 
-<!-- Admin upload panel — always visible; server-side TRIP_ADMIN_TOKEN gates writes. -->
+<!-- Admin upload panel — hidden for non-owners via the .admin-hidden CSS class
+     applied at boot by trip-journey.js after fetching /api/auth/me. -->
 <div id="admin-upload-panel" class="admin-upload-panel">
   <div class="admin-upload-row">
     <span class="admin-upload-title">📸 העלאת תמונות</span>

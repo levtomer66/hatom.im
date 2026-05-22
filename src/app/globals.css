@@ -137,6 +137,40 @@ body {
   color: var(--gold);
 }
 
+.navbar-auth {
+  display: inline-flex;
+  align-items: center;
+  margin-inline-start: 0.5rem;
+}
+
+.navbar-auth-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: transparent;
+  border: 1px solid var(--text-muted);
+  border-radius: 999px;
+  padding: 0.25rem 0.75rem;
+  font: inherit;
+  font-size: 0.85rem;
+  cursor: pointer;
+  color: var(--text-muted);
+  transition: color 0.2s, border-color 0.2s, background 0.2s;
+}
+
+.navbar-auth-btn:hover {
+  color: var(--gold-light);
+  border-color: var(--gold-light);
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.navbar-avatar {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
 .navbar-link.active::after {
   content: '';
   position: absolute;

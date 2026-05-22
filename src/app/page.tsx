@@ -4,7 +4,9 @@ import React from 'react';
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import { motion } from 'framer-motion';
-import { FaDog, FaCoffee, FaVideo, FaDumbbell, FaRing, FaPlane, FaSpa } from 'react-icons/fa';
+import { signIn, useSession } from 'next-auth/react';
+import { FaDog, FaCoffee, FaVideo, FaDumbbell, FaRing, FaPlane, FaSpa, FaSignInAlt } from 'react-icons/fa';
+import type { IconType } from 'react-icons';
 import Navbar from '@/components/Navbar';
 import CountdownTimer from '@/components/CountdownTimer';
 
@@ -12,67 +14,34 @@ const GoldSparkles = dynamic(() => import('@/components/PeriodicConfetti'), {
   ssr: false,
 });
 
-const features = [
-  {
-    icon: FaDog,
-    title: 'שמות האוליבון',
-    description: 'כל שמות האוליבון לעולם ועד',
-    href: '/family-tree',
-    linkText: 'צפה בשמות האוליבון',
-  },
-  {
-    icon: FaCoffee,
-    title: 'מקפקפים',
-    description: 'ביקורות על קפה מאת תומית ותומרינדי',
-    href: '/mekafkefim',
-    linkText: 'צפה במקפקפים',
-  },
-  {
-    icon: FaVideo,
-    title: 'InsTomit',
-    description: 'סרטונים קצרים של התומים',
-    href: '/instomit',
-    linkText: 'צפה ב-InsTomit',
-  },
-  {
-    icon: FaDumbbell,
-    title: 'המפלצתומים',
-    description: 'מעקב אימונים לתום ותומר',
-    href: '/workout',
-    linkText: 'לאימון',
-  },
-  {
-    icon: FaSpa,
-    title: 'ספא',
-    description: 'תזמון עיסוי בין התומ.ים עם הזמנה ליומן',
-    href: '/spa',
-    linkText: 'לתזמון עיסוי',
-  },
-  {
-    icon: FaRing,
-    title: 'Wedding Guide',
-    description: 'מדריך חתונה בלאס וגאס',
-    href: '/vegas-wedding-guide.html',
-    linkText: 'למדריך החתונה',
-  },
-  {
-    icon: FaPlane,
-    title: 'USA & Mexico Trip',
-    description: 'מסלול הטיול המלא 2026',
-    href: '/trip.html',
-    linkText: 'צפה במסלול',
-  },
+type Visibility = 'public' | 'signedIn' | 'owner';
+
+interface Feature {
+  icon: IconType;
+  title: string;
+  description: string;
+  href: string;
+  linkText?: string;
+  visibility: Visibility;
+}
+
+const allFeatures: Feature[] = [
+  { icon: FaDog,      title: 'שמות האוליבון', description: 'כל שמות האוליבון לעולם ועד',         href: '/family-tree',             linkText: 'צפה בשמות האוליבון', visibility: 'public' },
+  { icon: FaCoffee,   title: 'מקפקפים',       description: 'ביקורות על קפה מאת תומית ותומרינדי', href: '/mekafkefim',              linkText: 'צפה במקפקפים',       visibility: 'public' },
+  { icon: FaVideo,    title: 'InsTomit',      description: 'סרטונים קצרים של התומים',            href: '/instomit',                linkText: 'צפה ב-InsTomit',     visibility: 'public' },
+  { icon: FaRing,     title: 'Wedding Guide', description: 'מדריך חתונה בלאס וגאס',              href: '/vegas-wedding-guide.html', linkText: 'למדריך החתונה',     visibility: 'public' },
+  { icon: FaDumbbell, title: 'המפלצתומים',    description: 'מעקב אימונים לתום ותומר',            href: '/workout',                 linkText: 'לאימון',             visibility: 'signedIn' },
+  { icon: FaPlane,    title: 'USA & Mexico Trip', description: 'מסלול הטיול המלא 2026',         href: '/trip.html',               linkText: 'צפה במסלול',         visibility: 'signedIn' },
+  { icon: FaSpa,      title: 'ספא',           description: 'תזמון עיסוי בין התומ.ים עם הזמנה ליומן', href: '/spa',                linkText: 'לתזמון עיסוי',       visibility: 'owner' },
 ];
 
-const heroButtons = [
-  { href: '/family-tree', label: 'שמות האוליבון', icon: FaDog },
-  { href: '/mekafkefim', label: 'מקפקפים', icon: FaCoffee },
-  { href: '/instomit', label: 'InsTomit', icon: FaVideo },
-  { href: '/workout', label: 'המפלצתומים', icon: FaDumbbell },
-  { href: '/spa', label: 'ספא', icon: FaSpa },
-  { href: '/vegas-wedding-guide.html', label: 'מדריך חתונה', icon: FaRing },
-  { href: '/trip.html', label: 'מסלול הטיול', icon: FaPlane },
-];
+function visibleFor(opts: { signedIn: boolean; isOwner: boolean }): Feature[] {
+  return allFeatures.filter((f) => {
+    if (f.visibility === 'public') return true;
+    if (f.visibility === 'signedIn') return opts.signedIn;
+    return opts.isOwner;
+  });
+}
 
 const containerVariants = {
   hidden: {},
@@ -86,11 +55,16 @@ const cardVariants = {
   visible: {
     opacity: 1,
     y: 0,
-    transition: { duration: 0.5, ease: 'easeOut' },
+    transition: { duration: 0.5, ease: 'easeOut' as const },
   },
 };
 
 export default function Home() {
+  const { data: session, status } = useSession();
+  const signedIn = !!session?.user;
+  const isOwner = session?.user?.isOwner === true;
+  const features = visibleFor({ signedIn, isOwner });
+
   return (
     <>
       <Navbar />
@@ -108,14 +82,24 @@ export default function Home() {
           <CountdownTimer />
 
           <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: '0.75rem', marginTop: '1.5rem' }}>
-            {heroButtons.map(({ href, label, icon: Icon }) => (
+            {features.map(({ href, title, icon: Icon }) => (
               <Link key={href} href={href}>
                 <button className="birthday-button">
                   <Icon />
-                  {label}
+                  {title}
                 </button>
               </Link>
             ))}
+            {status !== 'loading' && !signedIn && (
+              <button
+                type="button"
+                className="birthday-button"
+                onClick={() => signIn('google', { callbackUrl: '/' })}
+              >
+                <FaSignInAlt />
+                כניסה עם Google
+              </button>
+            )}
           </div>
         </motion.div>
 
