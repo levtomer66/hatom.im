@@ -5,7 +5,6 @@ import { useParams, useRouter } from 'next/navigation';
 import { useWorkoutUser } from '@/context/WorkoutUserContext';
 import { useWorkoutLanguage } from '@/context/WorkoutLanguageContext';
 import { useT, formatDate, exerciseCount, getLocalizedTemplateName } from '@/lib/workout-i18n';
-import LoginScreen from '@/components/workout/LoginScreen';
 import Header from '@/components/workout/Header';
 import BottomNav from '@/components/workout/BottomNav';
 import ExerciseCard from '@/components/workout/ExerciseCard';
@@ -20,6 +19,12 @@ export default function WorkoutDetailPage() {
   const t = useT();
   
   const workoutId = params?.id as string;
+
+  useEffect(() => {
+    if (!isLoading && !currentUser) {
+      router.replace(`/login?from=/workout/history/${workoutId}`);
+    }
+  }, [isLoading, currentUser, router, workoutId]);
   
   const [workout, setWorkout] = useState<Workout | null>(null);
   const [personalBests, setPersonalBests] = useState<Record<string, PersonalBest>>({});
@@ -99,7 +104,11 @@ export default function WorkoutDetailPage() {
 
   // Not logged in
   if (!currentUser) {
-    return <LoginScreen />;
+    return (
+      <main className="workout-main">
+        <div className="loading-spinner" />
+      </main>
+    );
   }
 
   // Workout loading

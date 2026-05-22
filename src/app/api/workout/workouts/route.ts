@@ -1,42 +1,38 @@
 import { NextRequest, NextResponse } from 'next/server';
 import mongoose from 'mongoose';
 import WorkoutModel from '@/models/Workout';
-import { UserId, USER_IDS, isValidUserId } from '@/types/workout';
+import { requireSignedIn } from '@/lib/auth-helpers';
 
 // Connect to MongoDB using mongoose
 async function connectDB() {
   if (mongoose.connection.readyState >= 1) return;
-  
+
   const uri = process.env.MONGODB_URI!;
   await mongoose.connect(uri);
 }
 
-// GET /api/workout/workouts?userId=tom
-export async function GET(request: NextRequest) {
+// GET /api/workout/workouts
+// userId is derived from the Auth.js session; any client-supplied
+// userId query string is ignored. Each user only sees their own
+// workouts after the PR 4 SSO migration.
+export async function GET() {
+  const gate = await requireSignedIn();
+  if (gate instanceof NextResponse) return gate;
+  const userId = gate.session.user.email;
+
   try {
     await connectDB();
-    
-    const { searchParams } = new URL(request.url);
-    const userId = searchParams.get('userId') as UserId | null;
-    
-    if (!isValidUserId(userId)) {
-      return NextResponse.json(
-        { error: `Valid userId is required (${USER_IDS.join(', ')})` },
-        { status: 400 }
-      );
-    }
-    
+
     const workouts = await WorkoutModel.find({ userId })
       .sort({ date: -1, createdAt: -1 })
       .lean();
-    
-    // Transform _id to id
-    const transformedWorkouts = workouts.map(w => ({
+
+    const transformedWorkouts = workouts.map((w) => ({
       ...w,
       id: w._id.toString(),
       _id: undefined,
     }));
-    
+
     return NextResponse.json(transformedWorkouts);
   } catch (error) {
     console.error('Error fetching workouts:', error);
@@ -48,32 +44,30 @@ export async function GET(request: NextRequest) {
 }
 
 // POST /api/workout/workouts
+// userId is derived from the session; any client-supplied userId in the
+// body is ignored.
 export async function POST(request: NextRequest) {
+  const gate = await requireSignedIn();
+  if (gate instanceof NextResponse) return gate;
+  const userId = gate.session.user.email;
+
   try {
     await connectDB();
-    
+
     const body = await request.json();
-    const { userId, templateId, workoutName, date } = body as {
-      userId: UserId;
+    const { templateId, workoutName, date } = body as {
       templateId?: string;
       workoutName: string;
       date: string;
     };
-    
-    if (!isValidUserId(userId)) {
-      return NextResponse.json(
-        { error: `Valid userId is required (${USER_IDS.join(', ')})` },
-        { status: 400 }
-      );
-    }
-    
+
     if (!workoutName) {
       return NextResponse.json(
         { error: 'workoutName is required' },
         { status: 400 }
       );
     }
-    
+
     const workout = new WorkoutModel({
       userId,
       templateId: templateId || null,
@@ -82,12 +76,10 @@ export async function POST(request: NextRequest) {
       exercises: [],
       isCompleted: false,
     });
-    
+
     await workout.save();
-    
-    const result = workout.toJSON();
-    
-    return NextResponse.json(result, { status: 201 });
+
+    return NextResponse.json(workout.toJSON(), { status: 201 });
   } catch (error) {
     console.error('Error creating workout:', error);
     return NextResponse.json(

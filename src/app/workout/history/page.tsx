@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation';
 import { useWorkoutUser } from '@/context/WorkoutUserContext';
 import { useWorkoutLanguage } from '@/context/WorkoutLanguageContext';
 import { useT, formatDate, exerciseCount, getLocalizedTemplateName } from '@/lib/workout-i18n';
-import LoginScreen from '@/components/workout/LoginScreen';
 import Header from '@/components/workout/Header';
 import BottomNav from '@/components/workout/BottomNav';
 import { Workout } from '@/types/workout';
@@ -15,6 +14,12 @@ export default function HistoryPage() {
   const { currentUser, isLoading } = useWorkoutUser();
   const { language } = useWorkoutLanguage();
   const t = useT();
+
+  useEffect(() => {
+    if (!isLoading && !currentUser) {
+      router.replace('/login?from=/workout/history');
+    }
+  }, [isLoading, currentUser, router]);
   
   const [workouts, setWorkouts] = useState<Workout[]>([]);
   const [loadingWorkouts, setLoadingWorkouts] = useState(true);
@@ -82,7 +87,11 @@ export default function HistoryPage() {
 
   // Not logged in
   if (!currentUser) {
-    return <LoginScreen />;
+    return (
+      <main className="workout-main">
+        <div className="loading-spinner" />
+      </main>
+    );
   }
 
   // Separate in-progress and completed workouts

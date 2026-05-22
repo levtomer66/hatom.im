@@ -1,5 +1,5 @@
 import mongoose, { Schema, Document, Model } from 'mongoose';
-import { Workout, WorkoutExercise, WorkoutSet, UserId, USER_IDS } from '@/types/workout';
+import { Workout, WorkoutExercise, WorkoutSet } from '@/types/workout';
 
 // Mongoose document interface
 export interface WorkoutDocument extends Omit<Workout, '_id' | 'id'>, Document {}
@@ -24,10 +24,11 @@ const WorkoutExerciseSchema = new Schema<WorkoutExercise>({
 
 // Main workout schema
 const WorkoutSchema = new Schema<WorkoutDocument>({
-  userId: { 
-    type: String, 
+  // userId is the Auth.js session email after the SSO migration in PR 4.
+  // No enum constraint — any signed-in identity is valid here.
+  userId: {
+    type: String,
     required: true,
-    enum: USER_IDS as readonly UserId[],
     index: true,
   },
   templateId: {

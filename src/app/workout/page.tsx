@@ -17,10 +17,10 @@ import {
   verticalListSortingStrategy,
   sortableKeyboardCoordinates,
 } from '@dnd-kit/sortable';
+import { useRouter } from 'next/navigation';
 import { useWorkoutUser } from '@/context/WorkoutUserContext';
 import { useWorkoutLanguage } from '@/context/WorkoutLanguageContext';
 import { useT, formatDate, getLocalizedTemplateName } from '@/lib/workout-i18n';
-import LoginScreen from '@/components/workout/LoginScreen';
 import Header from '@/components/workout/Header';
 import BottomNav from '@/components/workout/BottomNav';
 import SortableExerciseCard from '@/components/workout/SortableExerciseCard';
@@ -39,9 +39,17 @@ import { EXERCISE_LIBRARY } from '@/data/exercise-library';
 import { v4 as uuidv4 } from 'uuid';
 
 export default function WorkoutsPage() {
+  const router = useRouter();
   const { currentUser, isLoading } = useWorkoutUser();
   const { language } = useWorkoutLanguage();
   const t = useT();
+
+  // No session → bounce to /login. PR 4 retired the in-app user picker.
+  useEffect(() => {
+    if (!isLoading && !currentUser) {
+      router.replace('/login?from=/workout');
+    }
+  }, [isLoading, currentUser, router]);
   
   // State
   const [activeWorkout, setActiveWorkout] = useState<Workout | null>(null);
@@ -379,9 +387,13 @@ export default function WorkoutsPage() {
     );
   }
 
-  // Not logged in
+  // Not signed in → useEffect above is mid-redirect; render a placeholder.
   if (!currentUser) {
-    return <LoginScreen />;
+    return (
+      <main className="workout-main">
+        <div className="loading-spinner" />
+      </main>
+    );
   }
 
   return (

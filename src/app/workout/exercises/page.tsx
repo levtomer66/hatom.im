@@ -9,7 +9,6 @@ import { useT, getCategoryLabel } from '@/lib/workout-i18n';
 import { getLocalizedExercise, getExerciseSearchNames } from '@/lib/exercise-translations';
 import { formatWeight, getUnitSuffix } from '@/lib/weight';
 import { formatSeconds } from '@/lib/time';
-import LoginScreen from '@/components/workout/LoginScreen';
 import Header from '@/components/workout/Header';
 import BottomNav from '@/components/workout/BottomNav';
 import AddExerciseForm from '@/components/workout/AddExerciseForm';
@@ -23,6 +22,11 @@ const MUSCLE_GROUP_IDS: ExerciseCategory[] = [
 export default function ExercisesPage() {
   const router = useRouter();
   const { currentUser, isLoading } = useWorkoutUser();
+  useEffect(() => {
+    if (!isLoading && !currentUser) {
+      router.replace('/login?from=/workout/exercises');
+    }
+  }, [isLoading, currentUser, router]);
   const { language } = useWorkoutLanguage();
   const { unit } = useWorkoutUnit();
   const t = useT();
@@ -137,7 +141,11 @@ export default function ExercisesPage() {
 
   // Not logged in
   if (!currentUser) {
-    return <LoginScreen />;
+    return (
+      <main className="workout-main">
+        <div className="loading-spinner" />
+      </main>
+    );
   }
 
   return (

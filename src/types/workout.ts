@@ -19,26 +19,52 @@ export function isLanguage(value: unknown): value is Language {
   return value === 'en' || value === 'he';
 }
 
-// User types
-export type UserId = 'tom' | 'tomer' | 'amit';
+// User identity in the workout module is now the Auth.js session email.
+// The literal-union ('tom' | 'tomer' | 'amit') and the `USER_IDS` enum
+// constraint went away in the SSO rollout (PR 4); existing Mongo data
+// was backfilled to emails by scripts/migrate-workout-userids-to-emails.mjs.
+export type UserId = string;
 
 export interface User {
-  id: UserId;
-  name: string;
+  id: UserId;       // canonical email
+  name: string;     // display name
 }
 
-export const USERS: User[] = [
-  { id: 'tom', name: 'Tom' },
-  { id: 'tomer', name: 'Tomer' },
-  { id: 'amit', name: 'Amit' },
-];
+// Static display-name table for the historic three users. Any other
+// allowlisted email gets a name derived from the local-part. Adding a
+// known friend is one line here.
+export const KNOWN_USERS: Readonly<Record<string, string>> = Object.freeze({
+  'tomzari347@gmail.com': 'Tom',
+  'levtomer66@gmail.com': 'Tomer',
+  'amitz2002@gmail.com':  'Amit',
+});
 
-// Canonical list of valid user IDs — use this everywhere that needs to validate
-// an incoming `userId` or seed a Mongoose enum, so adding a new user is one edit.
-export const USER_IDS: readonly UserId[] = USERS.map(u => u.id);
+export function getUserDisplayName(email: string | null | undefined): string {
+  if (!email) return '';
+  const lower = email.toLowerCase();
+  if (KNOWN_USERS[lower]) return KNOWN_USERS[lower];
+  // Fallback: take the local-part, prettify '_'/'.' → space, Title-Case.
+  const local = lower.split('@')[0];
+  return local
+    .replace(/[._-]+/g, ' ')
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+}
 
+// Convenience: known-user list, mostly for legacy callers that wanted to
+// iterate "the users". Anyone outside this list is still a valid UserId
+// (any signed-in email is a valid identity).
+export const USERS: User[] = Object.entries(KNOWN_USERS).map(([email, name]) => ({
+  id: email,
+  name,
+}));
+
+export const USER_IDS: readonly UserId[] = USERS.map((u) => u.id);
+
+// Validates that a value is shaped like a non-empty user-id (any string
+// that's plausibly an email). The actual authorization happens at the
+// API layer by comparing against `session.user.email`.
 export function isValidUserId(value: unknown): value is UserId {
-  return typeof value === 'string' && (USER_IDS as readonly string[]).includes(value);
+  return typeof value === 'string' && value.length > 0 && value.includes('@');
 }
 
 // Legacy workout type categories (kept for backwards compatibility and exercise filtering)

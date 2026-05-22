@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import mongoose from 'mongoose';
 import WorkoutModel from '@/models/Workout';
-import { UserId, ExerciseHistoryEntry, WorkoutSet, USER_IDS, isValidUserId } from '@/types/workout';
+import { ExerciseHistoryEntry, WorkoutSet } from '@/types/workout';
+import { requireSignedIn } from '@/lib/auth-helpers';
 import { resolveExerciseId } from '@/data/exercise-library';
 
 // Connect to MongoDB using mongoose
@@ -39,22 +40,19 @@ function getTotalRepsAtHighest(sets: WorkoutSet[]): number {
     .reduce((sum, s) => sum + (s.reps || 0), 0);
 }
 
-// GET /api/workout/exercises/history?userId=tom&exerciseId=bench-press
+// GET /api/workout/exercises/history?exerciseId=bench-press
+// userId derived from the Auth.js session.
 export async function GET(request: NextRequest) {
+  const gate = await requireSignedIn();
+  if (gate instanceof NextResponse) return gate;
+  const userId = gate.session.user.email;
+
   try {
     await connectDB();
-    
+
     const { searchParams } = new URL(request.url);
-    const userId = searchParams.get('userId') as UserId | null;
     const exerciseId = searchParams.get('exerciseId');
-    
-    if (!isValidUserId(userId)) {
-      return NextResponse.json(
-        { error: `Valid userId is required (${USER_IDS.join(', ')})` },
-        { status: 400 }
-      );
-    }
-    
+
     const matchCondition: Record<string, unknown> = { userId };
     
     const workouts = await WorkoutModel.find(matchCondition)

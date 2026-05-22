@@ -1,7 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import mongoose from 'mongoose';
 import WorkoutModel from '@/models/Workout';
-import { UserId, PersonalBest, WorkoutSet, USER_IDS, isValidUserId, isTimeSet } from '@/types/workout';
+import { PersonalBest, WorkoutSet, isTimeSet } from '@/types/workout';
+import { requireSignedIn } from '@/lib/auth-helpers';
 import { resolveExerciseId } from '@/data/exercise-library';
 
 // Connect to MongoDB using mongoose
@@ -84,22 +85,16 @@ function getBestTimeMode(sets: WorkoutSet[]): { kg: number; seconds: number } | 
   return best;
 }
 
-// GET /api/workout/exercises/pb?userId=tom
-// Returns all personal bests for a user, keyed by exerciseId
-export async function GET(request: NextRequest) {
+// GET /api/workout/exercises/pb
+// Returns all personal bests for the signed-in user, keyed by exerciseId.
+export async function GET() {
+  const gate = await requireSignedIn();
+  if (gate instanceof NextResponse) return gate;
+  const userId = gate.session.user.email;
+
   try {
     await connectDB();
-    
-    const { searchParams } = new URL(request.url);
-    const userId = searchParams.get('userId') as UserId | null;
-    
-    if (!isValidUserId(userId)) {
-      return NextResponse.json(
-        { error: `Valid userId is required (${USER_IDS.join(', ')})` },
-        { status: 400 }
-      );
-    }
-    
+
     // Get workouts sorted by date (most recent first)
     const workouts = await WorkoutModel.find({ userId }).sort({ date: -1 }).lean();
     

@@ -3,6 +3,7 @@ import mongoose from 'mongoose';
 import WorkoutTemplateModel from '@/models/WorkoutTemplate';
 import { TemplateExercise, DEFAULT_NUM_SETS, MIN_SETS, MAX_SETS } from '@/types/workout';
 import { resolveExerciseId } from '@/data/exercise-library';
+import { requireSignedIn } from '@/lib/auth-helpers';
 
 // Connect to MongoDB using mongoose
 async function connectDB() {
@@ -76,9 +77,13 @@ function sanitizeExercises(raw: unknown): TemplateExercise[] {
 
 // GET /api/workout/templates/[id]
 export async function GET(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const gate = await requireSignedIn();
+  if (gate instanceof NextResponse) return gate;
+  const userId = gate.session.user.email;
+
   try {
     await connectDB();
 
@@ -93,7 +98,7 @@ export async function GET(
 
     const template = await WorkoutTemplateModel.findById(id).lean();
 
-    if (!template) {
+    if (!template || (template as { userId?: string }).userId !== userId) {
       return NextResponse.json(
         { error: 'Template not found' },
         { status: 404 }
@@ -115,6 +120,10 @@ export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const gate = await requireSignedIn();
+  if (gate instanceof NextResponse) return gate;
+  const userId = gate.session.user.email;
+
   try {
     await connectDB();
 
@@ -130,7 +139,7 @@ export async function PUT(
 
     const template = await WorkoutTemplateModel.findById(id);
 
-    if (!template) {
+    if (!template || template.userId !== userId) {
       return NextResponse.json(
         { error: 'Template not found' },
         { status: 404 }
@@ -168,9 +177,13 @@ export async function PUT(
 
 // DELETE /api/workout/templates/[id]
 export async function DELETE(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const gate = await requireSignedIn();
+  if (gate instanceof NextResponse) return gate;
+  const userId = gate.session.user.email;
+
   try {
     await connectDB();
 
@@ -183,15 +196,15 @@ export async function DELETE(
       );
     }
 
-    const result = await WorkoutTemplateModel.findByIdAndDelete(id);
-
-    if (!result) {
+    const template = await WorkoutTemplateModel.findById(id);
+    if (!template || template.userId !== userId) {
       return NextResponse.json(
         { error: 'Template not found' },
         { status: 404 }
       );
     }
 
+    await WorkoutTemplateModel.findByIdAndDelete(id);
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Error deleting template:', error);

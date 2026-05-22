@@ -1,5 +1,5 @@
 import mongoose, { Schema, Document, Model } from 'mongoose';
-import { ExerciseCategory, UserId, USER_IDS } from '@/types/workout';
+import { ExerciseCategory, UserId } from '@/types/workout';
 
 // Custom exercise document interface
 export interface CustomExerciseDocument extends Document {
@@ -13,10 +13,10 @@ export interface CustomExerciseDocument extends Document {
 
 // Custom exercise schema
 const CustomExerciseSchema = new Schema<CustomExerciseDocument>({
-  userId: { 
-    type: String, 
+  // userId is the Auth.js session email (post-PR-4 SSO migration).
+  userId: {
+    type: String,
     required: true,
-    enum: USER_IDS as readonly UserId[],
     index: true,
   },
   exerciseId: { 

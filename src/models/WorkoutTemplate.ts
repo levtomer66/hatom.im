@@ -1,5 +1,5 @@
 import mongoose, { Schema, Document, Model } from 'mongoose';
-import { UserId, TemplateExercise, USER_IDS } from '@/types/workout';
+import { UserId, TemplateExercise } from '@/types/workout';
 
 // Workout Template interface
 export interface WorkoutTemplateData {
@@ -23,10 +23,10 @@ const TemplateExerciseSchema = new Schema<TemplateExercise>({
 
 // Main workout template schema
 const WorkoutTemplateSchema = new Schema<WorkoutTemplateDocument>({
+  // userId is the Auth.js session email (post-PR-4 SSO migration).
   userId: {
     type: String,
     required: true,
-    enum: USER_IDS as readonly UserId[],
     index: true,
   },
   name: {

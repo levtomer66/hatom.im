@@ -9,7 +9,6 @@ import { useT, formatDate, getCategoryLabel, getLocalizedTemplateName } from '@/
 import { getLocalizedExercise } from '@/lib/exercise-translations';
 import { formatHistorySet, formatWeight, getUnitSuffix } from '@/lib/weight';
 import { formatSeconds } from '@/lib/time';
-import LoginScreen from '@/components/workout/LoginScreen';
 import Header from '@/components/workout/Header';
 import BottomNav from '@/components/workout/BottomNav';
 import ExerciseExternalLinks from '@/components/workout/ExerciseExternalLinks';
@@ -24,8 +23,14 @@ export default function ExerciseDetailPage() {
   const { unit } = useWorkoutUnit();
   const t = useT();
   const unitSuffix = getUnitSuffix(unit, language);
-  
+
   const exerciseId = params?.id as string;
+
+  useEffect(() => {
+    if (!isLoading && !currentUser) {
+      router.replace(`/login?from=/workout/exercises/${exerciseId}`);
+    }
+  }, [isLoading, currentUser, router, exerciseId]);
   
   const [exercise, setExercise] = useState<ExerciseDefinition | null>(null);
   const [history, setHistory] = useState<ExerciseHistoryEntry[]>([]);
@@ -134,7 +139,11 @@ export default function ExerciseDetailPage() {
 
   // Not logged in
   if (!currentUser) {
-    return <LoginScreen />;
+    return (
+      <main className="workout-main">
+        <div className="loading-spinner" />
+      </main>
+    );
   }
 
   // Exercise not found

@@ -1,56 +1,38 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { UserId, User, USERS } from '@/types/workout';
+import React, { createContext, useContext, ReactNode, useMemo } from 'react';
+import { signOut, useSession } from 'next-auth/react';
+import { User, getUserDisplayName } from '@/types/workout';
 
+// Workout module's idea of "the current user" is now derived directly
+// from the Auth.js session. The localStorage picker that used to live
+// here was retired in the SSO rollout (PR 4) — there's nothing to set
+// from inside the workout app any more.
 interface WorkoutUserContextType {
   currentUser: User | null;
-  setCurrentUser: (user: User | null) => void;
   logout: () => void;
   isLoading: boolean;
 }
 
 const WorkoutUserContext = createContext<WorkoutUserContextType | undefined>(undefined);
 
-const STORAGE_KEY = 'workout-app-user';
-
 export function WorkoutUserProvider({ children }: { children: ReactNode }) {
-  const [currentUser, setCurrentUserState] = useState<User | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const { data: session, status } = useSession();
 
-  // Load user from localStorage on mount
-  useEffect(() => {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) {
-      try {
-        const userId = JSON.parse(stored) as UserId;
-        const user = USERS.find(u => u.id === userId);
-        if (user) {
-          setCurrentUserState(user);
-        }
-      } catch (e) {
-        console.error('Failed to parse stored user:', e);
-        localStorage.removeItem(STORAGE_KEY);
-      }
-    }
-    setIsLoading(false);
-  }, []);
-
-  const setCurrentUser = (user: User | null) => {
-    setCurrentUserState(user);
-    if (user) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(user.id));
-    } else {
-      localStorage.removeItem(STORAGE_KEY);
-    }
-  };
-
-  const logout = () => {
-    setCurrentUser(null);
-  };
+  const value = useMemo<WorkoutUserContextType>(() => {
+    const email = session?.user?.email ?? null;
+    const currentUser: User | null = email
+      ? { id: email, name: getUserDisplayName(email) }
+      : null;
+    return {
+      currentUser,
+      logout: () => signOut({ callbackUrl: '/' }),
+      isLoading: status === 'loading',
+    };
+  }, [session, status]);
 
   return (
-    <WorkoutUserContext.Provider value={{ currentUser, setCurrentUser, logout, isLoading }}>
+    <WorkoutUserContext.Provider value={value}>
       {children}
     </WorkoutUserContext.Provider>
   );

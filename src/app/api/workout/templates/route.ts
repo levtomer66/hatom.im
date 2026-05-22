@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import mongoose from 'mongoose';
 import WorkoutTemplateModel from '@/models/WorkoutTemplate';
-import { UserId, TemplateExercise, DEFAULT_NUM_SETS, MIN_SETS, MAX_SETS, USER_IDS, isValidUserId } from '@/types/workout';
+import { TemplateExercise, DEFAULT_NUM_SETS, MIN_SETS, MAX_SETS } from '@/types/workout';
 import { resolveExerciseId } from '@/data/exercise-library';
+import { requireSignedIn } from '@/lib/auth-helpers';
 
 // Connect to MongoDB using mongoose
 async function connectDB() {
@@ -81,20 +82,15 @@ function sanitizeExercises(raw: unknown): TemplateExercise[] {
   return dedupeByExerciseId(parsed);
 }
 
-// GET /api/workout/templates?userId=tom
-export async function GET(request: NextRequest) {
+// GET /api/workout/templates
+// userId is derived from the Auth.js session.
+export async function GET() {
+  const gate = await requireSignedIn();
+  if (gate instanceof NextResponse) return gate;
+  const userId = gate.session.user.email;
+
   try {
     await connectDB();
-
-    const { searchParams } = new URL(request.url);
-    const userId = searchParams.get('userId') as UserId | null;
-
-    if (!isValidUserId(userId)) {
-      return NextResponse.json(
-        { error: `Valid userId is required (${USER_IDS.join(', ')})` },
-        { status: 400 }
-      );
-    }
 
     const templates = await WorkoutTemplateModel.find({ userId })
       .sort({ updatedAt: -1 })
@@ -111,12 +107,18 @@ export async function GET(request: NextRequest) {
 }
 
 // POST /api/workout/templates
+// userId is derived from the Auth.js session; any client-supplied userId
+// in the body is ignored.
 export async function POST(request: NextRequest) {
+  const gate = await requireSignedIn();
+  if (gate instanceof NextResponse) return gate;
+  const userId = gate.session.user.email;
+
   try {
     await connectDB();
 
     const body = await request.json();
-    const { userId, name } = body as { userId: UserId; name: string };
+    const { name } = body as { name: string };
     // Prefer the new { exercises } shape; fall back to legacy { exerciseIds: string[] }
     // from stale clients so an edit from an older bundle doesn't wipe the template.
     const exercises = Array.isArray(body.exercises)
@@ -126,13 +128,6 @@ export async function POST(request: NextRequest) {
             (body.exerciseIds as unknown[]).map(id => ({ exerciseId: id, numSets: DEFAULT_NUM_SETS, notes: '' }))
           )
         : [];
-
-    if (!isValidUserId(userId)) {
-      return NextResponse.json(
-        { error: `Valid userId is required (${USER_IDS.join(', ')})` },
-        { status: 400 }
-      );
-    }
 
     if (!name || !name.trim()) {
       return NextResponse.json(
