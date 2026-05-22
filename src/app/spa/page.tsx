@@ -220,6 +220,22 @@ export default function SpaPage() {
     }
   }
 
+  async function deleteSession(id: string) {
+    if (!confirm('Delete this session? This is permanent.')) return;
+    try {
+      const res = await fetch(`/api/spa/sessions/${id}`, { method: 'DELETE' });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || `Failed (${res.status})`);
+      }
+      setSessions((prev) => prev.filter((s) => s.id !== id));
+      if (createdSession?.id === id) setCreatedSession(null);
+    } catch (err) {
+      console.error(err);
+      setError(err instanceof Error ? err.message : 'Failed to delete session.');
+    }
+  }
+
   // Waiting on session OR not-yet-redirected non-Tom/Tomer → blank wrapper.
   if (status === 'loading' || !receiverId || !giverId) {
     return <div className={`${tangerine.variable} ${cormorant.variable} ${frankRuhl.variable}`} />;
@@ -467,6 +483,15 @@ export default function SpaPage() {
                           >
                             ✦ add to calendar
                           </a>
+                          <button
+                            type="button"
+                            className="spa-session-delete"
+                            onClick={() => deleteSession(s.id)}
+                            aria-label="Delete session"
+                            title="Delete session"
+                          >
+                            ✕
+                          </button>
                         </div>
                         {s.happyEnding && (
                           <span

@@ -839,6 +839,40 @@
 
 .spa-session-actions {
   margin-top: 0.6rem;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.spa-session-delete {
+  margin-inline-start: auto;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  background: transparent;
+  border: 1px solid rgba(184, 146, 74, 0.45);
+  border-radius: 50%;
+  color: var(--spa-rose-deep);
+  font-family: serif;
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.55;
+  transition: opacity 0.15s, background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.spa-session-card:hover .spa-session-delete {
+  opacity: 1;
+}
+
+.spa-session-delete:hover {
+  background: var(--spa-rose-deep);
+  border-color: var(--spa-rose-deep);
+  color: var(--spa-cream);
+  opacity: 1;
 }
 
 .spa-session-actions a {
