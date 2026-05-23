@@ -7,7 +7,7 @@ import WorkoutShell from '@/components/workout/WorkoutShell';
 import './workout.css';
 
 export const metadata: Metadata = {
-  title: 'Workout Tracker',
+  title: '🏋️ Workout',
   description: 'Personal workout tracking app',
 };
 

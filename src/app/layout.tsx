@@ -9,8 +9,15 @@ const rubik = Rubik({
   display: 'swap',
 });
 
+// title.template applies the suffix to any per-route metadata.title; the
+// default kicks in for the home page itself. Leading emoji on each
+// per-route title doubles as the iOS "Add to Home Screen" chip glyph
+// when no apple-touch-icon is wired up.
 export const metadata: Metadata = {
-  title: 'התומ.ים',
+  title: {
+    default: '💍 התומ.ים',
+    template: '%s · התומ.ים',
+  },
   description: 'התומ.ים — תומר ותומית',
 }
 
