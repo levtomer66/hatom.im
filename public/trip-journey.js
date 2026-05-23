@@ -13,12 +13,22 @@
   function isAdmin() { return isAdminFlag; }
   async function loadAdminFlag() {
     try {
-      const res = await fetch('/api/auth/me', { cache: 'no-store' });
-      if (!res.ok) return;
+      const res = await fetch('/api/auth/me', { cache: 'no-store', credentials: 'same-origin' });
+      if (!res.ok) return false;
       const me = await res.json();
       isAdminFlag = !!(me && (me.isOwner || me.canWriteTrip));
+      return isAdminFlag;
     } catch (err) {
       console.warn('[trip/journey] failed to resolve /api/auth/me', err);
+      return false;
+    }
+  }
+  function applyAdminUi() {
+    if (!adminPanel) return;
+    if (isAdmin()) {
+      adminPanel.classList.remove('admin-hidden');
+    } else {
+      adminPanel.classList.add('admin-hidden');
     }
   }
 
@@ -551,10 +561,10 @@
         method: 'POST',
         body: fd,
       });
-      if (res.status === 401) {
-        // Session expired / not an owner — flip the admin UI back off.
-        isAdminFlag = false;
-        if (adminPanel) adminPanel.classList.add('admin-hidden');
+      if (res.status === 401 || res.status === 403) {
+        // Permission or session mismatch — surface the error but don't
+        // yank the panel away; the user may still hold trip:write and a
+        // transient 401 shouldn't look like the UI "disappearing".
         entry.row.className = 'admin-upload-row-item err';
         entry.row.textContent += ' ✗ אין הרשאה';
         return;
@@ -884,13 +894,11 @@
   async function boot() {
     mainMap = window._tripMap || null;
     journeyLayer = mainMap ? L.layerGroup().addTo(mainMap) : null;
-    // Resolve the session-derived admin flag and hide the upload panel
-    // for non-owners. Middleware already redirected anonymous visitors;
-    // here we just distinguish allowlisted-not-owner from owner.
+    // Resolve the session-derived admin flag, then reveal or keep hidden.
+    // The panel starts with .admin-hidden in trip.html so non-writers
+    // never see a flash of upload chrome while we fetch /api/auth/me.
     await loadAdminFlag();
-    if (adminPanel && !isAdmin()) {
-      adminPanel.classList.add('admin-hidden');
-    }
+    applyAdminUi();
     try {
       const summary = await fetchJourneySummary();
       await decorateCalendar(summary);

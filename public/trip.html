@@ -20,9 +20,9 @@
 </head>
 <body>
 
-<!-- Admin upload panel — hidden for non-owners via the .admin-hidden CSS class
-     applied at boot by trip-journey.js after fetching /api/auth/me. -->
-<div id="admin-upload-panel" class="admin-upload-panel">
+<!-- Admin upload panel — hidden by default; trip-journey.js reveals it
+     after /api/auth/me confirms owner or trip:write permission. -->
+<div id="admin-upload-panel" class="admin-upload-panel admin-hidden">
   <div class="admin-upload-row">
     <span class="admin-upload-title">📸 העלאת תמונות</span>
     <label class="admin-upload-drop" id="admin-upload-drop">
