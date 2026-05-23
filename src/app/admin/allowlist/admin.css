@@ -187,8 +187,8 @@
 }
 
 .admin-perm-pill:hover:not(:disabled) {
-  border-color: #b88;
-  color: #2a1a1a;
+  border-color: #2f7a3a;
+  color: #1f5a2a;
 }
 
 .admin-perm-pill:active:not(:disabled) {
@@ -200,20 +200,19 @@
   cursor: progress;
 }
 
-/* Active = granted. Wine-red fill matches the spa accent + the
-   wedding-guide vibe so the admin tool feels like part of the site rather
-   than a stock Tailwind dashboard. */
+/* Active = granted. Green reads as "permitted / go" so the matrix is
+   self-explanatory at a glance (filled = this user has this page). */
 .admin-perm-pill.active {
-  background: #7a1b2e;
-  border-color: #7a1b2e;
-  color: #fff8f3;
+  background: #2f7a3a;
+  border-color: #2f7a3a;
+  color: #f4fbf5;
   font-weight: 600;
 }
 
 .admin-perm-pill.active:hover:not(:disabled) {
-  background: #5c1424;
-  border-color: #5c1424;
-  color: #fff8f3;
+  background: #245f2c;
+  border-color: #245f2c;
+  color: #f4fbf5;
 }
 
 .admin-perm-pill-emoji {
