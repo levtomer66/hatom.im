@@ -16,7 +16,11 @@ const courier = Courier_Prime({ subsets: ['latin'], weight: ['400', '700'] });
 export default function MekafkefimPage() {
   const router = useRouter();
   const { data: session, status } = useSession();
-  const isOwner = session?.user?.isOwner === true;
+  // Edit/delete UI is gated on the explicit write permission (owners
+  // implicitly hold it via the session callback), so Tom — who's no
+  // longer in OWNER_EMAILS — sees the add/delete buttons as soon as
+  // Tomer flips the ✏️ Mekafkefim write pill on at /admin/allowlist.
+  const canWrite = hasPermission(session, 'mekafkefim:write');
 
   // Permission gate (middleware handles SSR; this catches soft-nav cases).
   useEffect(() => {
@@ -147,7 +151,7 @@ export default function MekafkefimPage() {
               המדריך השלם לבתי הקפה הטובים ביותר
             </p>
 
-            {isOwner && (
+            {canWrite && (
               <button
                 onClick={() => setShowAddForm(!showAddForm)}
                 className={courier.className}
@@ -171,8 +175,8 @@ export default function MekafkefimPage() {
           <div style={{ position: 'absolute', bottom: '10px', left: '12%', width: '44px', height: '44px', borderRadius: '50%', border: '2px solid rgba(140,90,30,0.1)', pointerEvents: 'none' }} />
         </header>
 
-        {/* Add form — owners only */}
-        {isOwner && showAddForm && (
+        {/* Add form — write permission only */}
+        {canWrite && showAddForm && (
           <div style={{ maxWidth: '640px', margin: '0 auto 48px', background: 'linear-gradient(160deg, #fdf6e3, #f5e8c8)', border: '1px solid #c4a870', padding: '24px', boxShadow: '0 4px 16px rgba(100,60,10,0.1)' }}>
             <AddCoffeeReviewForm onSuccess={() => { setShowAddForm(false); fetchReviews(); }} />
           </div>
@@ -203,8 +207,8 @@ export default function MekafkefimPage() {
               >
                 <CoffeeReviewCard
                   review={review}
-                  onDelete={isOwner ? handleDeleteReview : undefined}
-                  onUpdate={isOwner ? fetchReviews : undefined}
+                  onDelete={canWrite ? handleDeleteReview : undefined}
+                  onUpdate={canWrite ? fetchReviews : undefined}
                   rank={index + 1}
                   isPriority={index === 0}
                 />

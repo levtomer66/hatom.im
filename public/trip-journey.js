@@ -4,11 +4,11 @@
   const TRIP_START = '2026-04-15';
   const TRIP_END   = '2026-05-20';
 
-  // Admin mode comes from /api/auth/me — true only for the two owners
-  // (Tom or Tomer). Resolved once at boot; the page re-renders any
-  // admin-only UI based on this flag. Session cookies are sent
-  // automatically same-origin on every /api/trip/* call, so no header
-  // plumbing is needed below.
+  // Admin mode comes from /api/auth/me — true for owners or anyone
+  // granted `trip:write` on /admin/allowlist. Resolved once at boot;
+  // the page re-renders any admin-only UI based on this flag. Session
+  // cookies are sent automatically same-origin on every /api/trip/* call,
+  // so no header plumbing is needed below.
   let isAdminFlag = false;
   function isAdmin() { return isAdminFlag; }
   async function loadAdminFlag() {
@@ -16,7 +16,7 @@
       const res = await fetch('/api/auth/me', { cache: 'no-store' });
       if (!res.ok) return;
       const me = await res.json();
-      isAdminFlag = !!(me && me.isOwner);
+      isAdminFlag = !!(me && (me.isOwner || me.canWriteTrip));
     } catch (err) {
       console.warn('[trip/journey] failed to resolve /api/auth/me', err);
     }
