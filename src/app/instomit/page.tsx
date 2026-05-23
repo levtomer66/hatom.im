@@ -2,14 +2,31 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 import { FaHome } from 'react-icons/fa';
 import { Video } from '@/types/video';
 import VideoFeed from '@/components/instomit/VideoFeed';
+import { hasPermission } from '@/lib/permissions';
 
 export default function InsTomitPage() {
+  const router = useRouter();
+  const { data: session, status } = useSession();
   const [videos, setVideos] = useState<Video[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Permission gate (middleware handles SSR; this catches soft-nav cases).
+  useEffect(() => {
+    if (status === 'loading') return;
+    if (!session?.user) {
+      router.replace('/login?from=/instomit');
+      return;
+    }
+    if (!hasPermission(session, 'instomit')) {
+      router.replace('/');
+    }
+  }, [session, status, router]);
 
   const fetchVideos = async () => {
     try {

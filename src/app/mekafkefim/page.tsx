@@ -1,19 +1,34 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { Playfair_Display, Courier_Prime } from 'next/font/google';
 import Navbar from '@/components/Navbar';
 import CoffeeReviewCard from '@/components/CoffeeReviewCard';
 import AddCoffeeReviewForm from '@/components/AddCoffeeReviewForm';
 import { CoffeeReview } from '@/types/coffee';
+import { hasPermission } from '@/lib/permissions';
 
 const playfair = Playfair_Display({ subsets: ['latin'], weight: ['400', '600', '700', '900'], style: ['normal', 'italic'] });
 const courier = Courier_Prime({ subsets: ['latin'], weight: ['400', '700'] });
 
 export default function MekafkefimPage() {
-  const { data: session } = useSession();
+  const router = useRouter();
+  const { data: session, status } = useSession();
   const isOwner = session?.user?.isOwner === true;
+
+  // Permission gate (middleware handles SSR; this catches soft-nav cases).
+  useEffect(() => {
+    if (status === 'loading') return;
+    if (!session?.user) {
+      router.replace('/login?from=/mekafkefim');
+      return;
+    }
+    if (!hasPermission(session, 'mekafkefim')) {
+      router.replace('/');
+    }
+  }, [session, status, router]);
   const [reviews, setReviews] = useState<CoffeeReview[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

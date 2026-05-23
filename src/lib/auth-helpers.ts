@@ -2,6 +2,11 @@ import { NextResponse } from 'next/server';
 import type { Session } from 'next-auth';
 import { auth } from '@/auth';
 import { isOwnerEmail } from '@/types/auth';
+import type { PermissionKey } from '@/types/permissions';
+import { hasPermission } from '@/lib/permissions';
+
+// Re-export so server-side callers keep a single import surface.
+export { hasPermission };
 
 // `requireSignedIn` returns the session when the caller has any valid
 // Auth.js session (allowlisted or owner), or a 401 NextResponse otherwise.
@@ -35,4 +40,20 @@ export async function requireOwner(): Promise<
   }
   // Caller knows the email is non-null and isOwner is true after this gate.
   return { session: session as Session & { user: { email: string; isOwner: true } } };
+}
+
+// API-route gate for per-page permission checks. Returns the session when
+// the caller holds `key`, a 401 NextResponse when there's no session, or a
+// 403 NextResponse when the session lacks the permission.
+export async function requirePagePermission(key: PermissionKey): Promise<
+  { session: Session & { user: { email: string } } } | NextResponse
+> {
+  const session = await auth();
+  if (!session?.user?.email) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+  if (!hasPermission(session, key)) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  }
+  return { session: session as Session & { user: { email: string } } };
 }

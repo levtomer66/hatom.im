@@ -4,45 +4,56 @@ import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { signIn, signOut, useSession } from 'next-auth/react';
-import { FaDog, FaCoffee, FaVideo, FaDumbbell, FaHome, FaRing, FaPlane, FaSpa, FaUserShield } from 'react-icons/fa';
+import {
+  FaDog,
+  FaCoffee,
+  FaVideo,
+  FaDumbbell,
+  FaHome,
+  FaRing,
+  FaPlane,
+  FaSpa,
+  FaUserShield,
+} from 'react-icons/fa';
+import { hasPermission } from '@/lib/permissions';
+import type { PermissionKey } from '@/types/permissions';
+
+type Visibility =
+  | 'public'
+  | 'owner'
+  | { permission: PermissionKey };
 
 type NavItem = {
   href: string;
   label: string;
   icon: React.ComponentType<{ style?: React.CSSProperties }>;
   exact?: boolean;
-  // 'public'        → always visible
-  // 'signedIn'      → any authenticated session
-  // 'owner'         → Tom or Tomer only
-  visibility: 'public' | 'signedIn' | 'owner';
+  visibility: Visibility;
 };
 
 const allNavItems: NavItem[] = [
-  { href: '/family-tree',             label: 'שמות האוליבון', icon: FaDog,       visibility: 'public' },
-  { href: '/mekafkefim',              label: 'מקפקפים',       icon: FaCoffee,    visibility: 'public' },
-  { href: '/instomit',                label: 'InsTomit',      icon: FaVideo,     visibility: 'public' },
-  { href: '/workout',                 label: 'המפלצתומים',    icon: FaDumbbell,  visibility: 'signedIn' },
-  { href: '/spa',                     label: 'ספא',           icon: FaSpa,       visibility: 'owner' },
-  { href: '/vegas-wedding-guide.html', label: 'מדריך חתונה',  icon: FaRing,      visibility: 'public' },
-  { href: '/trip.html',               label: 'מסלול הטיול',   icon: FaPlane,     visibility: 'signedIn' },
-  { href: '/admin/allowlist',         label: 'הרשאות',        icon: FaUserShield, visibility: 'owner' },
-  { href: '/',                        label: 'בית',           icon: FaHome,      exact: true, visibility: 'public' },
+  { href: '/family-tree',              label: 'שמות האוליבון', icon: FaDog,        visibility: { permission: 'family-tree' } },
+  { href: '/mekafkefim',               label: 'מקפקפים',       icon: FaCoffee,     visibility: { permission: 'mekafkefim'  } },
+  { href: '/instomit',                 label: 'InsTomit',      icon: FaVideo,      visibility: { permission: 'instomit'    } },
+  { href: '/workout',                  label: 'המפלצתומים',    icon: FaDumbbell,   visibility: { permission: 'workout'     } },
+  { href: '/spa',                      label: 'ספא',           icon: FaSpa,        visibility: { permission: 'spa'         } },
+  { href: '/vegas-wedding-guide.html', label: 'מדריך חתונה',   icon: FaRing,       visibility: { permission: 'vegas-guide' } },
+  { href: '/trip.html',                label: 'מסלול הטיול',   icon: FaPlane,      visibility: { permission: 'trip'        } },
+  { href: '/admin/allowlist',          label: 'הרשאות',        icon: FaUserShield, visibility: 'owner' },
+  { href: '/',                         label: 'בית',           icon: FaHome,       exact: true, visibility: 'public' },
 ];
-
-function visibleItems(opts: { signedIn: boolean; isOwner: boolean }): NavItem[] {
-  return allNavItems.filter((item) => {
-    if (item.visibility === 'public') return true;
-    if (item.visibility === 'signedIn') return opts.signedIn;
-    return opts.isOwner;
-  });
-}
 
 const Navbar: React.FC = () => {
   const pathname = usePathname();
   const { data: session, status } = useSession();
   const signedIn = !!session?.user;
   const isOwner = session?.user?.isOwner === true;
-  const items = visibleItems({ signedIn, isOwner });
+
+  const items = allNavItems.filter((item) => {
+    if (item.visibility === 'public') return true;
+    if (item.visibility === 'owner') return isOwner;
+    return hasPermission(session, item.visibility.permission);
+  });
 
   const isActive = (href: string, exact?: boolean) => {
     if (exact) return pathname === href;

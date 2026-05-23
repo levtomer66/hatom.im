@@ -143,12 +143,86 @@
   border-radius: 6px;
 }
 
+/* Matrix variant: stacks email, meta, and a row of permission pills. The
+   delete button sits to the right and spans all rows so it doesn't get
+   crowded when many pills wrap to a second line on narrow screens. */
+.admin-row--matrix {
+  grid-template-areas:
+    "main  remove"
+    "meta  remove"
+    "perms remove";
+}
+
 .admin-row-main {
   grid-area: main;
   display: flex;
   align-items: baseline;
   gap: 0.5rem;
   flex-wrap: wrap;
+}
+
+.admin-perm-row {
+  grid-area: perms;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: 0.35rem;
+}
+
+.admin-perm-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.28rem 0.65rem;
+  border-radius: 999px;
+  border: 1px solid #d0d0d0;
+  background: #fff;
+  color: #555;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s, transform 0.05s;
+  line-height: 1;
+}
+
+.admin-perm-pill:hover:not(:disabled) {
+  border-color: #b88;
+  color: #2a1a1a;
+}
+
+.admin-perm-pill:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.admin-perm-pill:disabled {
+  opacity: 0.55;
+  cursor: progress;
+}
+
+/* Active = granted. Wine-red fill matches the spa accent + the
+   wedding-guide vibe so the admin tool feels like part of the site rather
+   than a stock Tailwind dashboard. */
+.admin-perm-pill.active {
+  background: #7a1b2e;
+  border-color: #7a1b2e;
+  color: #fff8f3;
+  font-weight: 600;
+}
+
+.admin-perm-pill.active:hover:not(:disabled) {
+  background: #5c1424;
+  border-color: #5c1424;
+  color: #fff8f3;
+}
+
+.admin-perm-pill-emoji {
+  font-size: 0.95rem;
+  line-height: 1;
+}
+
+.admin-perm-pill-label {
+  white-space: nowrap;
 }
 
 .admin-row-email {

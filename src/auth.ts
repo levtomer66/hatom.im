@@ -3,7 +3,11 @@ import Google from 'next-auth/providers/google';
 import { MongoDBAdapter } from '@auth/mongodb-adapter';
 import clientPromise from '@/lib/mongodb';
 import { isOwnerEmail } from '@/types/auth';
-import { isEmailAuthorized } from '@/models/AuthorizedEmail';
+import { PERMISSION_KEYS } from '@/types/permissions';
+import {
+  getAuthorizedEmailEntry,
+  isEmailAuthorized,
+} from '@/models/AuthorizedEmail';
 
 // Surface a missing-config one-liner at server startup so a forgotten
 // Vercel env var doesn't only manifest as a confusing 500 deep inside the
@@ -47,11 +51,21 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       if (isOwnerEmail(email)) return true;
       return await isEmailAuthorized(email);
     },
-    // Decorate every session with an `isOwner` flag derived from email.
-    // Pages/APIs read this instead of re-checking the email against the
-    // OWNER_EMAILS list at every call site.
+    // Decorate every session with the per-user permission grant. Owners
+    // (Tom & Tomer) implicitly hold every PermissionKey; everyone else
+    // gets the array stored on their `authorizedEmails` row. Anonymous /
+    // missing-email sessions land here as `allowedPages: []`, which the
+    // `hasPermission` helper treats as no access.
     async session({ session }) {
       session.user.isOwner = isOwnerEmail(session.user?.email);
+      if (session.user.isOwner) {
+        session.user.allowedPages = [...PERMISSION_KEYS];
+      } else if (session.user?.email) {
+        const entry = await getAuthorizedEmailEntry(session.user.email);
+        session.user.allowedPages = entry?.allowedPages ?? [];
+      } else {
+        session.user.allowedPages = [];
+      }
       return session;
     },
   },

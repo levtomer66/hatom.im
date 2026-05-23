@@ -9,12 +9,12 @@ import { FaDog, FaCoffee, FaVideo, FaDumbbell, FaRing, FaPlane, FaSpa, FaSignInA
 import type { IconType } from 'react-icons';
 import Navbar from '@/components/Navbar';
 import CountdownTimer from '@/components/CountdownTimer';
+import { hasPermission } from '@/lib/permissions';
+import type { PermissionKey } from '@/types/permissions';
 
 const GoldSparkles = dynamic(() => import('@/components/PeriodicConfetti'), {
   ssr: false,
 });
-
-type Visibility = 'public' | 'signedIn' | 'owner';
 
 interface Feature {
   icon: IconType;
@@ -22,26 +22,18 @@ interface Feature {
   description: string;
   href: string;
   linkText?: string;
-  visibility: Visibility;
+  permission: PermissionKey;
 }
 
 const allFeatures: Feature[] = [
-  { icon: FaDog,      title: 'שמות האוליבון', description: 'כל שמות האוליבון לעולם ועד',         href: '/family-tree',             linkText: 'צפה בשמות האוליבון', visibility: 'public' },
-  { icon: FaCoffee,   title: 'מקפקפים',       description: 'ביקורות על קפה מאת תומית ותומרינדי', href: '/mekafkefim',              linkText: 'צפה במקפקפים',       visibility: 'public' },
-  { icon: FaVideo,    title: 'InsTomit',      description: 'סרטונים קצרים של התומים',            href: '/instomit',                linkText: 'צפה ב-InsTomit',     visibility: 'public' },
-  { icon: FaRing,     title: 'Wedding Guide', description: 'מדריך חתונה בלאס וגאס',              href: '/vegas-wedding-guide.html', linkText: 'למדריך החתונה',     visibility: 'public' },
-  { icon: FaDumbbell, title: 'המפלצתומים',    description: 'מעקב אימונים לתום ותומר',            href: '/workout',                 linkText: 'לאימון',             visibility: 'signedIn' },
-  { icon: FaPlane,    title: 'USA & Mexico Trip', description: 'מסלול הטיול המלא 2026',         href: '/trip.html',               linkText: 'צפה במסלול',         visibility: 'signedIn' },
-  { icon: FaSpa,      title: 'ספא',           description: 'תזמון עיסוי בין התומ.ים עם הזמנה ליומן', href: '/spa',                linkText: 'לתזמון עיסוי',       visibility: 'owner' },
+  { icon: FaDog,      title: 'שמות האוליבון',      description: 'כל שמות האוליבון לעולם ועד',          href: '/family-tree',              linkText: 'צפה בשמות האוליבון', permission: 'family-tree' },
+  { icon: FaCoffee,   title: 'מקפקפים',           description: 'ביקורות על קפה מאת תומית ותומרינדי',  href: '/mekafkefim',               linkText: 'צפה במקפקפים',       permission: 'mekafkefim'  },
+  { icon: FaVideo,    title: 'InsTomit',          description: 'סרטונים קצרים של התומים',             href: '/instomit',                 linkText: 'צפה ב-InsTomit',     permission: 'instomit'    },
+  { icon: FaRing,     title: 'Wedding Guide',     description: 'מדריך חתונה בלאס וגאס',               href: '/vegas-wedding-guide.html', linkText: 'למדריך החתונה',      permission: 'vegas-guide' },
+  { icon: FaDumbbell, title: 'המפלצתומים',        description: 'מעקב אימונים לתום ותומר',             href: '/workout',                  linkText: 'לאימון',             permission: 'workout'     },
+  { icon: FaPlane,    title: 'USA & Mexico Trip', description: 'מסלול הטיול המלא 2026',               href: '/trip.html',                linkText: 'צפה במסלול',         permission: 'trip'        },
+  { icon: FaSpa,      title: 'ספא',               description: 'תזמון עיסוי בין התומ.ים עם הזמנה ליומן', href: '/spa',                  linkText: 'לתזמון עיסוי',       permission: 'spa'         },
 ];
-
-function visibleFor(opts: { signedIn: boolean; isOwner: boolean }): Feature[] {
-  return allFeatures.filter((f) => {
-    if (f.visibility === 'public') return true;
-    if (f.visibility === 'signedIn') return opts.signedIn;
-    return opts.isOwner;
-  });
-}
 
 const containerVariants = {
   hidden: {},
@@ -62,8 +54,12 @@ const cardVariants = {
 export default function Home() {
   const { data: session, status } = useSession();
   const signedIn = !!session?.user;
-  const isOwner = session?.user?.isOwner === true;
-  const features = visibleFor({ signedIn, isOwner });
+  const features = allFeatures.filter((f) => hasPermission(session, f.permission));
+
+  // Empty-state message for an allowlisted user with no granted pages yet
+  // — the only signal they get otherwise is an empty grid, which feels
+  // broken.
+  const showNoAccessHint = status !== 'loading' && signedIn && features.length === 0;
 
   return (
     <>
@@ -102,6 +98,21 @@ export default function Home() {
             )}
           </div>
         </motion.div>
+
+        {showNoAccessHint && (
+          <p
+            style={{
+              textAlign: 'center',
+              marginTop: '2rem',
+              color: '#c9a96e',
+              fontSize: '0.95rem',
+              lineHeight: 1.5,
+            }}
+          >
+            הגעת בשלום, אבל עדיין אין לך גישה לאף עמוד.<br />
+            פנה לתום או לתומר כדי שיפתחו לך הרשאות.
+          </p>
+        )}
 
         <motion.div
           className="birthday-features"
