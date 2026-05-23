@@ -1,18 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { del } from '@vercel/blob';
-import { requireOwner } from '@/lib/auth-helpers';
+import { requirePagePermission } from '@/lib/auth-helpers';
 import { removePhotoByBlobPath } from '@/models/TripJourney';
 
 const VALID_DAY = /^(__unassigned__|\d{4}-\d{2}-\d{2})$/;
 
 // DELETE /api/trip/journey/[dayDate]/photos
-// Owners only (Tom / Tomer). Body: { blobPath: string }. Removes the photo
+// Requires `trip:write`. Body: { blobPath: string }. Removes the photo
 // from the day's document and deletes the binary from Vercel Blob.
 export async function DELETE(
   req: NextRequest,
   { params }: { params: Promise<{ dayDate: string }> }
 ) {
-  const gate = await requireOwner();
+  const gate = await requirePagePermission('trip:write');
   if (gate instanceof NextResponse) return gate;
 
   const { dayDate } = await params;

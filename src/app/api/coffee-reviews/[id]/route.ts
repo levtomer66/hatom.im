@@ -4,7 +4,7 @@ import {
   updateCoffeeReview,
   deleteCoffeeReview
 } from '@/models/CoffeeReview';
-import { requireOwner } from '@/lib/auth-helpers';
+import { requirePagePermission } from '@/lib/auth-helpers';
 
 // GET handler to retrieve a single coffee review by ID
 export async function GET(
@@ -32,12 +32,13 @@ export async function GET(
   }
 }
 
-// PATCH handler to update a coffee review (owners only)
+// PATCH handler to update a coffee review. Gated on `mekafkefim:write`
+// so non-owner allowlisted users (Tom) can edit via /admin/allowlist.
 export async function PATCH(
   request: NextRequest,
   context: { params: Promise<{ id: string }> }
 ) {
-  const gate = await requireOwner();
+  const gate = await requirePagePermission('mekafkefim:write');
   if (gate instanceof NextResponse) return gate;
 
   try {
@@ -89,12 +90,12 @@ export async function PATCH(
   }
 }
 
-// DELETE handler to delete a coffee review (owners only)
+// DELETE handler to delete a coffee review. Same gate as PATCH.
 export async function DELETE(
   request: NextRequest,
   context: { params: Promise<{ id: string }> }
 ) {
-  const gate = await requireOwner();
+  const gate = await requirePagePermission('mekafkefim:write');
   if (gate instanceof NextResponse) return gate;
 
   try {

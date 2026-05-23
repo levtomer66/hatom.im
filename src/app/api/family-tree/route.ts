@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import clientPromise from '@/lib/mongodb';
 import { FamilyMember } from '@/models/FamilyMember';
-import { requireOwner } from '@/lib/auth-helpers';
+import { requirePagePermission } from '@/lib/auth-helpers';
 import fs from 'fs';
 import path from 'path';
 
@@ -38,9 +38,11 @@ export async function GET() {
   }
 }
 
-// POST handler to save family tree data (owners only)
+// POST handler to save family tree data. Gated on the explicit
+// `family-tree:write` permission so non-owner allowlisted users (Tom)
+// can be granted edit access via /admin/allowlist.
 export async function POST(request: Request) {
-  const gate = await requireOwner();
+  const gate = await requirePagePermission('family-tree:write');
   if (gate instanceof NextResponse) return gate;
 
   try {

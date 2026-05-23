@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireOwner } from '@/lib/auth-helpers';
+import { requirePagePermission } from '@/lib/auth-helpers';
 import { getJourneyDay, updateDayNote } from '@/models/TripJourney';
 
 // Day-dates have the shape 'YYYY-MM-DD' + the UNASSIGNED sentinel. Guard so
@@ -27,12 +27,12 @@ export async function GET(
 }
 
 // PATCH /api/trip/journey/[dayDate]
-// Owners only (Tom / Tomer). Updates the day's free-text note. Body: { note: string }.
+// Requires `trip:write`. Updates the day's free-text note. Body: { note: string }.
 export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ dayDate: string }> }
 ) {
-  const gate = await requireOwner();
+  const gate = await requirePagePermission('trip:write');
   if (gate instanceof NextResponse) return gate;
 
   const { dayDate } = await params;

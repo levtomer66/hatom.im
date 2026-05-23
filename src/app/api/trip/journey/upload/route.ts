@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { put } from '@vercel/blob';
 import { randomUUID } from 'crypto';
-import { requireOwner } from '@/lib/auth-helpers';
+import { requirePagePermission } from '@/lib/auth-helpers';
 import { appendPhoto } from '@/models/TripJourney';
 import { reverseGeocode } from '@/lib/reverseGeocode';
 import { JourneyPhoto, UNASSIGNED_DAY } from '@/types/trip';
@@ -36,7 +36,7 @@ function dayDateFromIso(iso: string): string | null {
 //   originalMime — optional, the Content-Type of the source file before
 //                  client-side resize (e.g. 'image/heic').
 export async function POST(req: NextRequest) {
-  const gate = await requireOwner();
+  const gate = await requirePagePermission('trip:write');
   if (gate instanceof NextResponse) return gate;
 
   let form: FormData;

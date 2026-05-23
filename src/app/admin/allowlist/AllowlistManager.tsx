@@ -168,11 +168,21 @@ export default function AllowlistManager({ initial }: Props) {
                   {PERMISSION_KEYS.map((key) => {
                     const meta = PERMISSIONS[key];
                     const active = e.allowedPages.includes(key);
+                    // Write pills are styled as a lighter "modifier" pill
+                    // next to their visibility counterpart so the matrix
+                    // reads as paired chips.
+                    const isWrite = key.endsWith(':write');
                     return (
                       <button
                         key={key}
                         type="button"
-                        className={`admin-perm-pill ${active ? 'active' : ''}`}
+                        className={[
+                          'admin-perm-pill',
+                          active ? 'active' : '',
+                          isWrite ? 'admin-perm-pill--write' : '',
+                        ]
+                          .filter(Boolean)
+                          .join(' ')}
                         aria-pressed={active}
                         aria-label={`${active ? 'Revoke' : 'Grant'} ${meta.label}`}
                         title={meta.label}

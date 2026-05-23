@@ -224,6 +224,24 @@
   white-space: nowrap;
 }
 
+/* Write-permission modifier pill. Tighter padding + lighter typography
+   so it visually attaches to the visibility pill that precedes it in
+   the row rather than competing with it. Inactive state uses a dashed
+   border to telegraph "this is an add-on" — active state is the same
+   solid green as the visibility pills so granted-and-can-write is
+   obvious at a glance. */
+.admin-perm-pill--write {
+  padding: 0.22rem 0.55rem;
+  font-size: 0.78rem;
+  font-weight: 500;
+  border-style: dashed;
+  margin-inline-start: -0.2rem;
+}
+
+.admin-perm-pill--write.active {
+  border-style: solid;
+}
+
 .admin-row-email {
   font-weight: 600;
   color: #1a1a1a;
