@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import {
   CreateSpaSessionDto,
   SpaSession,
+  clampSpicyFlags,
   coerceFlags,
   flagsLabel,
   getSpaUser,
@@ -104,13 +105,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const happyEnding = data.happyEnding === true;
     const session = await createSpaSession({
       giverId,
       scheduledAt: data.scheduledAt,
       durationMinutes: data.durationMinutes,
-      flags: coerceFlags(data.flags),
+      flags: clampSpicyFlags(coerceFlags(data.flags), happyEnding),
       preferences: data.preferences.slice(0, 2000),
-      happyEnding: data.happyEnding === true,
+      happyEnding,
     });
     notifySpaSchedule(session);
     return NextResponse.json(session, { status: 201 });

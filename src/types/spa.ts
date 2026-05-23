@@ -40,12 +40,18 @@ export function isValidSpaDuration(value: unknown): value is SpaDuration {
   return value === 30 || value === 60 || value === 90;
 }
 
-// Atmosphere flags — set independently, all default false.
+// Atmosphere flags — set independently, all default false. The "spicy"
+// subset (kink / toys / forced) is only meaningful when the session's
+// happyEnding flag is on; the server clamps it back to false otherwise.
 export interface SpaFlags {
   music: boolean;
   oil: boolean;
   deepPressure: boolean;
   candles: boolean;
+  // Spicy subset — only revealed in the form when ♡ is armed.
+  kink: boolean;
+  toys: boolean;
+  forced: boolean;
 }
 
 export interface SpaFlagOption {
@@ -61,10 +67,25 @@ export const SPA_FLAGS: readonly SpaFlagOption[] = [
   { id: 'candles',      label: 'Candles',       emoji: '🕯️' },
 ];
 
-export const SPA_FLAG_IDS: readonly (keyof SpaFlags)[] = SPA_FLAGS.map((f) => f.id);
+// Extra flags surfaced only when ♡ is armed.
+export const SPA_SPICY_FLAGS: readonly SpaFlagOption[] = [
+  { id: 'kink',   label: 'Kink',   emoji: '⛓️' },
+  { id: 'toys',   label: 'Toys',   emoji: '🧸' },
+  { id: 'forced', label: 'Forced', emoji: '😈' },
+];
+
+export const SPA_FLAG_IDS: readonly (keyof SpaFlags)[] = [
+  ...SPA_FLAGS.map((f) => f.id),
+  ...SPA_SPICY_FLAGS.map((f) => f.id),
+];
+
+export const SPA_SPICY_FLAG_IDS: readonly (keyof SpaFlags)[] = SPA_SPICY_FLAGS.map((f) => f.id);
 
 export function emptyFlags(): SpaFlags {
-  return { music: false, oil: false, deepPressure: false, candles: false };
+  return {
+    music: false, oil: false, deepPressure: false, candles: false,
+    kink: false, toys: false, forced: false,
+  };
 }
 
 // Normalises any input into a strict SpaFlags object — used by the API
@@ -80,10 +101,20 @@ export function coerceFlags(input: unknown): SpaFlags {
   return out;
 }
 
+// Joins every "on" flag's label — including the spicy ones — so the
+// calendar invite details + the post-submit recap show every preference.
 export function flagsLabel(flags: SpaFlags): string {
-  const on = SPA_FLAGS.filter((f) => flags[f.id]);
+  const on = [...SPA_FLAGS, ...SPA_SPICY_FLAGS].filter((f) => flags[f.id]);
   if (on.length === 0) return '—';
   return on.map((f) => f.label).join(', ');
+}
+
+// Force the spicy subset back to false unless happyEnding is on. Used by
+// the API right before persisting so a stale UI / malicious client can't
+// store spicy flags on a non-happy-ending session.
+export function clampSpicyFlags(flags: SpaFlags, happyEnding: boolean): SpaFlags {
+  if (happyEnding) return flags;
+  return { ...flags, kink: false, toys: false, forced: false };
 }
 
 export interface SpaSession {

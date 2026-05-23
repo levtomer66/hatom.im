@@ -21,7 +21,11 @@ export function buildGoogleCalendarUrl(session: SpaSession): string {
   const giver = getSpaUser(session.giverId);
   const receiver = getSpaUser(session.receiverId);
 
-  const text = `💆 Spa: ${giver.name} → ${receiver.name}`;
+  // When the easter-egg ♡ is armed, append a 🔥 to the calendar title so
+  // either Tom can spot a spicy session at a glance without leaking the
+  // details into a calendar invite preview.
+  const heat = session.happyEnding ? ' 🔥' : '';
+  const text = `💆 Spa: ${giver.name} → ${receiver.name}${heat}`;
 
   const detailLines = [
     `Giver: ${giver.name}`,
@@ -29,6 +33,9 @@ export function buildGoogleCalendarUrl(session: SpaSession): string {
     `Duration: ${session.durationMinutes} min`,
     `Flags: ${flagsLabel(session.flags)}`,
   ];
+  if (session.happyEnding) {
+    detailLines.push('Happy ending: 🔥💋');
+  }
   if (session.preferences.trim()) {
     detailLines.push('', 'Preferences:', session.preferences.trim());
   }

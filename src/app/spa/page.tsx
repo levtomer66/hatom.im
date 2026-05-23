@@ -9,6 +9,7 @@ import {
   CreateSpaSessionDto,
   SPA_DURATIONS,
   SPA_FLAGS,
+  SPA_SPICY_FLAGS,
   SpaDuration,
   SpaFlags,
   SpaSession,
@@ -204,7 +205,13 @@ export default function SpaPage() {
   function toggleHappyEnding() {
     setHappyEndingArmed((prev) => {
       const next = !prev;
-      if (next) fireConfetti();
+      if (next) {
+        fireConfetti();
+      } else {
+        // Disarming clears the spicy subset so it doesn't quietly persist
+        // on the next submit. The standard atmosphere flags stay as-is.
+        setFlags((f) => ({ ...f, kink: false, toys: false, forced: false }));
+      }
       return next;
     });
   }
@@ -362,6 +369,23 @@ export default function SpaPage() {
                   <span className="emoji">{happyEndingArmed ? '♥' : '♡'}</span>
                 </button>
               </div>
+
+              {happyEndingArmed && (
+                <div className="spa-flag-row spa-flag-row--spicy">
+                  {SPA_SPICY_FLAGS.map((f) => (
+                    <button
+                      type="button"
+                      key={f.id}
+                      className={`spa-flag-btn spa-flag-btn--spicy ${flags[f.id] ? 'active' : ''}`}
+                      onClick={() => toggleFlag(f.id)}
+                      aria-pressed={flags[f.id]}
+                    >
+                      <span className="emoji">{f.emoji}</span>
+                      <span className="label">{f.label}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
 
               <h2 className="spa-section-title spa-section-title--tight">
                 <span className="spa-section-num">iii.</span> Whispers

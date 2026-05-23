@@ -493,6 +493,42 @@
   filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.3));
 }
 
+/* Spicy row — surfaces only when ♡ is armed. Visually distinct from
+   the standard atmosphere pills so it reads as a separate register. */
+.spa-flag-row--spicy {
+  margin-top: 0.4rem;
+  padding-top: 0.5rem;
+  border-top: 1px dashed rgba(169, 69, 89, 0.35);
+  animation: spa-spicy-fade-in 240ms ease-out;
+}
+
+@keyframes spa-spicy-fade-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.spa-flag-btn--spicy {
+  border-color: rgba(201, 59, 80, 0.5);
+  color: #c93b50;
+  background: rgba(255, 240, 244, 0.85);
+}
+
+.spa-flag-btn--spicy:hover:not(.active) {
+  border-color: #c93b50;
+  color: var(--spa-rose-deep);
+  background: rgba(255, 224, 230, 0.95);
+}
+
+.spa-flag-btn--spicy.active {
+  background:
+    radial-gradient(circle at 30% 30%, #d44a5f, #6b1f30 75%);
+  border-color: transparent;
+  color: var(--spa-cream);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    0 4px 12px rgba(201, 59, 80, 0.35);
+}
+
 /* Icon-only ♡ flag */
 .spa-flag-btn--secret {
   flex: 0 0 42px;
