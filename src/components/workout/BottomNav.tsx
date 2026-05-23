@@ -9,6 +9,7 @@ const navItems: { href: string; labelKey: TranslationKey; icon: string }[] = [
   { href: '/workout',            labelKey: 'nav.workouts',  icon: '💪' },
   { href: '/workout/exercises',  labelKey: 'nav.exercises', icon: '📋' },
   { href: '/workout/history',    labelKey: 'nav.history',   icon: '📊' },
+  { href: '/workout/music',      labelKey: 'nav.music',     icon: '🎵' },
 ];
 
 export default function BottomNav() {

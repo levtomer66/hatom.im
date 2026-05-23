@@ -11,6 +11,7 @@ const DICT = {
   'nav.workouts':        { en: 'Workouts',                        he: 'אימונים' },
   'nav.exercises':       { en: 'Exercises',                       he: 'תרגילים' },
   'nav.history':         { en: 'History',                         he: 'היסטוריה' },
+  'nav.music':           { en: 'Music',                           he: 'מוזיקה' },
   'header.switch_user':  { en: 'Switch',                          he: 'החלף' },
 
   // Login
@@ -103,6 +104,10 @@ const DICT = {
   // History detail
   'history_detail.not_found':       { en: 'Workout not found',                              he: 'האימון לא נמצא' },
   'history_detail.no_exercises':    { en: 'No exercises in this workout',                   he: 'אין תרגילים באימון הזה' },
+
+  // Music / playlists
+  'music.title':                    { en: 'Workout Playlists',                              he: 'פלייליסטים לאימון' },
+  'music.duration':                 { en: 'Duration',                                       he: 'משך' },
 
   // Exercise counts
   'count.exercise_one':             { en: 'exercise',                                       he: 'תרגיל' },
