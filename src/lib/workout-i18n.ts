@@ -106,7 +106,7 @@ const DICT = {
   'history_detail.no_exercises':    { en: 'No exercises in this workout',                   he: 'אין תרגילים באימון הזה' },
 
   // Music / playlists
-  'music.title':                    { en: 'Workout Playlists',                              he: 'פלייליסטים לאימון' },
+  'music.title':                    { en: 'Recommended Workout Sets by Tomer',              he: 'סטים מומלצים לאימון מאת תומר' },
   'music.duration':                 { en: 'Duration',                                       he: 'משך' },
 
   // Exercise counts
