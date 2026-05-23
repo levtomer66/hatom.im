@@ -1,16 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ObjectId } from 'mongodb';
 import { deleteSpaSession } from '@/models/SpaSession';
-import { requireOwner } from '@/lib/auth-helpers';
+import { requireSpaUser } from '@/lib/auth-helpers';
 
 // DELETE /api/spa/sessions/[id]
-// Owners only. Permanent removal — no soft-delete because the spa
+// SPA_USERS only (Tom or Tomer). Independent of site-wide ownership so
+// Tom keeps his delete-permission even after being managed via the
+// allowlist matrix. Permanent removal — no soft-delete because the spa
 // session list is intentionally tiny and we don't keep an audit log.
 export async function DELETE(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const gate = await requireOwner();
+  const gate = await requireSpaUser();
   if (gate instanceof NextResponse) return gate;
 
   const { id } = await params;

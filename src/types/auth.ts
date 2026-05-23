@@ -1,10 +1,16 @@
 import type { PermissionKey } from '@/types/permissions';
 
 // Email-based identity model. Auth.js stores users by their Gmail address;
-// these two are the privileged owners of the site. Everyone else who can
-// sign in must be present in the `authorizedEmails` Mongo collection.
+// this email is the sole privileged owner of the site. Everyone else who
+// can sign in must be present in the `authorizedEmails` Mongo collection.
+//
+// Tom (`tomzari347@gmail.com`) used to be an owner too but is now managed
+// as a regular allowlisted user — Tomer flips Tom's per-page permissions
+// from /admin/allowlist. The one carve-out is Spa, which keeps Tom as a
+// first-class participant via SPA_USERS in src/types/spa.ts; the spa API
+// gates use `requireSpaUser` (not `requireOwner`) so being a SPA_USER is
+// the credential, not site-wide ownership.
 export const OWNER_EMAILS = [
-  'tomzari347@gmail.com',  // Tom
   'levtomer66@gmail.com',  // Tomer
 ] as const;
 

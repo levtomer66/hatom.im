@@ -8,10 +8,9 @@ import {
   getSpaUser,
   isValidSpaDuration,
   otherSpaUser,
-  spaUserIdFromEmail,
 } from '@/types/spa';
 import { getAllSpaSessions, createSpaSession } from '@/models/SpaSession';
-import { requireOwner } from '@/lib/auth-helpers';
+import { requireSpaUser } from '@/lib/auth-helpers';
 
 const NTFY_TOPIC = 'hatomim_spa';
 
@@ -45,10 +44,11 @@ function notifySpaSchedule(session: SpaSession): void {
   });
 }
 
-// GET — spa session history. Visible to any signed-in owner. The model
-// already returns sessions sorted newest-first.
+// GET — spa session history. Visible to any signed-in SPA_USER (Tom or
+// Tomer); the two are the only people who can be a giver/receiver, so
+// they're also the only people who'd find the list meaningful.
 export async function GET() {
-  const gate = await requireOwner();
+  const gate = await requireSpaUser();
   if (gate instanceof NextResponse) return gate;
 
   try {
@@ -63,17 +63,14 @@ export async function GET() {
   }
 }
 
-// POST — schedule a session. Owners only. The receiver is the signed-in
-// Tom; the giver is the OTHER Tom. Any client-supplied giverId is ignored.
+// POST — schedule a session. SPA_USERS only (independent of site-wide
+// ownership). The receiver is the signed-in Tom; the giver is the OTHER
+// Tom. Any client-supplied giverId is ignored.
 export async function POST(request: NextRequest) {
-  const gate = await requireOwner();
+  const gate = await requireSpaUser();
   if (gate instanceof NextResponse) return gate;
 
-  const receiverId = spaUserIdFromEmail(gate.session.user.email);
-  if (!receiverId) {
-    // requireOwner already proves Tom/Tomer, so this is belt-and-braces.
-    return NextResponse.json({ error: 'Not a spa user' }, { status: 403 });
-  }
+  const receiverId = gate.spaUserId;
   const giverId = otherSpaUser(receiverId);
 
   try {

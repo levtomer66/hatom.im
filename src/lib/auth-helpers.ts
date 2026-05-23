@@ -4,6 +4,7 @@ import { auth } from '@/auth';
 import { isOwnerEmail } from '@/types/auth';
 import type { PermissionKey } from '@/types/permissions';
 import { hasPermission } from '@/lib/permissions';
+import { spaUserIdFromEmail, type SpaUserId } from '@/types/spa';
 
 // Re-export so server-side callers keep a single import surface.
 export { hasPermission };
@@ -56,4 +57,31 @@ export async function requirePagePermission(key: PermissionKey): Promise<
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
   return { session: session as Session & { user: { email: string } } };
+}
+
+// Gate for spa API endpoints. Independent of `OWNER_EMAILS` so the two
+// SPA_USERS keep their write access even after one of them is demoted
+// from site-wide ownership. Returns the resolved `spaUserId` alongside
+// the session so callers can derive the giver/receiver without a second
+// `spaUserIdFromEmail` call.
+export async function requireSpaUser(): Promise<
+  | {
+      session: Session & { user: { email: string } };
+      spaUserId: SpaUserId;
+    }
+  | NextResponse
+> {
+  const session = await auth();
+  const email = session?.user?.email;
+  if (!email) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+  const spaUserId = spaUserIdFromEmail(email);
+  if (!spaUserId) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  }
+  return {
+    session: session as Session & { user: { email: string } },
+    spaUserId,
+  };
 }
