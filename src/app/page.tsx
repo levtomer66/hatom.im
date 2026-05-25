@@ -61,6 +61,17 @@ export default function Home() {
   // — the only signal they get otherwise is an empty grid, which feels
   // broken.
   const showNoAccessHint = status !== 'loading' && signedIn && features.length === 0;
+  const [accessRequestState, setAccessRequestState] = React.useState<'idle' | 'sending' | 'sent'>('idle');
+
+  const requestAccess = async () => {
+    setAccessRequestState('sending');
+    try {
+      const res = await fetch('/api/access-request', { method: 'POST' });
+      setAccessRequestState(res.ok ? 'sent' : 'idle');
+    } catch {
+      setAccessRequestState('idle');
+    }
+  };
 
   return (
     <>
@@ -101,7 +112,7 @@ export default function Home() {
         </motion.div>
 
         {showNoAccessHint && (
-          <p
+          <div
             style={{
               textAlign: 'center',
               marginTop: '2rem',
@@ -110,9 +121,24 @@ export default function Home() {
               lineHeight: 1.5,
             }}
           >
-            הגעת בשלום, אבל עדיין אין לך גישה לאף עמוד.<br />
-            פנה לתום או לתומר כדי שיפתחו לך הרשאות.
-          </p>
+            <p style={{ marginBottom: '1rem' }}>
+              הגעת בשלום, אבל עדיין אין לך גישה לאף עמוד.<br />
+              פנה לתום או לתומר כדי שיפתחו לך הרשאות.
+            </p>
+            <button
+              type="button"
+              className="birthday-button"
+              onClick={requestAccess}
+              disabled={accessRequestState !== 'idle'}
+              style={{ opacity: accessRequestState === 'sent' ? 0.7 : 1 }}
+            >
+              {accessRequestState === 'sent'
+                ? '✓ נשלחה בקשה'
+                : accessRequestState === 'sending'
+                  ? 'שולח…'
+                  : '✉️ שלח בקשת גישה'}
+            </button>
+          </div>
         )}
 
         <motion.div
