@@ -12,6 +12,7 @@ import { formatSeconds } from '@/lib/time';
 import Header from '@/components/workout/Header';
 import BottomNav from '@/components/workout/BottomNav';
 import ExerciseExternalLinks from '@/components/workout/ExerciseExternalLinks';
+import ExerciseProgressChart from '@/components/workout/ExerciseProgressChart';
 import { ExerciseHistoryEntry, PersonalBest, ExerciseDefinition } from '@/types/workout';
 import { getExerciseById, EXERCISE_LIBRARY } from '@/data/exercise-library';
 
@@ -316,6 +317,11 @@ export default function ExerciseDetailPage() {
             </div>
           </div>
         </div>
+
+        {/* Progress chart (renders only with ≥ 2 data points) */}
+        {!loadingHistory && history.length >= 2 && (
+          <ExerciseProgressChart history={history} />
+        )}
 
         {/* History table */}
         <h3 style={{ fontSize: '16px', fontWeight: 600, marginBottom: '12px' }}>

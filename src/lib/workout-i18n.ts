@@ -124,6 +124,10 @@ const DICT = {
   'exercise_detail.pb_label':       { en: 'PB',                                             he: 'שיא' },
   'exercise_detail.working_label':  { en: 'Working',                                        he: 'עובד על' },
   'exercise_detail.next_rec_label': { en: 'Next recommended',                               he: 'מומלץ להמשך' },
+  'exercise_detail.chart_title_weight': { en: 'Best set over time',                          he: 'התקדמות במשקל' },
+  'exercise_detail.chart_title_time':   { en: 'Longest hold over time',                      he: 'התקדמות בזמן' },
+  'exercise_detail.chart_hint':         { en: 'Tap a point for details',                     he: 'הקלק על נקודה לפרטים' },
+  'exercise_detail.chart_workouts':     { en: 'workouts',                                    he: 'אימונים' },
 
   // Rest timer
   'timer.rest_label':               { en: '⏱ Rest',                                         he: '⏱ מנוחה' },
