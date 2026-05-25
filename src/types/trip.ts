@@ -8,6 +8,12 @@ export interface JourneyPhoto {
   blobUrl: string;
   // Path inside the Blob bucket (useful for DELETE).
   blobPath: string;
+  // 400 px WebP thumbnail variant for the calendar grid + map cluster
+  // sidebar. Optional because photos uploaded before the thumb tier
+  // landed don't have one — a backfill script populates them. Callers
+  // should fall back to `blobUrl` when absent.
+  thumbUrl?: string;
+  thumbPath?: string;
   // ISO datetime the photo was actually taken, not when it was uploaded.
   // Comes from EXIF DateTimeOriginal (+ OffsetTimeOriginal when present).
   takenAt: string;

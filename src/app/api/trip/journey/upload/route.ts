@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { put } from '@vercel/blob';
 import { randomUUID } from 'crypto';
+import sharp from 'sharp';
 import { requirePagePermission } from '@/lib/auth-helpers';
 import { appendPhoto } from '@/models/TripJourney';
 import { reverseGeocode } from '@/lib/reverseGeocode';
@@ -73,26 +74,43 @@ export async function POST(req: NextRequest) {
   const longitude = longitudeRaw ? Number(longitudeRaw) : undefined;
   const hasGps = Number.isFinite(latitude) && Number.isFinite(longitude);
 
-  // Build Blob path. Unassigned photos get their own prefix.
-  // Keep the extension stable on '.jpg' because the client ships the
-  // compressed JPEG; the originalMime field retains the source type.
+  // Build Blob paths. Unassigned photos get their own prefix.
+  // Keep the full-size extension stable on '.jpg' because the client
+  // ships the compressed JPEG; the thumb is always WebP for compactness.
   const id = randomUUID();
   const blobPath = `trip/${dayDate}/${id}.jpg`;
+  const thumbPath = `trip/${dayDate}/${id}-thumb.webp`;
 
   try {
-    // Fire the Blob put + Nominatim reverse-geocode in parallel — they don't
-    // depend on each other and we'd rather have the photo live with or
-    // without a label than block on geocoding. `reverseGeocode` never
-    // throws; it returns null on any failure.
+    // Buffer the file once so we can both ship it to Blob and feed it to
+    // sharp for thumb generation without two reads of the underlying stream.
+    const fileBuf = Buffer.from(await file.arrayBuffer());
+
+    // Generate a 400 px WebP thumb in parallel with the full-size upload
+    // and reverse-geocode. Sharp handles JPEG → WebP downscale on Node so
+    // the client doesn't have to pre-compute a second variant; rotate()
+    // honours the EXIF orientation byte the client-side resize preserves.
     const geocodePromise = hasGps ? reverseGeocode(latitude!, longitude!) : Promise.resolve(null);
-    const [blob, locationLabel] = await Promise.all([
-      put(blobPath, file, { access: 'public', contentType: 'image/jpeg' }),
+    const thumbBufPromise = sharp(fileBuf)
+      .rotate()
+      .resize({ width: 400, height: 400, fit: 'inside', withoutEnlargement: true })
+      .webp({ quality: 72, effort: 5 })
+      .toBuffer();
+    const [blob, locationLabel, thumbBuf] = await Promise.all([
+      put(blobPath, fileBuf, { access: 'public', contentType: 'image/jpeg' }),
       geocodePromise,
+      thumbBufPromise,
     ]);
+    const thumbBlob = await put(thumbPath, thumbBuf, {
+      access: 'public',
+      contentType: 'image/webp',
+    });
 
     const photo: JourneyPhoto = {
       blobUrl:  blob.url,
       blobPath,
+      thumbUrl: thumbBlob.url,
+      thumbPath,
       takenAt:  effectiveTakenAt,
       latitude:  hasGps ? latitude  : undefined,
       longitude: hasGps ? longitude : undefined,

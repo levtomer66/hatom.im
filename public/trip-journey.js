@@ -276,7 +276,7 @@
         bottomOverlay = '<span class="photo-no-gps">📵 אין מיקום</span>';
       }
       cell.innerHTML = `
-        <img src="${p.blobUrl}" loading="lazy" alt="" />
+        <img src="${p.thumbUrl || p.blobUrl}" loading="lazy" alt="" />
         <span class="photo-time">${formatTime(p.takenAt)}</span>
         ${bottomOverlay}
         <button class="photo-delete" data-blob="${p.blobPath}" title="מחק">✕</button>
@@ -780,7 +780,7 @@
       );
       const photosHtml = sorted.map(p => `
         <div class="fullmap-photo-row" data-blob="${escapeAttr(p.blobPath)}">
-          <img src="${p.blobUrl}" loading="lazy" alt="" />
+          <img src="${p.thumbUrl || p.blobUrl}" loading="lazy" alt="" />
           <div class="fullmap-photo-meta">
             <div>
               <div class="fullmap-photo-time">${formatTime(p.takenAt)}</div>
