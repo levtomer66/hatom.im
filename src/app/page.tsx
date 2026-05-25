@@ -5,7 +5,7 @@ import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import { motion } from 'framer-motion';
 import { signIn, useSession } from 'next-auth/react';
-import { FaDog, FaCoffee, FaVideo, FaDumbbell, FaRing, FaPlane, FaSpa, FaSignInAlt } from 'react-icons/fa';
+import { FaDog, FaCoffee, FaVideo, FaDumbbell, FaRing, FaPlane, FaSpa, FaHeart, FaSignInAlt } from 'react-icons/fa';
 import type { IconType } from 'react-icons';
 import Navbar from '@/components/Navbar';
 import CountdownTimer from '@/components/CountdownTimer';
@@ -33,6 +33,7 @@ const allFeatures: Feature[] = [
   { icon: FaDumbbell, title: 'המפלצתומים',        description: 'מעקב אימונים לתום ותומר',             href: '/workout',                  linkText: 'לאימון',             permission: 'workout'     },
   { icon: FaPlane,    title: 'USA & Mexico Trip', description: 'מסלול הטיול המלא 2026',               href: '/trip.html',                linkText: 'צפה במסלול',         permission: 'trip'        },
   { icon: FaSpa,      title: 'ספא',               description: 'תזמון עיסוי בין התומ.ים עם הזמנה ליומן', href: '/spa',                  linkText: 'לתזמון עיסוי',       permission: 'spa'         },
+  { icon: FaHeart,    title: 'ולנטיין',           description: 'משחק ציפיות + לוח פוזות',                  href: '/sex',                      linkText: 'אלינו',              permission: 'valentine'   },
 ];
 
 const containerVariants = {

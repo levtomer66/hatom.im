@@ -13,6 +13,7 @@ import {
   FaRing,
   FaPlane,
   FaSpa,
+  FaHeart,
   FaUserShield,
 } from 'react-icons/fa';
 import { hasPermission } from '@/lib/permissions';
@@ -39,6 +40,7 @@ const allNavItems: NavItem[] = [
   { href: '/spa',                      label: 'ספא',           icon: FaSpa,        visibility: { permission: 'spa'         } },
   { href: '/vegas-wedding-guide.html', label: 'מדריך חתונה',   icon: FaRing,       visibility: { permission: 'vegas-guide' } },
   { href: '/trip.html',                label: 'מסלול הטיול',   icon: FaPlane,      visibility: { permission: 'trip'        } },
+  { href: '/sex',                      label: 'ולנטיין',       icon: FaHeart,      visibility: { permission: 'valentine'   } },
   { href: '/admin/allowlist',          label: 'הרשאות',        icon: FaUserShield, visibility: 'owner' },
   { href: '/',                         label: 'בית',           icon: FaHome,       exact: true, visibility: 'public' },
 ];
