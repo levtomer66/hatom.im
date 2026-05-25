@@ -10,8 +10,9 @@ const POSES_API = '/api/valentine/poses';
 const PROGRESS_API = '/api/valentine/progress';
 const IMAGE_API = '/api/valentine/poses/image';
 
-function getImageUrl(filename: string): string {
-  return `${IMAGE_API}?name=${encodeURIComponent(filename)}`;
+function getImageUrl(filename: string, size: 'thumb' | 'full' = 'full'): string {
+  const sizeParam = size === 'thumb' ? '&size=thumb' : '';
+  return `${IMAGE_API}?name=${encodeURIComponent(filename)}${sizeParam}`;
 }
 
 export default function PositionsBoard() {
@@ -178,7 +179,7 @@ export default function PositionsBoard() {
               >
                 {displayedRevealed ? (
                   <Image
-                    src={getImageUrl(pos.filename)}
+                    src={getImageUrl(pos.filename, 'thumb')}
                     alt=""
                     fill
                     sizes="(max-width: 400px) 160px, 200px"
@@ -310,7 +311,8 @@ export default function PositionsBoard() {
                 >
                   <Image
                     src={getImageUrl(
-                      positions.find((p) => p.id === randomDrawing)?.filename ?? ''
+                      positions.find((p) => p.id === randomDrawing)?.filename ?? '',
+                      'thumb'
                     )}
                     alt=""
                     fill
