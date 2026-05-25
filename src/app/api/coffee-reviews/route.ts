@@ -5,6 +5,7 @@ import {
   createCoffeeReview
 } from '@/models/CoffeeReview';
 import { requirePagePermission } from '@/lib/auth-helpers';
+import { forwardGeocode } from '@/lib/forwardGeocode';
 
 // GET handler to retrieve all coffee reviews
 export async function GET() {
@@ -100,6 +101,22 @@ export async function POST(request: NextRequest) {
       );
     }
     
+    // If the caller didn't provide explicit coordinates, take a one-shot
+    // forward-geocode attempt off `placeName` so the new review can drop
+    // a pin on the /mekafkefim map. Geocoder failure is non-fatal —
+    // the review still saves, just without a location.
+    if (
+      (typeof data.latitude !== 'number' || typeof data.longitude !== 'number') &&
+      data.placeName
+    ) {
+      const geo = await forwardGeocode(data.placeName);
+      if (geo) {
+        data.latitude = geo.latitude;
+        data.longitude = geo.longitude;
+        if (!data.locationLabel) data.locationLabel = geo.label;
+      }
+    }
+
     // Create new review in MongoDB
     const newReview = await createCoffeeReview(data);
     

@@ -5,6 +5,7 @@ import {
   deleteCoffeeReview
 } from '@/models/CoffeeReview';
 import { requirePagePermission } from '@/lib/auth-helpers';
+import { forwardGeocode } from '@/lib/forwardGeocode';
 
 // GET handler to retrieve a single coffee review by ID
 export async function GET(
@@ -70,7 +71,27 @@ export async function PATCH(
         { status: 400 }
       );
     }
-    
+
+    // If placeName is being changed and the caller didn't pass explicit
+    // coordinates, re-geocode so the pin tracks the new name. Failure is
+    // non-fatal — leaves existing coords untouched in that case (vs
+    // wiping them, which would be lossy).
+    if (
+      data.placeName &&
+      (typeof data.latitude !== 'number' || typeof data.longitude !== 'number')
+    ) {
+      const existing = await getCoffeeReviewById(id);
+      const nameChanged = existing && existing.placeName !== data.placeName;
+      if (nameChanged) {
+        const geo = await forwardGeocode(data.placeName);
+        if (geo) {
+          data.latitude = geo.latitude;
+          data.longitude = geo.longitude;
+          if (!data.locationLabel) data.locationLabel = geo.label;
+        }
+      }
+    }
+
     const updatedReview = await updateCoffeeReview(id, data);
     
     if (!updatedReview) {

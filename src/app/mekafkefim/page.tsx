@@ -4,11 +4,18 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { Playfair_Display, Courier_Prime } from 'next/font/google';
+import dynamic from 'next/dynamic';
 import Navbar from '@/components/Navbar';
 import CoffeeReviewCard from '@/components/CoffeeReviewCard';
 import AddCoffeeReviewForm from '@/components/AddCoffeeReviewForm';
 import { CoffeeReview } from '@/types/coffee';
 import { hasPermission } from '@/lib/permissions';
+
+// Leaflet talks to the DOM directly, so the map only renders client-side
+// — skip SSR to dodge the window-undefined error during static analysis.
+const CoffeeReviewMap = dynamic(() => import('@/components/CoffeeReviewMap'), {
+  ssr: false,
+});
 
 const playfair = Playfair_Display({ subsets: ['latin'], weight: ['400', '600', '700', '900'], style: ['normal', 'italic'] });
 const courier = Courier_Prime({ subsets: ['latin'], weight: ['400', '700'] });
@@ -174,6 +181,11 @@ export default function MekafkefimPage() {
           <div style={{ position: 'absolute', top: '35px', right: 'calc(10% + 20px)', width: '60px', height: '60px', borderRadius: '50%', border: '3px solid rgba(140,90,30,0.08)', pointerEvents: 'none' }} />
           <div style={{ position: 'absolute', bottom: '10px', left: '12%', width: '44px', height: '44px', borderRadius: '50%', border: '2px solid rgba(140,90,30,0.1)', pointerEvents: 'none' }} />
         </header>
+
+        {/* Cafe map — renders only when at least one review has coordinates */}
+        {!isLoading && reviews.length > 0 && (
+          <CoffeeReviewMap reviews={reviews} />
+        )}
 
         {/* Add form — write permission only */}
         {canWrite && showAddForm && (
