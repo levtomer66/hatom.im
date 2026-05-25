@@ -5,7 +5,6 @@ import {
   createCoffeeReview
 } from '@/models/CoffeeReview';
 import { requirePagePermission } from '@/lib/auth-helpers';
-import { resolveLocation } from '@/lib/resolveLocation';
 
 // GET handler to retrieve all coffee reviews
 export async function GET() {
@@ -101,24 +100,6 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    // If the caller didn't provide explicit coordinates, resolve the
-    // location ourselves: mapsUrl coords (authoritative when present)
-    // first, then Israel-biased Nominatim on placeName. Resolver
-    // failure is non-fatal — the review still saves, just pinless.
-    if (typeof data.latitude !== 'number' || typeof data.longitude !== 'number') {
-      const resolved = await resolveLocation({
-        placeName: data.placeName,
-        mapsUrl: data.mapsUrl,
-      });
-      if (resolved) {
-        data.latitude = resolved.latitude;
-        data.longitude = resolved.longitude;
-        if (!data.locationLabel && resolved.locationLabel) {
-          data.locationLabel = resolved.locationLabel;
-        }
-      }
-    }
-
     // Create new review in MongoDB
     const newReview = await createCoffeeReview(data);
     

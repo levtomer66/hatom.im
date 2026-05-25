@@ -15,12 +15,6 @@ export interface CoffeeReview {
   photoUrl?: string;
   mapsUrl?: string;
   instagramUrl?: string;
-  // Optional cafe coordinates + human-readable label, resolved from the
-  // place name via the Nominatim forward geocoder when the review is
-  // created or edited. Used to drop a pin on the /mekafkefim map.
-  latitude?: number;
-  longitude?: number;
-  locationLabel?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -41,9 +35,6 @@ export interface CreateCoffeeReviewDto {
   photoUrl?: string;
   mapsUrl?: string;
   instagramUrl?: string;
-  latitude?: number;
-  longitude?: number;
-  locationLabel?: string;
 }
 
 // Helper type for calculating review statistics
