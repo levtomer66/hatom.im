@@ -5,7 +5,7 @@ import {
   deleteCoffeeReview
 } from '@/models/CoffeeReview';
 import { requirePagePermission } from '@/lib/auth-helpers';
-import { forwardGeocode } from '@/lib/forwardGeocode';
+import { resolveLocation } from '@/lib/resolveLocation';
 
 // GET handler to retrieve a single coffee review by ID
 export async function GET(
@@ -72,22 +72,25 @@ export async function PATCH(
       );
     }
 
-    // If placeName is being changed and the caller didn't pass explicit
-    // coordinates, re-geocode so the pin tracks the new name. Failure is
-    // non-fatal — leaves existing coords untouched in that case (vs
-    // wiping them, which would be lossy).
-    if (
-      data.placeName &&
-      (typeof data.latitude !== 'number' || typeof data.longitude !== 'number')
-    ) {
+    // Re-resolve the pin when EITHER placeName or mapsUrl is being
+    // changed and the caller didn't pass explicit coordinates. mapsUrl
+    // updates are particularly worth re-resolving — pasting a sharper
+    // share link is the user's signal that the existing pin is wrong.
+    if (typeof data.latitude !== 'number' || typeof data.longitude !== 'number') {
       const existing = await getCoffeeReviewById(id);
-      const nameChanged = existing && existing.placeName !== data.placeName;
-      if (nameChanged) {
-        const geo = await forwardGeocode(data.placeName);
-        if (geo) {
-          data.latitude = geo.latitude;
-          data.longitude = geo.longitude;
-          if (!data.locationLabel) data.locationLabel = geo.label;
+      const nameChanged = existing && data.placeName && existing.placeName !== data.placeName;
+      const urlChanged = existing && data.mapsUrl !== undefined && existing.mapsUrl !== data.mapsUrl;
+      if (nameChanged || urlChanged) {
+        const resolved = await resolveLocation({
+          placeName: data.placeName ?? existing?.placeName,
+          mapsUrl: data.mapsUrl ?? existing?.mapsUrl,
+        });
+        if (resolved) {
+          data.latitude = resolved.latitude;
+          data.longitude = resolved.longitude;
+          if (!data.locationLabel && resolved.locationLabel) {
+            data.locationLabel = resolved.locationLabel;
+          }
         }
       }
     }

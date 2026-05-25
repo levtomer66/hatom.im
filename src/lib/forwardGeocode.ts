@@ -29,6 +29,9 @@ export async function forwardGeocode(query: string): Promise<ForwardGeocodeResul
   url.searchParams.set('format', 'json');
   url.searchParams.set('limit', '1');
   url.searchParams.set('addressdetails', '1');
+  // Israel-bias: every cafe in this app is in Israel, so constraining
+  // the search avoids "E.Z" landing on a strip mall in Oklahoma.
+  url.searchParams.set('countrycodes', 'il');
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
