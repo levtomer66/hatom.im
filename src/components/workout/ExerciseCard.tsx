@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { WorkoutExercise, WorkoutSet, PersonalBest, ExerciseDefinition, ExerciseHistoryEntry, isExerciseCompleted, isTimeSet, getHighestWeight, MIN_SETS, MAX_SETS } from '@/types/workout';
+import { WorkoutExercise, WorkoutSet, PersonalBest, ExerciseDefinition, ExerciseHistoryEntry, isExerciseCompleted, isTimeSet, getHighestWeight, bestE1rmFromSets, MIN_SETS, MAX_SETS } from '@/types/workout';
 import { getExerciseById } from '@/data/exercise-library';
 import { getLocalizedExercise } from '@/lib/exercise-translations';
 import { useWorkoutUser } from '@/context/WorkoutUserContext';
@@ -178,17 +178,22 @@ export default function ExerciseCard({
     }
   }, [isExpanded, isEditable]);
   
-  // Calculate current highest weight and total reps at that weight
+  // Highest rep-mode kg in the current exercise — still needed by the
+  // "Completed at X kg" label downstream.
   const highestKg = getHighestWeight(exercise);
-  const currentRepsAtHighest = exercise.sets
-    .filter(s => s.kg === highestKg && s.kg !== null && s.reps !== null)
-    .map(s => s.reps as number);
-  const totalRepsAtHighest = currentRepsAtHighest.reduce((sum, r) => sum + r, 0);
-  
-  // Check if current exercise matches or beats PB
-  const isPBMatch = pb && pb.completedKg !== null &&
-    highestKg >= pb.completedKg &&
-    totalRepsAtHighest >= pb.completedReps.reduce((sum, r) => sum + r, 0);
+
+  // Match-or-beat-PB check using e1RM. The user's "best" lift is now
+  // the unified e1RM across rep ranges, so the gold-border styling
+  // fires when ANY set in the current workout produces an e1RM at
+  // or above the user's best — that captures strength PBs (5 hard
+  // reps at a new weight) and hypertrophy PBs (more reps at a known
+  // weight) on the same comparator.
+  const isPBMatch = !!(
+    pb &&
+    pb.bestE1rm !== null &&
+    bestE1rmFromSets(exercise.sets) &&
+    (bestE1rmFromSets(exercise.sets) as { e1rm: number }).e1rm >= pb.bestE1rm
+  );
 
   // Get recommended scale from PB
   const recommendedScale = pb?.recommendedKg ?? null;

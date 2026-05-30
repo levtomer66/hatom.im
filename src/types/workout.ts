@@ -166,6 +166,44 @@ export function isTimeSet(s: WorkoutSet): boolean {
   return s.seconds != null;
 }
 
+// Epley estimated 1RM formula with rep count capped at 10. Above that,
+// the formula systematically over-estimates because muscular endurance
+// dominates strength at high rep counts. 10 is the cap used by Strong,
+// Hevy, and most lifter-facing apps.
+//
+//   e1RM = kg × (1 + min(reps, 10) / 30)
+//
+// Returns 0 for any input that doesn't represent a real rep-mode set
+// (missing weight, missing reps, zero values, time-mode-only sets).
+// Use the return value comparator-style — "higher e1RM is a better
+// set" — rather than treating it as a precise predicted lift.
+export const E1RM_REP_CAP = 10;
+export function epleyE1rm(kg: number | null | undefined, reps: number | null | undefined): number {
+  if (kg == null || reps == null || kg <= 0 || reps <= 0) return 0;
+  const cappedReps = Math.min(reps, E1RM_REP_CAP);
+  return kg * (1 + cappedReps / 30);
+}
+
+// Highest e1RM achieved across the rep-mode sets in a single workout's
+// exercise entry, plus the set that produced it. Used to find PBs and
+// to draw the progress chart.
+export interface BestE1rm {
+  e1rm: number;
+  kg: number;
+  reps: number;
+}
+export function bestE1rmFromSets(sets: WorkoutSet[]): BestE1rm | null {
+  let best: BestE1rm | null = null;
+  for (const s of sets) {
+    if (isTimeSet(s)) continue;  // time-mode sets get their own PB lane
+    const e = epleyE1rm(s.kg, s.reps);
+    if (e > 0 && (best === null || e > best.e1rm)) {
+      best = { e1rm: e, kg: s.kg as number, reps: s.reps as number };
+    }
+  }
+  return best;
+}
+
 // Exercise entry in a workout
 export interface WorkoutExercise {
   id: string;
@@ -232,18 +270,25 @@ export interface Workout {
 export interface PersonalBest {
   userId: UserId;
   exerciseId: string;
-  // Completed PB info (if exercise was ever completed)
-  completedKg: number | null;  // Highest weight where exercise was completed
-  completedReps: number[];     // Reps at each set when completed (e.g., [10, 12, 10])
-  completedDate: string | null;
-  completedWorkoutId: string | null;
-  // Current working weight (latest weight used, even if not completed)
-  currentKg: number;           // Latest/highest weight being worked on
-  currentReps: number[];       // Reps at current weight (e.g., [8, 6, 5] - not completed yet)
+  // Best e1RM the user has ever achieved on this exercise (Epley, rep
+  // count capped at 10). Acts as the unified PB comparator across rep
+  // ranges — 100 × 5 and 80 × 10 are comparable as e1RM ≈ 117 vs 107.
+  // Null when the user has never logged a rep-mode set for this exercise.
+  bestE1rm: number | null;
+  bestKg: number | null;        // kg from the set that produced the PB
+  bestReps: number | null;      // reps from the set that produced the PB
+  bestDate: string | null;
+  bestWorkoutId: string | null;
+  // Most-recent occurrence (used for prefill + recommendation context).
+  // Distinct from "best" — `currentKg` tracks the latest weight the user
+  // worked on, regardless of whether it was a PB.
+  currentKg: number;
+  currentReps: number[];
   currentDate: string;
   currentWorkoutId: string;
-  // Recommendation
-  recommendedKg: number;       // Suggested weight for next session
+  // Recommendation: small bump from the PB-producing weight when the
+  // user matches their PB; otherwise just the current working weight.
+  recommendedKg: number;
   // Time-mode PB tracked in parallel — same exercise can have both a
   // rep-based and a time-based PB (e.g. weighted plank).
   bestSeconds: number | null;
@@ -280,20 +325,20 @@ export function formatPBDisplay(kg: number, reps: number[]): string {
   return `${kg}kg: ${formatRepsDisplay(reps)}`;
 }
 
-// Helper function to check if exercise is completed
-// Completed = ALL recorded sets at the highest weight have > 8 reps
+// "Completed" = the user finished logging all the sets on this
+// exercise. Rep-mode sets need both kg and reps; time-mode sets need
+// seconds > 0. Previously this gated on a magic ">8 reps at top
+// weight" rule that conflated training effort with PB-worthiness; we
+// dropped that — PB-worthiness is now e1RM-based and handled by the
+// PersonalBest endpoint. This helper now answers a simpler UX
+// question: "is the user done entering data for this exercise?" so
+// the card border can flip green when nothing else is expected.
 export function isExerciseCompleted(exercise: WorkoutExercise): boolean {
-  const validSets = exercise.sets.filter(s => s.kg !== null && s.kg > 0 && s.reps !== null);
-  if (validSets.length === 0) return false;
-  
-  // Find the highest weight
-  const highestKg = Math.max(...validSets.map(s => s.kg as number));
-  
-  // Get all sets at highest weight
-  const setsAtHighestWeight = validSets.filter(s => s.kg === highestKg);
-  
-  // All sets at highest weight must have > 8 reps
-  return setsAtHighestWeight.every(s => (s.reps as number) > 8);
+  if (exercise.sets.length === 0) return false;
+  return exercise.sets.every((s) => {
+    if (isTimeSet(s)) return (s.seconds as number) > 0;
+    return s.kg !== null && s.kg > 0 && s.reps !== null && s.reps > 0;
+  });
 }
 
 // Helper function to calculate total reps across all sets

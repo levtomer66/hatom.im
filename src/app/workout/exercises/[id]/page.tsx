@@ -233,7 +233,7 @@ export default function ExerciseDetailPage() {
               </div>
               {pb && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  {pb.completedKg !== null ? (
+                  {pb.bestE1rm !== null && pb.bestKg !== null && pb.bestReps !== null ? (
                     <div
                       style={{
                         display: 'inline-flex',
@@ -247,7 +247,14 @@ export default function ExerciseDetailPage() {
                     >
                       <span style={{ fontSize: '20px' }}>🥇</span>
                       <span style={{ fontWeight: 700, color: 'var(--workout-gold)' }}>
-                        {t('exercise_detail.pb_label')}: {formatWeight(pb.completedKg, unit)}{unitSuffix} ({pb.completedReps.join('×')})
+                        {t('exercise_detail.pb_label')}: {formatWeight(pb.bestKg, unit)}{unitSuffix} × {pb.bestReps}
+                      </span>
+                      <span style={{
+                        fontSize: '12px',
+                        color: 'var(--workout-text-muted)',
+                        fontWeight: 500,
+                      }}>
+                        (e1RM ≈ {formatWeight(Math.round(pb.bestE1rm), unit)}{unitSuffix})
                       </span>
                     </div>
                   ) : pb.currentKg > 0 ? (
@@ -268,7 +275,7 @@ export default function ExerciseDetailPage() {
                       </span>
                     </div>
                   ) : null}
-                  {(pb.completedKg !== null || pb.currentKg > 0) && (
+                  {(pb.bestE1rm !== null || pb.currentKg > 0) && (
                     <div
                       style={{
                         display: 'inline-flex',

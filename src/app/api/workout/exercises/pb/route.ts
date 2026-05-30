@@ -1,73 +1,68 @@
 import { NextResponse } from 'next/server';
 import mongoose from 'mongoose';
 import WorkoutModel from '@/models/Workout';
-import { PersonalBest, WorkoutSet, isTimeSet } from '@/types/workout';
+import {
+  PersonalBest,
+  WorkoutSet,
+  isTimeSet,
+  bestE1rmFromSets,
+  BestE1rm,
+} from '@/types/workout';
 import { requireSignedIn } from '@/lib/auth-helpers';
 import { resolveExerciseId } from '@/data/exercise-library';
 
 // Connect to MongoDB using mongoose
 async function connectDB() {
   if (mongoose.connection.readyState >= 1) return;
-  
   const uri = process.env.MONGODB_URI!;
   await mongoose.connect(uri);
 }
 
-// Check if exercise is completed (ALL sets at highest weight have > 8 reps)
-function isCompleted(sets: WorkoutSet[]): boolean {
-  const validSets = sets.filter(s => s.kg !== null && s.kg > 0 && s.reps !== null);
-  if (validSets.length === 0) return false;
-  
-  const highestKg = Math.max(...validSets.map(s => s.kg as number));
-  const setsAtHighestWeight = validSets.filter(s => s.kg === highestKg);
-  
-  // All sets at highest weight must have > 8 reps
-  return setsAtHighestWeight.every(s => (s.reps as number) > 8);
-}
-
-// Highest weight across REP-MODE sets only. Time-mode sets have their own
-// PB calculation downstream — letting their kg leak into this would make a
-// weighted timed hold overwrite the exercise's rep-based current/working
+// Highest weight across REP-MODE sets only. Time-mode sets have their
+// own PB lane downstream — letting their kg leak into this would make
+// a weighted timed hold overwrite the exercise's rep-based current
 // weight (Codex review flagged this).
 function getHighestKg(sets: WorkoutSet[]): number {
-  const validKgs = sets
-    .filter(s => s.kg !== null && s.kg > 0 && s.reps !== null)
-    .map(s => s.kg as number);
-  return validKgs.length > 0 ? Math.max(...validKgs) : 0;
+  let max = 0;
+  for (const s of sets) {
+    if (isTimeSet(s)) continue;
+    if (s.kg !== null && s.kg > 0 && s.reps !== null && s.kg > max) max = s.kg;
+  }
+  return max;
 }
 
-// Get reps at a specific weight (returns array of reps for each set at that weight)
+// Reps at a specific weight across rep-mode sets only.
 function getRepsAtWeight(sets: WorkoutSet[], targetKg: number): number[] {
   return sets
-    .filter(s => s.kg === targetKg && s.reps !== null)
-    .map(s => s.reps as number);
+    .filter((s) => !isTimeSet(s) && s.kg === targetKg && s.reps !== null)
+    .map((s) => s.reps as number);
 }
 
 interface PBMap {
   [exerciseId: string]: PersonalBest;
 }
 
+// Per-exercise running PB candidate. `best*` tracks the rep-mode peak
+// (Epley e1RM with rep cap at 10); `current*` tracks the most recent
+// rep-mode occurrence (drives prefill + recommendation); time-mode is
+// in a parallel lane.
 interface PBCandidate {
-  // Best completed record
-  completedKg: number | null;
-  completedReps: number[];
-  completedDate: string | null;
-  completedWorkoutId: string | null;
-  // Most recent/highest weight being worked on
+  bestE1rm: number | null;
+  bestKg: number | null;
+  bestReps: number | null;
+  bestDate: string | null;
+  bestWorkoutId: string | null;
+
   currentKg: number;
   currentReps: number[];
   currentDate: string;
   currentWorkoutId: string;
-  // Time-mode PB tracked in parallel — same exercise can have both a rep
-  // and a time PB (e.g. weighted plank). Bodyweight planks store kg=0.
+
   bestSeconds: number | null;
   bestSecondsKg: number | null;
   bestSecondsDate: string | null;
   bestSecondsWorkoutId: string | null;
-  // Verbatim sets from the user's most recent occurrence of this exercise —
-  // independent of whether it was a PB or completed. Drives the active-
-  // workout prefill UX. The outer loop walks workouts most-recent-first,
-  // so this is populated on the first encounter and never overwritten.
+
   lastSets: WorkoutSet[] | null;
   lastSetsDate: string;
 }
@@ -93,6 +88,8 @@ function getBestTimeMode(sets: WorkoutSet[]): { kg: number; seconds: number } | 
 
 // GET /api/workout/exercises/pb
 // Returns all personal bests for the signed-in user, keyed by exerciseId.
+// PB is computed via Epley e1RM (rep cap 10) so 100 × 5 (strength) and
+// 80 × 10 (hypertrophy) are comparable on a unified scale.
 export async function GET() {
   const gate = await requireSignedIn();
   if (gate instanceof NextResponse) return gate;
@@ -101,35 +98,31 @@ export async function GET() {
   try {
     await connectDB();
 
-    // Get workouts sorted by date (most recent first)
+    // Workouts most-recent first so `last*` and `current*` fields stay
+    // correct on first encounter.
     const workouts = await WorkoutModel.find({ userId }).sort({ date: -1 }).lean();
-    
-    // Track PB candidates for each exercise
+
     const pbCandidates: Record<string, PBCandidate> = {};
-    
+
     for (const workout of workouts) {
       for (const exercise of workout.exercises) {
         const sets = exercise.sets || [];
         const highestKg = getHighestKg(sets);
         const timeBest = getBestTimeMode(sets);
+        const setBest: BestE1rm | null = bestE1rmFromSets(sets);
         const exerciseId = resolveExerciseId(exercise.exerciseId);
 
-        // Skip if neither a rep-mode nor time-mode signal exists.
+        // Skip when this workout's exercise has neither rep-mode nor
+        // time-mode data — purely empty entries shouldn't pollute PB.
         if (highestKg <= 0 && timeBest === null) continue;
 
-        const repsAtHighest = highestKg > 0 ? getRepsAtWeight(sets, highestKg) : [];
-        const completed = highestKg > 0 ? isCompleted(sets) : false;
-
-        // Initialize candidate. Rep-mode fields stay at zero/empty until a
-        // workout actually contributes rep data — otherwise a time-only
-        // exercise (e.g. bodyweight plank) would emit a bogus
-        // "Working: 0 kg ()" rep block on the detail page.
         if (!pbCandidates[exerciseId]) {
           pbCandidates[exerciseId] = {
-            completedKg: null,
-            completedReps: [],
-            completedDate: null,
-            completedWorkoutId: null,
+            bestE1rm: null,
+            bestKg: null,
+            bestReps: null,
+            bestDate: null,
+            bestWorkoutId: null,
             currentKg: 0,
             currentReps: [],
             currentDate: '',
@@ -145,10 +138,7 @@ export async function GET() {
 
         const candidate = pbCandidates[exerciseId];
 
-        // Capture the most recent sets for this exercise. Workouts are
-        // sorted desc by date in the outer query, but a single date can
-        // contain multiple workouts; prefer the latest (any later date
-        // wins; same date is a no-op because lastSetsDate is already set).
+        // Capture the most recent sets verbatim (drives kg-prefill).
         if (
           candidate.lastSets === null ||
           new Date(workout.date) > new Date(candidate.lastSetsDate)
@@ -177,39 +167,34 @@ export async function GET() {
           }
         }
 
-        // Rep-mode tracking only runs when this iteration has rep data
-        // (highestKg already excludes time-mode sets). Otherwise we'd
-        // overwrite the rep-current weight with a timed-hold's weight.
+        // Rep-mode tracking — only runs when this workout has rep
+        // data, so a time-only iteration can't stomp on currentKg.
         if (highestKg > 0) {
-          if (completed) {
-            if (candidate.completedKg === null || highestKg > candidate.completedKg) {
-              candidate.completedKg = highestKg;
-              candidate.completedReps = repsAtHighest;
-              candidate.completedDate = workout.date;
-              candidate.completedWorkoutId = workout._id.toString();
-            } else if (highestKg === candidate.completedKg) {
-              // Same weight - prefer more total reps
-              const currentTotal = candidate.completedReps.reduce((a, b) => a + b, 0);
-              const newTotal = repsAtHighest.reduce((a, b) => a + b, 0);
-              if (newTotal > currentTotal) {
-                candidate.completedReps = repsAtHighest;
-                candidate.completedDate = workout.date;
-                candidate.completedWorkoutId = workout._id.toString();
-              }
-            }
+          // PB candidate: did this workout produce a better e1RM than
+          // anything previously seen? Ties resolve to the more recent
+          // occurrence — outer loop is desc, so an existing best is
+          // already the most recent for the same value.
+          if (
+            setBest !== null &&
+            (candidate.bestE1rm === null || setBest.e1rm > candidate.bestE1rm)
+          ) {
+            candidate.bestE1rm = setBest.e1rm;
+            candidate.bestKg = setBest.kg;
+            candidate.bestReps = setBest.reps;
+            candidate.bestDate = workout.date;
+            candidate.bestWorkoutId = workout._id.toString();
           }
 
-          // Track current working weight (highest weight used, most recent if tie).
-          // Bootstraps off the empty sentinel on the first rep-data iteration.
+          // Current working weight = highest kg used most recently.
           if (candidate.currentDate === '' || highestKg > candidate.currentKg) {
+            const repsAtHighest = getRepsAtWeight(sets, highestKg);
             candidate.currentKg = highestKg;
             candidate.currentReps = repsAtHighest;
             candidate.currentDate = workout.date;
             candidate.currentWorkoutId = workout._id.toString();
           } else if (highestKg === candidate.currentKg) {
-            // Same weight - prefer more recent date
             if (new Date(workout.date) > new Date(candidate.currentDate)) {
-              candidate.currentReps = repsAtHighest;
+              candidate.currentReps = getRepsAtWeight(sets, highestKg);
               candidate.currentDate = workout.date;
               candidate.currentWorkoutId = workout._id.toString();
             }
@@ -217,26 +202,31 @@ export async function GET() {
         }
       }
     }
-    
-    // Build final PB map
+
+    // Build the final PB map.
     const pbMap: PBMap = {};
     for (const [exerciseId, candidate] of Object.entries(pbCandidates)) {
-      // Calculate recommended weight
+      // Recommendation: if the user has just hit their PB at the
+      // current working weight (current weight >= the PB-producing
+      // weight), nudge them up by 2.5 kg next session at the same
+      // rep target. Otherwise stick to the current working weight —
+      // they likely have room before the next PB.
       let recommendedKg = candidate.currentKg;
-      if (candidate.completedKg !== null) {
-        // If completed at this weight, recommend +2.5kg
-        if (candidate.completedKg >= candidate.currentKg) {
-          recommendedKg = candidate.completedKg + 2.5;
-        }
+      if (
+        candidate.bestKg !== null &&
+        candidate.currentKg >= candidate.bestKg
+      ) {
+        recommendedKg = candidate.bestKg + 2.5;
       }
-      
+
       const pb: PersonalBest = {
         userId,
         exerciseId,
-        completedKg: candidate.completedKg,
-        completedReps: candidate.completedReps,
-        completedDate: candidate.completedDate,
-        completedWorkoutId: candidate.completedWorkoutId,
+        bestE1rm: candidate.bestE1rm,
+        bestKg: candidate.bestKg,
+        bestReps: candidate.bestReps,
+        bestDate: candidate.bestDate,
+        bestWorkoutId: candidate.bestWorkoutId,
         currentKg: candidate.currentKg,
         currentReps: candidate.currentReps,
         currentDate: candidate.currentDate,
@@ -248,10 +238,9 @@ export async function GET() {
         bestSecondsWorkoutId: candidate.bestSecondsWorkoutId,
         lastSets: candidate.lastSets ?? undefined,
       };
-      
       pbMap[exerciseId] = pb;
     }
-    
+
     return NextResponse.json(pbMap);
   } catch (error) {
     console.error('Error fetching personal bests:', error);

@@ -6,21 +6,22 @@ import { useWorkoutUnit } from '@/context/WorkoutUnitContext';
 import { useT, formatDate } from '@/lib/workout-i18n';
 import { formatWeight, getUnitSuffix } from '@/lib/weight';
 import { formatSeconds } from '@/lib/time';
-import { ExerciseHistoryEntry, WorkoutSet, isTimeSet } from '@/types/workout';
+import {
+  ExerciseHistoryEntry,
+  WorkoutSet,
+  isTimeSet,
+  bestE1rmFromSets,
+} from '@/types/workout';
 
 interface Point {
   date: string;
   value: number;
   isPB: boolean;
-}
-
-// Best rep-mode kg in a workout (highest weight across rep sets).
-function bestKg(sets: WorkoutSet[]): number {
-  let max = 0;
-  for (const s of sets) {
-    if (s.kg !== null && s.kg > 0 && s.reps !== null && s.kg > max) max = s.kg;
-  }
-  return max;
+  // Rep-mode points carry the actual set that produced the e1RM so
+  // the hover tooltip can show "100 kg × 5" alongside the calculated
+  // score. Absent for time-mode points.
+  kg?: number;
+  reps?: number;
 }
 
 // Best time-mode seconds in a workout (longest hold; weighted holds preferred
@@ -51,9 +52,12 @@ export default function ExerciseProgressChart({ history }: Props) {
   const unitSuffix = getUnitSuffix(unit, language);
   const [hoverIdx, setHoverIdx] = useState<number | null>(null);
 
-  // Decide rep-mode (kg) vs time-mode (seconds) by picking whichever has more
-  // non-zero workouts. Mixed exercises (weighted planks) usually have many
-  // more rep entries than time entries so this is well-behaved.
+  // Decide rep-mode (e1RM) vs time-mode (seconds) by picking whichever has
+  // more non-zero workouts. Mixed exercises (weighted planks) usually have
+  // many more rep entries than time entries so this is well-behaved.
+  // Rep-mode now plots the best Epley e1RM per workout (cap 10 reps),
+  // so progress reads as overall strength gains regardless of rep range —
+  // 100 × 5 strength sets and 80 × 10 hypertrophy sets are comparable.
   const { points, mode } = useMemo(() => {
     const ascending = [...history].sort(
       (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime(),
@@ -61,9 +65,17 @@ export default function ExerciseProgressChart({ history }: Props) {
     const repPts: Point[] = [];
     const timePts: Point[] = [];
     for (const entry of ascending) {
-      const kg = bestKg(entry.sets);
+      const repBest = bestE1rmFromSets(entry.sets);
       const sec = bestSeconds(entry.sets);
-      if (kg > 0) repPts.push({ date: entry.date, value: kg, isPB: entry.isPB });
+      if (repBest && repBest.e1rm > 0) {
+        repPts.push({
+          date: entry.date,
+          value: repBest.e1rm,
+          isPB: entry.isPB,
+          kg: repBest.kg,
+          reps: repBest.reps,
+        });
+      }
       if (sec > 0) timePts.push({ date: entry.date, value: sec, isPB: entry.isPB });
     }
     if (repPts.length >= timePts.length) {
@@ -110,14 +122,16 @@ export default function ExerciseProgressChart({ history }: Props) {
     ? points.map((_, i) => i)
     : [0, Math.floor(points.length / 2), points.length - 1];
 
+  // e1RM rounds to whole kg/lb for display — the formula is approximate
+  // enough that decimals would imply false precision.
   const formatValue = (v: number) =>
     mode === 'rep'
-      ? `${formatWeight(v, unit)}${unitSuffix}`
+      ? `${formatWeight(Math.round(v), unit)}${unitSuffix}`
       : formatSeconds(v);
 
   const hover = hoverIdx !== null ? points[hoverIdx] : null;
   const titleKey = mode === 'rep'
-    ? 'exercise_detail.chart_title_weight'
+    ? 'exercise_detail.chart_title_e1rm'
     : 'exercise_detail.chart_title_time';
 
   return (
@@ -239,6 +253,14 @@ export default function ExerciseProgressChart({ history }: Props) {
             <span style={{ fontWeight: 600, color: 'var(--workout-text-secondary)' }}>
               {formatValue(hover.value)}
             </span>
+            {/* Show the actual set that produced the e1RM ("100 kg × 5")
+                next to the unified score so the user sees both — the
+                e1RM is the comparator, the set is what they actually did. */}
+            {mode === 'rep' && hover.kg != null && hover.reps != null && (
+              <span style={{ marginInlineStart: 4, color: 'var(--workout-text-muted)' }}>
+                ({formatWeight(hover.kg, unit)}{unitSuffix} × {hover.reps})
+              </span>
+            )}
             {' · '}
             {formatDate(hover.date, language, { year: 'numeric', month: 'short', day: 'numeric' })}
             {hover.isPB && <span style={{ marginInlineStart: 6 }}>🥇</span>}

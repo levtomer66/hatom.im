@@ -268,17 +268,21 @@ export default function ExercisesPage() {
                         {listName}
                       </div>
                       <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
-                        {pb && pb.completedKg !== null && (
+                        {pb && pb.bestE1rm !== null && pb.bestKg !== null && pb.bestReps !== null && (
                           <span style={{ fontSize: '13px', color: 'var(--workout-gold)' }}>
-                            🥇 {formatWeight(pb.completedKg, unit)}{unitSuffix}: {pb.completedReps.join('×')}
+                            🥇 {formatWeight(pb.bestKg, unit)}{unitSuffix} × {pb.bestReps}
+                            {' '}
+                            <span style={{ color: 'var(--workout-text-muted)' }}>
+                              (e1RM ≈ {formatWeight(Math.round(pb.bestE1rm), unit)}{unitSuffix})
+                            </span>
                           </span>
                         )}
-                        {pb && pb.completedKg === null && pb.currentKg > 0 && (
+                        {pb && pb.bestE1rm === null && pb.currentKg > 0 && (
                           <span style={{ fontSize: '13px', color: 'var(--workout-text-secondary)' }}>
                             💪 {formatWeight(pb.currentKg, unit)}{unitSuffix}: {pb.currentReps.join('×')}
                           </span>
                         )}
-                        {pb && (pb.completedKg !== null || pb.currentKg > 0) && (
+                        {pb && (pb.bestE1rm !== null || pb.currentKg > 0) && (
                           <span style={{
                             fontSize: '12px',
                             color: 'var(--workout-accent)',
