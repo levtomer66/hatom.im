@@ -19,6 +19,7 @@ import {
 } from '@/lib/weight';
 import { formatSeconds } from '@/lib/time';
 import ExerciseExternalLinks from './ExerciseExternalLinks';
+import ExerciseProgressChart from './ExerciseProgressChart';
 import SetStopwatch from './SetStopwatch';
 
 export interface ExerciseCardDraggable {
@@ -646,6 +647,13 @@ export default function ExerciseCard({
                 </div>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  {/* Progress chart pinned above the list — same component
+                      used on /workout/exercises/[id], but here it gives
+                      the user a visual sense of trend mid-workout
+                      without leaving the active set. */}
+                  {history.length >= 2 && (
+                    <ExerciseProgressChart history={history} />
+                  )}
                   {history.map((entry, index) => (
                     <div 
                       key={index}
