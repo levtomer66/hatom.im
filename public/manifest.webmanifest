@@ -1,0 +1,17 @@
+{
+  "name": "המפלצתומים",
+  "short_name": "Workout",
+  "description": "Personal workout tracking — works in the gym, online or off.",
+  "start_url": "/workout",
+  "scope": "/workout/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0a0e1a",
+  "theme_color": "#c9a84c",
+  "lang": "he",
+  "dir": "rtl",
+  "icons": [
+    { "src": "/workout/apple-icon", "sizes": "180x180", "type": "image/png" },
+    { "src": "/workout/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}

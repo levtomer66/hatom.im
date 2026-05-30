@@ -4,11 +4,15 @@ import { WorkoutLanguageProvider } from '@/context/WorkoutLanguageContext';
 import { WorkoutUnitProvider } from '@/context/WorkoutUnitContext';
 import { WorkoutTimerProvider } from '@/context/WorkoutTimerContext';
 import WorkoutShell from '@/components/workout/WorkoutShell';
+import PwaInstaller from '@/components/workout/PwaInstaller';
 import './workout.css';
 
 export const metadata: Metadata = {
   title: '🏋️ Workout',
   description: 'Personal workout tracking app',
+  // PWA: only /workout/* declares itself installable. Other features
+  // keep their existing apple-touch-icon "Add to Home Screen" path.
+  manifest: '/manifest.webmanifest',
 };
 
 export const viewport: Viewport = {
@@ -16,6 +20,7 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
+  themeColor: '#c9a84c',
 };
 
 export default function WorkoutLayout({
@@ -33,6 +38,8 @@ export default function WorkoutLayout({
             <WorkoutShell>
               {children}
             </WorkoutShell>
+            {/* Service-worker registration + offline / sync indicator. */}
+            <PwaInstaller />
           </WorkoutUserProvider>
         </WorkoutTimerProvider>
       </WorkoutUnitProvider>
