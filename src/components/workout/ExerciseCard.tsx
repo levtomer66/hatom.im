@@ -20,6 +20,7 @@ import {
 import { formatSeconds } from '@/lib/time';
 import ExerciseExternalLinks from './ExerciseExternalLinks';
 import ExerciseProgressChart from './ExerciseProgressChart';
+import ExercisePhoto from './ExercisePhoto';
 import SetStopwatch from './SetStopwatch';
 
 export interface ExerciseCardDraggable {
@@ -112,8 +113,9 @@ export default function ExerciseCard({
   const dragHandle = (draggable && isEditable) ? (
     <button
       type="button"
-      className="exercise-card-action"
+      className="exercise-card-action exercise-card-drag-handle"
       title={t('card.drag_to_reorder')}
+      aria-label={t('card.drag_to_reorder')}
       onClick={(e) => e.stopPropagation()}
       style={{ cursor: 'grab', touchAction: 'none' }}
       {...draggable.handleAttributes}
@@ -344,17 +346,11 @@ export default function ExerciseCard({
       >
         <div className="exercise-collapsed-row">
           {dragHandle}
-          <div
+          <ExercisePhoto
             className="exercise-collapsed-photo"
-            style={{
-              backgroundImage: exerciseDef?.defaultPhoto
-                ? `url(${exerciseDef.defaultPhoto})`
-                : 'none',
-              backgroundColor: exerciseDef?.defaultPhoto ? undefined : 'var(--workout-bg-secondary)',
-            }}
-          >
-            {!exerciseDef?.defaultPhoto && '🏋️'}
-          </div>
+            src={exerciseDef?.defaultPhoto}
+            alt={displayName}
+          />
           <div className="exercise-collapsed-info">
             <span className="exercise-collapsed-name">{displayName}</span>
             <span className="exercise-collapsed-stats">
@@ -402,21 +398,16 @@ export default function ExerciseCard({
     >
       {/* Header */}
       <div className="exercise-card-header">
-        <div 
+        <div
           className="exercise-card-photo exercise-card-photo-clickable"
           onClick={openHistory}
-          style={{
-            backgroundImage: exerciseDef?.defaultPhoto 
-              ? `url(${exerciseDef.defaultPhoto})` 
-              : 'none',
-            backgroundColor: exerciseDef?.defaultPhoto ? undefined : 'var(--workout-bg-secondary)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontSize: '24px',
-          }}
+          style={{ position: 'relative', cursor: 'pointer', fontSize: '24px' }}
         >
-          {!exerciseDef?.defaultPhoto && '🏋️'}
+          <ExercisePhoto
+            src={exerciseDef?.defaultPhoto}
+            alt={displayName}
+            style={{ width: '100%', height: '100%', borderRadius: 'inherit' }}
+          />
           <span className="exercise-card-photo-hint">📊</span>
         </div>
         

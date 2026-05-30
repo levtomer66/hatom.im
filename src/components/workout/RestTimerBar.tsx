@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useWorkoutTimer } from '@/context/WorkoutTimerContext';
 import { useT } from '@/lib/workout-i18n';
 import { formatSeconds } from '@/lib/time';
@@ -10,7 +10,20 @@ export default function RestTimerBar() {
   const t = useT();
 
   const showFinished = state.startedAt === null && state.justFinishedAt !== null;
-  if (!isRunning && !showFinished) return null;
+  const visible = isRunning || showFinished;
+
+  // Tag the body while the pill is on-screen so `.workout-page` can
+  // reserve extra padding-bottom and the last card doesn't get hidden
+  // behind the pill (M-6). Doing it on body instead of via a parent
+  // wrapper avoids re-rendering the entire workout shell on every tick.
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    if (visible) document.body.setAttribute('data-rest-active', '1');
+    else document.body.removeAttribute('data-rest-active');
+    return () => document.body.removeAttribute('data-rest-active');
+  }, [visible]);
+
+  if (!visible) return null;
 
   const pct = isRunning && state.durationSec > 0
     ? Math.max(0, Math.min(100, ((state.durationSec - remainingSec) / state.durationSec) * 100))

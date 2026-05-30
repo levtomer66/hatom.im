@@ -424,6 +424,30 @@
 /* Page content */
 .workout-page {
   padding: 16px;
+  /* M-6 — reserve room under the bottom-nav so the last card isn't
+     hidden behind it. Bumped further when the rest-timer pill is
+     showing via the body[data-rest-active] selector below. */
+  padding-bottom: calc(var(--bottom-nav-height) + env(safe-area-inset-bottom, 0px) + 16px);
+}
+
+/* When the rest timer pill is on screen it occupies its own ~56 px row
+   above the bottom-nav. Push the page's bottom padding so the last
+   exercise card isn't tucked behind it. */
+body[data-rest-active] .workout-page {
+  padding-bottom: calc(var(--bottom-nav-height) + env(safe-area-inset-bottom, 0px) + 72px);
+}
+
+/* Drag handle on the exercise cards — bumped contrast + a faint outline
+   so the hamburger glyph is actually discoverable on dark cards (M-3). */
+.exercise-card-drag-handle {
+  color: var(--workout-text) !important;
+  font-size: 22px !important;
+  font-weight: 700;
+  border: 1px solid var(--workout-border);
+  background-color: transparent !important;
+}
+.exercise-card-drag-handle:hover {
+  background-color: var(--workout-bg-secondary) !important;
 }
 
 /* Cards */
@@ -846,6 +870,23 @@
   gap: 10px;
 }
 
+/* Long Hebrew exercise names ("מתח עליון אחיזה רחבה") almost touched the
+   action buttons on phone width in RTL (M-5). Drop the gap and trim
+   action-button padding on narrow screens so the name has the room. */
+@media (max-width: 480px) {
+  .exercise-collapsed-row {
+    gap: 8px;
+  }
+  .exercise-collapsed-row .exercise-card-action {
+    width: 32px;
+    height: 32px;
+    font-size: 16px;
+  }
+  .exercise-collapsed-name {
+    font-size: 15px;
+  }
+}
+
 .exercise-collapsed-photo {
   width: 36px;
   height: 36px;
@@ -1245,8 +1286,25 @@
 }
 
 .empty-state-icon {
-  font-size: 48px;
+  font-size: 64px;
   opacity: 0.5;
+}
+.empty-state-text {
+  font-size: 16px;
+}
+@media (max-width: 480px) {
+  /* On phone width, push the icon larger so the empty state feels
+     intentional rather than tucked away (M-4). */
+  .empty-state {
+    padding: 56px 16px;
+  }
+  .empty-state-icon {
+    font-size: 80px;
+  }
+  .empty-state-text {
+    font-size: 17px;
+    line-height: 1.45;
+  }
 }
 
 .empty-state-text {
