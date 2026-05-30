@@ -73,7 +73,22 @@ const WorkoutSchema = new Schema<WorkoutDocument>({
 // Compound index for efficient queries
 WorkoutSchema.index({ userId: 1, date: -1 });
 WorkoutSchema.index({ userId: 1, 'exercises.exerciseId': 1 });
-WorkoutSchema.index({ userId: 1, clientRequestId: 1 }, { unique: true, sparse: true });
+// PARTIAL (not sparse) index for idempotent POSTs. A sparse compound
+// index on (userId, clientRequestId) does NOT exclude docs missing the
+// second field — sparse compound only requires *at least one* of the
+// indexed fields to exist, and `userId` always does. The result is
+// every legacy doc lands at (userId, null) in the index and duplicate-
+// key errors fire on the second one. Partial index with an explicit
+// `$exists: true` filter only indexes docs where clientRequestId is
+// actually present, which is the intended behavior.
+WorkoutSchema.index(
+  { userId: 1, clientRequestId: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { clientRequestId: { $type: 'string' } },
+    name: 'userId_1_clientRequestId_1',
+  }
+);
 
 // Transform _id to id in JSON
 WorkoutSchema.set('toJSON', {
