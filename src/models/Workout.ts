@@ -56,12 +56,15 @@ const WorkoutSchema = new Schema<WorkoutDocument>({
   },
   // Client-supplied UUID for idempotent creates — the offline PWA queue
   // could replay a POST if the original response never made it back to
-  // the client (process kill mid-drain, mobile network flap). Sparse so
-  // existing rows without it still validate, unique so a duplicate POST
-  // can resolve to the same workout.
+  // the client (process kill mid-drain, mobile network flap). Sparse +
+  // unique on (userId, clientRequestId) below, so a duplicate POST can
+  // resolve to the same workout. CRITICAL: do NOT set a default of null
+  // here — sparse indexes still index `null` values, so legacy/empty
+  // rows would all collide on the same key. The route handler omits
+  // the field entirely when the client doesn't supply one.
   clientRequestId: {
     type: String,
-    default: null,
+    required: false,
   },
 }, {
   timestamps: { createdAt: 'createdAt', updatedAt: 'updatedAt' },

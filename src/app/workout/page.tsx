@@ -38,6 +38,7 @@ import {
   ExerciseDefinition,
   createDefaultSets,
   isTimeSet,
+  DEFAULT_NUM_SETS,
 } from '@/types/workout';
 import { EXERCISE_LIBRARY } from '@/data/exercise-library';
 import { v4 as uuidv4 } from 'uuid';
@@ -425,8 +426,16 @@ export default function WorkoutsPage() {
       const prior = personalBests[def.id]?.lastSets;
       // Same KG-only prefill rule as startWorkoutFromTemplate above —
       // history hints today's weight, reps stay user-owned (placeholder).
+      //
+      // Mid-workout adds always start with the default set count
+      // (DEFAULT_NUM_SETS = 3). If history has fewer than 3 sets, repeat
+      // the last prior entry into the remaining slots instead of
+      // truncating — same shape rule the template start path uses, so
+      // the user gets consistent slot counts regardless of how an
+      // exercise lands in the workout. (Codex P2)
       const sets: WorkoutSet[] = prior && prior.length > 0
-        ? prior.slice(0, 3).map((p) => {
+        ? Array.from({ length: DEFAULT_NUM_SETS }, (_, i) => {
+            const p = prior[Math.min(i, prior.length - 1)];
             const wasTime = p.seconds != null;
             return { kg: p.kg ?? null, reps: null, seconds: wasTime ? 0 : null };
           })

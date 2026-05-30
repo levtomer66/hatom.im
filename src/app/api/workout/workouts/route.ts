@@ -84,15 +84,22 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const workout = new WorkoutModel({
+    // Note: `clientRequestId` is OMITTED (not set to null) when the client
+    // didn't supply one. A sparse unique index on the field still indexes
+    // documents where the field exists with a null value, so storing
+    // `null` would cause every workout-after-the-first to collide on the
+    // duplicate-key check. Only include the field when there's a real
+    // UUID to dedupe against. (Codex P0)
+    const workoutData: Record<string, unknown> = {
       userId,
       templateId: templateId || null,
       workoutName,
       date: date || new Date().toISOString().split('T')[0],
       exercises: [],
       isCompleted: false,
-      clientRequestId: clientRequestId || null,
-    });
+    };
+    if (clientRequestId) workoutData.clientRequestId = clientRequestId;
+    const workout = new WorkoutModel(workoutData);
 
     await workout.save();
 
