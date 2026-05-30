@@ -338,6 +338,12 @@ export default function WorkoutsPage() {
         // Add the exercises from the template
         workout.exercises = exercises;
         setActiveWorkout(workout);
+        // Bump editTick so the autosave effect fires once and persists
+        // the template-loaded exercises onto the freshly-created workout
+        // document. Without this the POST creates an empty workout and
+        // the exercises only live in client state — reloading or
+        // navigating away loses them.
+        setEditTick((n) => n + 1);
         setHasInProgressWorkout(true);
         setShowTemplateSelector(false);
       }
