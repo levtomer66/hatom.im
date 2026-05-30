@@ -556,7 +556,15 @@ export default function ExerciseCard({
                         value={set.reps ?? ''}
                         onChange={(e) => handleRepsChange(setIndex, e.target.value)}
                         onKeyDown={(e) => handleKeyDown(e, setIndex < exercise.sets.length - 1 ? (setIndex + 1) * 2 : null)}
-                        placeholder={t('card.reps_placeholder')}
+                        // Placeholder doubles as the "target" — the reps
+                        // the user hit on this set last session. Falls back
+                        // to the generic 'reps' label when the user has no
+                        // prior occurrence or the prior set was time-mode.
+                        placeholder={
+                          pb?.lastSets?.[setIndex]?.reps != null
+                            ? String(pb.lastSets[setIndex].reps)
+                            : t('card.reps_placeholder')
+                        }
                         min="0"
                         max="99"
                       />

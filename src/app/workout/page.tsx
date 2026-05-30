@@ -281,12 +281,17 @@ export default function WorkoutsPage() {
     setEditTick((n) => n + 1);
   }, []);
 
-  // Start new workout from template — carry per-exercise defaults (numSets, notes)
-  // AND prefill each set from the user's most recent occurrence of that
-  // exercise (per Imp 2 / PB endpoint's `lastSets`). The prefill is a
-  // suggestion: a flag on each set could mark it as "untouched" so the
-  // user can tell prefilled vs typed, but the simpler design is "fill it
-  // and let the user type over if today is different."
+  // Start new workout from template — carry per-exercise defaults
+  // (numSets, notes) AND prefill each set's KG from the user's most
+  // recent occurrence (per PB endpoint's `lastSets`). REPS are NOT
+  // prefilled — those represent what you actually did *this* session,
+  // so they belong to the user, not history. Prior reps surface as
+  // placeholder text on each input instead, giving a clear target
+  // without faking data.
+  //
+  // For time-mode prior sets (planks, hangs), we still copy the kg
+  // (often 0 for bodyweight) and set seconds=0 so the discriminator
+  // keeps the row in time mode; the stopwatch then starts at 0.
   const startWorkoutFromTemplate = async (template: WorkoutTemplate) => {
     if (!currentUser) return;
 
@@ -301,9 +306,13 @@ export default function WorkoutsPage() {
           // any extra slots with blanks so the template's numSets wins.
           sets = Array.from({ length: numSets }, (_, i) => {
             const p = prior[Math.min(i, prior.length - 1)];
-            return p
-              ? { kg: p.kg ?? null, reps: p.reps ?? null, seconds: p.seconds ?? null }
-              : { kg: null, reps: null, seconds: null };
+            if (!p) return { kg: null, reps: null, seconds: null };
+            const wasTime = p.seconds != null;
+            return {
+              kg: p.kg ?? null,
+              reps: null,                          // leave for the user — prior reps render as placeholder
+              seconds: wasTime ? 0 : null,         // preserve time-mode discriminator
+            };
           });
         } else {
           sets = createDefaultSets(numSets);
@@ -414,10 +423,13 @@ export default function WorkoutsPage() {
 
     const newExercises: WorkoutExercise[] = exerciseDefs.map((def, index) => {
       const prior = personalBests[def.id]?.lastSets;
+      // Same KG-only prefill rule as startWorkoutFromTemplate above —
+      // history hints today's weight, reps stay user-owned (placeholder).
       const sets: WorkoutSet[] = prior && prior.length > 0
-        ? prior.slice(0, 3).map((p) => ({
-            kg: p.kg ?? null, reps: p.reps ?? null, seconds: p.seconds ?? null,
-          }))
+        ? prior.slice(0, 3).map((p) => {
+            const wasTime = p.seconds != null;
+            return { kg: p.kg ?? null, reps: null, seconds: wasTime ? 0 : null };
+          })
         : createDefaultSets();
       return {
         id: uuidv4(),
