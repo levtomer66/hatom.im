@@ -4,6 +4,7 @@ import WorkoutTemplateModel from '@/models/WorkoutTemplate';
 import { TemplateExercise, DEFAULT_NUM_SETS, MIN_SETS, MAX_SETS } from '@/types/workout';
 import { resolveExerciseId } from '@/data/exercise-library';
 import { requireSignedIn } from '@/lib/auth-helpers';
+import { isOwnerEmail } from '@/types/auth';
 
 // Connect to MongoDB using mongoose
 async function connectDB() {
@@ -157,6 +158,13 @@ export async function PUT(
       template.exercises = sanitizeExercises(
         (body.exerciseIds as unknown[]).map(id => ({ exerciseId: id, numSets: DEFAULT_NUM_SETS, notes: '' }))
       );
+    }
+
+    // sharedByOwner is owner-only. A non-owner PUT silently drops the
+    // field (vs 403) so stale clients don't surface a confusing error
+    // when toggling a UI control that wasn't supposed to show for them.
+    if (body.sharedByOwner !== undefined && isOwnerEmail(userId)) {
+      template.set('sharedByOwner', !!body.sharedByOwner, { strict: false });
     }
 
     // Opportunistically drop the legacy field once we rewrite this doc.

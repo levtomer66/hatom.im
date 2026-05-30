@@ -201,6 +201,11 @@ export interface WorkoutTemplate {
   userId: UserId;
   name: string;
   exercises: TemplateExercise[];  // Ordered list of exercise entries (with per-exercise defaults)
+  // When true AND userId is in OWNER_EMAILS, this template appears in
+  // the "Workouts by Tomer" tab of the start-workout selector for
+  // every signed-in user with workout permission. Only owners can set
+  // this; the PUT handler ignores it for non-owners.
+  sharedByOwner?: boolean;
   createdAt: string;
   updatedAt: string;
 }

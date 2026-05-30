@@ -7,6 +7,8 @@ export interface WorkoutTemplateData {
   userId: UserId;
   name: string;
   exercises: TemplateExercise[];
+  // Owner-only flag — see src/types/workout.ts for read/write rules.
+  sharedByOwner?: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -36,6 +38,11 @@ const WorkoutTemplateSchema = new Schema<WorkoutTemplateDocument>({
   exercises: {
     type: [TemplateExerciseSchema],
     default: [],
+  },
+  sharedByOwner: {
+    type: Boolean,
+    default: false,
+    index: true,
   },
 }, {
   timestamps: { createdAt: 'createdAt', updatedAt: 'updatedAt' },

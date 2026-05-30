@@ -92,6 +92,12 @@ const DICT = {
   'selector.create_new':            { en: '+ Create New Workout',                           he: '+ צור אימון חדש' },
   'selector.start':                 { en: 'Start',                                          he: 'התחל' },
   'selector.confirm_delete_prefix': { en: 'Delete',                                         he: 'למחוק' },
+  'selector.tab.mine':              { en: 'My Workouts',                                    he: 'האימונים שלי' },
+  'selector.tab.byTomer':           { en: 'Workouts by Tomer',                              he: 'אימונים של תומר' },
+  'selector.tab.byTomer.empty':     { en: 'Tomer hasn’t shared any workouts yet.',     he: 'תומר עדיין לא שיתף אימונים' },
+  'selector.share.on_title':        { en: 'Shared with everyone — tap to unshare',          he: 'משותף עם כולם — לחץ כדי לבטל' },
+  'selector.share.off_title':       { en: 'Tap to share this workout with everyone',        he: 'לחץ כדי לשתף את האימון עם כולם' },
+  'selector.shared.badge':          { en: 'Shared',                                         he: 'משותף' },
 
   // History list
   'history.title':                  { en: 'History',                                        he: 'היסטוריה' },

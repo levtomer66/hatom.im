@@ -18,6 +18,7 @@ import {
   sortableKeyboardCoordinates,
 } from '@dnd-kit/sortable';
 import { useRouter } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 import { useWorkoutUser } from '@/context/WorkoutUserContext';
 import { useWorkoutLanguage } from '@/context/WorkoutLanguageContext';
 import { useT, formatDate, getLocalizedTemplateName } from '@/lib/workout-i18n';
@@ -42,6 +43,8 @@ export default function WorkoutsPage() {
   const router = useRouter();
   const { currentUser, isLoading } = useWorkoutUser();
   const { language } = useWorkoutLanguage();
+  const { data: session } = useSession();
+  const isOwner = session?.user?.isOwner === true;
   const t = useT();
 
   // No session → bounce to /login. PR 4 retired the in-app user picker.
@@ -54,6 +57,7 @@ export default function WorkoutsPage() {
   // State
   const [activeWorkout, setActiveWorkout] = useState<Workout | null>(null);
   const [templates, setTemplates] = useState<WorkoutTemplate[]>([]);
+  const [sharedTemplates, setSharedTemplates] = useState<WorkoutTemplate[]>([]);
   const [showTemplateSelector, setShowTemplateSelector] = useState(false);
   const [showTemplateEditor, setShowTemplateEditor] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<WorkoutTemplate | null>(null);
@@ -106,20 +110,51 @@ export default function WorkoutsPage() {
     }
   }, [currentUser]);
 
-  // Fetch workout templates
+  // Fetch the caller's own templates AND any templates an owner has
+  // marked as shared (visible to every signed-in workout user). Done in
+  // parallel — independent endpoints, no need to serialise.
   const fetchTemplates = useCallback(async () => {
     if (!currentUser) return;
-    
+
     try {
-      const res = await fetch(`/api/workout/templates?userId=${currentUser.id}`);
-      if (res.ok) {
-        const data = await res.json();
-        setTemplates(data);
-      }
+      const [mineRes, sharedRes] = await Promise.all([
+        fetch(`/api/workout/templates?userId=${currentUser.id}`),
+        fetch('/api/workout/templates?scope=shared'),
+      ]);
+      if (mineRes.ok) setTemplates(await mineRes.json());
+      if (sharedRes.ok) setSharedTemplates(await sharedRes.json());
     } catch (error) {
       console.error('Error fetching templates:', error);
     }
   }, [currentUser]);
+
+  // Owner toggle: flip sharedByOwner on one of MY templates. Optimistic
+  // update + revert on server failure. The server silently drops the
+  // field for non-owners, so guard at the call site too just in case
+  // (the share button isn't rendered for non-owners anyway).
+  const handleToggleShare = useCallback(async (template: WorkoutTemplate) => {
+    if (!isOwner) return;
+    const next = !template.sharedByOwner;
+    setTemplates(prev =>
+      prev.map(t => (t.id === template.id ? { ...t, sharedByOwner: next } : t)),
+    );
+    try {
+      const res = await fetch(`/api/workout/templates/${template.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sharedByOwner: next }),
+      });
+      if (!res.ok) throw new Error('share toggle failed');
+      // Refetch shared list so the "Workouts by Tomer" tab matches reality.
+      const sharedRes = await fetch('/api/workout/templates?scope=shared');
+      if (sharedRes.ok) setSharedTemplates(await sharedRes.json());
+    } catch (err) {
+      console.error(err);
+      setTemplates(prev =>
+        prev.map(t => (t.id === template.id ? { ...t, sharedByOwner: !next } : t)),
+      );
+    }
+  }, [isOwner]);
 
   // Auto-resume: Check for in-progress workout and automatically resume it
   const checkAndResumeWorkout = useCallback(async () => {
@@ -523,7 +558,9 @@ export default function WorkoutsPage() {
       <TemplateSelector
         isOpen={showTemplateSelector}
         templates={templates}
+        sharedTemplates={sharedTemplates}
         exerciseMap={exerciseMap}
+        isOwner={isOwner}
         onClose={() => setShowTemplateSelector(false)}
         onSelect={(template) => {
           startWorkoutFromTemplate(template);
@@ -539,6 +576,7 @@ export default function WorkoutsPage() {
           setShowTemplateSelector(false);
           setShowTemplateEditor(true);
         }}
+        onToggleShare={handleToggleShare}
       />
 
       <TemplateEditor

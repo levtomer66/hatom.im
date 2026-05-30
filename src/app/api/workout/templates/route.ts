@@ -4,6 +4,7 @@ import WorkoutTemplateModel from '@/models/WorkoutTemplate';
 import { TemplateExercise, DEFAULT_NUM_SETS, MIN_SETS, MAX_SETS } from '@/types/workout';
 import { resolveExerciseId } from '@/data/exercise-library';
 import { requireSignedIn } from '@/lib/auth-helpers';
+import { OWNER_EMAILS } from '@/types/auth';
 
 // Connect to MongoDB using mongoose
 async function connectDB() {
@@ -82,17 +83,26 @@ function sanitizeExercises(raw: unknown): TemplateExercise[] {
   return dedupeByExerciseId(parsed);
 }
 
-// GET /api/workout/templates
+// GET /api/workout/templates              → caller's own templates
+// GET /api/workout/templates?scope=shared  → owner-shared templates from
+//                                            any user in OWNER_EMAILS,
+//                                            visible to every signed-in
+//                                            user with workout permission.
 // userId is derived from the Auth.js session.
-export async function GET() {
+export async function GET(request: NextRequest) {
   const gate = await requireSignedIn();
   if (gate instanceof NextResponse) return gate;
   const userId = gate.session.user.email;
+  const scope = request.nextUrl.searchParams.get('scope');
 
   try {
     await connectDB();
 
-    const templates = await WorkoutTemplateModel.find({ userId })
+    const query = scope === 'shared'
+      ? { sharedByOwner: true, userId: { $in: OWNER_EMAILS } }
+      : { userId };
+
+    const templates = await WorkoutTemplateModel.find(query)
       .sort({ updatedAt: -1 })
       .lean();
 
