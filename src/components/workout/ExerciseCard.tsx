@@ -274,23 +274,28 @@ export default function ExerciseCard({
     onUpdate({ ...exercise, notes: value });
   };
 
-  // Flip a single set between reps mode (default) and time mode. The
-  // inactive field is cleared so the discriminator stays clean.
+  // Flip a single set between reps mode (default) and time mode. We keep
+  // BOTH `reps` and `seconds` on the set so toggling back and forth doesn't
+  // lose the user's data — only the discriminator (seconds null vs number)
+  // changes which input renders. `isTimeSet` is `seconds != null`.
   const handleSetModeToggle = (setIndex: number) => {
     if (!onUpdate) return;
     const newSets = [...exercise.sets];
     const current = newSets[setIndex];
     const goingToTime = !isTimeSet(current);
     newSets[setIndex] = goingToTime
-      ? { ...current, reps: null, seconds: 0 }
-      : { ...current, seconds: null };
+      ? { ...current, seconds: current.seconds ?? 0 }  // enter time mode, keep reps
+      : { ...current, seconds: null };                 // back to rep mode, keep prior seconds null
     onUpdate({ ...exercise, sets: newSets });
   };
 
   const handleSecondsChange = (setIndex: number, value: number | null) => {
     if (!onUpdate) return;
     const newSets = [...exercise.sets];
-    newSets[setIndex] = { ...newSets[setIndex], seconds: value, reps: null };
+    // Preserve `reps` when typing in the time field. The renderer keys on
+    // seconds != null to know we're in time mode; reps stays in the
+    // background so a later toggle back restores it.
+    newSets[setIndex] = { ...newSets[setIndex], seconds: value };
     onUpdate({ ...exercise, sets: newSets });
   };
 
@@ -369,7 +374,15 @@ export default function ExerciseCard({
           {onRemove && (
             <button
               className="exercise-card-action"
-              onClick={(e) => { e.stopPropagation(); onRemove(); }}
+              onClick={(e) => {
+                e.stopPropagation();
+                // Mid-workout exercise removal is destructive (any logged
+                // sets get thrown away with no undo today) — gate behind
+                // an explicit confirm. Cheap native dialog matches the
+                // existing pattern in History delete.
+                if (confirm(t('card.remove_confirm'))) onRemove();
+              }}
+              aria-label={t('card.remove')}
               title={t('card.remove')}
             >
               ✕
@@ -443,7 +456,10 @@ export default function ExerciseCard({
             {onRemove && (
               <button
                 className="exercise-card-action"
-                onClick={onRemove}
+                onClick={() => {
+                  if (confirm(t('card.remove_confirm'))) onRemove();
+                }}
+                aria-label={t('card.remove')}
                 title={t('card.remove')}
               >
                 ✕

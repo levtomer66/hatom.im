@@ -50,9 +50,18 @@ const WorkoutSchema = new Schema<WorkoutDocument>({
     type: [WorkoutExerciseSchema], 
     default: [] 
   },
-  isCompleted: { 
-    type: Boolean, 
-    default: false 
+  isCompleted: {
+    type: Boolean,
+    default: false
+  },
+  // Client-supplied UUID for idempotent creates — the offline PWA queue
+  // could replay a POST if the original response never made it back to
+  // the client (process kill mid-drain, mobile network flap). Sparse so
+  // existing rows without it still validate, unique so a duplicate POST
+  // can resolve to the same workout.
+  clientRequestId: {
+    type: String,
+    default: null,
   },
 }, {
   timestamps: { createdAt: 'createdAt', updatedAt: 'updatedAt' },
@@ -61,6 +70,7 @@ const WorkoutSchema = new Schema<WorkoutDocument>({
 // Compound index for efficient queries
 WorkoutSchema.index({ userId: 1, date: -1 });
 WorkoutSchema.index({ userId: 1, 'exercises.exerciseId': 1 });
+WorkoutSchema.index({ userId: 1, clientRequestId: 1 }, { unique: true, sparse: true });
 
 // Transform _id to id in JSON
 WorkoutSchema.set('toJSON', {

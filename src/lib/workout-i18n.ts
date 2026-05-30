@@ -28,10 +28,17 @@ const DICT = {
   'workout.create_button':          { en: 'Create Workout',                                 he: 'צור אימון' },
   'workout.resume_tip':             { en: 'Tap a workout in History to resume it',          he: 'הקש על אימון בהיסטוריה כדי לחדש אותו' },
   'workout.saving':                 { en: 'Saving…',                                        he: 'שומר…' },
-  'workout.saved':                  { en: '✓ Auto-saved',                                   he: '✓ נשמר אוטומטית' },
+  'workout.saved':                  { en: 'Auto-saved',                                     he: 'נשמר אוטומטית' },
   'workout.complete_button':        { en: '✓ Complete',                                     he: '✓ סיום' },
+  'workout.complete_confirm':       { en: 'Mark this workout as complete?',                 he: 'לסמן את האימון כהושלם?' },
   'workout.no_exercises':           { en: 'No exercises yet. Add some to get started!',     he: 'אין תרגילים עדיין. הוסף כדי להתחיל!' },
   'workout.add_exercise':           { en: '+ Add Exercise',                                 he: '+ הוסף תרגיל' },
+  'workout.progress_label':         { en: 'Progress',                                       he: 'התקדמות' },
+  'workout.summary.title':          { en: 'Workout complete!',                              he: 'האימון הושלם!' },
+  'workout.summary.sets':           { en: 'Sets logged',                                    he: 'סטים שתועדו' },
+  'workout.summary.exercises':      { en: 'Exercises',                                      he: 'תרגילים' },
+  'workout.summary.volume':         { en: 'Total volume',                                   he: 'נפח כולל' },
+  'workout.summary.cta':            { en: 'Nice work',                                      he: 'יפה מאד' },
 
   // Exercise card
   'card.sets_label':                { en: 'Sets:',                                          he: 'סטים:' },
@@ -45,6 +52,7 @@ const DICT = {
   'card.completed_at_prefix':       { en: '✓ Completed at',                                 he: '✓ הושלם ב' },
   'card.tap_to_log':                { en: 'Tap to log sets',                                he: 'הקש כדי לתעד סטים' },
   'card.remove':                    { en: 'Remove exercise',                                he: 'הסר תרגיל' },
+  'card.remove_confirm':            { en: 'Remove this exercise from the workout?',         he: 'להסיר את התרגיל הזה מהאימון?' },
   'card.replace':                   { en: 'Replace exercise',                               he: 'החלף תרגיל' },
   'card.drag_to_reorder':           { en: 'Drag to reorder',                                he: 'גרור כדי לשנות סדר' },
   'card.history_empty':             { en: 'No records yet for this exercise',               he: 'אין עדיין רישומים לתרגיל הזה' },
@@ -98,6 +106,9 @@ const DICT = {
   'selector.share.on_title':        { en: 'Shared with everyone — tap to unshare',          he: 'משותף עם כולם — לחץ כדי לבטל' },
   'selector.share.off_title':       { en: 'Tap to share this workout with everyone',        he: 'לחץ כדי לשתף את האימון עם כולם' },
   'selector.shared.badge':          { en: 'Shared',                                         he: 'משותף' },
+  'selector.edit_aria':             { en: 'Edit workout',                                   he: 'ערוך אימון' },
+  'selector.delete_aria':           { en: 'Delete workout',                                 he: 'מחק אימון' },
+  'selector.usage_n':               { en: '{n} sessions',                                   he: '{n} פעמים' },
 
   // History list
   'history.title':                  { en: 'History',                                        he: 'היסטוריה' },
@@ -105,6 +116,10 @@ const DICT = {
   'history.in_progress':            { en: 'In Progress',                                    he: 'בתהליך' },
   'history.completed':              { en: 'Completed',                                      he: 'הושלמו' },
   'history.resume':                 { en: 'Resume',                                         he: 'חדש' },
+  'history.resume_aria':            { en: 'Resume this in-progress workout',                he: 'חדש את האימון הפתוח' },
+  'history.view':                   { en: 'View',                                           he: 'צפה' },
+  'history.view_aria':              { en: 'View this completed workout',                    he: 'צפה באימון שהושלם' },
+  'history.delete_aria':            { en: 'Delete workout',                                 he: 'מחק אימון' },
   'history.delete_confirm':         { en: 'Delete this workout? This action cannot be undone.', he: 'למחוק את האימון? לא ניתן לבטל.' },
 
   // History detail
@@ -141,6 +156,8 @@ const DICT = {
   'timer.skip':                     { en: 'Skip',                                           he: 'דלג' },
   'timer.add_30':                   { en: '+30 seconds',                                    he: '+30 שניות' },
   'timer.minus_30':                 { en: '−30 seconds',                                    he: '−30 שניות' },
+  'timer.add_15':                   { en: '+15 seconds',                                    he: '+15 שניות' },
+  'timer.minus_15':                 { en: '−15 seconds',                                    he: '−15 שניות' },
   'timer.done_label':               { en: '✓ Rest done!',                                   he: '✓ סיים מנוחה!' },
   'timer.settings_title':           { en: 'Rest timer',                                     he: 'טיימר מנוחה' },
   'timer.default_label':            { en: 'Default',                                        he: 'ברירת מחדל' },

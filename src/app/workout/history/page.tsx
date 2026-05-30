@@ -76,20 +76,29 @@ export default function HistoryPage() {
     router.push('/workout');
   };
 
-  // Loading state
+  // Loading state — render the shell (Header + BottomNav) so the page
+  // doesn't collapse to a bare spinner during fetches.
   if (isLoading) {
     return (
       <main className="workout-main">
-        <div className="loading-spinner" />
+        <Header title={t('history.title')} />
+        <div className="workout-page">
+          <div className="loading-spinner" />
+        </div>
+        <BottomNav />
       </main>
     );
   }
 
-  // Not logged in
+  // Not logged in → mid-redirect; same shell.
   if (!currentUser) {
     return (
       <main className="workout-main">
-        <div className="loading-spinner" />
+        <Header title={t('history.title')} />
+        <div className="workout-page">
+          <div className="loading-spinner" />
+        </div>
+        <BottomNav />
       </main>
     );
   }
@@ -190,18 +199,21 @@ export default function HistoryPage() {
                             className="workout-btn workout-btn-primary"
                             style={{ padding: '8px 16px', fontSize: '14px' }}
                             onClick={() => resumeWorkout(workout.id)}
+                            aria-label={t('history.resume_aria')}
                           >
                             {t('history.resume')}
                           </button>
                           <button
                             className="exercise-card-action"
-                            style={{ 
-                              backgroundColor: 'var(--workout-red)', 
+                            style={{
+                              backgroundColor: 'var(--workout-red)',
                               color: 'white',
                               opacity: deletingId === workout.id ? 0.5 : 1,
                             }}
                             onClick={() => deleteWorkout(workout.id)}
                             disabled={deletingId === workout.id}
+                            aria-label={t('history.delete_aria')}
+                            title={t('history.delete_aria')}
                           >
                             🗑
                           </button>
@@ -272,20 +284,27 @@ export default function HistoryPage() {
                               <span className="history-item-count">
                                 {n}
                               </span>
+                              {/* Completed workouts get "View" → read-only
+                                  detail page. Clicking Resume on a
+                                  completed entry used to silently flip the
+                                  isCompleted flag back to false (B1).
+                                  Use the explicit Resume action on the
+                                  in-progress section above instead. */}
                               <button
                                 className="workout-btn workout-btn-secondary"
                                 style={{ padding: '6px 12px', fontSize: '12px' }}
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  resumeWorkout(workout.id);
+                                  router.push(`/workout/history/${workout.id}`);
                                 }}
+                                aria-label={t('history.view_aria')}
                               >
-                                {t('history.resume')}
+                                {t('history.view')}
                               </button>
                               <button
                                 className="exercise-card-action"
-                                style={{ 
-                                  backgroundColor: 'var(--workout-red)', 
+                                style={{
+                                  backgroundColor: 'var(--workout-red)',
                                   color: 'white',
                                   opacity: deletingId === workout.id ? 0.5 : 1,
                                   width: '32px',
@@ -296,6 +315,8 @@ export default function HistoryPage() {
                                   deleteWorkout(workout.id);
                                 }}
                                 disabled={deletingId === workout.id}
+                                aria-label={t('history.delete_aria')}
+                                title={t('history.delete_aria')}
                               >
                                 🗑
                               </button>

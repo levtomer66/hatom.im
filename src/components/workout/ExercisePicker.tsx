@@ -232,31 +232,41 @@ export default function ExercisePicker({
                 </button>
               </div>
 
-              {/* Category filters (Push/Pull/Legs) */}
+              {/* Category filters (Push/Pull/Legs/Calisthenics) */}
               <div className="category-filter-row">
-                {EXERCISE_FILTER_CATEGORIES.slice(0, 4).map(category => (
-                  <button
-                    key={category.id}
-                    className={`category-filter-btn ${categoryFilters.has(category.id) ? 'active' : ''}`}
-                    onClick={() => toggleCategoryFilter(category.id)}
-                  >
-                    <span>{category.icon}</span>
-                    <span>{getCategoryLabel(category.id, language)}</span>
-                  </button>
-                ))}
+                {EXERCISE_FILTER_CATEGORIES.slice(0, 4).map(category => {
+                  const label = getCategoryLabel(category.id, language);
+                  return (
+                    <button
+                      key={category.id}
+                      className={`category-filter-btn ${categoryFilters.has(category.id) ? 'active' : ''}`}
+                      onClick={() => toggleCategoryFilter(category.id)}
+                      aria-pressed={categoryFilters.has(category.id)}
+                      aria-label={label}
+                    >
+                      <span aria-hidden="true">{category.icon}</span>
+                      <span>{label}</span>
+                    </button>
+                  );
+                })}
               </div>
 
               {/* Muscle group filters */}
               <div className="muscle-filter-row">
-                {MUSCLE_GROUP_IDS.map(muscleId => (
-                  <button
-                    key={muscleId}
-                    className={`muscle-filter-btn ${muscleFilters.has(muscleId) ? 'active' : ''}`}
-                    onClick={() => toggleMuscleFilter(muscleId)}
-                  >
-                    {getCategoryLabel(muscleId, language)}
-                  </button>
-                ))}
+                {MUSCLE_GROUP_IDS.map(muscleId => {
+                  const label = getCategoryLabel(muscleId, language);
+                  return (
+                    <button
+                      key={muscleId}
+                      className={`muscle-filter-btn ${muscleFilters.has(muscleId) ? 'active' : ''}`}
+                      onClick={() => toggleMuscleFilter(muscleId)}
+                      aria-pressed={muscleFilters.has(muscleId)}
+                      aria-label={label}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
               </div>
             </div>
 

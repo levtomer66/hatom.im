@@ -21,6 +21,7 @@ import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { useWorkoutUser } from '@/context/WorkoutUserContext';
 import { useWorkoutLanguage } from '@/context/WorkoutLanguageContext';
+import { useWorkoutUnit } from '@/context/WorkoutUnitContext';
 import { useT, formatDate, getLocalizedTemplateName } from '@/lib/workout-i18n';
 import Header from '@/components/workout/Header';
 import BottomNav from '@/components/workout/BottomNav';
@@ -31,10 +32,12 @@ import TemplateEditor from '@/components/workout/TemplateEditor';
 import {
   Workout,
   WorkoutExercise,
+  WorkoutSet,
   WorkoutTemplate,
   PersonalBest,
   ExerciseDefinition,
   createDefaultSets,
+  isTimeSet,
 } from '@/types/workout';
 import { EXERCISE_LIBRARY } from '@/data/exercise-library';
 import { v4 as uuidv4 } from 'uuid';
@@ -58,10 +61,22 @@ export default function WorkoutsPage() {
   const [activeWorkout, setActiveWorkout] = useState<Workout | null>(null);
   const [templates, setTemplates] = useState<WorkoutTemplate[]>([]);
   const [sharedTemplates, setSharedTemplates] = useState<WorkoutTemplate[]>([]);
+  // Owner-only: { templateId → count } for shared templates. Empty for
+  // non-owners. Populated alongside template fetch.
+  const [templateUsage, setTemplateUsage] = useState<Record<string, number>>({});
   const [showTemplateSelector, setShowTemplateSelector] = useState(false);
   const [showTemplateEditor, setShowTemplateEditor] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<WorkoutTemplate | null>(null);
   const [showExercisePicker, setShowExercisePicker] = useState(false);
+  // Summary modal shown after a successful Complete. Holds the workout
+  // snapshot so the modal can summarize sets/volume even after we've
+  // cleared activeWorkout from state.
+  const [completedSummary, setCompletedSummary] = useState<Workout | null>(null);
+  // Bumped any time activeWorkout changes via the editor — distinct from
+  // the workout-id changing — so the autosave effect can debounce on
+  // real edits without firing for purely cosmetic state updates (modal
+  // open/close, etc.).
+  const [editTick, setEditTick] = useState(0);
   // Index of the exercise the user tapped "replace" on. null = no replace flow
   // active. Held at page level (not card level) so the picker modal lives at
   // the page root and doesn't unmount with the card when it collapses.
@@ -111,22 +126,27 @@ export default function WorkoutsPage() {
   }, [currentUser]);
 
   // Fetch the caller's own templates AND any templates an owner has
-  // marked as shared (visible to every signed-in workout user). Done in
-  // parallel — independent endpoints, no need to serialise.
+  // marked as shared (visible to every signed-in workout user). Owners
+  // additionally get a per-template usage count so the selector can
+  // surface "X sessions" badges on their own shared templates.
+  // All three calls run in parallel — independent endpoints.
   const fetchTemplates = useCallback(async () => {
     if (!currentUser) return;
 
     try {
-      const [mineRes, sharedRes] = await Promise.all([
+      const promises = [
         fetch(`/api/workout/templates?userId=${currentUser.id}`),
         fetch('/api/workout/templates?scope=shared'),
-      ]);
-      if (mineRes.ok) setTemplates(await mineRes.json());
-      if (sharedRes.ok) setSharedTemplates(await sharedRes.json());
+      ];
+      if (isOwner) promises.push(fetch('/api/workout/templates/usage'));
+      const [mineRes, sharedRes, usageRes] = await Promise.all(promises);
+      if (mineRes && mineRes.ok) setTemplates(await mineRes.json());
+      if (sharedRes && sharedRes.ok) setSharedTemplates(await sharedRes.json());
+      if (usageRes && usageRes.ok) setTemplateUsage(await usageRes.json());
     } catch (error) {
       console.error('Error fetching templates:', error);
     }
-  }, [currentUser]);
+  }, [currentUser, isOwner]);
 
   // Owner toggle: flip sharedByOwner on one of MY templates. Optimistic
   // update + revert on server failure. The server silently drops the
@@ -219,7 +239,7 @@ export default function WorkoutsPage() {
   // Auto-save workout changes
   const saveWorkout = useCallback(async (workout: Workout) => {
     if (!workout.id) return;
-    
+
     setIsSaving(true);
     try {
       await fetch(`/api/workout/workouts/${workout.id}`, {
@@ -234,31 +254,69 @@ export default function WorkoutsPage() {
     }
   }, []);
 
-  // Debounced save
+  // Debounced save — fires 900 ms after the last edit. Bumped from 500 ms
+  // to coalesce bursty input (typing a number is multiple state updates)
+  // and to play nicer with the PWA offline-queue: fewer queued PUTs to
+  // drain when the user reconnects.
   useEffect(() => {
-    if (!activeWorkout) return;
-    
+    if (!activeWorkout || editTick === 0) return;
+    const snapshot = activeWorkout;
     const timeoutId = setTimeout(() => {
-      saveWorkout(activeWorkout);
-    }, 500);
-    
+      saveWorkout(snapshot);
+    }, 900);
     return () => clearTimeout(timeoutId);
-  }, [activeWorkout, saveWorkout]);
+  }, [activeWorkout, editTick, saveWorkout]);
+
+  // Wrapper for setActiveWorkout that also bumps the edit counter so the
+  // autosave effect actually fires. Use this for ANY user-driven edit
+  // (set value changes, sets +/-, exercise add/remove, reorder, etc.).
+  // Programmatic state updates that shouldn't autosave (initial fetch,
+  // Complete handler, etc.) use setActiveWorkout directly.
+  const editActiveWorkout = useCallback((updater: Workout | ((prev: Workout) => Workout)) => {
+    setActiveWorkout((prev) => {
+      if (!prev) return prev;
+      const next = typeof updater === 'function' ? updater(prev) : updater;
+      return next;
+    });
+    setEditTick((n) => n + 1);
+  }, []);
 
   // Start new workout from template — carry per-exercise defaults (numSets, notes)
+  // AND prefill each set from the user's most recent occurrence of that
+  // exercise (per Imp 2 / PB endpoint's `lastSets`). The prefill is a
+  // suggestion: a flag on each set could mark it as "untouched" so the
+  // user can tell prefilled vs typed, but the simpler design is "fill it
+  // and let the user type over if today is different."
   const startWorkoutFromTemplate = async (template: WorkoutTemplate) => {
     if (!currentUser) return;
 
     try {
       const templateExercises = template.exercises ?? [];
-      const exercises: WorkoutExercise[] = templateExercises.map((te, index) => ({
-        id: uuidv4(),
-        exerciseId: te.exerciseId,
-        order: index + 1,  // 1-based order matches array position
-        sets: createDefaultSets(te.numSets),
-        notes: te.notes ?? '',
-        photos: [],
-      }));
+      const exercises: WorkoutExercise[] = templateExercises.map((te, index) => {
+        const prior = personalBests[te.exerciseId]?.lastSets;
+        const numSets = te.numSets;
+        let sets: WorkoutSet[];
+        if (prior && prior.length > 0) {
+          // Fill the first min(numSets, prior.length) from history, pad
+          // any extra slots with blanks so the template's numSets wins.
+          sets = Array.from({ length: numSets }, (_, i) => {
+            const p = prior[Math.min(i, prior.length - 1)];
+            return p
+              ? { kg: p.kg ?? null, reps: p.reps ?? null, seconds: p.seconds ?? null }
+              : { kg: null, reps: null, seconds: null };
+          });
+        } else {
+          sets = createDefaultSets(numSets);
+        }
+        return {
+          id: uuidv4(),
+          exerciseId: te.exerciseId,
+          order: index + 1,  // 1-based order matches array position
+          sets,
+          notes: te.notes ?? '',
+          photos: [],
+        };
+      });
 
       const res = await fetch('/api/workout/workouts', {
         method: 'POST',
@@ -268,6 +326,10 @@ export default function WorkoutsPage() {
           templateId: template.id,
           workoutName: template.name,
           date: new Date().toISOString().split('T')[0],
+          // Idempotency: a client-minted UUID so a PWA offline-queue
+          // replay of this same POST collapses to the same workout
+          // server-side instead of creating a duplicate.
+          clientRequestId: uuidv4(),
         }),
       });
       
@@ -311,47 +373,69 @@ export default function WorkoutsPage() {
     }
   };
 
-  // Complete workout (end it) — renumber order so stored data has no gaps
+  // Complete workout (end it) — renumber order so stored data has no gaps.
+  // Confirms first because finalizing is irreversible from the active
+  // view (you can't accidentally re-mark a completed workout incomplete
+  // anymore — that's gated behind a Resume tap on a clearly-labeled
+  // completed entry in History).
   const completeWorkout = async () => {
     if (!activeWorkout) return;
+    if (!confirm(t('workout.complete_confirm'))) return;
 
     const exercises = activeWorkout.exercises.map((ex, i) => ({ ...ex, order: i + 1 }));
     const updated = { ...activeWorkout, exercises, isCompleted: true };
     await saveWorkout(updated);
+    setCompletedSummary(updated);  // Show summary modal (Imp 1)
     setActiveWorkout(null);
     setHasInProgressWorkout(false);
     fetchPersonalBests(); // Refresh PBs after completing workout
   };
 
+  // Back arrow from active workout view — clears local active state so
+  // the page falls back to the "Ready to train?" prompt. The workout
+  // itself stays in DB as in-progress, recoverable via History → Resume.
+  // No data is lost; we just exit the editor.
+  const exitActiveWorkout = () => {
+    setActiveWorkout(null);
+  };
+
   // Add exercises
   const addExercises = (exerciseDefs: ExerciseDefinition[]) => {
     if (!activeWorkout) return;
-    
+
     // Start order from current exercise count + 1
     const startOrder = activeWorkout.exercises.length + 1;
-    
-    const newExercises: WorkoutExercise[] = exerciseDefs.map((def, index) => ({
-      id: uuidv4(),
-      exerciseId: def.id,
-      order: startOrder + index,  // Continues from current order
-      sets: createDefaultSets(),  // Creates 3 sets by default
-      notes: '',
-      photos: [],
-    }));
-    
-    setActiveWorkout({
-      ...activeWorkout,
-      exercises: [...activeWorkout.exercises, ...newExercises],
+
+    const newExercises: WorkoutExercise[] = exerciseDefs.map((def, index) => {
+      const prior = personalBests[def.id]?.lastSets;
+      const sets: WorkoutSet[] = prior && prior.length > 0
+        ? prior.slice(0, 3).map((p) => ({
+            kg: p.kg ?? null, reps: p.reps ?? null, seconds: p.seconds ?? null,
+          }))
+        : createDefaultSets();
+      return {
+        id: uuidv4(),
+        exerciseId: def.id,
+        order: startOrder + index,  // Continues from current order
+        sets,
+        notes: '',
+        photos: [],
+      };
     });
+
+    editActiveWorkout((prev) => ({
+      ...prev,
+      exercises: [...prev.exercises, ...newExercises],
+    }));
   };
 
   // Update exercise
   const updateExercise = (index: number, exercise: WorkoutExercise) => {
-    if (!activeWorkout) return;
-    
-    const exercises = [...activeWorkout.exercises];
-    exercises[index] = exercise;
-    setActiveWorkout({ ...activeWorkout, exercises });
+    editActiveWorkout((prev) => {
+      const exercises = [...prev.exercises];
+      exercises[index] = exercise;
+      return { ...prev, exercises };
+    });
   };
 
   // Replace exercise in the active workout. Preserves sets (with their
@@ -370,23 +454,26 @@ export default function WorkoutsPage() {
 
     const originalReplacedFrom = current.replacedFromExerciseId ?? current.exerciseId;
     const isRevert = newExerciseDef.id === originalReplacedFrom;
-    const exercises = [...activeWorkout.exercises];
-    exercises[index] = {
-      ...current,
-      exerciseId: newExerciseDef.id,
-      replacedFromExerciseId: isRevert ? null : originalReplacedFrom,
-    };
-    setActiveWorkout({ ...activeWorkout, exercises });
+    editActiveWorkout((prev) => {
+      const exercises = [...prev.exercises];
+      exercises[index] = {
+        ...current,
+        exerciseId: newExerciseDef.id,
+        replacedFromExerciseId: isRevert ? null : originalReplacedFrom,
+      };
+      return { ...prev, exercises };
+    });
   };
 
-  // Remove exercise — renumber remaining so order stays 1..N
+  // Remove exercise — renumber remaining so order stays 1..N. Confirm is
+  // handled inside ExerciseCard before this is called.
   const removeExercise = (index: number) => {
-    if (!activeWorkout) return;
-
-    const exercises = activeWorkout.exercises
-      .filter((_, i) => i !== index)
-      .map((ex, i) => ({ ...ex, order: i + 1 }));
-    setActiveWorkout({ ...activeWorkout, exercises });
+    editActiveWorkout((prev) => ({
+      ...prev,
+      exercises: prev.exercises
+        .filter((_, i) => i !== index)
+        .map((ex, i) => ({ ...ex, order: i + 1 })),
+    }));
   };
 
   // Reorder exercise (via drag-and-drop) — renumber order to match new array position
@@ -395,9 +482,11 @@ export default function WorkoutsPage() {
     const from = activeWorkout.exercises.findIndex(e => e.id === fromId);
     const to = activeWorkout.exercises.findIndex(e => e.id === toId);
     if (from < 0 || to < 0) return;
-    const reordered = arrayMove(activeWorkout.exercises, from, to)
-      .map((ex, i) => ({ ...ex, order: i + 1 }));
-    setActiveWorkout({ ...activeWorkout, exercises: reordered });
+    editActiveWorkout((prev) => ({
+      ...prev,
+      exercises: arrayMove(prev.exercises, from, to)
+        .map((ex, i) => ({ ...ex, order: i + 1 })),
+    }));
   };
 
   // dnd-kit sensors for the active-workout exercise list
@@ -413,20 +502,44 @@ export default function WorkoutsPage() {
     moveExercise(String(active.id), String(over.id));
   };
 
-  // Loading state
+  // Progress: how many exercises have at least one set with usable data?
+  // Used by both the loading-screen header presence and the in-workout
+  // progress bar so the user can see "3/8 done" at a glance.
+  const progress = useMemo(() => {
+    if (!activeWorkout) return { done: 0, total: 0 };
+    const done = activeWorkout.exercises.filter((ex) =>
+      ex.sets.some((s) =>
+        (s.kg !== null && s.reps !== null && s.reps > 0) ||
+        (isTimeSet(s) && (s.seconds ?? 0) > 0),
+      ),
+    ).length;
+    return { done, total: activeWorkout.exercises.length };
+  }, [activeWorkout]);
+
+  // Loading state — render the shell (BottomNav stays) so the page doesn't
+  // collapse to a blank screen during fetches. The header is suppressed
+  // because we don't know the eventual title yet.
   if (isLoading || !initialLoadDone) {
     return (
       <main className="workout-main">
-        <div className="loading-spinner" />
+        <Header title={t('workout.title')} />
+        <div className="workout-page">
+          <div className="loading-spinner" />
+        </div>
+        <BottomNav />
       </main>
     );
   }
 
-  // Not signed in → useEffect above is mid-redirect; render a placeholder.
+  // Not signed in → useEffect above is mid-redirect; render the shell.
   if (!currentUser) {
     return (
       <main className="workout-main">
-        <div className="loading-spinner" />
+        <Header title={t('workout.title')} />
+        <div className="workout-page">
+          <div className="loading-spinner" />
+        </div>
+        <BottomNav />
       </main>
     );
   }
@@ -435,6 +548,8 @@ export default function WorkoutsPage() {
     <main className="workout-main">
       <Header
         title={activeWorkout ? `🏋️ ${getLocalizedTemplateName(activeWorkout.workoutName, language)}` : t('workout.title')}
+        showBack={!!activeWorkout}
+        onBack={exitActiveWorkout}
       />
 
       <div className="workout-page">
@@ -469,11 +584,11 @@ export default function WorkoutsPage() {
         ) : (
           // Active workout
           <>
-            <div style={{ 
-              display: 'flex', 
-              justifyContent: 'space-between', 
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
               alignItems: 'center',
-              marginBottom: '16px',
+              marginBottom: '8px',
               padding: '12px 16px',
               backgroundColor: 'var(--workout-bg-card)',
               borderRadius: '12px',
@@ -486,11 +601,20 @@ export default function WorkoutsPage() {
                     day: 'numeric',
                   })}
                 </div>
-                <div style={{
-                  fontSize: '12px',
-                  color: isSaving ? 'var(--workout-gold)' : 'var(--workout-green)',
-                  marginTop: '4px',
-                }}>
+                <div
+                  style={{
+                    fontSize: '12px',
+                    color: isSaving ? 'var(--workout-gold)' : 'var(--workout-green)',
+                    marginTop: '4px',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                  }}
+                  aria-live="polite"
+                >
+                  {/* Subtle cloud icon distinguishes "saved to server" from
+                      the gold ✓ which often signals "logged set" elsewhere. */}
+                  <span aria-hidden="true">{isSaving ? '☁︎' : '☁︎ ✓'}</span>
                   {isSaving ? t('workout.saving') : t('workout.saved')}
                 </div>
               </div>
@@ -502,6 +626,51 @@ export default function WorkoutsPage() {
                 {t('workout.complete_button')}
               </button>
             </div>
+
+            {/* Progress bar — exercises with at least one logged set out of
+                the total. Updates live as the user fills sets. */}
+            {progress.total > 0 && (
+              <div
+                style={{ marginBottom: '16px', padding: '0 4px' }}
+                role="progressbar"
+                aria-valuenow={progress.done}
+                aria-valuemin={0}
+                aria-valuemax={progress.total}
+                aria-label={t('workout.progress_label')}
+              >
+                <div
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    fontSize: '12px',
+                    color: 'var(--workout-text-muted)',
+                    marginBottom: '6px',
+                  }}
+                >
+                  <span>{t('workout.progress_label')}</span>
+                  <span>
+                    {progress.done} / {progress.total}
+                  </span>
+                </div>
+                <div
+                  style={{
+                    height: '6px',
+                    borderRadius: '999px',
+                    background: 'var(--workout-bg-secondary)',
+                    overflow: 'hidden',
+                  }}
+                >
+                  <div
+                    style={{
+                      width: `${progress.total > 0 ? (progress.done / progress.total) * 100 : 0}%`,
+                      height: '100%',
+                      background: 'var(--workout-green)',
+                      transition: 'width 0.3s ease',
+                    }}
+                  />
+                </div>
+              </div>
+            )}
 
             {/* Exercise cards (drag-sortable) */}
             {activeWorkout.exercises.length === 0 ? (
@@ -559,6 +728,7 @@ export default function WorkoutsPage() {
         isOpen={showTemplateSelector}
         templates={templates}
         sharedTemplates={sharedTemplates}
+        templateUsage={templateUsage}
         exerciseMap={exerciseMap}
         isOwner={isOwner}
         onClose={() => setShowTemplateSelector(false)}
@@ -583,10 +753,18 @@ export default function WorkoutsPage() {
         isOpen={showTemplateEditor}
         template={editingTemplate}
         onClose={() => {
+          // Close editor → return to the selector (the modal we came
+          // from), not to the bare /workout page. Fixes B7.
           setShowTemplateEditor(false);
           setEditingTemplate(null);
+          setShowTemplateSelector(true);
         }}
-        onSave={handleTemplateSave}
+        onSave={(template) => {
+          handleTemplateSave(template);
+          setShowTemplateEditor(false);
+          setEditingTemplate(null);
+          setShowTemplateSelector(true);
+        }}
       />
 
       {activeWorkout && (
@@ -614,6 +792,109 @@ export default function WorkoutsPage() {
           excludeIds={activeWorkout.exercises.map(e => e.exerciseId)}
         />
       )}
+
+      {/* Completion summary — appears once after a successful Complete.
+          Shows what the user just achieved (sets logged, exercises done,
+          volume) so the irreversible action has tangible feedback. */}
+      {completedSummary && (
+        <CompletionSummary
+          workout={completedSummary}
+          onClose={() => setCompletedSummary(null)}
+        />
+      )}
     </main>
+  );
+}
+
+// Summary card shown after Complete — counts logged sets, completed
+// exercises, and total volume (kg). Kept inline because it's owned by
+// this page's life cycle and never reused elsewhere.
+function CompletionSummary({ workout, onClose }: { workout: Workout; onClose: () => void }) {
+  const t = useT();
+  const { language } = useWorkoutLanguage();
+  const { unit } = useWorkoutUnit();
+
+  const stats = useMemo(() => {
+    let setsLogged = 0;
+    let exercisesDone = 0;
+    let totalVolumeKg = 0;
+    for (const ex of workout.exercises) {
+      let anySet = false;
+      for (const s of ex.sets) {
+        if (s.kg !== null && s.reps !== null && s.reps > 0) {
+          setsLogged += 1;
+          totalVolumeKg += (s.kg ?? 0) * s.reps;
+          anySet = true;
+        } else if (isTimeSet(s) && (s.seconds ?? 0) > 0) {
+          setsLogged += 1;
+          anySet = true;
+        }
+      }
+      if (anySet) exercisesDone += 1;
+    }
+    return { setsLogged, exercisesDone, totalVolumeKg };
+  }, [workout]);
+
+  const volumeDisplay = unit === 'lb'
+    ? `${Math.round(stats.totalVolumeKg * 2.20462).toLocaleString()} lb`
+    : `${Math.round(stats.totalVolumeKg).toLocaleString()} kg`;
+
+  return (
+    <div className="workout-modal-overlay" onClick={onClose}>
+      <div
+        className="workout-modal"
+        onClick={(e) => e.stopPropagation()}
+        style={{ maxWidth: 420 }}
+      >
+        <div className="workout-modal-header">
+          <h2 className="workout-modal-title">🎉 {t('workout.summary.title')}</h2>
+          <button className="workout-modal-close" onClick={onClose} aria-label={t('generic.close')}>
+            ✕
+          </button>
+        </div>
+        <div className="workout-modal-body" style={{ textAlign: 'center', padding: '8px 16px 24px' }}>
+          <div style={{ fontSize: '14px', color: 'var(--workout-text-secondary)', marginBottom: 24 }}>
+            {getLocalizedTemplateName(workout.workoutName, language)} ·{' '}
+            {formatDate(workout.date, language, { weekday: 'long', month: 'short', day: 'numeric' })}
+          </div>
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(3, 1fr)',
+              gap: 12,
+              marginBottom: 20,
+            }}
+          >
+            <SummaryStat label={t('workout.summary.sets')} value={String(stats.setsLogged)} />
+            <SummaryStat
+              label={t('workout.summary.exercises')}
+              value={`${stats.exercisesDone}/${workout.exercises.length}`}
+            />
+            <SummaryStat label={t('workout.summary.volume')} value={volumeDisplay} />
+          </div>
+          <button
+            className="workout-btn workout-btn-primary workout-btn-full"
+            onClick={onClose}
+          >
+            {t('workout.summary.cta')}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SummaryStat({ label, value }: { label: string; value: string }) {
+  return (
+    <div
+      style={{
+        padding: '12px 8px',
+        background: 'var(--workout-bg-secondary)',
+        borderRadius: 10,
+      }}
+    >
+      <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--workout-accent)' }}>{value}</div>
+      <div style={{ fontSize: 11, color: 'var(--workout-text-muted)', marginTop: 4 }}>{label}</div>
+    </div>
   );
 }

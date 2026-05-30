@@ -97,7 +97,12 @@ export default function AddExerciseForm({
       <div className="workout-modal" onClick={(e) => e.stopPropagation()}>
         <div className="workout-modal-header">
           <h2 className="workout-modal-title">Add New Exercise</h2>
-          <button className="workout-modal-close" onClick={handleClose}>
+          <button
+            className="workout-modal-close"
+            onClick={handleClose}
+            aria-label="Close"
+            title="Close"
+          >
             ✕
           </button>
         </div>
@@ -143,6 +148,8 @@ export default function AddExerciseForm({
                   key={cat.id}
                   type="button"
                   onClick={() => toggleCategory(cat.id)}
+                  aria-pressed={selectedCategories.has(cat.id)}
+                  aria-label={cat.label}
                   style={{
                     display: 'flex',
                     alignItems: 'center',
@@ -202,12 +209,26 @@ export default function AddExerciseForm({
           )}
         </div>
         
-        <div className="workout-modal-footer">
-          <button 
-            className="workout-btn workout-btn-primary workout-btn-full"
+        <div
+          className="workout-modal-footer"
+          style={{ display: 'flex', gap: '8px' }}
+        >
+          {/* Cancel pairs with Create to match conventional modal patterns
+              (the template editor + selector follow the same shape). */}
+          <button
+            type="button"
+            className="workout-btn workout-btn-secondary"
+            onClick={handleClose}
+            disabled={isSubmitting}
+            style={{ flex: '0 0 auto' }}
+          >
+            Cancel
+          </button>
+          <button
+            className="workout-btn workout-btn-primary"
             onClick={handleSubmit}
             disabled={isSubmitting}
-            style={{ opacity: isSubmitting ? 0.5 : 1 }}
+            style={{ flex: 1, opacity: isSubmitting ? 0.5 : 1 }}
           >
             {isSubmitting ? 'Creating...' : 'Create Exercise'}
           </button>

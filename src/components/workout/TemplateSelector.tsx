@@ -1,15 +1,24 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { WorkoutTemplate, ExerciseDefinition } from '@/types/workout';
 import { useWorkoutLanguage } from '@/context/WorkoutLanguageContext';
 import { useT, exerciseCount, getLocalizedTemplateName } from '@/lib/workout-i18n';
 import { getLocalizedExercise } from '@/lib/exercise-translations';
 
+// localStorage key for the last-used tab. Per Imp 12 — persists across
+// modal opens and page reloads so the user lands back where they were
+// (e.g. if you mostly use "Workouts by Tomer" you don't re-tap every time).
+const TAB_STORAGE_KEY = 'hatom-workout-selector-tab';
+
 interface TemplateSelectorProps {
   isOpen: boolean;
   templates: WorkoutTemplate[];           // The caller's own templates
   sharedTemplates: WorkoutTemplate[];     // Owner-shared templates (any user with workout permission can see these)
+  // Owner-only map: { templateId → number of workout sessions started from it }
+  // Used to render a "Used N×" badge next to shared templates so the
+  // owner can see who's running their stuff. Pass {} for non-owners.
+  templateUsage?: Record<string, number>;
   exerciseMap: Record<string, ExerciseDefinition>;
   isOwner: boolean;                       // Controls visibility of the per-template share toggle
   onClose: () => void;
@@ -26,6 +35,7 @@ export default function TemplateSelector({
   isOpen,
   templates,
   sharedTemplates,
+  templateUsage = {},
   exerciseMap,
   isOwner,
   onClose,
@@ -37,7 +47,20 @@ export default function TemplateSelector({
 }: TemplateSelectorProps) {
   const { language } = useWorkoutLanguage();
   const t = useT();
-  const [tab, setTab] = useState<Tab>('mine');
+  // Lazy-initialise from localStorage so the initial paint already shows
+  // the right tab — no flicker. Falls back to 'mine' for first-time users.
+  const [tab, setTab] = useState<Tab>(() => {
+    if (typeof window === 'undefined') return 'mine';
+    const stored = window.localStorage.getItem(TAB_STORAGE_KEY);
+    return stored === 'byTomer' ? 'byTomer' : 'mine';
+  });
+
+  // Persist whenever the user switches tabs.
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem(TAB_STORAGE_KEY, tab);
+    }
+  }, [tab]);
 
   if (!isOpen) return null;
 
@@ -176,6 +199,25 @@ export default function TemplateSelector({
                             ★ {t('selector.shared.badge')}
                           </span>
                         )}
+                        {/* Usage count — owner-only and only shown on
+                            the user's own shared templates so they can
+                            see how many sessions have been started
+                            from each one. (Imp 8) */}
+                        {isMineTab && isShared && isOwner && (templateUsage[template.id] ?? 0) > 0 && (
+                          <span
+                            style={{
+                              fontSize: '11px',
+                              padding: '2px 8px',
+                              borderRadius: '999px',
+                              background: 'var(--workout-bg-secondary)',
+                              color: 'var(--workout-text-muted)',
+                              fontWeight: 500,
+                            }}
+                            title={t('selector.usage_n').replace('{n}', String(templateUsage[template.id]))}
+                          >
+                            {templateUsage[template.id]}×
+                          </span>
+                        )}
                       </div>
                       <div style={{
                         fontSize: '13px',
@@ -221,6 +263,7 @@ export default function TemplateSelector({
                               className="workout-btn workout-btn-secondary"
                               onClick={(e) => { e.stopPropagation(); onToggleShare(template); }}
                               title={isShared ? t('selector.share.on_title') : t('selector.share.off_title')}
+                              aria-label={isShared ? t('selector.share.on_title') : t('selector.share.off_title')}
                               aria-pressed={isShared}
                               style={{
                                 padding: '10px 14px',
@@ -235,6 +278,8 @@ export default function TemplateSelector({
                             className="workout-btn workout-btn-secondary"
                             onClick={(e) => { e.stopPropagation(); onEdit(template); }}
                             style={{ padding: '10px 14px', fontSize: '14px' }}
+                            aria-label={t('selector.edit_aria')}
+                            title={t('selector.edit_aria')}
                           >
                             ✏️
                           </button>
@@ -250,6 +295,8 @@ export default function TemplateSelector({
                               backgroundColor: 'var(--workout-red)',
                               color: 'white',
                             }}
+                            aria-label={t('selector.delete_aria')}
+                            title={t('selector.delete_aria')}
                           >
                             🗑
                           </button>

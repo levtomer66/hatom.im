@@ -35,11 +35,14 @@ export default function RestTimerBar() {
         </div>
         {isRunning && (
           <div className="rest-timer-actions">
-            <button type="button" onClick={() => add(-30)} aria-label={t('timer.minus_30')}>
-              −30
+            {/* ±15 to match the global default-timer popover step. Single
+                consistent step keeps the muscle memory between the prefs
+                menu and the running pill aligned. */}
+            <button type="button" onClick={() => add(-15)} aria-label={t('timer.minus_15')}>
+              −15
             </button>
-            <button type="button" onClick={() => add(30)} aria-label={t('timer.add_30')}>
-              +30
+            <button type="button" onClick={() => add(15)} aria-label={t('timer.add_15')}>
+              +15
             </button>
             <button
               type="button"

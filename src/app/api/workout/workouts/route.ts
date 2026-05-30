@@ -55,10 +55,11 @@ export async function POST(request: NextRequest) {
     await connectDB();
 
     const body = await request.json();
-    const { templateId, workoutName, date } = body as {
+    const { templateId, workoutName, date, clientRequestId } = body as {
       templateId?: string;
       workoutName: string;
       date: string;
+      clientRequestId?: string;
     };
 
     if (!workoutName) {
@@ -68,6 +69,21 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Idempotency: if the client provides a clientRequestId and we've
+    // already created a workout with the same (userId, clientRequestId),
+    // return it instead of creating a duplicate. Locks in the PWA
+    // offline-queue's safety — a replay after the original PUT succeeded
+    // but the response was lost won't create a phantom workout.
+    if (clientRequestId) {
+      const existing = await WorkoutModel.findOne({ userId, clientRequestId }).lean();
+      if (existing) {
+        return NextResponse.json(
+          { ...existing, id: existing._id.toString(), _id: undefined },
+          { status: 200 },
+        );
+      }
+    }
+
     const workout = new WorkoutModel({
       userId,
       templateId: templateId || null,
@@ -75,6 +91,7 @@ export async function POST(request: NextRequest) {
       date: date || new Date().toISOString().split('T')[0],
       exercises: [],
       isCompleted: false,
+      clientRequestId: clientRequestId || null,
     });
 
     await workout.save();

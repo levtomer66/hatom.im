@@ -177,20 +177,40 @@ export default function ExerciseProgressChart({ history }: Props) {
           strokeLinejoin="round"
         />
 
-        {points.map((p, i) => (
-          <circle
-            key={i}
-            cx={xOf(i)}
-            cy={yOf(p.value)}
-            r={p.isPB ? 4 : 2.6}
-            fill={p.isPB ? 'var(--workout-gold)' : 'var(--workout-accent)'}
-            stroke={p.isPB ? 'var(--workout-gold)' : 'transparent'}
-            strokeWidth={p.isPB ? 1.2 : 0}
-            onMouseEnter={() => setHoverIdx(i)}
-            onClick={() => setHoverIdx(i)}
-            style={{ cursor: 'pointer' }}
-          />
-        ))}
+        {points.map((p, i) => {
+          const isHovered = hoverIdx === i;
+          // Per Imp 10 — hovered (or tapped) point gets a visible halo
+          // ring around it so the user has a concrete affordance that
+          // the chart is interactive. PB stays gold; the halo is the
+          // theme accent at low alpha so the existing PB color reads.
+          return (
+            <g key={i}>
+              {isHovered && (
+                <circle
+                  cx={xOf(i)}
+                  cy={yOf(p.value)}
+                  r={8}
+                  fill="none"
+                  stroke="var(--workout-accent)"
+                  strokeOpacity={0.35}
+                  strokeWidth={2}
+                  pointerEvents="none"
+                />
+              )}
+              <circle
+                cx={xOf(i)}
+                cy={yOf(p.value)}
+                r={isHovered ? (p.isPB ? 5.5 : 4) : (p.isPB ? 4 : 2.6)}
+                fill={p.isPB ? 'var(--workout-gold)' : 'var(--workout-accent)'}
+                stroke={p.isPB ? 'var(--workout-gold)' : 'transparent'}
+                strokeWidth={p.isPB ? 1.2 : 0}
+                onMouseEnter={() => setHoverIdx(i)}
+                onClick={() => setHoverIdx(i)}
+                style={{ cursor: 'pointer', transition: 'r 0.12s ease' }}
+              />
+            </g>
+          );
+        })}
 
         {xLabelIdxs.map((i) => (
           <text

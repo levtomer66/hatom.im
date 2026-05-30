@@ -64,6 +64,12 @@ interface PBCandidate {
   bestSecondsKg: number | null;
   bestSecondsDate: string | null;
   bestSecondsWorkoutId: string | null;
+  // Verbatim sets from the user's most recent occurrence of this exercise —
+  // independent of whether it was a PB or completed. Drives the active-
+  // workout prefill UX. The outer loop walks workouts most-recent-first,
+  // so this is populated on the first encounter and never overwritten.
+  lastSets: WorkoutSet[] | null;
+  lastSetsDate: string;
 }
 
 // Pick the best time-mode (kg, seconds) tuple from a single workout's sets.
@@ -132,10 +138,28 @@ export async function GET() {
             bestSecondsKg: null,
             bestSecondsDate: null,
             bestSecondsWorkoutId: null,
+            lastSets: null,
+            lastSetsDate: '',
           };
         }
 
         const candidate = pbCandidates[exerciseId];
+
+        // Capture the most recent sets for this exercise. Workouts are
+        // sorted desc by date in the outer query, but a single date can
+        // contain multiple workouts; prefer the latest (any later date
+        // wins; same date is a no-op because lastSetsDate is already set).
+        if (
+          candidate.lastSets === null ||
+          new Date(workout.date) > new Date(candidate.lastSetsDate)
+        ) {
+          candidate.lastSets = sets.map((s) => ({
+            kg: s.kg ?? null,
+            reps: s.reps ?? null,
+            seconds: s.seconds ?? null,
+          }));
+          candidate.lastSetsDate = workout.date;
+        }
 
         // Time-mode PB: highest kg wins, ties broken by longest seconds.
         if (timeBest !== null) {
@@ -222,6 +246,7 @@ export async function GET() {
         bestSecondsKg: candidate.bestSecondsKg,
         bestSecondsDate: candidate.bestSecondsDate,
         bestSecondsWorkoutId: candidate.bestSecondsWorkoutId,
+        lastSets: candidate.lastSets ?? undefined,
       };
       
       pbMap[exerciseId] = pb;

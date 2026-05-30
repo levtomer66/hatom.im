@@ -222,6 +222,10 @@ export interface Workout {
   createdAt: string;
   updatedAt: string;
   isCompleted: boolean;
+  // Client-supplied UUID for idempotent creates. Lets the PWA
+  // offline-queue safely replay a POST /workouts that the original
+  // request may have actually completed (response just never arrived).
+  clientRequestId?: string | null;
 }
 
 // Personal Best record
@@ -246,6 +250,12 @@ export interface PersonalBest {
   bestSecondsKg: number | null;
   bestSecondsDate: string | null;
   bestSecondsWorkoutId: string | null;
+  // The actual `sets` array from the user's MOST RECENT occurrence of this
+  // exercise — preserved verbatim so the active-workout view can prefill
+  // new sets with the same kg/reps the user lifted last time. Distinct
+  // from `currentReps` which only tracks reps at the highest weight.
+  // Absent when the user has never logged this exercise.
+  lastSets?: WorkoutSet[];
 }
 
 // Exercise history entry (for display)

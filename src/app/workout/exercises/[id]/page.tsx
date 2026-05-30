@@ -129,20 +129,16 @@ export default function ExerciseDetailPage() {
     fetchPersonalBests();
   }, [fetchExercise, fetchHistory, fetchPersonalBests]);
 
-  // Loading state
-  if (isLoading || loadingExercise) {
+  // Loading / mid-redirect — render the shell so the page doesn't blank
+  // out during fetches (B11). Back button takes you to the previous list.
+  if (isLoading || loadingExercise || !currentUser) {
     return (
       <main className="workout-main">
-        <div className="loading-spinner" />
-      </main>
-    );
-  }
-
-  // Not logged in
-  if (!currentUser) {
-    return (
-      <main className="workout-main">
-        <div className="loading-spinner" />
+        <Header title={t('exercise_detail.fallback_title')} showBack onBack={() => router.back()} />
+        <div className="workout-page">
+          <div className="loading-spinner" />
+        </div>
+        <BottomNav />
       </main>
     );
   }

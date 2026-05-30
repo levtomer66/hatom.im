@@ -6,6 +6,7 @@ import { FaRegLightbulb } from 'react-icons/fa';
 import { useT } from '@/lib/workout-i18n';
 import { useWorkoutLanguage } from '@/context/WorkoutLanguageContext';
 import { useWorkoutUser } from '@/context/WorkoutUserContext';
+import { useWorkoutTimer } from '@/context/WorkoutTimerContext';
 
 const NTFY_TOPIC = 'hatomim_workout_help';
 const NTFY_URL = `https://ntfy.sh/${NTFY_TOPIC}`;
@@ -20,6 +21,11 @@ export default function HelpButton() {
   const { language } = useWorkoutLanguage();
   const { currentUser } = useWorkoutUser();
   const pathname = usePathname();
+  // While the rest timer pill is at the bottom of the screen, the FAB
+  // overlaps it visually (B18) — hide the help button while the timer
+  // is running. The pill is dismissed by the timer ticking down or the
+  // user tapping Skip; FAB returns either way.
+  const { isRunning: isTimerRunning } = useWorkoutTimer();
 
   const [isOpen, setIsOpen] = useState(false);
   const [message, setMessage] = useState('');
@@ -77,16 +83,19 @@ export default function HelpButton() {
 
   return (
     <>
-      {/* Floating trigger — always visible on workout routes. */}
-      <button
-        type="button"
-        className="workout-help-fab"
-        onClick={() => setIsOpen(true)}
-        aria-label={t('help.button_aria')}
-        title={t('help.button_aria')}
-      >
-        <FaRegLightbulb size={22} />
-      </button>
+      {/* Floating trigger — hidden while the rest-timer pill occupies
+          the bottom-right so it doesn't overlap (B18). */}
+      {!isTimerRunning && (
+        <button
+          type="button"
+          className="workout-help-fab"
+          onClick={() => setIsOpen(true)}
+          aria-label={t('help.button_aria')}
+          title={t('help.button_aria')}
+        >
+          <FaRegLightbulb size={22} />
+        </button>
+      )}
 
       {isOpen && (
         <div className="workout-modal-overlay" onClick={close}>

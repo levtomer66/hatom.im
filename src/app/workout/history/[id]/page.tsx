@@ -93,30 +93,15 @@ export default function WorkoutDetailPage() {
     fetchCustomExercises();
   }, [fetchWorkout, fetchPersonalBests, fetchCustomExercises]);
 
-  // Loading state
-  if (isLoading) {
-    return (
-      <main className="workout-main">
-        <div className="loading-spinner" />
-      </main>
-    );
-  }
-
-  // Not logged in
-  if (!currentUser) {
-    return (
-      <main className="workout-main">
-        <div className="loading-spinner" />
-      </main>
-    );
-  }
-
-  // Workout loading
-  if (loadingWorkout) {
+  // Loading / not-logged-in / workout-loading all share the same shell so
+  // the screen never collapses to a bare spinner (B11).
+  if (isLoading || !currentUser || loadingWorkout) {
     return (
       <main className="workout-main">
         <Header title={t('workout.title')} showBack onBack={() => router.back()} />
-        <div className="loading-spinner" />
+        <div className="workout-page">
+          <div className="loading-spinner" />
+        </div>
         <BottomNav />
       </main>
     );

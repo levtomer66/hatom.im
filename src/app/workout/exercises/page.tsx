@@ -12,7 +12,7 @@ import { formatSeconds } from '@/lib/time';
 import Header from '@/components/workout/Header';
 import BottomNav from '@/components/workout/BottomNav';
 import AddExerciseForm from '@/components/workout/AddExerciseForm';
-import { PersonalBest, ExerciseDefinition, ExerciseCategory } from '@/types/workout';
+import { PersonalBest, ExerciseDefinition, ExerciseCategory, EXERCISE_FILTER_CATEGORIES, WorkoutType } from '@/types/workout';
 import { EXERCISE_LIBRARY } from '@/data/exercise-library';
 
 const MUSCLE_GROUP_IDS: ExerciseCategory[] = [
@@ -37,6 +37,18 @@ export default function ExercisesPage() {
   const [search, setSearch] = useState('');
   const [showAddForm, setShowAddForm] = useState(false);
   const [muscleFilters, setMuscleFilters] = useState<Set<ExerciseCategory>>(new Set());
+  // Top-category filters (Push / Pull / Legs / Calisthenics) — kept here
+  // for consistency with the picker modal so users see the same filter
+  // shape across screens (B8).
+  const [topCategoryFilters, setTopCategoryFilters] = useState<Set<WorkoutType>>(new Set());
+
+  const toggleTopCategory = (c: WorkoutType) =>
+    setTopCategoryFilters((prev) => {
+      const next = new Set(prev);
+      if (next.has(c)) next.delete(c);
+      else next.add(c);
+      return next;
+    });
 
   // Fetch personal bests
   const fetchPersonalBests = useCallback(async () => {
@@ -94,6 +106,10 @@ export default function ExercisesPage() {
   // Filter exercises by muscle group and search (matches English or Hebrew name)
   const filteredExercises = useMemo(() => {
     return allExercises.filter(exercise => {
+      if (topCategoryFilters.size > 0) {
+        const matchesTop = exercise.categories.some(cat => topCategoryFilters.has(cat as WorkoutType));
+        if (!matchesTop) return false;
+      }
       if (muscleFilters.size > 0) {
         const matchesMuscle = exercise.categories.some(cat => muscleFilters.has(cat));
         if (!matchesMuscle) return false;
@@ -106,7 +122,7 @@ export default function ExercisesPage() {
 
       return true;
     });
-  }, [allExercises, search, muscleFilters]);
+  }, [allExercises, search, muscleFilters, topCategoryFilters]);
 
   // Sort exercises: those with PBs first, custom next, then alphabetically
   const sortedExercises = useMemo(() => {
@@ -130,20 +146,16 @@ export default function ExercisesPage() {
     setCustomExercises(prev => [...prev, exercise]);
   };
 
-  // Loading state
-  if (isLoading) {
+  // Loading / mid-redirect — render the shell so the page doesn't collapse
+  // to a bare spinner (B11).
+  if (isLoading || !currentUser) {
     return (
       <main className="workout-main">
-        <div className="loading-spinner" />
-      </main>
-    );
-  }
-
-  // Not logged in
-  if (!currentUser) {
-    return (
-      <main className="workout-main">
-        <div className="loading-spinner" />
+        <Header title={t('exercises.title')} />
+        <div className="workout-page">
+          <div className="loading-spinner" />
+        </div>
+        <BottomNav />
       </main>
     );
   }
@@ -172,17 +184,44 @@ export default function ExercisesPage() {
           </button>
         </div>
 
+        {/* Top-category filters (Push / Pull / Legs / Calisthenics) —
+            match the picker for B8 consistency. */}
+        <div className="category-filter-row" style={{ marginBottom: '8px' }}>
+          {EXERCISE_FILTER_CATEGORIES.slice(0, 4).map(category => {
+            const label = getCategoryLabel(category.id, language);
+            const active = topCategoryFilters.has(category.id);
+            return (
+              <button
+                key={category.id}
+                className={`category-filter-btn ${active ? 'active' : ''}`}
+                onClick={() => toggleTopCategory(category.id)}
+                aria-pressed={active}
+                aria-label={label}
+              >
+                <span aria-hidden="true">{category.icon}</span>
+                <span>{label}</span>
+              </button>
+            );
+          })}
+        </div>
+
         {/* Muscle group filters */}
         <div className="muscle-filter-row" style={{ marginBottom: '16px' }}>
-          {MUSCLE_GROUP_IDS.map(muscleId => (
-            <button
-              key={muscleId}
-              className={`muscle-filter-btn ${muscleFilters.has(muscleId) ? 'active' : ''}`}
-              onClick={() => toggleMuscleFilter(muscleId)}
-            >
-              {getCategoryLabel(muscleId, language)}
-            </button>
-          ))}
+          {MUSCLE_GROUP_IDS.map(muscleId => {
+            const label = getCategoryLabel(muscleId, language);
+            const active = muscleFilters.has(muscleId);
+            return (
+              <button
+                key={muscleId}
+                className={`muscle-filter-btn ${active ? 'active' : ''}`}
+                onClick={() => toggleMuscleFilter(muscleId)}
+                aria-pressed={active}
+                aria-label={label}
+              >
+                {label}
+              </button>
+            );
+          })}
         </div>
 
         {/* Exercise list */}
