@@ -371,8 +371,13 @@ export const EXERCISE_LIBRARY: ExerciseDefinition[] = [
     defaultPhoto: pexels(4164512), // Hip machine
   },
   {
-    id: 'hip-flexors',
-    name: 'Hip Adductors Machine',
+    // Was previously the id `hip-flexors` mislabeled "Hip Adductors
+    // Machine". Renamed to a correct `adductors` id; the old id folds
+    // into this one via EXERCISE_ID_ALIASES so the 5 historical
+    // workouts logged under `hip-flexors` (which were inner-thigh
+    // adduction work per the old name) keep resolving here.
+    id: 'adductors',
+    name: 'Adductors Machine',
     description: 'Inner thigh adduction machine',
     categories: ['legs', 'glutes'],
     defaultPhoto: pexels(4164512), // Hip machine
@@ -665,49 +670,62 @@ export const EXERCISE_LIBRARY: ExerciseDefinition[] = [
   { id: 'sl-jefferson-curl',          name: 'Single Leg Jefferson Curl',           description: 'Slow spinal flexion on one leg (weighted opt.)', categories: ['calisthenics', 'legs', 'back', 'hamstrings'],          defaultPhoto: pexels(4162451) },
 
   // =====================
-  // FULL BODY
+  // FULL BODY (remaining ideas — clean-and-press / farmers-walk /
+  // upright-row are now live in the COMPOUNDS section below)
   // =====================
-  // {
-  //   id: 'clean-and-press',
-  //   name: 'Clean and Press',
-  //   categories: ['full-body'],
-  //   defaultPhoto: pexels(1552252), // Barbell clean
-  // },
   // {
   //   id: 'thruster',
   //   name: 'Thruster',
   //   categories: ['full-body'],
-  //   defaultPhoto: pexels(4162438), // Thruster
   // },
   // {
   //   id: 'burpee',
   //   name: 'Burpee',
   //   categories: ['full-body', 'calisthenics'],
-  //   defaultPhoto: pexels(4162487), // Burpee
   // },
   // {
   //   id: 'kettlebell-swing',
   //   name: 'Kettlebell Swing',
   //   categories: ['full-body'],
-  //   defaultPhoto: pexels(4162438), // Kettlebell
   // },
-  // {
-  //   id: 'farmers-walk',
-  //   name: 'Farmer\'s Walk',
-  //   categories: ['full-body'],
-  //   defaultPhoto: pexels(4162438), // Farmers walk
-  // },
-  // {
-  //   id: 'upright-row',
-  //   name: 'Upright Row',
-  //   categories: ['pull'],
-  //   defaultPhoto: pexels(1552252), // Upright row
-  // },
+
+  // =====================
+  // COMPOUNDS (added from the Muscle & Strength gap analysis)
+  // No defaultPhoto on purpose — the ExercisePhoto component renders a
+  // clean 🏋️ fallback, which beats wiring up more Pexels URLs that may
+  // 404 (several existing ones already do; see the M-2 fix).
+  // =====================
+  { id: 'bent-over-row',        name: 'Barbell Bent-Over Row',  description: 'Barbell row hinged at the hips',          categories: ['pull', 'back'] },
+  { id: 't-bar-row',            name: 'T-Bar Row',              description: 'Landmine / T-bar back row',               categories: ['pull', 'back'] },
+  { id: 'seated-cable-row',     name: 'Seated Cable Row',       description: 'Neutral-grip seated cable row',            categories: ['pull', 'back'] },
+  { id: 'barbell-pullover',     name: 'Barbell Pullover',       description: 'Lying barbell pullover for lats/chest',    categories: ['pull', 'back', 'chest'] },
+  { id: 'upright-row',          name: 'Upright Row',            description: 'Barbell/cable upright row for delts/traps', categories: ['pull', 'shoulders'] },
+  { id: 'barbell-hip-thrust',   name: 'Barbell Hip Thrust',     description: 'Bench-supported barbell hip thrust',       categories: ['legs', 'glutes'] },
+  { id: 'front-squat',          name: 'Front Squat',            description: 'Front-rack barbell squat',                 categories: ['legs', 'quads'] },
+  { id: 'good-morning',         name: 'Good Morning',           description: 'Barbell hip hinge for posterior chain',   categories: ['legs', 'hamstrings', 'back'] },
+  { id: 'military-press',       name: 'Military Press',         description: 'Standing barbell overhead press',          categories: ['push', 'shoulders'] },
+  { id: 'push-press',           name: 'Push Press',             description: 'Leg-driven barbell overhead press',        categories: ['push', 'shoulders'] },
+  { id: 'arnold-press',         name: 'Arnold Press',           description: 'Rotating dumbbell shoulder press',         categories: ['push', 'shoulders'] },
+  { id: 'power-clean',          name: 'Power Clean',            description: 'Explosive barbell pull to front rack',    categories: ['full-body', 'pull'] },
+  { id: 'clean-and-press',      name: 'Clean and Press',        description: 'Barbell clean into overhead press',       categories: ['full-body'] },
+  { id: 'snatch',               name: 'Snatch',                 description: 'Explosive barbell ground-to-overhead',    categories: ['full-body'] },
+  { id: 'farmers-walk',         name: "Farmer's Walk",          description: 'Loaded carry for grip & whole body',      categories: ['full-body', 'forearms'] },
+
+  // =====================
+  // FOREARMS
+  // =====================
+  { id: 'barbell-wrist-curl',   name: 'Barbell Wrist Curl',     description: 'Seated wrist flexion with a barbell',      categories: ['pull', 'forearms'] },
+  { id: 'dumbbell-wrist-curl',  name: 'Dumbbell Wrist Curl',    description: 'Seated wrist flexion with dumbbells',      categories: ['pull', 'forearms'] },
+  { id: 'reverse-wrist-curl',   name: 'Reverse Wrist Curl',     description: 'Wrist extension for forearm extensors',    categories: ['pull', 'forearms'] },
 ];
 
 // Merged/renamed exercise IDs → canonical ID they were folded into
 const EXERCISE_ID_ALIASES: Record<string, string> = {
   'lat-pulldown': 'wide-grip-lat-pulldown',
+  // The old `hip-flexors` id was a misnomer — its display name was
+  // "Hip Adductors Machine" and it was used to log inner-thigh
+  // adduction work. Folded into the correctly-named `adductors`.
+  'hip-flexors': 'adductors',
 };
 
 // Resolve legacy exercise IDs to their canonical counterpart

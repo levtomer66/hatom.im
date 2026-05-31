@@ -10,18 +10,37 @@ import {
   ExerciseHistoryEntry,
   WorkoutSet,
   isTimeSet,
-  bestE1rmFromSets,
 } from '@/types/workout';
 
 interface Point {
   date: string;
   value: number;
   isPB: boolean;
-  // Rep-mode points carry the actual set that produced the e1RM so
-  // the hover tooltip can show "100 kg × 5" alongside the calculated
-  // score. Absent for time-mode points.
-  kg?: number;
-  reps?: number;
+  // Rep-mode points carry the number of working sets that were averaged
+  // into `value`, so the hover tooltip can show "95 kg avg · 3 sets".
+  // Absent for time-mode points.
+  setCount?: number;
+}
+
+// Average working weight across a workout's rep-mode sets. "Working"
+// = has a real load (kg > 0) AND reps logged, so warm-up-only or blank
+// rows don't drag the mean down. Returns null when no qualifying set.
+// This is the chart metric the owner asked for — average scale per
+// workout shows steady progression better than a peak e1RM line, which
+// spikes on a single heavy single. (The PB marker on each point is
+// still e1RM-derived from the history endpoint and unaffected.)
+function avgWorkingKg(sets: WorkoutSet[]): { avg: number; count: number } | null {
+  let sum = 0;
+  let count = 0;
+  for (const s of sets) {
+    if (isTimeSet(s)) continue;
+    if (s.kg !== null && s.kg > 0 && s.reps !== null && s.reps > 0) {
+      sum += s.kg;
+      count += 1;
+    }
+  }
+  if (count === 0) return null;
+  return { avg: sum / count, count };
 }
 
 // Best time-mode seconds in a workout (longest hold; weighted holds preferred
@@ -52,12 +71,11 @@ export default function ExerciseProgressChart({ history }: Props) {
   const unitSuffix = getUnitSuffix(unit, language);
   const [hoverIdx, setHoverIdx] = useState<number | null>(null);
 
-  // Decide rep-mode (e1RM) vs time-mode (seconds) by picking whichever has
-  // more non-zero workouts. Mixed exercises (weighted planks) usually have
-  // many more rep entries than time entries so this is well-behaved.
-  // Rep-mode now plots the best Epley e1RM per workout (cap 10 reps),
-  // so progress reads as overall strength gains regardless of rep range —
-  // 100 × 5 strength sets and 80 × 10 hypertrophy sets are comparable.
+  // Decide rep-mode (avg working weight) vs time-mode (seconds) by picking
+  // whichever has more non-zero workouts. Mixed exercises (weighted planks)
+  // usually have many more rep entries than time entries so this is
+  // well-behaved. Rep-mode plots the AVERAGE working-set weight per
+  // workout — a steadier progression signal than a peak line.
   const { points, mode } = useMemo(() => {
     const ascending = [...history].sort(
       (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime(),
@@ -65,15 +83,14 @@ export default function ExerciseProgressChart({ history }: Props) {
     const repPts: Point[] = [];
     const timePts: Point[] = [];
     for (const entry of ascending) {
-      const repBest = bestE1rmFromSets(entry.sets);
+      const avg = avgWorkingKg(entry.sets);
       const sec = bestSeconds(entry.sets);
-      if (repBest && repBest.e1rm > 0) {
+      if (avg) {
         repPts.push({
           date: entry.date,
-          value: repBest.e1rm,
+          value: avg.avg,
           isPB: entry.isPB,
-          kg: repBest.kg,
-          reps: repBest.reps,
+          setCount: avg.count,
         });
       }
       if (sec > 0) timePts.push({ date: entry.date, value: sec, isPB: entry.isPB });
@@ -122,16 +139,17 @@ export default function ExerciseProgressChart({ history }: Props) {
     ? points.map((_, i) => i)
     : [0, Math.floor(points.length / 2), points.length - 1];
 
-  // e1RM rounds to whole kg/lb for display — the formula is approximate
-  // enough that decimals would imply false precision.
+  // Average weight shows one decimal — averaging two different loads
+  // can land on a .5, and the value is a real measured mean (not an
+  // estimate), so a single decimal is honest precision.
   const formatValue = (v: number) =>
     mode === 'rep'
-      ? `${formatWeight(Math.round(v), unit)}${unitSuffix}`
+      ? `${formatWeight(Math.round(v * 10) / 10, unit)}${unitSuffix}`
       : formatSeconds(v);
 
   const hover = hoverIdx !== null ? points[hoverIdx] : null;
   const titleKey = mode === 'rep'
-    ? 'exercise_detail.chart_title_e1rm'
+    ? 'exercise_detail.chart_title_avg_weight'
     : 'exercise_detail.chart_title_time';
 
   return (
@@ -253,12 +271,11 @@ export default function ExerciseProgressChart({ history }: Props) {
             <span style={{ fontWeight: 600, color: 'var(--workout-text-secondary)' }}>
               {formatValue(hover.value)}
             </span>
-            {/* Show the actual set that produced the e1RM ("100 kg × 5")
-                next to the unified score so the user sees both — the
-                e1RM is the comparator, the set is what they actually did. */}
-            {mode === 'rep' && hover.kg != null && hover.reps != null && (
+            {/* "avg · N sets" makes clear the plotted value is the mean
+                working weight across that workout's sets, not a single set. */}
+            {mode === 'rep' && hover.setCount != null && (
               <span style={{ marginInlineStart: 4, color: 'var(--workout-text-muted)' }}>
-                ({formatWeight(hover.kg, unit)}{unitSuffix} × {hover.reps})
+                {t('exercise_detail.chart_avg_suffix')} · {hover.setCount} {t('exercise_detail.chart_sets')}
               </span>
             )}
             {' · '}

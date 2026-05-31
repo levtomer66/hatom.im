@@ -93,10 +93,20 @@ export async function GET(request: NextRequest) {
         pbE1rm = e;
         pbIndex = i;
       } else if (e === pbE1rm && pbIndex >= 0) {
-        // Same e1RM — prefer earlier date (the first time the user did it).
-        const candidate = new Date(historyEntries[i].date).getTime();
-        const current = new Date(historyEntries[pbIndex].date).getTime();
-        if (candidate < current) pbIndex = i;
+        // Same e1RM — prefer the earlier occurrence (first time the user
+        // hit it). Compare by date, and break a same-DAY tie by the
+        // workoutId. Mongo ObjectIds are monotonic with creation time,
+        // so the lexicographically-smaller id is the earlier-created
+        // workout — this makes the PB pick deterministic instead of
+        // depending on cursor order for same-day ties (Codex P1).
+        const candDate = new Date(historyEntries[i].date).getTime();
+        const curDate = new Date(historyEntries[pbIndex].date).getTime();
+        if (
+          candDate < curDate ||
+          (candDate === curDate && historyEntries[i].workoutId < historyEntries[pbIndex].workoutId)
+        ) {
+          pbIndex = i;
+        }
       }
     }
     if (pbIndex >= 0) historyEntries[pbIndex].isPB = true;

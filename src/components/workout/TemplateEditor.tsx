@@ -38,7 +38,7 @@ import ExercisePicker from './ExercisePicker';
 
 // Muscle group filter IDs (labels come from getCategoryLabel at render time).
 const MUSCLE_GROUP_IDS: ExerciseCategory[] = [
-  'chest', 'back', 'shoulders', 'biceps', 'triceps', 'legs', 'abs', 'glutes',
+  'chest', 'back', 'shoulders', 'biceps', 'triceps', 'forearms', 'legs', 'abs', 'glutes',
 ];
 
 interface TemplateEditorProps {

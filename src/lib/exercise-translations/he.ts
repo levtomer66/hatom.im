@@ -64,7 +64,7 @@ export const HE_EXERCISE_TRANSLATIONS: ExerciseTranslations = {
   'leg-curl':                     { name: 'מכונת כיפוף רגליים',        description: 'כיפוף ברכיים בישיבה' },
   'prone-leg-curl':               { name: 'כיפוף רגליים שכיבה',        description: 'כיפוף ברכיים בשכיבה' },
   'hip-abductors':                { name: 'פתיחת ירכיים',              description: 'פתיחת ירכיים במכונה' },
-  'hip-flexors':                  { name: 'סגירת ירכיים',              description: 'סגירת ירכיים במכונה' },
+  'adductors':                    { name: 'סגירת ירכיים',              description: 'סגירת ירכיים (מקרבים) במכונה' },
   'hip-thrust':                   { name: 'היפ ת׳ראסט',                description: 'היפ ת׳ראסט לישבן' },
   'squat':                        { name: 'סקוואט',                    description: 'סקוואט עם מוט על הגב' },
   'romanian-deadlift':            { name: 'מתה רומני',                 description: 'מתה רומני לחלק האחורי' },
@@ -172,4 +172,26 @@ export const HE_EXERCISE_TRANSLATIONS: ExerciseTranslations = {
   'standing-knee-extension':      { name: 'יישור ברך בעמידה',          description: 'יישור ברך בעמידה' },
   'sl-heel-sink':                 { name: 'שקיעות עקב על רגל אחת',    description: 'שקיעות עקב על רגל אחת' },
   'sl-jefferson-curl':            { name: 'ג׳פרסון קרל על רגל אחת',    description: 'ג׳פרסון קרל על רגל אחת' },
+
+  // ---- COMPOUNDS (M&S gap fill) ----
+  'bent-over-row':                { name: 'חתירת מוט בהטיה',           description: 'חתירת מוט בהטיית גו' },
+  't-bar-row':                    { name: 'חתירת T-Bar',              description: 'חתירת גב ב-T-Bar / לנדמיין' },
+  'seated-cable-row':             { name: 'חתירת כבל בישיבה',          description: 'חתירת כבל בישיבה באחיזה ניטרלית' },
+  'barbell-pullover':             { name: 'פולאובר מוט',               description: 'פולאובר מוט בשכיבה לגב/חזה' },
+  'upright-row':                  { name: 'חתירה אנכית',               description: 'חתירה אנכית לכתפיים וטרפזים' },
+  'barbell-hip-thrust':           { name: 'היפ ת׳ראסט מוט',            description: 'היפ ת׳ראסט עם מוט בתמיכת ספסל' },
+  'front-squat':                  { name: 'פרונט סקוואט',              description: 'סקוואט מוט בקדמת הכתפיים' },
+  'good-morning':                 { name: 'גוד מורנינג',               description: 'כפיפת ירך עם מוט לשרשרת אחורית' },
+  'military-press':               { name: 'לחיצת כתפיים מוט בעמידה',  description: 'לחיצה צבאית — מוט מעל הראש' },
+  'push-press':                   { name: 'פוש פרס',                   description: 'לחיצת מוט מעל הראש בעזרת הרגליים' },
+  'arnold-press':                 { name: 'לחיצת ארנולד',              description: 'לחיצת כתפיים מסתובבת עם משקולות' },
+  'power-clean':                  { name: 'פאוור קלין',                description: 'משיכת מוט נפיצה לקדמת הכתפיים' },
+  'clean-and-press':              { name: 'קלין אנד פרס',              description: 'קלין מוט ולחיצה מעל הראש' },
+  'snatch':                       { name: 'סנאצ׳',                     description: 'הנפת מוט נפיצה מהרצפה למעלה' },
+  'farmers-walk':                 { name: 'הליכת החקלאי',              description: 'נשיאת משקל לאחיזה ולכל הגוף' },
+
+  // ---- FOREARMS ----
+  'barbell-wrist-curl':           { name: 'כפיפת שורש כף יד מוט',     description: 'כפיפת שורשי כף היד עם מוט בישיבה' },
+  'dumbbell-wrist-curl':          { name: 'כפיפת שורש כף יד משקולות', description: 'כפיפת שורשי כף היד עם משקולות' },
+  'reverse-wrist-curl':           { name: 'כפיפת שורש הפוכה',          description: 'יישור שורש כף היד למיישרי האמה' },
 };

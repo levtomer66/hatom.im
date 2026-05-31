@@ -82,6 +82,7 @@ export type WorkoutType =
   | 'shoulders'
   | 'back'
   | 'biceps'
+  | 'forearms'
   | 'quads'
   | 'hamstrings'
   | 'glutes'
@@ -101,6 +102,7 @@ export const EXERCISE_FILTER_CATEGORIES: { id: WorkoutType; label: string; icon:
   { id: 'shoulders', label: 'Shoulders', icon: '🎯' },
   { id: 'biceps', label: 'Biceps', icon: '💪' },
   { id: 'triceps', label: 'Triceps', icon: '🦾' },
+  { id: 'forearms', label: 'Forearms', icon: '🤜' },
   { id: 'quads', label: 'Quads', icon: '🦵' },
   { id: 'hamstrings', label: 'Hamstrings', icon: '🦿' },
   { id: 'glutes', label: 'Glutes', icon: '🍑' },
@@ -126,6 +128,7 @@ export type ExerciseCategory =
   | 'shoulders'
   | 'back'
   | 'biceps'
+  | 'forearms'
   | 'quads'
   | 'hamstrings'
   | 'glutes'
@@ -179,8 +182,15 @@ export function isTimeSet(s: WorkoutSet): boolean {
 // set" — rather than treating it as a precise predicted lift.
 export const E1RM_REP_CAP = 10;
 export function epleyE1rm(kg: number | null | undefined, reps: number | null | undefined): number {
-  if (kg == null || reps == null || kg <= 0 || reps <= 0) return 0;
-  const cappedReps = Math.min(reps, E1RM_REP_CAP);
+  // Reject anything that isn't a real, finite, positive measurement.
+  // NaN / Infinity / fractional-from-bad-input would otherwise propagate
+  // silently through the formula and only get dropped downstream (Codex
+  // P2). Round reps so a stray fractional value (e.g. parsed "8.5")
+  // doesn't skew the estimate.
+  if (kg == null || reps == null) return 0;
+  if (!Number.isFinite(kg) || !Number.isFinite(reps)) return 0;
+  if (kg <= 0 || reps <= 0) return 0;
+  const cappedReps = Math.min(Math.round(reps), E1RM_REP_CAP);
   return kg * (1 + cappedReps / 30);
 }
 

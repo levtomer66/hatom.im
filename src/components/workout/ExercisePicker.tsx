@@ -11,7 +11,7 @@ import AddExerciseForm from './AddExerciseForm';
 
 // Muscle group filter IDs (labels come from getCategoryLabel in the render).
 const MUSCLE_GROUP_IDS: ExerciseCategory[] = [
-  'chest', 'back', 'shoulders', 'biceps', 'triceps', 'legs', 'abs', 'glutes',
+  'chest', 'back', 'shoulders', 'biceps', 'triceps', 'forearms', 'legs', 'abs', 'glutes',
 ];
 
 interface ExercisePickerProps {

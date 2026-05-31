@@ -16,7 +16,7 @@ import { PersonalBest, ExerciseDefinition, ExerciseCategory, EXERCISE_FILTER_CAT
 import { EXERCISE_LIBRARY } from '@/data/exercise-library';
 
 const MUSCLE_GROUP_IDS: ExerciseCategory[] = [
-  'chest', 'back', 'shoulders', 'biceps', 'triceps', 'legs', 'abs', 'glutes',
+  'chest', 'back', 'shoulders', 'biceps', 'triceps', 'forearms', 'legs', 'abs', 'glutes',
 ];
 
 export default function ExercisesPage() {
