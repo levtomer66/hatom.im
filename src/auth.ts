@@ -32,8 +32,13 @@ if (
 // can sign in — useful so we can wire up the OAuth client without first
 // having to seed the `authorizedEmails` collection.
 export const { handlers, auth, signIn, signOut } = NextAuth({
+  // Adapter is kept for OAuth user/account persistence. With the JWT
+  // strategy below it no longer writes `sessions` docs — the session lives
+  // in a signed cookie instead, so `auth()` reads it without a Mongo round
+  // trip. (Switching off `database` sessions invalidates existing sessions:
+  // everyone re-logs-in once.)
   adapter: MongoDBAdapter(clientPromise),
-  session: { strategy: 'database' },
+  session: { strategy: 'jwt' },
   providers: [
     Google({
       clientId: process.env.AUTH_GOOGLE_ID,
@@ -51,21 +56,55 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       if (isOwnerEmail(email)) return true;
       return await isEmailAuthorized(email);
     },
-    // Decorate every session with the per-user permission grant. Owners
-    // (Tom & Tomer) implicitly hold every PermissionKey; everyone else
-    // gets the array stored on their `authorizedEmails` row. Anonymous /
-    // missing-email sessions land here as `allowedPages: []`, which the
-    // `hasPermission` helper treats as no access.
-    async session({ session }) {
-      session.user.isOwner = isOwnerEmail(session.user?.email);
-      if (session.user.isOwner) {
-        session.user.allowedPages = [...PERMISSION_KEYS];
-      } else if (session.user?.email) {
-        const entry = await getAuthorizedEmailEntry(session.user.email);
-        session.user.allowedPages = entry?.allowedPages ?? [];
-      } else {
-        session.user.allowedPages = [];
+    // Token enrichment — the hot path. `auth()` runs in middleware, the
+    // root layout, and every API route's `requireSignedIn`; under database
+    // sessions each of those was a `sessions` lookup (~600-800ms on M0,
+    // measured). The token now caches the non-owner permission grant so the
+    // `session` callback (below) never queries Mongo.
+    //
+    // The `authorizedEmails` row is re-read only when:
+    //   • signing in (`user` present), or
+    //   • the client calls `update()` (`trigger === 'update'`), or
+    //   • the cached copy is older than PERMS_TTL_MS.
+    // The TTL bounds how long a revoked grant survives (≈10 min) while still
+    // skipping Mongo on virtually every request. Owners are a pure email
+    // check and never read Mongo here — their grant is filled in `session`.
+    async jwt({ token, user, trigger }) {
+      const email = (user?.email ?? token.email)?.toLowerCase() ?? null;
+      if (isOwnerEmail(email)) {
+        // Owner grant is code-derived; don't cache/refresh a DB copy.
+        delete token.allowedPages;
+        delete token.permsCheckedAt;
+        return token;
       }
+      if (!email) {
+        // Fail closed: a token with no resolvable email gets no grant,
+        // even if a malformed/legacy token carried a stale one.
+        delete token.allowedPages;
+        delete token.permsCheckedAt;
+        return token;
+      }
+      const PERMS_TTL_MS = 10 * 60 * 1000;
+      const stale =
+        typeof token.permsCheckedAt !== 'number' ||
+        Date.now() - token.permsCheckedAt > PERMS_TTL_MS;
+      if (Boolean(user) || trigger === 'update' || stale) {
+        const entry = await getAuthorizedEmailEntry(email);
+        token.allowedPages = entry?.allowedPages ?? [];
+        token.permsCheckedAt = Date.now();
+      }
+      return token;
+    },
+    // Materialise the session from the token only — zero Mongo. Owners
+    // (Tomer) implicitly hold every PermissionKey; everyone else gets the
+    // token-cached grant. Anonymous / missing-email sessions land here as
+    // `allowedPages: []`, which `hasPermission` treats as no access.
+    async session({ session, token }) {
+      const owner = isOwnerEmail(session.user?.email);
+      session.user.isOwner = owner;
+      session.user.allowedPages = owner
+        ? [...PERMISSION_KEYS]
+        : token.allowedPages ?? [];
       return session;
     },
   },

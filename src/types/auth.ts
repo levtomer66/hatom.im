@@ -43,3 +43,22 @@ declare module 'next-auth' {
     };
   }
 }
+
+// JWT-strategy token shape. We moved off database sessions (every `auth()`
+// was a `sessions` collection lookup on the M0 tier — measured ~600-800ms
+// per call, paid in middleware + layout + each API route). The token now
+// carries the per-user grant so the `session` callback never queries Mongo.
+//
+// Augment `@auth/core/jwt` (not `next-auth/jwt`, which only re-exports it) —
+// the `JWT` interface is declared there, and declaration merging must target
+// the original declaration site.
+declare module '@auth/core/jwt' {
+  interface JWT {
+    // Per-user permission grant, cached on the token. Absent for owners —
+    // their grant is the full PERMISSION_KEYS set, derived in `session`.
+    allowedPages?: PermissionKey[];
+    // Epoch ms of the last `authorizedEmails` read; gates the TTL refresh
+    // that bounds how long a revoked grant survives without re-login.
+    permsCheckedAt?: number;
+  }
+}
