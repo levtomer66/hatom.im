@@ -10,6 +10,10 @@ interface ExercisePhotoProps {
   // Defaults to the lifter emoji used elsewhere across the workout app.
   fallback?: React.ReactNode;
   alt?: string;
+  // How the image fills the box. 'cover' (default) crops to fill — matches
+  // the old `background-size: cover` thumbnails. The picker grid wants
+  // 'contain' to show the whole image uncropped (its old `background-size`).
+  objectFit?: React.CSSProperties['objectFit'];
 }
 
 // Resilient exercise photo:
@@ -31,6 +35,7 @@ export default function ExercisePhoto({
   style,
   fallback = '🏋️',
   alt = '',
+  objectFit = 'cover',
 }: ExercisePhotoProps) {
   const [errored, setErrored] = useState(false);
   const showImg = !!src && !errored;
@@ -75,7 +80,7 @@ export default function ExercisePhoto({
             zIndex: 1,
             width: '100%',
             height: '100%',
-            objectFit: 'cover',
+            objectFit,
           }}
         />
       )}

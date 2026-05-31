@@ -8,6 +8,7 @@ import { useWorkoutUser } from '@/context/WorkoutUserContext';
 import { useWorkoutLanguage } from '@/context/WorkoutLanguageContext';
 import { useT, getCategoryLabel } from '@/lib/workout-i18n';
 import AddExerciseForm from './AddExerciseForm';
+import ExercisePhoto from './ExercisePhoto';
 
 // Muscle group filter IDs (labels come from getCategoryLabel in the render).
 const MUSCLE_GROUP_IDS: ExerciseCategory[] = [
@@ -292,21 +293,16 @@ export default function ExercisePicker({
                       className={`exercise-picker-item ${selectedIds.has(exercise.id) ? 'selected' : ''}`}
                       onClick={() => toggleSelection(exercise.id)}
                     >
-                      <div
+                      <ExercisePhoto
                         className="exercise-picker-photo"
+                        src={exercise.defaultPhoto}
+                        /* decorative: name shown beside it; alt="" default */
+                        objectFit="contain"
                         style={{
-                          backgroundImage: exercise.defaultPhoto
-                            ? `url(${exercise.defaultPhoto})`
-                            : 'none',
-                          backgroundColor: exercise.defaultPhoto ? undefined : 'var(--workout-bg-card)',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
+                          backgroundColor: 'var(--workout-bg-card)',
                           fontSize: '20px',
                         }}
-                      >
-                        {!exercise.defaultPhoto && '🏋️'}
-                      </div>
+                      />
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <span className="exercise-picker-name">{exName}</span>
                         {exercise.isCustom && (

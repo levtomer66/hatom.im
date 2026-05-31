@@ -13,6 +13,7 @@ import Header from '@/components/workout/Header';
 import BottomNav from '@/components/workout/BottomNav';
 import ExerciseExternalLinks from '@/components/workout/ExerciseExternalLinks';
 import ExerciseProgressChart from '@/components/workout/ExerciseProgressChart';
+import ExercisePhoto from '@/components/workout/ExercisePhoto';
 import { ExerciseHistoryEntry, PersonalBest, ExerciseDefinition } from '@/types/workout';
 import { getExerciseById, EXERCISE_LIBRARY } from '@/data/exercise-library';
 
@@ -170,26 +171,18 @@ export default function ExerciseDetailPage() {
         {/* Exercise header card */}
         <div className="workout-card" style={{ marginBottom: '24px' }}>
           <div style={{ display: 'flex', gap: '16px', alignItems: 'flex-start' }}>
-            <div
+            <ExercisePhoto
+              src={exercise.defaultPhoto}
+              /* decorative: the <h2> name beside it is the accessible name,
+                 so alt="" (default) avoids a duplicate announcement. */
               style={{
                 width: '80px',
                 height: '80px',
                 borderRadius: '12px',
-                backgroundColor: 'var(--workout-bg-secondary)',
-                backgroundImage: exercise.defaultPhoto
-                  ? `url(${exercise.defaultPhoto})`
-                  : 'none',
-                backgroundSize: 'cover',
-                backgroundPosition: 'center',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
                 fontSize: '32px',
                 flexShrink: 0,
               }}
-            >
-              {!exercise.defaultPhoto && '🏋️'}
-            </div>
+            />
             <div style={{ flex: 1 }}>
               <h2 style={{ fontSize: '20px', fontWeight: 700, marginBottom: '8px' }}>
                 {localized.name}

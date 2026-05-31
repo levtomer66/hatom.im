@@ -35,6 +35,7 @@ import { useWorkoutUser } from '@/context/WorkoutUserContext';
 import { useWorkoutLanguage } from '@/context/WorkoutLanguageContext';
 import { useT, getCategoryLabel } from '@/lib/workout-i18n';
 import ExercisePicker from './ExercisePicker';
+import ExercisePhoto from './ExercisePhoto';
 
 // Muscle group filter IDs (labels come from getCategoryLabel at render time).
 const MUSCLE_GROUP_IDS: ExerciseCategory[] = [
@@ -548,20 +549,18 @@ export default function TemplateEditor({
                         flexShrink: 0,
                       }}
                     >
-                      <div
+                      <ExercisePhoto
                         className="exercise-picker-photo"
+                        src={exercise.defaultPhoto}
+                        /* decorative: name shown beside it; alt="" default */
+                        objectFit="contain"
                         style={{
                           width: '40px',
                           height: '40px',
                           flexShrink: 0,
-                          backgroundImage: exercise.defaultPhoto
-                            ? `url(${exercise.defaultPhoto})`
-                            : 'none',
-                          backgroundColor: exercise.defaultPhoto ? undefined : 'var(--workout-bg-card)',
+                          backgroundColor: 'var(--workout-bg-card)',
                         }}
-                      >
-                        {!exercise.defaultPhoto && '🏋️'}
-                      </div>
+                      />
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <span className="exercise-picker-name" style={{ fontSize: '14px' }}>
                           {listName}

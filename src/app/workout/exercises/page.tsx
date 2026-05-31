@@ -12,6 +12,7 @@ import { formatSeconds } from '@/lib/time';
 import Header from '@/components/workout/Header';
 import BottomNav from '@/components/workout/BottomNav';
 import AddExerciseForm from '@/components/workout/AddExerciseForm';
+import ExercisePhoto from '@/components/workout/ExercisePhoto';
 import { PersonalBest, ExerciseDefinition, ExerciseCategory, EXERCISE_FILTER_CATEGORIES, WorkoutType } from '@/types/workout';
 import { EXERCISE_LIBRARY } from '@/data/exercise-library';
 
@@ -243,26 +244,19 @@ export default function ExercisesPage() {
                   onClick={() => router.push(`/workout/exercises/${exercise.id}`)}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <div 
+                    <ExercisePhoto
+                      src={exercise.defaultPhoto}
+                      /* decorative: the visible name label below carries the
+                         accessible name, so alt="" (the default) avoids a
+                         double screen-reader announcement. */
                       style={{
                         width: '48px',
                         height: '48px',
                         borderRadius: '8px',
-                        backgroundColor: 'var(--workout-bg-secondary)',
-                        backgroundImage: exercise.defaultPhoto 
-                          ? `url(${exercise.defaultPhoto})` 
-                          : 'none',
-                        backgroundSize: 'cover',
-                        backgroundPosition: 'center',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
                         fontSize: '20px',
                         flexShrink: 0,
                       }}
-                    >
-                      {!exercise.defaultPhoto && '🏋️'}
-                    </div>
+                    />
                     <div className="history-item-info">
                       <div className="history-item-type">
                         {listName}
