@@ -1,8 +1,16 @@
 import { ExerciseDefinition } from '@/types/workout';
 
 // Pexels image URL helper
-const pexels = (id: number) => 
+const pexels = (id: number) =>
   `https://images.pexels.com/photos/${id}/pexels-photo-${id}.jpeg?auto=compress&cs=tinysrgb&w=400`;
+
+// Muscle & Strength CDN image helper. The compound/forearm exercises
+// added from the M&S gap analysis use M&S's own exercise imagery —
+// each URL was HEAD-validated (200 + image/*) at authoring time. The
+// ExercisePhoto component swaps to the 🏋️ fallback on any future 404,
+// so a withdrawn image degrades gracefully rather than showing an
+// empty box. CSP allows these (img-src includes https:).
+const msImg = (file: string) => `https://cdn.muscleandstrength.com/sites/default/files/${file}`;
 
 export const EXERCISE_LIBRARY: ExerciseDefinition[] = [
   // =====================
@@ -691,32 +699,33 @@ export const EXERCISE_LIBRARY: ExerciseDefinition[] = [
 
   // =====================
   // COMPOUNDS (added from the Muscle & Strength gap analysis)
-  // No defaultPhoto on purpose — the ExercisePhoto component renders a
-  // clean 🏋️ fallback, which beats wiring up more Pexels URLs that may
-  // 404 (several existing ones already do; see the M-2 fix).
+  // defaultPhoto URLs are M&S CDN images, each HEAD-validated at
+  // authoring time; ExercisePhoto falls back to 🏋️ on any future 404.
+  // clean-and-press has no M&S still image (video-only page), so it
+  // intentionally has no defaultPhoto and uses the fallback.
   // =====================
-  { id: 'bent-over-row',        name: 'Barbell Bent-Over Row',  description: 'Barbell row hinged at the hips',          categories: ['pull', 'back'] },
-  { id: 't-bar-row',            name: 'T-Bar Row',              description: 'Landmine / T-bar back row',               categories: ['pull', 'back'] },
-  { id: 'seated-cable-row',     name: 'Seated Cable Row',       description: 'Neutral-grip seated cable row',            categories: ['pull', 'back'] },
-  { id: 'barbell-pullover',     name: 'Barbell Pullover',       description: 'Lying barbell pullover for lats/chest',    categories: ['pull', 'back', 'chest'] },
-  { id: 'upright-row',          name: 'Upright Row',            description: 'Barbell/cable upright row for delts/traps', categories: ['pull', 'shoulders'] },
-  { id: 'barbell-hip-thrust',   name: 'Barbell Hip Thrust',     description: 'Bench-supported barbell hip thrust',       categories: ['legs', 'glutes'] },
-  { id: 'front-squat',          name: 'Front Squat',            description: 'Front-rack barbell squat',                 categories: ['legs', 'quads'] },
-  { id: 'good-morning',         name: 'Good Morning',           description: 'Barbell hip hinge for posterior chain',   categories: ['legs', 'hamstrings', 'back'] },
-  { id: 'military-press',       name: 'Military Press',         description: 'Standing barbell overhead press',          categories: ['push', 'shoulders'] },
-  { id: 'push-press',           name: 'Push Press',             description: 'Leg-driven barbell overhead press',        categories: ['push', 'shoulders'] },
-  { id: 'arnold-press',         name: 'Arnold Press',           description: 'Rotating dumbbell shoulder press',         categories: ['push', 'shoulders'] },
-  { id: 'power-clean',          name: 'Power Clean',            description: 'Explosive barbell pull to front rack',    categories: ['full-body', 'pull'] },
+  { id: 'bent-over-row',        name: 'Barbell Bent-Over Row',  description: 'Barbell row hinged at the hips',          categories: ['pull', 'back'],                 defaultPhoto: msImg('t-bar-row.jpg') },
+  { id: 't-bar-row',            name: 'T-Bar Row',              description: 'Landmine / T-bar back row',               categories: ['pull', 'back'],                 defaultPhoto: msImg('machine-t-bar-row.jpg') },
+  { id: 'seated-cable-row',     name: 'Seated Cable Row',       description: 'Neutral-grip seated cable row',            categories: ['pull', 'back'],                 defaultPhoto: msImg('seated-cable-row.jpg') },
+  { id: 'barbell-pullover',     name: 'Barbell Pullover',       description: 'Lying barbell pullover for lats/chest',    categories: ['pull', 'back', 'chest'],        defaultPhoto: msImg('barbellpullover.jpg') },
+  { id: 'upright-row',          name: 'Upright Row',            description: 'Barbell/cable upright row for delts/traps', categories: ['pull', 'shoulders'],           defaultPhoto: msImg('cable-upright-row-1.jpg') },
+  { id: 'barbell-hip-thrust',   name: 'Barbell Hip Thrust',     description: 'Bench-supported barbell hip thrust',       categories: ['legs', 'glutes'],               defaultPhoto: msImg('barbell-hip-thrusts.jpg') },
+  { id: 'front-squat',          name: 'Front Squat',            description: 'Front-rack barbell squat',                 categories: ['legs', 'quads'],                defaultPhoto: msImg('front-squat-1.jpg') },
+  { id: 'good-morning',         name: 'Good Morning',           description: 'Barbell hip hinge for posterior chain',   categories: ['legs', 'hamstrings', 'back'],   defaultPhoto: msImg('standing-good-morning.jpg') },
+  { id: 'military-press',       name: 'Military Press',         description: 'Standing barbell overhead press',          categories: ['push', 'shoulders'],           defaultPhoto: msImg('military-overhead-press.jpg') },
+  { id: 'push-press',           name: 'Push Press',             description: 'Leg-driven barbell overhead press',        categories: ['push', 'shoulders'],           defaultPhoto: msImg('push-press.jpg') },
+  { id: 'arnold-press',         name: 'Arnold Press',           description: 'Rotating dumbbell shoulder press',         categories: ['push', 'shoulders'],           defaultPhoto: msImg('seated-arnold-press-thumb.jpg') },
+  { id: 'power-clean',          name: 'Power Clean',            description: 'Explosive barbell pull to front rack',    categories: ['full-body', 'pull'],            defaultPhoto: msImg('power-clean.jpg') },
   { id: 'clean-and-press',      name: 'Clean and Press',        description: 'Barbell clean into overhead press',       categories: ['full-body'] },
-  { id: 'snatch',               name: 'Snatch',                 description: 'Explosive barbell ground-to-overhead',    categories: ['full-body'] },
-  { id: 'farmers-walk',         name: "Farmer's Walk",          description: 'Loaded carry for grip & whole body',      categories: ['full-body', 'forearms'] },
+  { id: 'snatch',               name: 'Snatch',                 description: 'Explosive barbell ground-to-overhead',    categories: ['full-body'],                    defaultPhoto: msImg('power-snatch.jpg') },
+  { id: 'farmers-walk',         name: "Farmer's Walk",          description: 'Loaded carry for grip & whole body',      categories: ['full-body', 'forearms'],        defaultPhoto: msImg('dumbbell-farmers-carry.jpg') },
 
   // =====================
   // FOREARMS
   // =====================
-  { id: 'barbell-wrist-curl',   name: 'Barbell Wrist Curl',     description: 'Seated wrist flexion with a barbell',      categories: ['pull', 'forearms'] },
-  { id: 'dumbbell-wrist-curl',  name: 'Dumbbell Wrist Curl',    description: 'Seated wrist flexion with dumbbells',      categories: ['pull', 'forearms'] },
-  { id: 'reverse-wrist-curl',   name: 'Reverse Wrist Curl',     description: 'Wrist extension for forearm extensors',    categories: ['pull', 'forearms'] },
+  { id: 'barbell-wrist-curl',   name: 'Barbell Wrist Curl',     description: 'Seated wrist flexion with a barbell',      categories: ['pull', 'forearms'],            defaultPhoto: msImg('seated-barbell-wrist-curl.jpg') },
+  { id: 'dumbbell-wrist-curl',  name: 'Dumbbell Wrist Curl',    description: 'Seated wrist flexion with dumbbells',      categories: ['pull', 'forearms'],            defaultPhoto: msImg('seated-dumbbell-wrist-curl.jpg') },
+  { id: 'reverse-wrist-curl',   name: 'Reverse Wrist Curl',     description: 'Wrist extension for forearm extensors',    categories: ['pull', 'forearms'],            defaultPhoto: msImg('reverse_grip_barbell_wrist_curl.jpg') },
 ];
 
 // Merged/renamed exercise IDs → canonical ID they were folded into

@@ -7,7 +7,7 @@ import { useWorkoutLanguage } from '@/context/WorkoutLanguageContext';
 import { useT, formatDate, exerciseCount, getLocalizedTemplateName } from '@/lib/workout-i18n';
 import Header from '@/components/workout/Header';
 import BottomNav from '@/components/workout/BottomNav';
-import { Workout } from '@/types/workout';
+import { WorkoutSummary } from '@/types/workout';
 
 export default function HistoryPage() {
   const router = useRouter();
@@ -21,7 +21,7 @@ export default function HistoryPage() {
     }
   }, [isLoading, currentUser, router]);
   
-  const [workouts, setWorkouts] = useState<Workout[]>([]);
+  const [workouts, setWorkouts] = useState<WorkoutSummary[]>([]);
   const [loadingWorkouts, setLoadingWorkouts] = useState(true);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
@@ -118,7 +118,7 @@ export default function HistoryPage() {
     }
     groups[monthKey].workouts.push(workout);
     return groups;
-  }, {} as Record<string, { label: string; workouts: Workout[] }>);
+  }, {} as Record<string, { label: string; workouts: WorkoutSummary[] }>);
 
   const sortedMonths = Object.keys(groupedWorkouts).sort().reverse();
 
@@ -161,7 +161,7 @@ export default function HistoryPage() {
                 </h3>
 
                 {inProgressWorkouts.map(workout => {
-                  const n = workout.exercises.length;
+                  const n = workout.exerciseCount;
                   
                   return (
                     <div
@@ -256,7 +256,7 @@ export default function HistoryPage() {
                       </h4>
                       
                       {monthWorkouts.map(workout => {
-                        const n = workout.exercises.length;
+                        const n = workout.exerciseCount;
 
                         return (
                           <div

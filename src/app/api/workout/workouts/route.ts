@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { revalidateTag } from 'next/cache';
 import mongoose from 'mongoose';
 import WorkoutModel from '@/models/Workout';
 import { requireSignedIn } from '@/lib/auth-helpers';
+import { personalBestsTag } from '@/lib/workout-cache';
 
 // Connect to MongoDB using mongoose
 async function connectDB() {
@@ -15,6 +17,11 @@ async function connectDB() {
 // userId is derived from the Auth.js session; any client-supplied
 // userId query string is ignored. Each user only sees their own
 // workouts after the PR 4 SSO migration.
+//
+// Returns lightweight WorkoutSummary docs (no `exercises` array) via a
+// server-side projection — the full set data of every workout was the
+// dominant cold-load payload. Consumers that need the full document
+// (active-workout resume, history detail) fetch GET /workouts/[id].
 export async function GET() {
   const gate = await requireSignedIn();
   if (gate instanceof NextResponse) return gate;
@@ -23,17 +30,38 @@ export async function GET() {
   try {
     await connectDB();
 
-    const workouts = await WorkoutModel.find({ userId })
-      .sort({ date: -1, createdAt: -1 })
-      .lean();
+    // $project with $size(exercises) instead of returning the array —
+    // Mongo computes the count server-side so the payload is a handful
+    // of scalars per workout regardless of how many sets were logged.
+    const workouts = await WorkoutModel.aggregate([
+      { $match: { userId } },
+      { $sort: { date: -1, createdAt: -1 } },
+      {
+        $project: {
+          workoutName: 1,
+          date: 1,
+          isCompleted: 1,
+          templateId: 1,
+          createdAt: 1,
+          updatedAt: 1,
+          exerciseCount: { $size: { $ifNull: ['$exercises', []] } },
+        },
+      },
+    ]);
 
-    const transformedWorkouts = workouts.map((w) => ({
-      ...w,
+    const summaries = workouts.map((w) => ({
       id: w._id.toString(),
-      _id: undefined,
+      userId,
+      workoutName: w.workoutName,
+      date: w.date,
+      isCompleted: !!w.isCompleted,
+      templateId: w.templateId ?? null,
+      exerciseCount: w.exerciseCount ?? 0,
+      createdAt: w.createdAt,
+      updatedAt: w.updatedAt,
     }));
 
-    return NextResponse.json(transformedWorkouts);
+    return NextResponse.json(summaries);
   } catch (error) {
     console.error('Error fetching workouts:', error);
     return NextResponse.json(
@@ -102,6 +130,10 @@ export async function POST(request: NextRequest) {
     const workout = new WorkoutModel(workoutData);
 
     await workout.save();
+
+    // A new workout can change the user's PBs (its sets feed the e1RM
+    // computation), so drop the cached PB map for this user.
+    revalidateTag(personalBestsTag(userId));
 
     return NextResponse.json(workout.toJSON(), { status: 201 });
   } catch (error) {

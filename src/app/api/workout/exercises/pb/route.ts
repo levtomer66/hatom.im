@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { unstable_cache } from 'next/cache';
 import mongoose from 'mongoose';
 import WorkoutModel from '@/models/Workout';
 import {
@@ -10,6 +11,7 @@ import {
 } from '@/types/workout';
 import { requireSignedIn } from '@/lib/auth-helpers';
 import { resolveExerciseId } from '@/data/exercise-library';
+import { personalBestsTag } from '@/lib/workout-cache';
 
 // Connect to MongoDB using mongoose
 async function connectDB() {
@@ -86,23 +88,20 @@ function getBestTimeMode(sets: WorkoutSet[]): { kg: number; seconds: number } | 
   return best;
 }
 
-// GET /api/workout/exercises/pb
-// Returns all personal bests for the signed-in user, keyed by exerciseId.
-// PB is computed via Epley e1RM (rep cap 10) so 100 × 5 (strength) and
-// 80 × 10 (hypertrophy) are comparable on a unified scale.
-export async function GET() {
-  const gate = await requireSignedIn();
-  if (gate instanceof NextResponse) return gate;
-  const userId = gate.session.user.email;
+// Pure PB computation for one user. No request-scoped data (auth is
+// resolved in the handler and the userId is passed in), so this is safe
+// to memoize with unstable_cache. It scans the user's entire workout
+// collection — the dominant cost on the weak Atlas tier — so the result
+// is cached per user and invalidated by the workout write handlers via
+// revalidateTag(personalBestsTag(userId)).
+async function computePersonalBests(userId: string): Promise<PBMap> {
+  await connectDB();
 
-  try {
-    await connectDB();
+  // Workouts most-recent first so `last*` and `current*` fields stay
+  // correct on first encounter.
+  const workouts = await WorkoutModel.find({ userId }).sort({ date: -1 }).lean();
 
-    // Workouts most-recent first so `last*` and `current*` fields stay
-    // correct on first encounter.
-    const workouts = await WorkoutModel.find({ userId }).sort({ date: -1 }).lean();
-
-    const pbCandidates: Record<string, PBCandidate> = {};
+  const pbCandidates: Record<string, PBCandidate> = {};
 
     for (const workout of workouts) {
       for (const exercise of workout.exercises) {
@@ -241,6 +240,31 @@ export async function GET() {
       pbMap[exerciseId] = pb;
     }
 
+  return pbMap;
+}
+
+// GET /api/workout/exercises/pb
+// Returns all personal bests for the signed-in user, keyed by exerciseId.
+// PB is computed via Epley e1RM (rep cap 10) so 100 × 5 (strength) and
+// 80 × 10 (hypertrophy) are comparable on a unified scale.
+//
+// The computation is memoized per user with unstable_cache (5-min safety
+// TTL + tag invalidation on every workout write). Cache misses only
+// happen after a write or after the TTL — on a low-traffic app that
+// makes the common navigation path (start / exercises / detail pages,
+// which all read PB) effectively free.
+export async function GET() {
+  const gate = await requireSignedIn();
+  if (gate instanceof NextResponse) return gate;
+  const userId = gate.session.user.email;
+
+  try {
+    const cached = unstable_cache(
+      () => computePersonalBests(userId),
+      ['workout-pb', userId],
+      { tags: [personalBestsTag(userId)], revalidate: 300 },
+    );
+    const pbMap = await cached();
     return NextResponse.json(pbMap);
   } catch (error) {
     console.error('Error fetching personal bests:', error);

@@ -31,6 +31,7 @@ import TemplateSelector from '@/components/workout/TemplateSelector';
 import TemplateEditor from '@/components/workout/TemplateEditor';
 import {
   Workout,
+  WorkoutSummary,
   WorkoutExercise,
   WorkoutSet,
   WorkoutTemplate,
@@ -207,15 +208,24 @@ export default function WorkoutsPage() {
         }
       }
       
-      // Otherwise, check for any in-progress workout and auto-resume
+      // Otherwise, check for any in-progress workout and auto-resume.
+      // The list endpoint now returns lightweight summaries (no
+      // `exercises`), so once we find the in-progress summary we fetch
+      // its full document by id before resuming.
       const res = await fetch(`/api/workout/workouts?userId=${currentUser.id}`);
       if (res.ok) {
-        const workouts = await res.json();
-        const inProgressWorkout = workouts.find((w: Workout) => !w.isCompleted);
-        
-        if (inProgressWorkout) {
-          setActiveWorkout(inProgressWorkout);
-          setHasInProgressWorkout(true);
+        const summaries: WorkoutSummary[] = await res.json();
+        const inProgress = summaries.find((w) => !w.isCompleted);
+
+        if (inProgress) {
+          const fullRes = await fetch(`/api/workout/workouts/${inProgress.id}`);
+          if (fullRes.ok) {
+            const full: Workout = await fullRes.json();
+            setActiveWorkout(full);
+            setHasInProgressWorkout(true);
+          } else {
+            setHasInProgressWorkout(false);
+          }
         } else {
           setHasInProgressWorkout(false);
         }

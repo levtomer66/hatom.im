@@ -258,6 +258,23 @@ export interface WorkoutTemplate {
   updatedAt: string;
 }
 
+// Lightweight workout summary returned by the LIST endpoint
+// (GET /api/workout/workouts). The history page + the auto-resume probe
+// only need these fields; sending the full `exercises` array of every
+// workout was the dominant cold-load payload on the weak Atlas tier.
+// The full document is still available per-id via GET /workouts/[id].
+export interface WorkoutSummary {
+  id: string;
+  userId: UserId;
+  workoutName: string;
+  date: string;
+  isCompleted: boolean;
+  templateId?: string | null;
+  exerciseCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
 // Workout session (training instance)
 export interface Workout {
   _id?: string;
