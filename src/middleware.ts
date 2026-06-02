@@ -34,6 +34,18 @@ const GATES: readonly Gate[] = [
 
 export default auth((req) => {
   const path = req.nextUrl.pathname;
+
+  // Next.js file-convention metadata routes (icon, apple-icon, og/twitter
+  // images) must stay publicly fetchable. The OS/browser fetches the
+  // "Add to Home Screen" icon with NO session, so gating it returns a
+  // 307 → /login and the icon silently falls back to a page screenshot.
+  // These routes live UNDER gated prefixes (e.g. /workout/apple-icon,
+  // /workout/icon.svg), so the matcher catches them — let them bypass the
+  // auth gate. Exercise/page ids never end in these reserved segment names.
+  if (/\/(icon|apple-icon|opengraph-image|twitter-image)(\.[a-z0-9]+)?$/i.test(path)) {
+    return;
+  }
+
   const gate = GATES.find((g) => g.pattern.test(path));
   if (!gate) return;
 
