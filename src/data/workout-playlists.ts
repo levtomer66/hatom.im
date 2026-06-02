@@ -12,7 +12,48 @@ export interface WorkoutPlaylist {
   durationSeconds: number;
   /** Full SoundCloud URL. Opens in a new tab. */
   url: string;
+  /**
+   * SoundCloud numeric track id, resolved from the permalink via SoundCloud's
+   * public oEmbed endpoint. Used to build the embedded visual player:
+   *   https://w.soundcloud.com/player/?url=https://api.soundcloud.com/tracks/<scTrackId>&visual=true…
+   * The widget needs the resolved api.soundcloud.com resource, not the bare
+   * permalink. Empty string = couldn't resolve (render a fallback link).
+   */
+  scTrackId: string;
 }
+
+// permalink → resolved SoundCloud track id (from `soundcloud.com/oembed`).
+// Regenerate if the set list changes: fetch the oEmbed JSON per url and read
+// the `tracks/<id>` out of the returned player src.
+const SC_TRACK_ID_BY_URL: Readonly<Record<string, string>> = {
+  'https://soundcloud.com/lift-tlv/dj-ben-azoulay-pres-lift': '2299436765',
+  'https://soundcloud.com/gal-ben-david-5/primal-workout-set-x-golds-gym': '2259336026',
+  'https://soundcloud.com/gillugasy/gil-lugasy-welcome-to-my-symphony': '548729760',
+  'https://soundcloud.com/boostfitnesscenter/adidor-ohad-paran-for-boost-fitness-center-power-december-2023': '1687754169',
+  'https://soundcloud.com/lift-tlv/shay-tsadik-omer-kahalon-trance-set-for-lift-march-2024': '1766695923',
+  'https://soundcloud.com/gillugasy/gil-lugasy-omri-karasso-tomorrowland-fastival-set-2023': '1584633323',
+  'https://soundcloud.com/boostfitnesscenter/adidor-ohad-paran-for-boost-pilates-power-november-2025': '2210235128',
+  'https://soundcloud.com/tomershefer/ayelet-foget-tomer-shefer-2025': '2230149281',
+  'https://soundcloud.com/gillugasy/gil-lugasy-karasso-live-set-edm-quarantine-mix': '806071435',
+  'https://soundcloud.com/shay-tsadik/shay-tsadik-x-locker-room-2-0': '2174174034',
+  'https://soundcloud.com/boostfitnesscenter/adidor-soco-for-boost-fitness-center-power-july-2023': '1554607870',
+  'https://soundcloud.com/boostfitnesscenter/nadav-shpilman-chen-soco-for-boost-fitness-center-may-2025': '2102993592',
+  'https://soundcloud.com/elimatana/live-set-ronit-farm-3318': '420810188',
+  'https://soundcloud.com/elimatana/yossiporatstudio': '832321612',
+  'https://soundcloud.com/elimatana/firstudio': '1215506461',
+  'https://soundcloud.com/locker_room/omer-ossadon-for-locker-room-hafla-june-24': '1845686103',
+  'https://soundcloud.com/elimatana/hiit-studio-2024': '1713419937',
+  'https://soundcloud.com/hypemusiccoil/4nastiagutin': '1291037005',
+  'https://soundcloud.com/jetfiremusic/jetfire-summer-set-2025': '2124429426',
+  'https://soundcloud.com/boostfitnesscenter/gil-lugasy-x-eli-matana-for-boost-fitness-center-power-dec-2022': '1400346244',
+  'https://soundcloud.com/boostfitnesscenter/adidor-x-chen-soco-for-boost-hiit-hafla-vibe-2024': '1830585984',
+  'https://soundcloud.com/likys/power-set-for-likys-tomer-ben-ami-eli-matana': '1892956671',
+  'https://soundcloud.com/likys/eli-matana-tomer-ben-ami-4': '1956861451',
+  'https://soundcloud.com/mordahari/nitzan-meiri-x-mor-dahari-mainstream-set-2025': '2067360316',
+  'https://soundcloud.com/omri-karasso/omri-karasso-x-shahar-keidar-6th-birthday-workout-set-2024-hype': '1873679115',
+  'https://soundcloud.com/itayitshaki/itay-itshaki-funjoya-2022-set-atisuto': '1264407049',
+  'https://soundcloud.com/itzikgutzait/new-year-party-at-the-jems-modiin-2020': '737077432',
+};
 
 // Parse 'mm:ss' or 'hh:mm:ss' into seconds. Throws on malformed input so a
 // typo in the source table fails the build instead of silently rendering NaN.
@@ -97,5 +138,6 @@ export const WORKOUT_PLAYLISTS: readonly WorkoutPlaylist[] = RAW.map(({ title, r
     durationLabel: formatDurationLabel(durationSeconds),
     durationSeconds,
     url,
+    scTrackId: SC_TRACK_ID_BY_URL[url] ?? '',
   };
 });

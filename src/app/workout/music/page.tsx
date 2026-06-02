@@ -108,60 +108,84 @@ export default function MusicPage() {
           </div>
         ) : (
           <div>
-            {WORKOUT_PLAYLISTS.map((playlist) => (
-              <a
-                key={playlist.id}
-                href={playlist.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                aria-label={`Open ${playlist.title} on SoundCloud`}
-                style={{ display: 'block', textDecoration: 'none', color: 'inherit' }}
-              >
-                <div
-                  className="workout-card"
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    gap: '12px',
-                  }}
-                >
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div
+            {WORKOUT_PLAYLISTS.map((playlist) =>
+              playlist.scTrackId ? (
+                <div key={playlist.id} style={{ marginBottom: '18px' }}>
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'baseline',
+                      gap: '8px',
+                      marginBottom: '8px',
+                    }}
+                  >
+                    <span
                       style={{
                         fontWeight: 600,
-                        fontSize: '1.05rem',
-                        lineHeight: 1.3,
+                        fontSize: '0.95rem',
                         color: 'var(--workout-text)',
+                        lineHeight: 1.3,
+                        minWidth: 0,
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
                       }}
                     >
                       {playlist.title}
-                    </div>
-                    <div
+                    </span>
+                    <span
                       style={{
-                        marginTop: '4px',
-                        fontSize: '0.85rem',
+                        fontSize: '0.8rem',
                         color: 'var(--workout-text-muted)',
+                        flexShrink: 0,
                       }}
                     >
-                      {t('music.duration')}: {playlist.durationLabel}
-                    </div>
+                      {playlist.durationLabel}
+                    </span>
                   </div>
-                  <span
-                    style={{
-                      color: '#ff5500',
-                      fontWeight: 600,
-                      fontSize: '0.9rem',
-                      whiteSpace: 'nowrap',
-                      flexShrink: 0,
-                    }}
-                    aria-hidden="true"
-                  >
-                    Open ↗
-                  </span>
+                  <iframe
+                    title={playlist.title}
+                    width="100%"
+                    height={300}
+                    scrolling="no"
+                    loading="lazy"
+                    allow="autoplay; encrypted-media"
+                    src={`https://w.soundcloud.com/player/?url=${encodeURIComponent(
+                      `https://api.soundcloud.com/tracks/${playlist.scTrackId}`,
+                    )}&color=%23ff5500&auto_play=false&hide_related=true&show_comments=false&show_user=true&show_reposts=false&show_teaser=false&visual=true`}
+                    style={{ borderRadius: '12px', border: 0, display: 'block' }}
+                  />
                 </div>
-              </a>
-            ))}
+              ) : (
+                /* Fallback: an unresolved set (couldn't get a track id) still
+                   links out to SoundCloud rather than showing a broken embed. */
+                <a
+                  key={playlist.id}
+                  href={playlist.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label={`Open ${playlist.title} on SoundCloud`}
+                  style={{ display: 'block', textDecoration: 'none', color: 'inherit', marginBottom: '12px' }}
+                >
+                  <div
+                    className="workout-card"
+                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}
+                  >
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontWeight: 600, fontSize: '1.05rem', lineHeight: 1.3, color: 'var(--workout-text)' }}>
+                        {playlist.title}
+                      </div>
+                      <div style={{ marginTop: '4px', fontSize: '0.85rem', color: 'var(--workout-text-muted)' }}>
+                        {t('music.duration')}: {playlist.durationLabel}
+                      </div>
+                    </div>
+                    <span style={{ color: '#ff5500', fontWeight: 600, fontSize: '0.9rem', whiteSpace: 'nowrap', flexShrink: 0 }} aria-hidden="true">
+                      Open ↗
+                    </span>
+                  </div>
+                </a>
+              ),
+            )}
           </div>
         )}
       </div>
