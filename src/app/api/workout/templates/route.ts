@@ -1,114 +1,27 @@
 import { NextRequest, NextResponse } from 'next/server';
 import mongoose from 'mongoose';
 import WorkoutTemplateModel from '@/models/WorkoutTemplate';
-import { TemplateExercise, DEFAULT_NUM_SETS, MIN_SETS, MAX_SETS } from '@/types/workout';
-import { resolveExerciseId } from '@/data/exercise-library';
+import { DEFAULT_NUM_SETS } from '@/types/workout';
 import { requireSignedIn } from '@/lib/auth-helpers';
-import { OWNER_EMAILS } from '@/types/auth';
+import {
+  getOwnTemplates,
+  getSharedTemplates,
+  sanitizeExercises,
+  sanitizeDescription,
+  sanitizeInstagramUrl,
+  normalizeTemplate,
+  type LegacyTemplate,
+} from '@/lib/workout-templates';
 
-// Connect to MongoDB using mongoose
 async function connectDB() {
   if (mongoose.connection.readyState >= 1) return;
-
   const uri = process.env.MONGODB_URI!;
   await mongoose.connect(uri);
 }
 
-// Legacy shape: some templates in Mongo still store { exerciseIds: string[] } from before
-// per-exercise defaults existed. Normalize either shape into the new { exercises: TemplateExercise[] }.
-type LegacyTemplate = {
-  _id: mongoose.Types.ObjectId | string;
-  exerciseIds?: string[];
-  exercises?: TemplateExercise[];
-  [key: string]: unknown;
-};
-
-// Resolve legacy exercise IDs to their canonical form, then drop any duplicates
-// that collapse together (e.g. `lat-pulldown` + `wide-grip-lat-pulldown`).
-// Keeps the first occurrence's numSets + notes.
-function dedupeByExerciseId(entries: TemplateExercise[]): TemplateExercise[] {
-  const seen = new Set<string>();
-  const out: TemplateExercise[] = [];
-  for (const e of entries) {
-    const canonical = resolveExerciseId(e.exerciseId);
-    if (seen.has(canonical)) continue;
-    seen.add(canonical);
-    out.push({ ...e, exerciseId: canonical });
-  }
-  return out;
-}
-
-function normalizeTemplate(t: LegacyTemplate) {
-  const rawExercises: TemplateExercise[] = Array.isArray(t.exercises) && t.exercises.length > 0
-    ? t.exercises.map(e => ({
-        exerciseId: e.exerciseId,
-        numSets: typeof e.numSets === 'number' ? e.numSets : DEFAULT_NUM_SETS,
-        notes: typeof e.notes === 'string' ? e.notes : '',
-        supersetGroup: typeof e.supersetGroup === 'number' ? e.supersetGroup : null,
-      }))
-    : Array.isArray(t.exerciseIds)
-      ? t.exerciseIds.map(id => ({ exerciseId: id, numSets: DEFAULT_NUM_SETS, notes: '' }))
-      : [];
-
-  const exercises = dedupeByExerciseId(rawExercises);
-
-  const { exerciseIds: _legacy, _id, ...rest } = t;
-  void _legacy;
-  return {
-    ...rest,
-    id: _id.toString(),
-    exercises,
-    // Mirror the canonical exercise IDs back into the legacy field so that
-    // stale frontend bundles (still reading template.exerciseIds) keep working
-    // until they refresh. Safe to remove once no clients read this.
-    exerciseIds: exercises.map(e => e.exerciseId),
-  };
-}
-
-function sanitizeExercises(raw: unknown): TemplateExercise[] {
-  if (!Array.isArray(raw)) return [];
-  const parsed = raw
-    .map((entry) => {
-      if (!entry || typeof entry !== 'object') return null;
-      const e = entry as Record<string, unknown>;
-      const exerciseId = typeof e.exerciseId === 'string' ? e.exerciseId.trim() : '';
-      if (!exerciseId) return null;
-      const rawNum = typeof e.numSets === 'number' ? e.numSets : Number(e.numSets);
-      const numSets = Number.isFinite(rawNum)
-        ? Math.min(MAX_SETS, Math.max(MIN_SETS, Math.round(rawNum)))
-        : DEFAULT_NUM_SETS;
-      const notes = typeof e.notes === 'string' ? e.notes : '';
-      const supersetGroup =
-        typeof e.supersetGroup === 'number' && Number.isFinite(e.supersetGroup)
-          ? Math.round(e.supersetGroup)
-          : null;
-      return { exerciseId, numSets, notes, supersetGroup } as TemplateExercise;
-    })
-    .filter((e): e is TemplateExercise => e !== null);
-  return dedupeByExerciseId(parsed);
-}
-
-// Free-text protocol/description, length-capped. Returns undefined when the
-// field is absent (so PUT can distinguish "leave unchanged" from "clear").
-function sanitizeDescription(raw: unknown): string | undefined {
-  if (typeof raw !== 'string') return undefined;
-  return raw.slice(0, 2000);
-}
-
-// Only accept an Instagram permalink; anything else is dropped to ''. Absent
-// field → undefined ("leave unchanged" for PUT). Blocks javascript:/data: etc.
-function sanitizeInstagramUrl(raw: unknown): string | undefined {
-  if (typeof raw !== 'string') return undefined;
-  const url = raw.trim();
-  if (url === '') return '';
-  return /^https:\/\/(www\.)?instagram\.com\/[^\s"'<>]*$/i.test(url) ? url : '';
-}
-
 // GET /api/workout/templates              → caller's own templates
-// GET /api/workout/templates?scope=shared  → owner-shared templates from
-//                                            any user in OWNER_EMAILS,
-//                                            visible to every signed-in
-//                                            user with workout permission.
+// GET /api/workout/templates?scope=shared → owner-shared templates, visible
+//                                           to every signed-in workout user.
 // userId is derived from the Auth.js session.
 export async function GET(request: NextRequest) {
   const gate = await requireSignedIn();
@@ -117,29 +30,18 @@ export async function GET(request: NextRequest) {
   const scope = request.nextUrl.searchParams.get('scope');
 
   try {
-    await connectDB();
-
-    const query = scope === 'shared'
-      ? { sharedByOwner: true, userId: { $in: OWNER_EMAILS } }
-      : { userId };
-
-    const templates = await WorkoutTemplateModel.find(query)
-      .sort({ updatedAt: -1 })
-      .lean();
-
-    return NextResponse.json(templates.map(t => normalizeTemplate(t as unknown as LegacyTemplate)));
+    const templates = scope === 'shared'
+      ? await getSharedTemplates()
+      : await getOwnTemplates(userId);
+    return NextResponse.json(templates);
   } catch (error) {
     console.error('Error fetching templates:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch templates' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to fetch templates' }, { status: 500 });
   }
 }
 
 // POST /api/workout/templates
-// userId is derived from the Auth.js session; any client-supplied userId
-// in the body is ignored.
+// userId is derived from the session; any client-supplied userId is ignored.
 export async function POST(request: NextRequest) {
   const gate = await requireSignedIn();
   if (gate instanceof NextResponse) return gate;
@@ -150,21 +52,18 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
     const { name } = body as { name: string };
-    // Prefer the new { exercises } shape; fall back to legacy { exerciseIds: string[] }
-    // from stale clients so an edit from an older bundle doesn't wipe the template.
+    // Prefer the new { exercises } shape; fall back to legacy { exerciseIds }
+    // from stale clients so an edit from an older bundle doesn't wipe data.
     const exercises = Array.isArray(body.exercises)
       ? sanitizeExercises(body.exercises)
       : Array.isArray(body.exerciseIds)
         ? sanitizeExercises(
-            (body.exerciseIds as unknown[]).map(id => ({ exerciseId: id, numSets: DEFAULT_NUM_SETS, notes: '' }))
+            (body.exerciseIds as unknown[]).map((id) => ({ exerciseId: id, numSets: DEFAULT_NUM_SETS, notes: '' })),
           )
         : [];
 
     if (!name || !name.trim()) {
-      return NextResponse.json(
-        { error: 'Template name is required' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Template name is required' }, { status: 400 });
     }
 
     const template = new WorkoutTemplateModel({
@@ -181,9 +80,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(normalizeTemplate(saved as unknown as LegacyTemplate), { status: 201 });
   } catch (error) {
     console.error('Error creating template:', error);
-    return NextResponse.json(
-      { error: 'Failed to create template' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to create template' }, { status: 500 });
   }
 }

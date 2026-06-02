@@ -31,7 +31,6 @@ import TemplateSelector from '@/components/workout/TemplateSelector';
 import TemplateEditor from '@/components/workout/TemplateEditor';
 import {
   Workout,
-  WorkoutSummary,
   WorkoutExercise,
   WorkoutSet,
   WorkoutTemplate,
@@ -111,28 +110,60 @@ export default function WorkoutsPage() {
     }
   }, [currentUser]);
 
-  // Fetch the caller's own templates AND any templates an owner has
-  // marked as shared (visible to every signed-in workout user). Owners
-  // additionally get a per-template usage count so the selector can
-  // surface "X sessions" badges on their own shared templates.
-  // All three calls run in parallel — independent endpoints.
-  const fetchTemplates = useCallback(async () => {
-    if (!currentUser) return;
-
-    try {
-      const promises = [
-        fetch(`/api/workout/templates?userId=${currentUser.id}`),
-        fetch('/api/workout/templates?scope=shared'),
-      ];
-      if (isOwner) promises.push(fetch('/api/workout/templates/usage'));
-      const [mineRes, sharedRes, usageRes] = await Promise.all(promises);
-      if (mineRes && mineRes.ok) setTemplates(await mineRes.json());
-      if (sharedRes && sharedRes.ok) setSharedTemplates(await sharedRes.json());
-      if (usageRes && usageRes.ok) setTemplateUsage(await usageRes.json());
-    } catch (error) {
-      console.error('Error fetching templates:', error);
+  // Single cold-load fetch: PB, templates (own + shared + usage), and the
+  // in-progress workout — all assembled server-side by /api/workout/bootstrap
+  // in one round trip, instead of the old pb + templates×(2–3) +
+  // workouts(list→full) fan-out. The resume-from-History path (which can
+  // re-open a COMPLETED workout) stays client-side because it keys off
+  // sessionStorage; it overrides the auto-resumed in-progress workout.
+  const loadBootstrap = useCallback(async () => {
+    if (!currentUser) {
+      setInitialLoadDone(true);
+      return;
     }
-  }, [currentUser, isOwner]);
+    try {
+      const resumeWorkoutId = sessionStorage.getItem('resumeWorkoutId');
+      if (resumeWorkoutId) sessionStorage.removeItem('resumeWorkoutId');
+
+      const res = await fetch('/api/workout/bootstrap');
+      if (res.ok) {
+        const data = await res.json();
+        setPersonalBests(data.personalBests ?? {});
+        setTemplates(data.templates ?? []);
+        setSharedTemplates(data.sharedTemplates ?? []);
+        setTemplateUsage(data.templateUsage ?? {});
+
+        // A specific resume target (History "resume") wins; but if it can't
+        // be loaded (deleted, or belongs to another account left in this
+        // browser's sessionStorage) fall through to the auto-resumed
+        // in-progress workout from the bootstrap, same as the old flow.
+        let resumed = false;
+        if (resumeWorkoutId) {
+          const r = await fetch(`/api/workout/workouts/${resumeWorkoutId}`);
+          if (r.ok) {
+            const w = await r.json();
+            if (w.userId === currentUser.id) {
+              if (w.isCompleted) w.isCompleted = false; // re-open a completed one
+              setActiveWorkout(w);
+              setHasInProgressWorkout(true);
+              resumed = true;
+            }
+          }
+        }
+        if (!resumed) {
+          if (data.activeWorkout) {
+            setActiveWorkout(data.activeWorkout);
+            setHasInProgressWorkout(true);
+          } else {
+            setHasInProgressWorkout(false);
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error loading workout bootstrap:', error);
+    }
+    setInitialLoadDone(true);
+  }, [currentUser]);
 
   // Owner toggle: flip sharedByOwner on one of MY templates. Optimistic
   // update + revert on server failure. The server silently drops the
@@ -162,73 +193,13 @@ export default function WorkoutsPage() {
     }
   }, [isOwner]);
 
-  // Auto-resume: Check for in-progress workout and automatically resume it
-  const checkAndResumeWorkout = useCallback(async () => {
-    if (!currentUser) {
-      setInitialLoadDone(true);
-      return;
-    }
-    
-    try {
-      // First check if there's a specific workout to resume (from History tab)
-      const resumeWorkoutId = sessionStorage.getItem('resumeWorkoutId');
-      if (resumeWorkoutId) {
-        sessionStorage.removeItem('resumeWorkoutId');
-        
-        const res = await fetch(`/api/workout/workouts/${resumeWorkoutId}`);
-        if (res.ok) {
-          const workout = await res.json();
-          // Resume if it belongs to current user (can resume both completed and in-progress)
-          if (workout.userId === currentUser.id) {
-            // If resuming a completed workout, mark it as not completed
-            if (workout.isCompleted) {
-              workout.isCompleted = false;
-            }
-            setActiveWorkout(workout);
-            setHasInProgressWorkout(true);
-            setInitialLoadDone(true);
-            return;
-          }
-        }
-      }
-      
-      // Otherwise, check for any in-progress workout and auto-resume.
-      // The list endpoint now returns lightweight summaries (no
-      // `exercises`), so once we find the in-progress summary we fetch
-      // its full document by id before resuming.
-      const res = await fetch(`/api/workout/workouts?userId=${currentUser.id}`);
-      if (res.ok) {
-        const summaries: WorkoutSummary[] = await res.json();
-        const inProgress = summaries.find((w) => !w.isCompleted);
-
-        if (inProgress) {
-          const fullRes = await fetch(`/api/workout/workouts/${inProgress.id}`);
-          if (fullRes.ok) {
-            const full: Workout = await fullRes.json();
-            setActiveWorkout(full);
-            setHasInProgressWorkout(true);
-          } else {
-            setHasInProgressWorkout(false);
-          }
-        } else {
-          setHasInProgressWorkout(false);
-        }
-      }
-    } catch (error) {
-      console.error('Error checking workouts:', error);
-    }
-    
-    setInitialLoadDone(true);
-  }, [currentUser]);
-
-  // Wait for user context to finish loading before checking resume
+  // On mount (after the user context resolves) load everything in one call.
+  // PB is included in the bootstrap, so we don't also call fetchPersonalBests
+  // here — that one's kept for the post-complete refresh below.
   useEffect(() => {
     if (isLoading) return; // Wait for user context
-    
-    fetchPersonalBests();
-    fetchTemplates();
-    checkAndResumeWorkout();
-  }, [isLoading, fetchPersonalBests, fetchTemplates, checkAndResumeWorkout]);
+    loadBootstrap();
+  }, [isLoading, loadBootstrap]);
 
   // Auto-save workout changes
   const saveWorkout = useCallback(async (workout: Workout) => {
