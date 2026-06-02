@@ -44,6 +44,7 @@ function normalizeTemplate(t: LegacyTemplate) {
         exerciseId: e.exerciseId,
         numSets: typeof e.numSets === 'number' ? e.numSets : DEFAULT_NUM_SETS,
         notes: typeof e.notes === 'string' ? e.notes : '',
+        supersetGroup: typeof e.supersetGroup === 'number' ? e.supersetGroup : null,
       }))
     : Array.isArray(t.exerciseIds)
       ? t.exerciseIds.map(id => ({ exerciseId: id, numSets: DEFAULT_NUM_SETS, notes: '' }))
@@ -77,10 +78,30 @@ function sanitizeExercises(raw: unknown): TemplateExercise[] {
         ? Math.min(MAX_SETS, Math.max(MIN_SETS, Math.round(rawNum)))
         : DEFAULT_NUM_SETS;
       const notes = typeof e.notes === 'string' ? e.notes : '';
-      return { exerciseId, numSets, notes } as TemplateExercise;
+      const supersetGroup =
+        typeof e.supersetGroup === 'number' && Number.isFinite(e.supersetGroup)
+          ? Math.round(e.supersetGroup)
+          : null;
+      return { exerciseId, numSets, notes, supersetGroup } as TemplateExercise;
     })
     .filter((e): e is TemplateExercise => e !== null);
   return dedupeByExerciseId(parsed);
+}
+
+// Free-text protocol/description, length-capped. Returns undefined when the
+// field is absent (so PUT can distinguish "leave unchanged" from "clear").
+function sanitizeDescription(raw: unknown): string | undefined {
+  if (typeof raw !== 'string') return undefined;
+  return raw.slice(0, 2000);
+}
+
+// Only accept an Instagram permalink; anything else is dropped to ''. Absent
+// field → undefined ("leave unchanged" for PUT). Blocks javascript:/data: etc.
+function sanitizeInstagramUrl(raw: unknown): string | undefined {
+  if (typeof raw !== 'string') return undefined;
+  const url = raw.trim();
+  if (url === '') return '';
+  return /^https:\/\/(www\.)?instagram\.com\/[^\s"'<>]*$/i.test(url) ? url : '';
 }
 
 // GET /api/workout/templates              → caller's own templates
@@ -150,6 +171,8 @@ export async function POST(request: NextRequest) {
       userId,
       name: name.trim(),
       exercises,
+      description: sanitizeDescription(body.description),
+      instagramUrl: sanitizeInstagramUrl(body.instagramUrl),
     });
 
     await template.save();

@@ -20,6 +20,8 @@ const WorkoutExerciseSchema = new Schema<WorkoutExercise>({
   notes: { type: String, default: '' },
   photos: { type: [String], default: [] },
   replacedFromExerciseId: { type: String, default: null },
+  // 1-based superset group id (carried from the template); null = standalone.
+  supersetGroup: { type: Number, default: null },
 }, { _id: false });
 
 // Main workout schema
@@ -54,6 +56,9 @@ const WorkoutSchema = new Schema<WorkoutDocument>({
     type: Boolean,
     default: false
   },
+  // Optional example link + protocol text, carried from the template.
+  instagramUrl: { type: String, default: '' },
+  description: { type: String, default: '' },
   // Client-supplied UUID for idempotent creates — the offline PWA queue
   // could replay a POST if the original response never made it back to
   // the client (process kill mid-drain, mobile network flap). Sparse +

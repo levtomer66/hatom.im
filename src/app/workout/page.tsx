@@ -43,6 +43,7 @@ import {
 } from '@/types/workout';
 import { EXERCISE_LIBRARY } from '@/data/exercise-library';
 import { v4 as uuidv4 } from 'uuid';
+import { buildSupersetGroups, supersetLabel } from '@/lib/superset';
 
 export default function WorkoutsPage() {
   const router = useRouter();
@@ -317,6 +318,7 @@ export default function WorkoutsPage() {
           sets,
           notes: te.notes ?? '',
           photos: [],
+          supersetGroup: te.supersetGroup ?? null,
         };
       });
 
@@ -339,6 +341,9 @@ export default function WorkoutsPage() {
         const workout = await res.json();
         // Add the exercises from the template
         workout.exercises = exercises;
+        // Carry the template's example link + protocol text to the workout.
+        workout.instagramUrl = template.instagramUrl ?? '';
+        workout.description = template.description ?? '';
         setActiveWorkout(workout);
         // Bump editTick so the autosave effect fires once and persists
         // the template-loaded exercises onto the freshly-created workout
@@ -691,6 +696,25 @@ export default function WorkoutsPage() {
               </div>
             )}
 
+            {/* Protocol text + example link, carried from the template. */}
+            {(activeWorkout.description || activeWorkout.instagramUrl) && (
+              <div className="workout-protocol-banner">
+                {activeWorkout.description && (
+                  <div className="workout-protocol-text">{activeWorkout.description}</div>
+                )}
+                {activeWorkout.instagramUrl && (
+                  <a
+                    href={activeWorkout.instagramUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="workout-watch-link"
+                  >
+                    ▶ {t('workout.watch_example')}
+                  </a>
+                )}
+              </div>
+            )}
+
             {/* Exercise cards (drag-sortable) */}
             {activeWorkout.exercises.length === 0 ? (
               <div className="empty-state">
@@ -710,19 +734,34 @@ export default function WorkoutsPage() {
                   strategy={verticalListSortingStrategy}
                 >
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                    {activeWorkout.exercises.map((exercise, index) => (
-                      <SortableExerciseCard
-                        key={exercise.id}
-                        id={exercise.id}
-                        exercise={exercise}
-                        exerciseDefinition={exerciseMap[exercise.exerciseId] || null}
-                        pb={personalBests[exercise.exerciseId] || null}
-                        onUpdate={(updated) => updateExercise(index, updated)}
-                        onRemove={() => removeExercise(index)}
-                        onReplace={() => setReplaceExerciseIndex(index)}
-                        exerciseMap={exerciseMap}
-                      />
-                    ))}
+                    {buildSupersetGroups(activeWorkout.exercises).map((group) => {
+                      const renderCard = ({ item: exercise, index }: { item: WorkoutExercise; index: number }) => (
+                        <SortableExerciseCard
+                          key={exercise.id}
+                          id={exercise.id}
+                          exercise={exercise}
+                          exerciseDefinition={exerciseMap[exercise.exerciseId] || null}
+                          pb={personalBests[exercise.exerciseId] || null}
+                          onUpdate={(updated) => updateExercise(index, updated)}
+                          onRemove={() => removeExercise(index)}
+                          onReplace={() => setReplaceExerciseIndex(index)}
+                          exerciseMap={exerciseMap}
+                        />
+                      );
+                      // Singleton → render the card directly. Superset → wrap
+                      // the members in a labeled, bracketed container.
+                      if (group.items.length < 2) return renderCard(group.items[0]);
+                      return (
+                        <div key={`ss-${group.key}`} className="superset-group">
+                          <div className="superset-group-header">
+                            🔗 {t('workout.superset')} {supersetLabel(group.supersetGroup)}
+                          </div>
+                          <div className="superset-group-body">
+                            {group.items.map(renderCard)}
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 </SortableContext>
               </DndContext>

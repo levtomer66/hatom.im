@@ -32,6 +32,8 @@ const DICT = {
   'workout.complete_button':        { en: '✓ Complete',                                     he: '✓ סיום' },
   'workout.complete_confirm':       { en: 'Mark this workout as complete?',                 he: 'לסמן את האימון כהושלם?' },
   'workout.no_exercises':           { en: 'No exercises yet. Add some to get started!',     he: 'אין תרגילים עדיין. הוסף כדי להתחיל!' },
+  'workout.superset':               { en: 'Superset',                                       he: 'סופרסט' },
+  'workout.watch_example':          { en: 'Watch example',                                  he: 'צפו בדוגמה' },
   'workout.add_exercise':           { en: '+ Add Exercise',                                 he: '+ הוסף תרגיל' },
   'workout.progress_label':         { en: 'Progress',                                       he: 'התקדמות' },
   'workout.summary.title':          { en: 'Workout complete!',                              he: 'האימון הושלם!' },
@@ -91,6 +93,10 @@ const DICT = {
   'template.save_changes':          { en: 'Save Changes',                                   he: 'שמור שינויים' },
   'template.save_creating':         { en: 'Saving…',                                        he: 'שומר…' },
   'template.row_notes_placeholder': { en: 'Notes for this exercise (optional)…',            he: 'הערות לתרגיל (לא חובה)…' },
+  'template.protocol_label':        { en: 'Protocol / notes (optional)',                    he: 'פרוטוקול / הערות (לא חובה)' },
+  'template.protocol_placeholder':  { en: 'e.g., 2 sets per superset · 8–10 heavy · 1.5m between sets, 2.5m between exercises', he: 'למשל: 2 סטים לכל סופרסט · 8–10 כבד · 1.5 דק׳ בין סטים, 2.5 דק׳ בין תרגילים' },
+  'template.instagram_label':       { en: 'Example link (Instagram, optional)',             he: 'קישור לדוגמה (אינסטגרם, לא חובה)' },
+  'template.superset_cycle':        { en: 'Superset group (cycle —/A/B/C/D)',                he: 'קבוצת סופרסט (החלף —/A/B/C/D)' },
 
   // Template selector
   'selector.title':                 { en: 'Start Workout',                                  he: 'התחל אימון' },

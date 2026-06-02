@@ -8,7 +8,8 @@ import { useT, formatDate, exerciseCount, getLocalizedTemplateName } from '@/lib
 import Header from '@/components/workout/Header';
 import BottomNav from '@/components/workout/BottomNav';
 import ExerciseCard from '@/components/workout/ExerciseCard';
-import { Workout, PersonalBest, ExerciseDefinition } from '@/types/workout';
+import { buildSupersetGroups, supersetLabel } from '@/lib/superset';
+import { Workout, WorkoutExercise, PersonalBest, ExerciseDefinition } from '@/types/workout';
 import { EXERCISE_LIBRARY } from '@/data/exercise-library';
 
 export default function WorkoutDetailPage() {
@@ -145,6 +146,25 @@ export default function WorkoutDetailPage() {
           </div>
         </div>
 
+        {/* Protocol text + example link, if this workout carried them. */}
+        {(workout.description || workout.instagramUrl) && (
+          <div className="workout-protocol-banner">
+            {workout.description && (
+              <div className="workout-protocol-text">{workout.description}</div>
+            )}
+            {workout.instagramUrl && (
+              <a
+                href={workout.instagramUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="workout-watch-link"
+              >
+                ▶ {t('workout.watch_example')}
+              </a>
+            )}
+          </div>
+        )}
+
         {/* Exercise cards (read-only) */}
         {workout.exercises.length === 0 ? (
           <div className="empty-state">
@@ -152,16 +172,27 @@ export default function WorkoutDetailPage() {
             <div className="empty-state-text">{t('history_detail.no_exercises')}</div>
           </div>
         ) : (
-          workout.exercises.map((exercise) => (
-            <ExerciseCard
-              key={exercise.id}
-              exercise={exercise}
-              exerciseDefinition={exerciseMap[exercise.exerciseId] || null}
-              pb={personalBests[exercise.exerciseId] || null}
-              mode="readonly"
-              exerciseMap={exerciseMap}
-            />
-          ))
+          buildSupersetGroups(workout.exercises).map((group) => {
+            const renderCard = ({ item: exercise }: { item: WorkoutExercise }) => (
+              <ExerciseCard
+                key={exercise.id}
+                exercise={exercise}
+                exerciseDefinition={exerciseMap[exercise.exerciseId] || null}
+                pb={personalBests[exercise.exerciseId] || null}
+                mode="readonly"
+                exerciseMap={exerciseMap}
+              />
+            );
+            if (group.items.length < 2) return renderCard(group.items[0]);
+            return (
+              <div key={`ss-${group.key}`} className="superset-group">
+                <div className="superset-group-header">
+                  🔗 {t('workout.superset')} {supersetLabel(group.supersetGroup)}
+                </div>
+                <div className="superset-group-body">{group.items.map(renderCard)}</div>
+              </div>
+            );
+          })
         )}
       </div>
 

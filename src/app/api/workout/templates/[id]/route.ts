@@ -39,6 +39,7 @@ function normalizeTemplate(t: LegacyTemplate) {
         exerciseId: e.exerciseId,
         numSets: typeof e.numSets === 'number' ? e.numSets : DEFAULT_NUM_SETS,
         notes: typeof e.notes === 'string' ? e.notes : '',
+        supersetGroup: typeof e.supersetGroup === 'number' ? e.supersetGroup : null,
       }))
     : Array.isArray(t.exerciseIds)
       ? t.exerciseIds.map(id => ({ exerciseId: id, numSets: DEFAULT_NUM_SETS, notes: '' }))
@@ -70,7 +71,11 @@ function sanitizeExercises(raw: unknown): TemplateExercise[] {
         ? Math.min(MAX_SETS, Math.max(MIN_SETS, Math.round(rawNum)))
         : DEFAULT_NUM_SETS;
       const notes = typeof e.notes === 'string' ? e.notes : '';
-      return { exerciseId, numSets, notes } as TemplateExercise;
+      const supersetGroup =
+        typeof e.supersetGroup === 'number' && Number.isFinite(e.supersetGroup)
+          ? Math.round(e.supersetGroup)
+          : null;
+      return { exerciseId, numSets, notes, supersetGroup } as TemplateExercise;
     })
     .filter((e): e is TemplateExercise => e !== null);
   return dedupeByExerciseId(parsed);
@@ -165,6 +170,16 @@ export async function PUT(
     // when toggling a UI control that wasn't supposed to show for them.
     if (body.sharedByOwner !== undefined && isOwnerEmail(userId)) {
       template.set('sharedByOwner', !!body.sharedByOwner, { strict: false });
+    }
+
+    // Optional protocol text + example link (any owner of the template).
+    if (typeof body.description === 'string') {
+      template.description = body.description.slice(0, 2000);
+    }
+    if (typeof body.instagramUrl === 'string') {
+      const url = body.instagramUrl.trim();
+      const valid = url === '' || /^https:\/\/(www\.)?instagram\.com\/[^\s"'<>]*$/i.test(url);
+      template.instagramUrl = valid ? url : '';
     }
 
     // Opportunistically drop the legacy field once we rewrite this doc.

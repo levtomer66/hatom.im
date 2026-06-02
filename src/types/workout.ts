@@ -227,6 +227,11 @@ export interface WorkoutExercise {
   // "was: Bench Press" annotation. Not set for fresh or template-started
   // exercises.
   replacedFromExerciseId?: string | null;
+  // Superset grouping. Exercises that share the same `supersetGroup` value
+  // (a 1-based group id) are performed back-to-back as a superset and are
+  // rendered together. Undefined/null = a standalone exercise. Carried over
+  // from the template at start time.
+  supersetGroup?: number | null;
 }
 
 // Default number of sets for new exercises
@@ -240,6 +245,10 @@ export interface TemplateExercise {
   exerciseId: string;
   numSets: number;   // default number of sets (MIN_SETS..MAX_SETS)
   notes: string;     // default notes for this exercise in this template
+  // Superset grouping (1-based). Exercises sharing the same value are a
+  // superset; undefined/null = standalone. Copied to the WorkoutExercise
+  // when a workout is started from this template.
+  supersetGroup?: number | null;
 }
 
 // Workout Template - reusable workout configuration
@@ -254,6 +263,12 @@ export interface WorkoutTemplate {
   // every signed-in user with workout permission. Only owners can set
   // this; the PUT handler ignores it for non-owners.
   sharedByOwner?: boolean;
+  // Optional free-text protocol shown above the exercises (sets/reps/rest
+  // guidance, e.g. "2 sets/superset · 8–10 heavy · 1.5m between sets").
+  description?: string;
+  // Optional Instagram (or other) URL with an example of the workout. When
+  // set, the start preview / active workout surface a "Watch example" link.
+  instagramUrl?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -287,6 +302,10 @@ export interface Workout {
   createdAt: string;
   updatedAt: string;
   isCompleted: boolean;
+  // Carried from the template at start time, if it had one — the active
+  // workout surfaces the protocol text and a "Watch example" link.
+  instagramUrl?: string;
+  description?: string;
   // Client-supplied UUID for idempotent creates. Lets the PWA
   // offline-queue safely replay a POST /workouts that the original
   // request may have actually completed (response just never arrived).

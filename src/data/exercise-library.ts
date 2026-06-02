@@ -160,6 +160,13 @@ export const EXERCISE_LIBRARY: ExerciseDefinition[] = [
     defaultPhoto: pexels(3837757), // Cable workout
   },
   {
+    id: 'dumbbell-lateral-raise',
+    name: 'Dumbbell Lateral Raise',
+    description: 'Free-weight side delt raise',
+    categories: ['push', 'shoulders'],
+    defaultPhoto: pexels(3838389), // Dumbbell shoulder workout
+  },
+  {
     id: 'machine-shoulder-press',
     name: 'Shoulder Press Machine',
     description: 'Seated machine shoulder press',
@@ -278,6 +285,13 @@ export const EXERCISE_LIBRARY: ExerciseDefinition[] = [
     description: 'Cable curl with both arms behind body',
     categories: ['pull', 'biceps'],
     defaultPhoto: pexels(4164766), // Cable curl
+  },
+  {
+    id: 'barbell-curl',
+    name: 'Barbell Curl',
+    description: 'Standing barbell/EZ-bar biceps curl',
+    categories: ['pull', 'biceps'],
+    defaultPhoto: pexels(4164761), // Barbell curl
   },
   {
     id: 'bicep-dumbbell-curl',

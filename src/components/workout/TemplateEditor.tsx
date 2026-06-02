@@ -36,11 +36,20 @@ import { useWorkoutLanguage } from '@/context/WorkoutLanguageContext';
 import { useT, getCategoryLabel } from '@/lib/workout-i18n';
 import ExercisePicker from './ExercisePicker';
 import ExercisePhoto from './ExercisePhoto';
+import { supersetLabel } from '@/lib/superset';
 
 // Muscle group filter IDs (labels come from getCategoryLabel at render time).
 const MUSCLE_GROUP_IDS: ExerciseCategory[] = [
   'chest', 'back', 'shoulders', 'biceps', 'triceps', 'forearms', 'legs', 'abs', 'glutes',
 ];
+
+// Cycle a row's superset assignment: none → A → B → C → D → none. Exercises
+// sharing a group (keep them adjacent) render as a superset everywhere.
+const MAX_SUPERSET_GROUPS = 4;
+function cycleSupersetGroup(current: number | null | undefined): number | null {
+  const next = (current ?? 0) + 1;
+  return next > MAX_SUPERSET_GROUPS ? null : next;
+}
 
 interface TemplateEditorProps {
   isOpen: boolean;
@@ -130,6 +139,20 @@ function SelectedExerciseRow({
         <button
           type="button"
           className="exercise-card-action"
+          onClick={() => onUpdate({ ...entry, supersetGroup: cycleSupersetGroup(entry.supersetGroup) })}
+          title={t('template.superset_cycle')}
+          aria-label={t('template.superset_cycle')}
+          style={{
+            flexShrink: 0,
+            fontWeight: 700,
+            color: entry.supersetGroup ? 'var(--workout-gold)' : undefined,
+          }}
+        >
+          🔗{entry.supersetGroup ? supersetLabel(entry.supersetGroup) : '—'}
+        </button>
+        <button
+          type="button"
+          className="exercise-card-action"
           onClick={onReplace}
           title={t('card.replace')}
           aria-label={t('card.replace')}
@@ -174,6 +197,8 @@ export default function TemplateEditor({
   const [categoryFilters, setCategoryFilters] = useState<Set<ExerciseCategory>>(new Set());
   const [muscleFilters, setMuscleFilters] = useState<Set<ExerciseCategory>>(new Set());
   const [isSaving, setIsSaving] = useState(false);
+  const [description, setDescription] = useState('');
+  const [instagramUrl, setInstagramUrl] = useState('');
   // Index of the row the user tapped "replace" on. null = no replace flow
   // active. Template replace is a pure id swap — numSets and notes are
   // preserved, same as the active-workout flow keeps sets + logged data.
@@ -190,15 +215,20 @@ export default function TemplateEditor({
     if (isOpen) {
       if (template) {
         setName(template.name);
+        setDescription(template.description ?? '');
+        setInstagramUrl(template.instagramUrl ?? '');
         setSelectedExercises(
           (template.exercises ?? []).map(e => ({
             exerciseId: e.exerciseId,
             numSets: e.numSets ?? DEFAULT_NUM_SETS,
             notes: e.notes ?? '',
+            supersetGroup: e.supersetGroup ?? null,
           }))
         );
       } else {
         setName('');
+        setDescription('');
+        setInstagramUrl('');
         setSelectedExercises([]);
       }
       setSearch('');
@@ -331,7 +361,12 @@ export default function TemplateEditor({
         const res = await fetch(`/api/workout/templates/${template.id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name: name.trim(), exercises: selectedExercises }),
+          body: JSON.stringify({
+            name: name.trim(),
+            exercises: selectedExercises,
+            description,
+            instagramUrl,
+          }),
         });
 
         if (res.ok) {
@@ -347,6 +382,8 @@ export default function TemplateEditor({
             userId: currentUser.id,
             name: name.trim(),
             exercises: selectedExercises,
+            description,
+            instagramUrl,
           }),
         });
 
@@ -397,6 +434,37 @@ export default function TemplateEditor({
               value={name}
               onChange={(e) => setName(e.target.value)}
               maxLength={50}
+            />
+          </div>
+
+          {/* Protocol / notes (rest times, rep scheme guidance) */}
+          <div>
+            <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: 600, color: 'var(--workout-text-secondary)' }}>
+              {t('template.protocol_label')}
+            </label>
+            <textarea
+              className="workout-input"
+              placeholder={t('template.protocol_placeholder')}
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              rows={3}
+              maxLength={2000}
+              style={{ resize: 'vertical', minHeight: '64px' }}
+            />
+          </div>
+
+          {/* Optional example link (Instagram) */}
+          <div>
+            <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: 600, color: 'var(--workout-text-secondary)' }}>
+              {t('template.instagram_label')}
+            </label>
+            <input
+              type="url"
+              inputMode="url"
+              className="workout-input"
+              placeholder="https://www.instagram.com/p/…"
+              value={instagramUrl}
+              onChange={(e) => setInstagramUrl(e.target.value)}
             />
           </div>
 

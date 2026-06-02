@@ -9,6 +9,9 @@ export interface WorkoutTemplateData {
   exercises: TemplateExercise[];
   // Owner-only flag — see src/types/workout.ts for read/write rules.
   sharedByOwner?: boolean;
+  // Optional protocol text + example link — see src/types/workout.ts.
+  description?: string;
+  instagramUrl?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -21,6 +24,10 @@ const TemplateExerciseSchema = new Schema<TemplateExercise>({
   exerciseId: { type: String, required: true },
   numSets: { type: Number, required: true, default: 3, min: 1, max: 5 },
   notes: { type: String, default: '' },
+  // 1-based superset group id; exercises sharing it are a superset.
+  // null/absent = standalone. (Subdocs are strict by default, so this must
+  // be declared or it would be stripped on write.)
+  supersetGroup: { type: Number, default: null },
 }, { _id: false });
 
 // Main workout template schema
@@ -44,6 +51,9 @@ const WorkoutTemplateSchema = new Schema<WorkoutTemplateDocument>({
     default: false,
     index: true,
   },
+  // Optional protocol text + example link (see WorkoutTemplate type).
+  description: { type: String, default: '' },
+  instagramUrl: { type: String, default: '' },
 }, {
   timestamps: { createdAt: 'createdAt', updatedAt: 'updatedAt' },
   // Allow unknown fields (e.g. legacy exerciseIds on old docs) so reads don't strip them

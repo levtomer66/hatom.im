@@ -27,6 +27,7 @@ export const HE_EXERCISE_TRANSLATIONS: ExerciseTranslations = {
 
   // ---- SHOULDERS ----
   'cable-lateral-raise':          { name: 'הרמה צידית כבל',            description: 'הרמת כתפיים צידית בכבל' },
+  'dumbbell-lateral-raise':       { name: 'הרחקות כתף משקולות',        description: 'הרמת כתפיים צידית עם משקולות חופשי' },
   'machine-shoulder-press':       { name: 'מכונת כתפיים',              description: 'לחיצת כתפיים במכונה' },
   'overhead-press':               { name: 'לחיצת כתפיים משקולות',     description: 'לחיצת כתפיים עם משקולות' },
   'front-raise':                  { name: 'הרמה קדמית יד אחת',        description: 'הרמה קדמית יד אחת' },
@@ -47,6 +48,7 @@ export const HE_EXERCISE_TRANSLATIONS: ExerciseTranslations = {
   // ---- BICEPS ----
   'bayesian-curl':                { name: 'ביספס בייסיאן כבל יד אחת',  description: 'כפיפת מרפק בייסיאן בכבל — יד אחת' },
   'double-arm-bayesian-curl':     { name: 'ביספס בייסיאן כבל שתי ידיים', description: 'כפיפת מרפק בייסיאן בכבל — שתי ידיים' },
+  'barbell-curl':                 { name: 'כפיפת מרפק מוט',            description: 'כפיפת מרפק בעמידה עם מוט / EZ' },
   'bicep-dumbbell-curl':          { name: 'ביספס משקולת יד אחת',       description: 'כפיפת מרפק עם משקולת — יד אחת' },
   'double-arm-bicep-dumbbell-curl': { name: 'ביספס משקולת שתי ידיים', description: 'כפיפת מרפק עם משקולות — שתי ידיים' },
   'biceps-preacher-curl':         { name: 'ביספס פריצ׳ר',              description: 'כפיפת מרפק פריצ׳ר' },
