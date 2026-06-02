@@ -11,9 +11,8 @@ import { formatWeight, getUnitSuffix } from '@/lib/weight';
 import { formatSeconds } from '@/lib/time';
 import Header from '@/components/workout/Header';
 import BottomNav from '@/components/workout/BottomNav';
-import AddExerciseForm from '@/components/workout/AddExerciseForm';
 import ExercisePhoto from '@/components/workout/ExercisePhoto';
-import { PersonalBest, ExerciseDefinition, ExerciseCategory, EXERCISE_FILTER_CATEGORIES, WorkoutType } from '@/types/workout';
+import { PersonalBest, ExerciseCategory, EXERCISE_FILTER_CATEGORIES, WorkoutType } from '@/types/workout';
 import { EXERCISE_LIBRARY } from '@/data/exercise-library';
 
 const MUSCLE_GROUP_IDS: ExerciseCategory[] = [
@@ -34,9 +33,7 @@ export default function ExercisesPage() {
   const unitSuffix = getUnitSuffix(unit, language);
 
   const [personalBests, setPersonalBests] = useState<Record<string, PersonalBest>>({});
-  const [customExercises, setCustomExercises] = useState<ExerciseDefinition[]>([]);
   const [search, setSearch] = useState('');
-  const [showAddForm, setShowAddForm] = useState(false);
   const [muscleFilters, setMuscleFilters] = useState<Set<ExerciseCategory>>(new Set());
   // Top-category filters (Push / Pull / Legs / Calisthenics) — kept here
   // for consistency with the picker modal so users see the same filter
@@ -66,25 +63,9 @@ export default function ExercisesPage() {
     }
   }, [currentUser]);
 
-  // Fetch custom exercises
-  const fetchCustomExercises = useCallback(async () => {
-    if (!currentUser) return;
-    
-    try {
-      const res = await fetch(`/api/workout/exercises/custom?userId=${currentUser.id}`);
-      if (res.ok) {
-        const data = await res.json();
-        setCustomExercises(data);
-      }
-    } catch (error) {
-      console.error('Error fetching custom exercises:', error);
-    }
-  }, [currentUser]);
-
   useEffect(() => {
     fetchPersonalBests();
-    fetchCustomExercises();
-  }, [fetchPersonalBests, fetchCustomExercises]);
+  }, [fetchPersonalBests]);
 
   // Toggle muscle filter
   const toggleMuscleFilter = (muscleId: ExerciseCategory) => {
@@ -99,10 +80,12 @@ export default function ExercisesPage() {
     });
   };
 
-  // Combine library and custom exercises
+  // The exercise catalogue is now the code-defined library only — the
+  // user-created custom-exercise feature was retired (the two real customs
+  // were promoted into EXERCISE_LIBRARY; see exercise-library.ts).
   const allExercises = useMemo(() => {
-    return [...EXERCISE_LIBRARY, ...customExercises];
-  }, [customExercises]);
+    return [...EXERCISE_LIBRARY];
+  }, []);
 
   // Filter exercises by muscle group and search (matches English or Hebrew name)
   const filteredExercises = useMemo(() => {
@@ -143,10 +126,6 @@ export default function ExercisesPage() {
     });
   }, [filteredExercises, personalBests]);
 
-  const handleExerciseCreated = (exercise: ExerciseDefinition) => {
-    setCustomExercises(prev => [...prev, exercise]);
-  };
-
   // Loading / mid-redirect — render the shell so the page doesn't collapse
   // to a bare spinner (B11).
   if (isLoading || !currentUser) {
@@ -176,13 +155,6 @@ export default function ExercisesPage() {
             onChange={(e) => setSearch(e.target.value)}
             style={{ flex: 1 }}
           />
-          <button
-            className="workout-btn workout-btn-primary"
-            onClick={() => setShowAddForm(true)}
-            style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}
-          >
-            +
-          </button>
         </div>
 
         {/* Top-category filters (Push / Pull / Legs / Calisthenics) —
@@ -318,12 +290,6 @@ export default function ExercisesPage() {
       </div>
 
       <BottomNav />
-
-      <AddExerciseForm
-        isOpen={showAddForm}
-        onClose={() => setShowAddForm(false)}
-        onCreated={handleExerciseCreated}
-      />
     </main>
   );
 }

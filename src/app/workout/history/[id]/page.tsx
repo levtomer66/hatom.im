@@ -28,16 +28,16 @@ export default function WorkoutDetailPage() {
   
   const [workout, setWorkout] = useState<Workout | null>(null);
   const [personalBests, setPersonalBests] = useState<Record<string, PersonalBest>>({});
-  const [customExercises, setCustomExercises] = useState<ExerciseDefinition[]>([]);
   const [loadingWorkout, setLoadingWorkout] = useState(true);
 
-  // Create exercise lookup map
+  // Library lookup map. Retired custom exercises resolve via getExerciseById
+  // aliases inside ExerciseCard when a row isn't found here, so no per-user
+  // custom fetch is needed.
   const exerciseMap = useMemo(() => {
     const map: Record<string, ExerciseDefinition> = {};
     EXERCISE_LIBRARY.forEach(e => { map[e.id] = e; });
-    customExercises.forEach(e => { map[e.id] = e; });
     return map;
-  }, [customExercises]);
+  }, []);
 
   // Fetch workout
   const fetchWorkout = useCallback(async () => {
@@ -72,26 +72,10 @@ export default function WorkoutDetailPage() {
     }
   }, [currentUser]);
 
-  // Fetch custom exercises
-  const fetchCustomExercises = useCallback(async () => {
-    if (!currentUser) return;
-    
-    try {
-      const res = await fetch(`/api/workout/exercises/custom?userId=${currentUser.id}`);
-      if (res.ok) {
-        const data = await res.json();
-        setCustomExercises(data);
-      }
-    } catch (error) {
-      console.error('Error fetching custom exercises:', error);
-    }
-  }, [currentUser]);
-
   useEffect(() => {
     fetchWorkout();
     fetchPersonalBests();
-    fetchCustomExercises();
-  }, [fetchWorkout, fetchPersonalBests, fetchCustomExercises]);
+  }, [fetchWorkout, fetchPersonalBests]);
 
   // Loading / not-logged-in / workout-loading all share the same shell so
   // the screen never collapses to a bare spinner (B11).

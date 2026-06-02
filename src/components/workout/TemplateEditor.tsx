@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   DndContext,
   DragEndEvent,
@@ -173,7 +173,6 @@ export default function TemplateEditor({
   const [search, setSearch] = useState('');
   const [categoryFilters, setCategoryFilters] = useState<Set<ExerciseCategory>>(new Set());
   const [muscleFilters, setMuscleFilters] = useState<Set<ExerciseCategory>>(new Set());
-  const [customExercises, setCustomExercises] = useState<ExerciseDefinition[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   // Index of the row the user tapped "replace" on. null = no replace flow
   // active. Template replace is a pure id swap — numSets and notes are
@@ -186,25 +185,9 @@ export default function TemplateEditor({
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   );
 
-  // Fetch custom exercises
-  const fetchCustomExercises = useCallback(async () => {
-    if (!currentUser) return;
-
-    try {
-      const res = await fetch(`/api/workout/exercises/custom?userId=${currentUser.id}`);
-      if (res.ok) {
-        const data = await res.json();
-        setCustomExercises(data);
-      }
-    } catch (error) {
-      console.error('Error fetching custom exercises:', error);
-    }
-  }, [currentUser]);
-
   // Initialize form when template changes
   useEffect(() => {
     if (isOpen) {
-      fetchCustomExercises();
       if (template) {
         setName(template.name);
         setSelectedExercises(
@@ -222,12 +205,13 @@ export default function TemplateEditor({
       setCategoryFilters(new Set());
       setMuscleFilters(new Set());
     }
-  }, [isOpen, template, fetchCustomExercises]);
+  }, [isOpen, template]);
 
-  // Combine library and custom exercises
+  // The catalogue is the code-defined library only — custom exercises
+  // were retired (real ones promoted into EXERCISE_LIBRARY).
   const allExercises = useMemo(() => {
-    return [...EXERCISE_LIBRARY, ...customExercises];
-  }, [customExercises]);
+    return [...EXERCISE_LIBRARY];
+  }, []);
 
   // Create exercise map for quick lookup
   const exerciseMap = useMemo(() => {

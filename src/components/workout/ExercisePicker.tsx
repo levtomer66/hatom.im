@@ -1,13 +1,11 @@
 'use client';
 
-import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import React, { useState, useMemo } from 'react';
 import { ExerciseDefinition, ExerciseCategory, EXERCISE_FILTER_CATEGORIES } from '@/types/workout';
 import { EXERCISE_LIBRARY } from '@/data/exercise-library';
 import { getLocalizedExercise, getExerciseSearchNames } from '@/lib/exercise-translations';
-import { useWorkoutUser } from '@/context/WorkoutUserContext';
 import { useWorkoutLanguage } from '@/context/WorkoutLanguageContext';
 import { useT, getCategoryLabel } from '@/lib/workout-i18n';
-import AddExerciseForm from './AddExerciseForm';
 import ExercisePhoto from './ExercisePhoto';
 
 // Muscle group filter IDs (labels come from getCategoryLabel in the render).
@@ -33,41 +31,19 @@ export default function ExercisePicker({
   excludeIds = [],
   replaceMode = false,
 }: ExercisePickerProps) {
-  const { currentUser } = useWorkoutUser();
   const { language } = useWorkoutLanguage();
   const t = useT();
   const [search, setSearch] = useState('');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [customExercises, setCustomExercises] = useState<ExerciseDefinition[]>([]);
-  const [showAddForm, setShowAddForm] = useState(false);
   const [muscleFilters, setMuscleFilters] = useState<Set<string>>(new Set());
   const [categoryFilters, setCategoryFilters] = useState<Set<ExerciseCategory>>(new Set());
 
-  // Fetch custom exercises
-  const fetchCustomExercises = useCallback(async () => {
-    if (!currentUser) return;
-    
-    try {
-      const res = await fetch(`/api/workout/exercises/custom?userId=${currentUser.id}`);
-      if (res.ok) {
-        const data = await res.json();
-        setCustomExercises(data);
-      }
-    } catch (error) {
-      console.error('Error fetching custom exercises:', error);
-    }
-  }, [currentUser]);
-
-  useEffect(() => {
-    if (isOpen) {
-      fetchCustomExercises();
-    }
-  }, [isOpen, fetchCustomExercises]);
-
-  // Combine library and custom exercises
+  // The catalogue is the code-defined library only — the user-created
+  // custom-exercise feature was retired (real customs were promoted into
+  // EXERCISE_LIBRARY; see exercise-library.ts).
   const allExercises = useMemo(() => {
-    return [...EXERCISE_LIBRARY, ...customExercises];
-  }, [customExercises]);
+    return [...EXERCISE_LIBRARY];
+  }, []);
 
   // Toggle muscle filter
   const toggleMuscleFilter = (muscleId: string) => {
@@ -183,23 +159,6 @@ export default function ExercisePicker({
     onClose();
   };
 
-  const handleExerciseCreated = (exercise: ExerciseDefinition) => {
-    setCustomExercises(prev => [...prev, exercise]);
-    if (replaceMode) {
-      // In replace flow, creating a custom exercise is the swap target —
-      // commit immediately and close, matching one-tap semantics.
-      onSelect([exercise]);
-      setSelectedIds(new Set());
-      setSearch('');
-      setMuscleFilters(new Set());
-      setCategoryFilters(new Set());
-      onClose();
-      return;
-    }
-    // Optionally auto-select the new exercise
-    setSelectedIds(prev => new Set([...prev, exercise.id]));
-  };
-
   if (!isOpen) return null;
 
   return (
@@ -224,13 +183,6 @@ export default function ExercisePicker({
                   onChange={(e) => setSearch(e.target.value)}
                   style={{ flex: 1 }}
                 />
-                <button
-                  className="workout-btn workout-btn-primary"
-                  onClick={() => setShowAddForm(true)}
-                  style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}
-                >
-                  + {t('picker.add_selected_one').charAt(0).toUpperCase() + t('picker.add_selected_one').slice(1)}
-                </button>
               </div>
 
               {/* Category filters (Push/Pull/Legs/Calisthenics) */}
@@ -276,13 +228,6 @@ export default function ExercisePicker({
                 <div className="empty-state">
                   <div className="empty-state-icon">🔍</div>
                   <div className="empty-state-text">{t('picker.none_found')}</div>
-                  <button
-                    className="workout-btn workout-btn-secondary"
-                    onClick={() => setShowAddForm(true)}
-                    style={{ marginTop: '16px' }}
-                  >
-                    {t('picker.create_custom')}
-                  </button>
                 </div>
               ) : (
                 sortedExercises.map(exercise => {
@@ -340,12 +285,6 @@ export default function ExercisePicker({
           )}
         </div>
       </div>
-
-      <AddExerciseForm
-        isOpen={showAddForm}
-        onClose={() => setShowAddForm(false)}
-        onCreated={handleExerciseCreated}
-      />
     </>
   );
 }

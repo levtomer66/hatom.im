@@ -79,7 +79,6 @@ const DICT = {
   'picker.add_selected_prefix':     { en: 'Add',                                            he: 'הוסף' },
   'picker.add_selected_one':        { en: 'exercise',                                       he: 'תרגיל' },
   'picker.add_selected_many':       { en: 'exercises',                                      he: 'תרגילים' },
-  'picker.create_custom':           { en: '+ Create Custom Exercise',                       he: '+ צור תרגיל מותאם' },
 
   // Template editor
   'template.edit_title':            { en: 'Edit Workout',                                   he: 'ערוך אימון' },

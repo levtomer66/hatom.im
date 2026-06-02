@@ -84,7 +84,6 @@ export default function WorkoutsPage() {
   // the page root and doesn't unmount with the card when it collapses.
   const [replaceExerciseIndex, setReplaceExerciseIndex] = useState<number | null>(null);
   const [personalBests, setPersonalBests] = useState<Record<string, PersonalBest>>({});
-  const [customExercises, setCustomExercises] = useState<ExerciseDefinition[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [initialLoadDone, setInitialLoadDone] = useState(false);
   const [hasInProgressWorkout, setHasInProgressWorkout] = useState(false);
@@ -93,9 +92,8 @@ export default function WorkoutsPage() {
   const exerciseMap = useMemo(() => {
     const map: Record<string, ExerciseDefinition> = {};
     EXERCISE_LIBRARY.forEach(e => { map[e.id] = e; });
-    customExercises.forEach(e => { map[e.id] = e; });
     return map;
-  }, [customExercises]);
+  }, []);
 
   // Fetch personal bests
   const fetchPersonalBests = useCallback(async () => {
@@ -109,21 +107,6 @@ export default function WorkoutsPage() {
       }
     } catch (error) {
       console.error('Error fetching PBs:', error);
-    }
-  }, [currentUser]);
-
-  // Fetch custom exercises
-  const fetchCustomExercises = useCallback(async () => {
-    if (!currentUser) return;
-    
-    try {
-      const res = await fetch(`/api/workout/exercises/custom?userId=${currentUser.id}`);
-      if (res.ok) {
-        const data = await res.json();
-        setCustomExercises(data);
-      }
-    } catch (error) {
-      console.error('Error fetching custom exercises:', error);
     }
   }, [currentUser]);
 
@@ -242,10 +225,9 @@ export default function WorkoutsPage() {
     if (isLoading) return; // Wait for user context
     
     fetchPersonalBests();
-    fetchCustomExercises();
     fetchTemplates();
     checkAndResumeWorkout();
-  }, [isLoading, fetchPersonalBests, fetchCustomExercises, fetchTemplates, checkAndResumeWorkout]);
+  }, [isLoading, fetchPersonalBests, fetchTemplates, checkAndResumeWorkout]);
 
   // Auto-save workout changes
   const saveWorkout = useCallback(async (workout: Workout) => {

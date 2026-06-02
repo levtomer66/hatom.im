@@ -37,57 +37,33 @@ export default function ExerciseDetailPage() {
   const [exercise, setExercise] = useState<ExerciseDefinition | null>(null);
   const [history, setHistory] = useState<ExerciseHistoryEntry[]>([]);
   const [personalBests, setPersonalBests] = useState<Record<string, PersonalBest>>({});
-  const [customExercises, setCustomExercises] = useState<ExerciseDefinition[]>([]);
   const [loadingExercise, setLoadingExercise] = useState(true);
   const [loadingHistory, setLoadingHistory] = useState(true);
 
-  // Combined library + custom lookup — needed to resolve a "swapped from X"
-  // annotation back to a localized name when the old slot was a custom
-  // exercise. Without custom data we'd fall back to the opaque uuid.
+  // Library lookup. resolveExerciseName falls back to getExerciseById so a
+  // "swapped from X" annotation that references a retired custom exercise
+  // (its `custom-*` id is aliased to the promoted library entry) still
+  // resolves to the localized name rather than the opaque uuid.
   const exerciseMap = useMemo(() => {
     const map: Record<string, ExerciseDefinition> = {};
     EXERCISE_LIBRARY.forEach(e => { map[e.id] = e; });
-    customExercises.forEach(e => { map[e.id] = e; });
     return map;
-  }, [customExercises]);
+  }, []);
 
   const resolveExerciseName = useCallback((id: string): string => {
-    const def = exerciseMap[id];
+    const def = exerciseMap[id] ?? getExerciseById(id);
     return def ? getLocalizedExercise(def, language).name : id;
   }, [exerciseMap, language]);
 
-  // Fetch exercise info (check library first, then custom). Also caches the
-  // full custom list on state so we can resolve names for any *replaced*
-  // exercise referenced in history, not just the currently-viewed one.
-  const fetchExercise = useCallback(async () => {
+  // Resolve the viewed exercise from the library (getExerciseById applies
+  // legacy/custom-retirement aliases). Custom exercises were retired, so
+  // there's no per-user fetch any more.
+  const fetchExercise = useCallback(() => {
     if (!exerciseId) return;
-
     const libraryExercise = getExerciseById(exerciseId);
-    if (libraryExercise) {
-      setExercise(libraryExercise);
-    }
-
-    if (!currentUser) {
-      setLoadingExercise(false);
-      return;
-    }
-
-    try {
-      const res = await fetch(`/api/workout/exercises/custom?userId=${currentUser.id}`);
-      if (res.ok) {
-        const customs: ExerciseDefinition[] = await res.json();
-        setCustomExercises(customs);
-        if (!libraryExercise) {
-          const match = customs.find(e => e.id === exerciseId);
-          if (match) setExercise(match);
-        }
-      }
-    } catch (error) {
-      console.error('Error fetching custom exercises:', error);
-    } finally {
-      setLoadingExercise(false);
-    }
-  }, [exerciseId, currentUser]);
+    if (libraryExercise) setExercise(libraryExercise);
+    setLoadingExercise(false);
+  }, [exerciseId]);
 
   // Fetch exercise history
   const fetchHistory = useCallback(async () => {

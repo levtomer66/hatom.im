@@ -38,6 +38,16 @@ export const EXERCISE_LIBRARY: ExerciseDefinition[] = [
     defaultPhoto: pexels(7187890), // Dumbbell press
   },
   {
+    // Promoted from a user-created custom exercise ("לחיצת חזה בכבל")
+    // when the custom-exercise feature was retired. Its historical
+    // `custom-e609e9b2` id resolves here via EXERCISE_ID_ALIASES.
+    id: 'cable-chest-press',
+    name: 'Cable Chest Press',
+    description: 'Standing/seated chest press on cables',
+    categories: ['push', 'chest'],
+    defaultPhoto: pexels(5327510), // Cable machine workout
+  },
+  {
     id: 'high-to-low-cable',
     name: 'High to Low Cable Fly',
     description: 'Lower chest isolation with cables',
@@ -735,6 +745,12 @@ const EXERCISE_ID_ALIASES: Record<string, string> = {
   // "Hip Adductors Machine" and it was used to log inner-thigh
   // adduction work. Folded into the correctly-named `adductors`.
   'hip-flexors': 'adductors',
+  // Custom-exercise retirement: the two real user-created customs were
+  // promoted into the library; their `custom-*` history ids resolve to
+  // the canonical entries here so existing workouts render correctly
+  // without any DB rewrite. (Junk test customs were deleted, not aliased.)
+  'custom-e609e9b2': 'cable-chest-press',   // "לחיצת חזה בכבל" (Tomer)
+  'custom-b610b359': 'seated-cable-row',    // "Row" (Tom)
 };
 
 // Resolve legacy exercise IDs to their canonical counterpart
