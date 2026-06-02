@@ -33,8 +33,8 @@ export const HE_EXERCISE_TRANSLATIONS: ExerciseTranslations = {
   'front-raise':                  { name: 'הרמה קדמית יד אחת',        description: 'הרמה קדמית יד אחת' },
 
   // ---- BACK ----
-  'wide-grip-lat-pulldown':       { name: 'מתח עליון אחיזה רחבה',     description: 'משיכת פולי עליון באחיזה רחבה' },
-  'close-grip-lat-pulldown':      { name: 'מתח עליון אחיזה צרה',      description: 'משיכת פולי עליון באחיזה צרה' },
+  'wide-grip-lat-pulldown':       { name: 'פולי עליון באחיזה רחבה',   description: 'משיכת פולי עליון באחיזה רחבה' },
+  'close-grip-lat-pulldown':      { name: 'פולי עליון באחיזה צרה',    description: 'משיכת פולי עליון באחיזה צרה' },
   'v-bar-pull-belly':             { name: 'חתירה V בר',                description: 'חתירה בישיבה עם V בר' },
   'wide-pull-belly':              { name: 'חתירה אחיזה רחבה',          description: 'חתירה בישיבה באחיזה רחבה' },
   'single-arm-lat-pullover':      { name: 'פולאובר יד אחת',            description: 'פולאובר יד אחת בכבל' },
@@ -94,7 +94,7 @@ export const HE_EXERCISE_TRANSLATIONS: ExerciseTranslations = {
   'weighted-parallels':           { name: 'מקבילים עם משקל',           description: 'מקבילים עם משקל נוסף' },
   'chin-up':                      { name: 'מתח אחיזה הפוכה',           description: 'מתח באחיזה הפוכה' },
   'push-up':                      { name: 'שכיבות סמיכה',              description: 'שכיבות סמיכה' },
-  'dip':                          { name: 'טבילות על ספסל',            description: 'טבילות על ספסל לטרייצפס' },
+  'dip':                          { name: 'דיפס על ספסל',              description: 'דיפס על ספסל לטרייצפס' },
   'muscle-up':                    { name: 'מאסל אפ',                   description: 'מאסל אפ על מתח או טבעות' },
   'pistol-squat':                 { name: 'סקוואט על רגל אחת',        description: 'סקוואט על רגל אחת' },
   'inverted-row':                 { name: 'חתירה הפוכה',               description: 'חתירה הפוכה עם משקל גוף' },
@@ -167,7 +167,7 @@ export const HE_EXERCISE_TRANSLATIONS: ExerciseTranslations = {
   'nordic-curl':                  { name: 'פשיטת ברכיים נורדית',      description: 'פשיטת ברכיים נורדית' },
   'seated-pike-stretch':          { name: 'מתיחת פייק בישיבה',         description: 'מתיחת פייק בישיבה' },
   'bear-walk':                    { name: 'הליכת דוב',                 description: 'הליכת דוב — תנועה על 4' },
-  'easy-sissy-squat':             { name: 'איזי סיסי סקוואט',          description: 'איזי סיסי סקוואט לארבע ראשי' },
+  'easy-sissy-squat':             { name: 'סיסי סקוואט קל',            description: 'סיסי סקוואט קל לארבע ראשי' },
   'forward-jumps':                { name: 'קפיצות לפנים',              description: 'קפיצות ברוח לפנים' },
   'copenhagen-plank':             { name: 'קופנהגן פלאנק',             description: 'קופנהגן פלאנק למקרבים' },
   'supine-slider-knee-flex':      { name: 'סליידרס (כפיפת ברך) בשכיבה', description: 'סליידרס בשכיבה — כפיפת ברך' },
