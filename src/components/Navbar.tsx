@@ -15,6 +15,7 @@ import {
   FaSpa,
   FaHeart,
   FaUserShield,
+  FaChartLine,
   FaSignOutAlt,
   FaSignInAlt,
 } from 'react-icons/fa';
@@ -45,6 +46,7 @@ const allNavItems: NavItem[] = [
   { href: '/trip.html',                label: 'מסלול הטיול',   icon: FaPlane,      visibility: { permission: 'trip'        } },
   { href: '/sex',                      label: 'ולנטיין',       icon: FaHeart,      visibility: { permission: 'valentine'   } },
   { href: '/admin/allowlist',          label: 'הרשאות',        icon: FaUserShield, visibility: 'owner' },
+  { href: '/admin/workout-activity',    label: 'פעילות אימונים', icon: FaChartLine,  visibility: 'owner' },
 ];
 
 const Navbar: React.FC = () => {
