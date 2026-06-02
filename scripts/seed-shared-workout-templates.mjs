@@ -35,29 +35,31 @@ const ex = (exerciseId, numSets, notes, supersetGroup = null) => ({
   supersetGroup,
 });
 
+// Names are stored in English (canonical); the app shows a Hebrew title in
+// Hebrew mode via TEMPLATE_NAME_TRANSLATIONS in src/lib/workout-i18n.ts.
 const TEMPLATES = [
   {
-    name: 'אימון גוף מלא מהיר',
+    name: 'Quick Full Body',
     description:
-      'פרוטוקול: 2 סטים מכל סופר־סט · 8–10 חזרות במשקל כבד · 1.5 דק׳ מנוחה בין סטים · 2.5 דק׳ מנוחה בין תרגילים.',
+      'Protocol: 2 sets per superset · 8–10 reps heavy · 1.5 min rest between sets · 2.5 min rest between exercises.',
     instagramUrl: 'https://www.instagram.com/p/DU8z7egCOPT/',
     exercises: [
-      ex('incline-bench-press', 2, '8–10 · כבד', 1),
-      ex('wide-grip-lat-pulldown', 2, '8–10 · כבד', 1),
-      ex('pec-deck', 2, '8–10 · כבד', 2),
-      ex('dumbbell-lateral-raise', 2, '8–10 · כבד', 2),
-      ex('v-bar-pushdown', 2, '8–10 · כבד', 3),
-      ex('barbell-curl', 2, '8–10 · כבד', 3),
-      ex('leg-press', 2, '8–10 · כבד'),
+      ex('incline-bench-press', 2, '8–10 · heavy', 1),
+      ex('wide-grip-lat-pulldown', 2, '8–10 · heavy', 1),
+      ex('pec-deck', 2, '8–10 · heavy', 2),
+      ex('dumbbell-lateral-raise', 2, '8–10 · heavy', 2),
+      ex('v-bar-pushdown', 2, '8–10 · heavy', 3),
+      ex('barbell-curl', 2, '8–10 · heavy', 3),
+      ex('leg-press', 2, '8–10 · heavy'),
     ],
   },
   {
-    name: 'אימון דגש כתפיים ידיים',
-    description: 'דגש כתפיים וידיים · 6–8 חזרות (סטים אחרונים עד 8–10).',
+    name: 'Shoulders & Arms Focus',
+    description: 'Shoulders & arms focus · 6–8 reps (last sets up to 8–10).',
     instagramUrl: 'https://www.instagram.com/p/DTLQ1WeiLWp/',
     exercises: [
       ex('machine-shoulder-press', 2, '6–8'),
-      ex('one-hand-cable-pushdown', 2, '6–8 · יד אחורית, יד-יד'),
+      ex('one-hand-cable-pushdown', 2, '6–8 · single-arm'),
       ex('dumbbell-lateral-raise', 3, '6-8, 6-8, 8-10'),
       ex('barbell-curl', 3, '6-8, 6-8, 8-10'),
       ex('overhead-rope-press', 3, '6-8, 6-8, 8-10'),
@@ -65,34 +67,43 @@ const TEMPLATES = [
     ],
   },
   {
-    name: 'פלג גוף עליון מקוצר',
-    description: 'פלג גוף עליון מקוצר · הכל במכונות · 6–8 חזרות.',
+    name: 'Short Upper Body',
+    description: 'Short upper-body split · all machines · 6–8 reps.',
     instagramUrl: 'https://www.instagram.com/p/DLkMxTtIHUj/',
     exercises: [
       ex('chest-press-machine', 2, '6–8'),
-      ex('wide-grip-lat-pulldown', 2, '6–8 · יד-יד'),
+      ex('wide-grip-lat-pulldown', 2, '6–8 · single-arm'),
       ex('pec-deck', 1, '6–8'),
-      ex('wide-pull-belly', 1, '6–8 · חתירה רחבה'),
-      ex('cable-lateral-raise', 2, '6–8 · במכונה'),
-      ex('biceps-preacher-curl', 2, '6–8 · כיסא כומר'),
-      ex('one-hand-cable-pushdown', 2, '6–8 · יד אחורית, יד-יד'),
-      ex('ab-cable-crunch', 2, '6–8 · כפיפת בטן'),
+      ex('wide-pull-belly', 1, '6–8 · wide row'),
+      ex('cable-lateral-raise', 2, '6–8'),
+      ex('biceps-preacher-curl', 2, '6–8 · preacher'),
+      ex('one-hand-cable-pushdown', 2, '6–8'),
+      ex('ab-cable-crunch', 2, '6–8'),
     ],
   },
   {
-    name: 'אימון פוש קצר',
-    description: 'אימון פוש קצר · 5–7 חזרות.',
+    name: 'Short Push',
+    description: 'Short push session · 5–7 reps.',
     instagramUrl: '',
     exercises: [
-      ex('incline-bench-press', 2, '5–7 · מרפקים 45°'),
+      ex('incline-bench-press', 2, '5–7 · elbows 45°'),
       ex('chest-press-machine', 2, '5–7'),
       ex('machine-shoulder-press', 1, '5–7'),
       ex('pec-deck', 2, '5–7'),
       ex('cable-lateral-raise', 3, '5–7'),
-      ex('v-bar-pushdown', 2, '5–7 · יד אחורית'),
-      ex('parallels', 2, '5–7 · מקבילים במכונה'),
+      ex('v-bar-pushdown', 2, '5–7'),
+      ex('parallels', 2, '5–7 · dips'),
     ],
   },
+];
+
+// The first seed run stored these under Hebrew names; delete those so the
+// English-named upserts below don't leave Hebrew-named duplicates behind.
+const LEGACY_HEBREW_NAMES = [
+  'אימון גוף מלא מהיר',
+  'אימון דגש כתפיים ידיים',
+  'פלג גוף עליון מקוצר',
+  'אימון פוש קצר',
 ];
 
 const client = new MongoClient(MONGO);
@@ -104,6 +115,20 @@ try {
 
   console.log(`\n=== MODE: ${APPLY ? 'APPLY (upsert)' : 'DRY-RUN (no writes)'} ===`);
   console.log(`owner: ${OWNER}\n`);
+
+  // Migrate away the first run's Hebrew-named docs.
+  const legacy = await col
+    .find({ userId: OWNER, name: { $in: LEGACY_HEBREW_NAMES } })
+    .project({ name: 1 })
+    .toArray();
+  if (legacy.length) {
+    console.log(`DELETE ${legacy.length} legacy Hebrew-named doc(s): ${legacy.map((d) => d.name).join(', ')}`);
+    if (APPLY) {
+      const del = await col.deleteMany({ userId: OWNER, name: { $in: LEGACY_HEBREW_NAMES } });
+      console.log(`  deleted: ${del.deletedCount}`);
+    }
+    console.log('');
+  }
 
   for (const t of TEMPLATES) {
     const existing = await col.findOne({ userId: OWNER, name: t.name });
