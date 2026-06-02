@@ -354,7 +354,8 @@ export default function ExerciseCard({
           <ExercisePhoto
             className="exercise-collapsed-photo"
             src={exerciseDef?.defaultPhoto}
-            alt={displayName}
+            /* decorative: name shown beside it; alt="" (default) avoids a
+               duplicate screen-reader announcement. */
           />
           <div className="exercise-collapsed-info">
             <span className="exercise-collapsed-name">{displayName}</span>
@@ -410,7 +411,7 @@ export default function ExerciseCard({
         >
           <ExercisePhoto
             src={exerciseDef?.defaultPhoto}
-            alt={displayName}
+            /* decorative: name shown beside it; alt="" default */
             style={{ width: '100%', height: '100%', borderRadius: 'inherit' }}
           />
           <span className="exercise-card-photo-hint">📊</span>
