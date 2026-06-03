@@ -1,6 +1,6 @@
-import { unstable_cache } from 'next/cache';
 import mongoose from 'mongoose';
 import WorkoutModel from '@/models/Workout';
+import PersonalBestStore from '@/models/PersonalBestStore';
 import {
   PersonalBest,
   WorkoutSet,
@@ -9,12 +9,11 @@ import {
   BestE1rm,
 } from '@/types/workout';
 import { resolveExerciseId } from '@/data/exercise-library';
-import { personalBestsTag } from '@/lib/workout-cache';
 
-// Personal-best computation. Relocated out of the pb route so the bootstrap
-// endpoint can reuse the SAME cached result (same unstable_cache key + tag),
-// rather than recomputing the full-collection scan. The pb route and the
-// bootstrap endpoint both call getCachedPersonalBests(userId).
+// Personal-best computation + a materialized per-user store. The expensive
+// full-collection scan (computePersonalBests) now runs only when a workout is
+// completed or deleted; the result is persisted to PersonalBestStore so the
+// read path (pb route + bootstrap) is a single O(1) document fetch.
 
 async function connectDB() {
   if (mongoose.connection.readyState >= 1) return;
@@ -88,16 +87,20 @@ function getBestTimeMode(sets: WorkoutSet[]): { kg: number; seconds: number } | 
   return best;
 }
 
-// Pure PB computation for one user. No request-scoped data, so it's safe to
-// memoize. Scans the user's entire workout collection (the dominant cost on
-// the weak Atlas tier), so the result is cached per user and invalidated by
-// the workout write handlers via revalidateTag(personalBestsTag(userId)).
+// Pure PB computation for one user — the expensive full-collection scan. Only
+// invoked by recomputeAndStorePersonalBests (on workout complete/delete) and
+// the lazy first-read init, never on the hot read path.
 async function computePersonalBests(userId: string): Promise<PBMap> {
   await connectDB();
 
   // Workouts most-recent first so `last*` and `current*` fields stay correct
-  // on first encounter.
-  const workouts = await WorkoutModel.find({ userId }).sort({ date: -1 }).lean();
+  // on first encounter. Projected to only the fields PB needs (date, _id, and
+  // each exercise's id + sets) so the scan doesn't drag the full docs —
+  // notes, photos, metadata — over the slow shared tier.
+  const workouts = await WorkoutModel
+    .find({ userId }, { date: 1, 'exercises.exerciseId': 1, 'exercises.sets': 1 })
+    .sort({ date: -1 })
+    .lean();
 
   const pbCandidates: Record<string, PBCandidate> = {};
 
@@ -234,14 +237,25 @@ async function computePersonalBests(userId: string): Promise<PBMap> {
   return pbMap;
 }
 
-// Per-user memoized PB read (5-min safety TTL + tag invalidation on every
-// workout write). Both the pb route and the bootstrap endpoint call this, so
-// they share one cache entry per user.
-export function getCachedPersonalBests(userId: string): Promise<PBMap> {
-  const cached = unstable_cache(
-    () => computePersonalBests(userId),
-    ['workout-pb', userId],
-    { tags: [personalBestsTag(userId)], revalidate: 300 },
+// Read path: return the materialized PB map (one O(1) doc fetch). On the very
+// first read for a user (no stored doc yet) it computes + stores once, so the
+// store self-populates without a migration.
+export async function getStoredPersonalBests(userId: string): Promise<PBMap> {
+  await connectDB();
+  const doc = await PersonalBestStore.findOne({ userId }).lean();
+  if (doc && doc.pbMap) return doc.pbMap as PBMap;
+  return recomputeAndStorePersonalBests(userId);
+}
+
+// Write path: run the full scan and persist the result. Called only when a
+// workout is completed or deleted — not on every autosave — so the scan runs
+// at most once per finished workout.
+export async function recomputeAndStorePersonalBests(userId: string): Promise<PBMap> {
+  const pbMap = await computePersonalBests(userId);
+  await PersonalBestStore.updateOne(
+    { userId },
+    { $set: { pbMap, updatedAt: new Date() } },
+    { upsert: true },
   );
-  return cached();
+  return pbMap;
 }

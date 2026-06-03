@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { revalidateTag } from 'next/cache';
 import mongoose from 'mongoose';
 import WorkoutModel from '@/models/Workout';
 import { requireSignedIn } from '@/lib/auth-helpers';
-import { personalBestsTag } from '@/lib/workout-cache';
+import { recomputeAndStorePersonalBests } from '@/lib/workout-pb';
 
 // Connect to MongoDB using mongoose
 async function connectDB() {
@@ -91,11 +90,19 @@ export async function PUT(
       return NextResponse.json({ error: 'Workout not found' }, { status: 404 });
     }
 
-    // Set data changed → the user's PBs may have, so drop the cached PB
-    // map. Autosave fires this often during an active workout; that's
-    // fine — invalidation is cheap and PB is only re-read on navigation,
-    // not during logging.
-    revalidateTag(personalBestsTag(userId));
+    // Refresh the materialized PB store only when the workout is now
+    // completed (or was re-saved while completed) — not on every in-progress
+    // autosave. Provisional in-progress sets don't count toward PB until the
+    // workout is finished. Best-effort: the workout is already saved, so a
+    // recompute failure must not fail the request (PB self-heals on the next
+    // complete/delete); just log it.
+    if (workout.isCompleted) {
+      try {
+        await recomputeAndStorePersonalBests(userId);
+      } catch (pbError) {
+        console.error('PB recompute after complete failed (non-fatal):', pbError);
+      }
+    }
 
     return NextResponse.json({ ...workout, id: workout._id.toString(), _id: undefined });
   } catch (error) {
@@ -126,8 +133,14 @@ export async function DELETE(
     }
 
     await WorkoutModel.findByIdAndDelete(id);
-    // Deleting a workout can remove the set that held a PB → recompute.
-    revalidateTag(personalBestsTag(userId));
+    // Deleting a workout can remove the set that held a PB → recompute + store.
+    // Best-effort: the delete already committed, so don't fail on a recompute
+    // error (PB self-heals on the next complete/delete).
+    try {
+      await recomputeAndStorePersonalBests(userId);
+    } catch (pbError) {
+      console.error('PB recompute after delete failed (non-fatal):', pbError);
+    }
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Error deleting workout:', error);

@@ -1,9 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { revalidateTag } from 'next/cache';
 import mongoose from 'mongoose';
 import WorkoutModel from '@/models/Workout';
 import { requireSignedIn } from '@/lib/auth-helpers';
-import { personalBestsTag } from '@/lib/workout-cache';
 
 // Connect to MongoDB using mongoose
 async function connectDB() {
@@ -131,9 +129,8 @@ export async function POST(request: NextRequest) {
 
     await workout.save();
 
-    // A new workout can change the user's PBs (its sets feed the e1RM
-    // computation), so drop the cached PB map for this user.
-    revalidateTag(personalBestsTag(userId));
+    // A freshly created workout has no sets yet, so it can't change PB — the
+    // materialized PB store is refreshed when the workout is completed.
 
     return NextResponse.json(workout.toJSON(), { status: 201 });
   } catch (error) {

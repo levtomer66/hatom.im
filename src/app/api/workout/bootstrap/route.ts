@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import mongoose from 'mongoose';
 import WorkoutModel from '@/models/Workout';
 import { requireSignedIn } from '@/lib/auth-helpers';
-import { getCachedPersonalBests } from '@/lib/workout-pb';
+import { getStoredPersonalBests } from '@/lib/workout-pb';
 import { getOwnTemplates, getSharedTemplates, getTemplateUsage } from '@/lib/workout-templates';
 
 async function connectDB() {
@@ -41,7 +41,7 @@ export async function GET() {
 
     const [personalBests, templates, sharedTemplates, templateUsage, activeWorkout] =
       await Promise.all([
-        getCachedPersonalBests(userId),
+        getStoredPersonalBests(userId),
         getOwnTemplates(userId),
         getSharedTemplates(),
         getTemplateUsage(userId),
