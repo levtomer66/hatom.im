@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { useWorkoutUser } from '@/context/WorkoutUserContext';
 import { useWorkoutLanguage } from '@/context/WorkoutLanguageContext';
 import { useWorkoutUnit } from '@/context/WorkoutUnitContext';
+import { useCustomExercises } from '@/context/WorkoutCustomExercisesContext';
 import { useT, formatDate, getCategoryLabel, getLocalizedTemplateName } from '@/lib/workout-i18n';
 import { getLocalizedExercise } from '@/lib/exercise-translations';
 import { formatHistorySet, formatWeight, getUnitSuffix } from '@/lib/weight';
@@ -23,6 +24,7 @@ export default function ExerciseDetailPage() {
   const { currentUser, isLoading } = useWorkoutUser();
   const { language } = useWorkoutLanguage();
   const { unit } = useWorkoutUnit();
+  const { customExercises, loaded: customsLoaded, ensureLoaded } = useCustomExercises();
   const t = useT();
   const unitSuffix = getUnitSuffix(unit, language);
 
@@ -40,30 +42,48 @@ export default function ExerciseDetailPage() {
   const [loadingExercise, setLoadingExercise] = useState(true);
   const [loadingHistory, setLoadingHistory] = useState(true);
 
-  // Library lookup. resolveExerciseName falls back to getExerciseById so a
-  // "swapped from X" annotation that references a retired custom exercise
-  // (its `custom-*` id is aliased to the promoted library entry) still
-  // resolves to the localized name rather than the opaque uuid.
+  // Library + custom lookup. resolveExerciseName also falls back to
+  // getExerciseById so a "swapped from X" annotation that references a retired
+  // custom exercise (its `custom-*` id is aliased to the promoted library
+  // entry) still resolves to the localized name rather than the opaque uuid.
   const exerciseMap = useMemo(() => {
     const map: Record<string, ExerciseDefinition> = {};
     EXERCISE_LIBRARY.forEach(e => { map[e.id] = e; });
+    customExercises.forEach(e => { map[e.id] = e; });
     return map;
-  }, []);
+  }, [customExercises]);
 
   const resolveExerciseName = useCallback((id: string): string => {
     const def = exerciseMap[id] ?? getExerciseById(id);
     return def ? getLocalizedExercise(def, language).name : id;
   }, [exerciseMap, language]);
 
+  // Make sure custom exercises are loaded so a custom id resolves here.
+  useEffect(() => {
+    ensureLoaded();
+  }, [ensureLoaded]);
+
   // Resolve the viewed exercise from the library (getExerciseById applies
-  // legacy/custom-retirement aliases). Custom exercises were retired, so
-  // there's no per-user fetch any more.
+  // legacy/custom-retirement aliases), then from the user's custom exercises.
+  // For a not-yet-loaded custom we keep the loading shell until customs land.
   const fetchExercise = useCallback(() => {
     if (!exerciseId) return;
     const libraryExercise = getExerciseById(exerciseId);
-    if (libraryExercise) setExercise(libraryExercise);
-    setLoadingExercise(false);
-  }, [exerciseId]);
+    if (libraryExercise) {
+      setExercise(libraryExercise);
+      setLoadingExercise(false);
+      return;
+    }
+    const custom = customExercises.find(e => e.id === exerciseId);
+    if (custom) {
+      setExercise(custom);
+      setLoadingExercise(false);
+    } else if (customsLoaded) {
+      // Customs are loaded and it's still not found — stop the spinner so the
+      // not-found state can render instead of hanging.
+      setLoadingExercise(false);
+    }
+  }, [exerciseId, customExercises, customsLoaded]);
 
   // Fetch exercise history
   const fetchHistory = useCallback(async () => {

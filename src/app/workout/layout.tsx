@@ -3,6 +3,7 @@ import { WorkoutUserProvider } from '@/context/WorkoutUserContext';
 import { WorkoutLanguageProvider } from '@/context/WorkoutLanguageContext';
 import { WorkoutUnitProvider } from '@/context/WorkoutUnitContext';
 import { WorkoutTimerProvider } from '@/context/WorkoutTimerContext';
+import { WorkoutCustomExercisesProvider } from '@/context/WorkoutCustomExercisesContext';
 import WorkoutShell from '@/components/workout/WorkoutShell';
 import PwaInstaller from '@/components/workout/PwaInstaller';
 import './workout.css';
@@ -35,11 +36,13 @@ export default function WorkoutLayout({
       <WorkoutUnitProvider>
         <WorkoutTimerProvider>
           <WorkoutUserProvider>
-            <WorkoutShell>
-              {children}
-            </WorkoutShell>
-            {/* Service-worker registration + offline / sync indicator. */}
-            <PwaInstaller />
+            <WorkoutCustomExercisesProvider>
+              <WorkoutShell>
+                {children}
+              </WorkoutShell>
+              {/* Service-worker registration + offline / sync indicator. */}
+              <PwaInstaller />
+            </WorkoutCustomExercisesProvider>
           </WorkoutUserProvider>
         </WorkoutTimerProvider>
       </WorkoutUnitProvider>

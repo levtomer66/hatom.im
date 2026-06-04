@@ -32,6 +32,8 @@ import {
 import { EXERCISE_LIBRARY } from '@/data/exercise-library';
 import { getLocalizedExercise, getExerciseSearchNames } from '@/lib/exercise-translations';
 import { useWorkoutUser } from '@/context/WorkoutUserContext';
+import { useCustomExercises } from '@/context/WorkoutCustomExercisesContext';
+import AddExerciseForm from '@/components/workout/AddExerciseForm';
 import { useWorkoutLanguage } from '@/context/WorkoutLanguageContext';
 import { useT, getCategoryLabel } from '@/lib/workout-i18n';
 import ExercisePicker from './ExercisePicker';
@@ -189,8 +191,10 @@ export default function TemplateEditor({
   onSave,
 }: TemplateEditorProps) {
   const { currentUser } = useWorkoutUser();
+  const { customExercises, addCustomExercise, ensureLoaded } = useCustomExercises();
   const { language } = useWorkoutLanguage();
   const t = useT();
+  const [showAddForm, setShowAddForm] = useState(false);
   const [name, setName] = useState('');
   const [selectedExercises, setSelectedExercises] = useState<TemplateExercise[]>([]);
   const [search, setSearch] = useState('');
@@ -237,11 +241,15 @@ export default function TemplateEditor({
     }
   }, [isOpen, template]);
 
-  // The catalogue is the code-defined library only — custom exercises
-  // were retired (real ones promoted into EXERCISE_LIBRARY).
+  // Load custom exercises when the editor opens (no-op if already seeded).
+  useEffect(() => {
+    if (isOpen) ensureLoaded();
+  }, [isOpen, ensureLoaded]);
+
+  // The catalogue: the code-defined library plus the user's custom exercises.
   const allExercises = useMemo(() => {
-    return [...EXERCISE_LIBRARY];
-  }, []);
+    return [...EXERCISE_LIBRARY, ...customExercises];
+  }, [customExercises]);
 
   // Create exercise map for quick lookup
   const exerciseMap = useMemo(() => {
@@ -518,15 +526,25 @@ export default function TemplateEditor({
               {t('template.add_section')}
             </label>
 
-            {/* Search */}
-            <input
-              type="text"
-              className="workout-input"
-              placeholder={t('picker.search')}
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              style={{ marginBottom: '12px', flexShrink: 0 }}
-            />
+            {/* Search + create custom */}
+            <div style={{ display: 'flex', gap: '8px', marginBottom: '12px', flexShrink: 0 }}>
+              <input
+                type="text"
+                className="workout-input"
+                placeholder={t('picker.search')}
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                style={{ flex: 1 }}
+              />
+              <button
+                type="button"
+                className="workout-btn workout-btn-secondary"
+                onClick={() => setShowAddForm(true)}
+                style={{ flex: '0 0 auto', whiteSpace: 'nowrap' }}
+              >
+                {t('picker.create_custom')}
+              </button>
+            </div>
 
             {/* Category filters */}
             <div style={{
@@ -669,6 +687,19 @@ export default function TemplateEditor({
         excludeIds={selectedExercises.map(e => e.exerciseId)}
       />
     )}
+
+    {/* Create-custom modal, sibling for the same overlay-bubbling reason. A
+        new custom is registered in the shared context and added to this
+        template right away. */}
+    <AddExerciseForm
+      isOpen={showAddForm}
+      onClose={() => setShowAddForm(false)}
+      onCreated={(exercise) => {
+        addCustomExercise(exercise);
+        setShowAddForm(false);
+        toggleExercise(exercise.id);
+      }}
+    />
     </>
   );
 }

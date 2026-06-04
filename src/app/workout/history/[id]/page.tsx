@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useWorkoutUser } from '@/context/WorkoutUserContext';
 import { useWorkoutLanguage } from '@/context/WorkoutLanguageContext';
+import { useCustomExercises } from '@/context/WorkoutCustomExercisesContext';
 import { useT, formatDate, exerciseCount, getLocalizedTemplateName } from '@/lib/workout-i18n';
 import Header from '@/components/workout/Header';
 import BottomNav from '@/components/workout/BottomNav';
@@ -17,8 +18,9 @@ export default function WorkoutDetailPage() {
   const router = useRouter();
   const { currentUser, isLoading } = useWorkoutUser();
   const { language } = useWorkoutLanguage();
+  const { customExercises, ensureLoaded } = useCustomExercises();
   const t = useT();
-  
+
   const workoutId = params?.id as string;
 
   useEffect(() => {
@@ -31,14 +33,15 @@ export default function WorkoutDetailPage() {
   const [personalBests, setPersonalBests] = useState<Record<string, PersonalBest>>({});
   const [loadingWorkout, setLoadingWorkout] = useState(true);
 
-  // Library lookup map. Retired custom exercises resolve via getExerciseById
-  // aliases inside ExerciseCard when a row isn't found here, so no per-user
-  // custom fetch is needed.
+  // Library + custom lookup map, so a workout row that references a `custom-*`
+  // id renders its name/photo. (ExerciseCard still falls back to
+  // getExerciseById for legacy/retired-custom aliases when a row isn't here.)
   const exerciseMap = useMemo(() => {
     const map: Record<string, ExerciseDefinition> = {};
     EXERCISE_LIBRARY.forEach(e => { map[e.id] = e; });
+    customExercises.forEach(e => { map[e.id] = e; });
     return map;
-  }, []);
+  }, [customExercises]);
 
   // Fetch workout
   const fetchWorkout = useCallback(async () => {
@@ -77,6 +80,11 @@ export default function WorkoutDetailPage() {
     fetchWorkout();
     fetchPersonalBests();
   }, [fetchWorkout, fetchPersonalBests]);
+
+  // Load custom exercises so a custom id in this workout resolves to a name.
+  useEffect(() => {
+    ensureLoaded();
+  }, [ensureLoaded]);
 
   // Loading / not-logged-in / workout-loading all share the same shell so
   // the screen never collapses to a bare spinner (B11).

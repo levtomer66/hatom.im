@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useWorkoutUser } from '@/context/WorkoutUserContext';
 import { useWorkoutLanguage } from '@/context/WorkoutLanguageContext';
 import { useWorkoutUnit } from '@/context/WorkoutUnitContext';
+import { useCustomExercises } from '@/context/WorkoutCustomExercisesContext';
 import { useT, getCategoryLabel } from '@/lib/workout-i18n';
 import { getLocalizedExercise, getExerciseSearchNames } from '@/lib/exercise-translations';
 import { formatWeight, getUnitSuffix } from '@/lib/weight';
@@ -12,6 +13,7 @@ import { formatSeconds } from '@/lib/time';
 import Header from '@/components/workout/Header';
 import BottomNav from '@/components/workout/BottomNav';
 import ExercisePhoto from '@/components/workout/ExercisePhoto';
+import AddExerciseForm from '@/components/workout/AddExerciseForm';
 import { PersonalBest, ExerciseCategory, EXERCISE_FILTER_CATEGORIES, WorkoutType } from '@/types/workout';
 import { EXERCISE_LIBRARY } from '@/data/exercise-library';
 
@@ -29,10 +31,12 @@ export default function ExercisesPage() {
   }, [isLoading, currentUser, router]);
   const { language } = useWorkoutLanguage();
   const { unit } = useWorkoutUnit();
+  const { customExercises, addCustomExercise, ensureLoaded } = useCustomExercises();
   const t = useT();
   const unitSuffix = getUnitSuffix(unit, language);
 
   const [personalBests, setPersonalBests] = useState<Record<string, PersonalBest>>({});
+  const [showAddForm, setShowAddForm] = useState(false);
   const [search, setSearch] = useState('');
   const [muscleFilters, setMuscleFilters] = useState<Set<ExerciseCategory>>(new Set());
   // Top-category filters (Push / Pull / Legs / Calisthenics) — kept here
@@ -67,6 +71,12 @@ export default function ExercisesPage() {
     fetchPersonalBests();
   }, [fetchPersonalBests]);
 
+  // Load the user's custom exercises (no-op if the /workout page already
+  // seeded them from the bootstrap).
+  useEffect(() => {
+    ensureLoaded();
+  }, [ensureLoaded]);
+
   // Toggle muscle filter
   const toggleMuscleFilter = (muscleId: ExerciseCategory) => {
     setMuscleFilters(prev => {
@@ -80,12 +90,11 @@ export default function ExercisesPage() {
     });
   };
 
-  // The exercise catalogue is now the code-defined library only — the
-  // user-created custom-exercise feature was retired (the two real customs
-  // were promoted into EXERCISE_LIBRARY; see exercise-library.ts).
+  // The exercise catalogue: the code-defined library plus the user's custom
+  // exercises (their `custom-*` ids aren't in EXERCISE_LIBRARY).
   const allExercises = useMemo(() => {
-    return [...EXERCISE_LIBRARY];
-  }, []);
+    return [...EXERCISE_LIBRARY, ...customExercises];
+  }, [customExercises]);
 
   // Filter exercises by muscle group and search (matches English or Hebrew name)
   const filteredExercises = useMemo(() => {
@@ -155,6 +164,14 @@ export default function ExercisesPage() {
             onChange={(e) => setSearch(e.target.value)}
             style={{ flex: 1 }}
           />
+          <button
+            type="button"
+            className="workout-btn workout-btn-secondary"
+            onClick={() => setShowAddForm(true)}
+            style={{ flex: '0 0 auto', whiteSpace: 'nowrap' }}
+          >
+            {t('picker.create_custom')}
+          </button>
         </div>
 
         {/* Top-category filters (Push / Pull / Legs / Calisthenics) —
@@ -288,6 +305,16 @@ export default function ExercisesPage() {
           )}
         </div>
       </div>
+
+      <AddExerciseForm
+        isOpen={showAddForm}
+        onClose={() => setShowAddForm(false)}
+        onCreated={(exercise) => {
+          addCustomExercise(exercise);
+          setShowAddForm(false);
+          router.push(`/workout/exercises/${exercise.id}`);
+        }}
+      />
 
       <BottomNav />
     </main>

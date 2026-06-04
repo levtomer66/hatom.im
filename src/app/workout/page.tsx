@@ -22,6 +22,7 @@ import { useSession } from 'next-auth/react';
 import { useWorkoutUser } from '@/context/WorkoutUserContext';
 import { useWorkoutLanguage } from '@/context/WorkoutLanguageContext';
 import { useWorkoutUnit } from '@/context/WorkoutUnitContext';
+import { useCustomExercises } from '@/context/WorkoutCustomExercisesContext';
 import { useT, formatDate, getLocalizedTemplateName } from '@/lib/workout-i18n';
 import Header from '@/components/workout/Header';
 import BottomNav from '@/components/workout/BottomNav';
@@ -48,6 +49,7 @@ export default function WorkoutsPage() {
   const router = useRouter();
   const { currentUser, isLoading } = useWorkoutUser();
   const { language } = useWorkoutLanguage();
+  const { customExercises, seed: seedCustomExercises } = useCustomExercises();
   const { data: session } = useSession();
   const isOwner = session?.user?.isOwner === true;
   const t = useT();
@@ -88,12 +90,14 @@ export default function WorkoutsPage() {
   const [initialLoadDone, setInitialLoadDone] = useState(false);
   const [hasInProgressWorkout, setHasInProgressWorkout] = useState(false);
 
-  // Create exercise lookup map
+  // Create exercise lookup map — library plus the user's custom exercises, so
+  // an in-progress workout that references a `custom-*` id renders its name.
   const exerciseMap = useMemo(() => {
     const map: Record<string, ExerciseDefinition> = {};
     EXERCISE_LIBRARY.forEach(e => { map[e.id] = e; });
+    customExercises.forEach(e => { map[e.id] = e; });
     return map;
-  }, []);
+  }, [customExercises]);
 
   // Fetch personal bests
   const fetchPersonalBests = useCallback(async () => {
@@ -132,6 +136,9 @@ export default function WorkoutsPage() {
         setTemplates(data.templates ?? []);
         setSharedTemplates(data.sharedTemplates ?? []);
         setTemplateUsage(data.templateUsage ?? {});
+        // Seed the shared custom-exercise context from the same payload — no
+        // extra round trip, and the picker/editor read it from context.
+        seedCustomExercises(data.customExercises ?? []);
 
         // A specific resume target (History "resume") wins; but if it can't
         // be loaded (deleted, or belongs to another account left in this
@@ -163,7 +170,7 @@ export default function WorkoutsPage() {
       console.error('Error loading workout bootstrap:', error);
     }
     setInitialLoadDone(true);
-  }, [currentUser]);
+  }, [currentUser, seedCustomExercises]);
 
   // Owner toggle: flip sharedByOwner on one of MY templates. Optimistic
   // update + revert on server failure. The server silently drops the

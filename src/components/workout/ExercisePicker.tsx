@@ -1,12 +1,14 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { ExerciseDefinition, ExerciseCategory, EXERCISE_FILTER_CATEGORIES } from '@/types/workout';
 import { EXERCISE_LIBRARY } from '@/data/exercise-library';
 import { getLocalizedExercise, getExerciseSearchNames } from '@/lib/exercise-translations';
 import { useWorkoutLanguage } from '@/context/WorkoutLanguageContext';
+import { useCustomExercises } from '@/context/WorkoutCustomExercisesContext';
 import { useT, getCategoryLabel } from '@/lib/workout-i18n';
 import ExercisePhoto from './ExercisePhoto';
+import AddExerciseForm from './AddExerciseForm';
 
 // Muscle group filter IDs (labels come from getCategoryLabel in the render).
 const MUSCLE_GROUP_IDS: ExerciseCategory[] = [
@@ -32,18 +34,25 @@ export default function ExercisePicker({
   replaceMode = false,
 }: ExercisePickerProps) {
   const { language } = useWorkoutLanguage();
+  const { customExercises, addCustomExercise, ensureLoaded } = useCustomExercises();
   const t = useT();
   const [search, setSearch] = useState('');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [muscleFilters, setMuscleFilters] = useState<Set<string>>(new Set());
   const [categoryFilters, setCategoryFilters] = useState<Set<ExerciseCategory>>(new Set());
+  const [showAddForm, setShowAddForm] = useState(false);
 
-  // The catalogue is the code-defined library only — the user-created
-  // custom-exercise feature was retired (real customs were promoted into
-  // EXERCISE_LIBRARY; see exercise-library.ts).
+  // Make sure the user's custom exercises are loaded whenever the picker opens
+  // (no-op if the /workout page already seeded them from the bootstrap).
+  useEffect(() => {
+    if (isOpen) ensureLoaded();
+  }, [isOpen, ensureLoaded]);
+
+  // The catalogue is the code-defined library plus the user's custom
+  // exercises (custom ids aren't in EXERCISE_LIBRARY).
   const allExercises = useMemo(() => {
-    return [...EXERCISE_LIBRARY];
-  }, []);
+    return [...EXERCISE_LIBRARY, ...customExercises];
+  }, [customExercises]);
 
   // Toggle muscle filter
   const toggleMuscleFilter = (muscleId: string) => {
@@ -151,6 +160,23 @@ export default function ExercisePicker({
     onClose();
   };
 
+  // A freshly created custom exercise is registered in the shared context so it
+  // shows up everywhere, then immediately committed: in replace mode it swaps
+  // straight in; otherwise it's pre-selected so one confirm tap adds it.
+  const handleCustomCreated = (exercise: ExerciseDefinition) => {
+    addCustomExercise(exercise);
+    setShowAddForm(false);
+    if (replaceMode) {
+      onSelect([exercise]);
+      setSearch('');
+      setMuscleFilters(new Set());
+      setCategoryFilters(new Set());
+      onClose();
+      return;
+    }
+    setSelectedIds(prev => new Set(prev).add(exercise.id));
+  };
+
   const handleClose = () => {
     setSelectedIds(new Set());
     setSearch('');
@@ -183,6 +209,14 @@ export default function ExercisePicker({
                   onChange={(e) => setSearch(e.target.value)}
                   style={{ flex: 1 }}
                 />
+                <button
+                  type="button"
+                  className="workout-btn workout-btn-secondary"
+                  onClick={() => setShowAddForm(true)}
+                  style={{ flex: '0 0 auto', whiteSpace: 'nowrap' }}
+                >
+                  {t('picker.create_custom')}
+                </button>
               </div>
 
               {/* Category filters (Push/Pull/Legs/Calisthenics) */}
@@ -285,6 +319,12 @@ export default function ExercisePicker({
           )}
         </div>
       </div>
+
+      <AddExerciseForm
+        isOpen={showAddForm}
+        onClose={() => setShowAddForm(false)}
+        onCreated={handleCustomCreated}
+      />
     </>
   );
 }

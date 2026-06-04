@@ -81,6 +81,23 @@ const DICT = {
   'picker.add_selected_prefix':     { en: 'Add',                                            he: 'הוסף' },
   'picker.add_selected_one':        { en: 'exercise',                                       he: 'תרגיל' },
   'picker.add_selected_many':       { en: 'exercises',                                      he: 'תרגילים' },
+  'picker.create_custom':           { en: '+ New custom exercise',                          he: '+ תרגיל מותאם אישית' },
+
+  // Custom exercise form (user-added exercises)
+  'customex.title':                 { en: 'Add Custom Exercise',                            he: 'הוספת תרגיל מותאם אישית' },
+  'customex.name_label':            { en: 'Exercise name',                                  he: 'שם התרגיל' },
+  'customex.name_placeholder':      { en: 'e.g. Incline Cable Fly',                         he: 'לדוגמה: פלייז בכבל בשיפוע' },
+  'customex.categories_label':      { en: 'Categories (select all that apply)',             he: 'קטגוריות (בחר את כל המתאימות)' },
+  'customex.create':                { en: 'Create exercise',                                he: 'צור תרגיל' },
+  'customex.creating':              { en: 'Creating…',                                      he: 'יוצר…' },
+  'customex.err_name':              { en: 'Please enter an exercise name',                  he: 'נא להזין שם תרגיל' },
+  'customex.err_category':          { en: 'Please select at least one category',            he: 'נא לבחור לפחות קטגוריה אחת' },
+  'customex.err_generic':           { en: 'Failed to create exercise',                      he: 'יצירת התרגיל נכשלה' },
+  'customex.cat_push':              { en: 'Push (Chest/Shoulders/Triceps)',                 he: 'דחיפה (חזה/כתפיים/יד אחורית)' },
+  'customex.cat_pull':              { en: 'Pull (Back/Biceps)',                             he: 'משיכה (גב/יד קדמית)' },
+  'customex.cat_legs':              { en: 'Legs',                                           he: 'רגליים' },
+  'customex.cat_calisthenics':      { en: 'Calisthenics',                                   he: 'משקל גוף' },
+  'customex.cat_full_body':         { en: 'Full Body / Abs',                                he: 'גוף מלא / בטן' },
 
   // Template editor
   'template.edit_title':            { en: 'Edit Workout',                                   he: 'ערוך אימון' },
