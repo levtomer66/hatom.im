@@ -170,6 +170,7 @@ const DICT = {
 
   // Exercises page
   'exercises.title':                { en: 'Exercises',                                      he: 'תרגילים' },
+  'exercises.removed_section':      { en: 'Removed exercises',                              he: 'תרגילים שהוסרו' },
   'exercises.all':                  { en: 'All',                                            he: 'הכל' },
 
   // Exercise detail page

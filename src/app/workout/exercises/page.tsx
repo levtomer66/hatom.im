@@ -31,12 +31,14 @@ export default function ExercisesPage() {
   }, [isLoading, currentUser, router]);
   const { language } = useWorkoutLanguage();
   const { unit } = useWorkoutUnit();
-  const { customExercises, addCustomExercise, ensureLoaded } = useCustomExercises();
+  const { customExercises, addCustomExercise, ensureLoaded, setRetired } = useCustomExercises();
   const t = useT();
   const unitSuffix = getUnitSuffix(unit, language);
 
   const [personalBests, setPersonalBests] = useState<Record<string, PersonalBest>>({});
   const [showAddForm, setShowAddForm] = useState(false);
+  const [showRemoved, setShowRemoved] = useState(false);
+  const [restoringId, setRestoringId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [muscleFilters, setMuscleFilters] = useState<Set<ExerciseCategory>>(new Set());
   // Top-category filters (Push / Pull / Legs / Calisthenics) — kept here
@@ -95,6 +97,30 @@ export default function ExercisesPage() {
   const allExercises = useMemo(() => {
     return [...EXERCISE_LIBRARY, ...customExercises.filter((e) => !e.retired)];
   }, [customExercises]);
+
+  // Retired (soft-deleted) customs — surfaced in a collapsible section below so
+  // they stay restorable even when they have no workout history to reach them
+  // from.
+  const retiredCustoms = useMemo(
+    () => customExercises.filter((e) => e.retired),
+    [customExercises],
+  );
+
+  const handleRestore = async (id: string) => {
+    setRestoringId(id);
+    try {
+      const res = await fetch(`/api/workout/exercises/custom?id=${encodeURIComponent(id)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ retired: false }),
+      });
+      if (res.ok) setRetired(id, false);
+    } catch (error) {
+      console.error('Error restoring custom exercise:', error);
+    } finally {
+      setRestoringId(null);
+    }
+  };
 
   // Filter exercises by muscle group and search (matches English or Hebrew name)
   const filteredExercises = useMemo(() => {
@@ -304,6 +330,65 @@ export default function ExercisesPage() {
             })
           )}
         </div>
+
+        {/* Removed (soft-deleted) custom exercises — collapsible, restorable.
+            Lives here so a retired custom with no workout history is still
+            reachable to bring back. */}
+        {retiredCustoms.length > 0 && (
+          <div style={{ marginTop: '28px' }}>
+            <button
+              type="button"
+              onClick={() => setShowRemoved((v) => !v)}
+              aria-expanded={showRemoved}
+              style={{
+                width: '100%',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                background: 'none',
+                border: 'none',
+                padding: '8px 0',
+                cursor: 'pointer',
+                color: 'var(--workout-text-muted)',
+                fontSize: '13px',
+                fontWeight: 600,
+                textTransform: 'uppercase',
+                letterSpacing: '0.05em',
+                textAlign: 'start',
+              }}
+            >
+              <span aria-hidden="true">{showRemoved ? '▾' : '▸'}</span>
+              {t('exercises.removed_section')} ({retiredCustoms.length})
+            </button>
+
+            {showRemoved && retiredCustoms.map((ex) => (
+              <div key={ex.id} className="history-item">
+                <div
+                  style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1, cursor: 'pointer', minWidth: 0 }}
+                  onClick={() => router.push(`/workout/exercises/${ex.id}`)}
+                >
+                  <ExercisePhoto
+                    src={ex.defaultPhoto}
+                    style={{ width: '40px', height: '40px', borderRadius: '8px', fontSize: '18px', flexShrink: 0, opacity: 0.7 }}
+                  />
+                  <div className="history-item-info" style={{ minWidth: 0 }}>
+                    <div className="history-item-type" style={{ color: 'var(--workout-text-muted)' }}>
+                      {getLocalizedExercise(ex, language).name}
+                    </div>
+                  </div>
+                </div>
+                <button
+                  className="workout-btn workout-btn-secondary"
+                  style={{ padding: '6px 12px', fontSize: '12px', flexShrink: 0, opacity: restoringId === ex.id ? 0.5 : 1 }}
+                  onClick={() => handleRestore(ex.id)}
+                  disabled={restoringId === ex.id}
+                >
+                  {t('customex.restore')}
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       <AddExerciseForm
