@@ -98,6 +98,15 @@ const DICT = {
   'customex.cat_legs':              { en: 'Legs',                                           he: 'רגליים' },
   'customex.cat_calisthenics':      { en: 'Calisthenics',                                   he: 'משקל גוף' },
   'customex.cat_full_body':         { en: 'Full Body / Abs',                                he: 'גוף מלא / בטן' },
+  'customex.photo_label':           { en: 'Photo (optional)',                               he: 'תמונה (לא חובה)' },
+  'customex.photo_add':             { en: 'Add photo',                                      he: 'הוסף תמונה' },
+  'customex.photo_change':          { en: 'Change',                                         he: 'החלף' },
+  'customex.photo_remove':          { en: 'Remove',                                         he: 'הסר' },
+  'customex.err_photo':             { en: 'Photo upload failed',                            he: 'העלאת התמונה נכשלה' },
+  'customex.remove':                { en: 'Remove exercise',                                he: 'הסר תרגיל' },
+  'customex.restore':               { en: 'Restore',                                        he: 'שחזר' },
+  'customex.retired_badge':         { en: 'Removed',                                        he: 'הוסר' },
+  'customex.remove_confirm':        { en: 'Remove this custom exercise? It stays in your past workouts but is hidden from the lists.', he: 'להסיר את התרגיל המותאם? הוא יישאר באימונים הקודמים אך יוסתר מהרשימות.' },
 
   // Template editor
   'template.edit_title':            { en: 'Edit Workout',                                   he: 'ערוך אימון' },
@@ -143,6 +152,9 @@ const DICT = {
   'history.view_aria':              { en: 'View this completed workout',                    he: 'צפה באימון שהושלם' },
   'history.delete_aria':            { en: 'Delete workout',                                 he: 'מחק אימון' },
   'history.delete_confirm':         { en: 'Delete this workout? This action cannot be undone.', he: 'למחוק את האימון? לא ניתן לבטל.' },
+  'history.load_more':              { en: 'Load more',                                      he: 'טען עוד' },
+  'history.loading_more':           { en: 'Loading…',                                       he: 'טוען…' },
+  'history.load_error':             { en: 'Couldn’t load workouts — try again later.',      he: 'טעינת האימונים נכשלה — נסה שוב מאוחר יותר.' },
 
   // History detail
   'history_detail.not_found':       { en: 'Workout not found',                              he: 'האימון לא נמצא' },

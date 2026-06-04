@@ -28,6 +28,10 @@ interface CustomExercisesContextType {
   ensureLoaded: () => void;
   // Optimistically add a just-created custom so the UI updates immediately.
   addCustomExercise: (exercise: ExerciseDefinition) => void;
+  // Flip the `retired` flag on a custom locally (mirrors the PATCH result).
+  // Retired customs stay in the list so history still resolves their name;
+  // the pickers filter them out themselves.
+  setRetired: (exerciseId: string, retired: boolean) => void;
 }
 
 const CustomExercisesContext = createContext<CustomExercisesContextType | undefined>(undefined);
@@ -77,9 +81,15 @@ export function WorkoutCustomExercisesProvider({ children }: { children: ReactNo
     markLoaded();
   }, [markLoaded]);
 
+  const setRetired = useCallback((exerciseId: string, retired: boolean) => {
+    setCustomExercises((prev) =>
+      prev.map((e) => (e.id === exerciseId ? { ...e, retired } : e)),
+    );
+  }, []);
+
   return (
     <CustomExercisesContext.Provider
-      value={{ customExercises, loaded, seed, ensureLoaded, addCustomExercise }}
+      value={{ customExercises, loaded, seed, ensureLoaded, addCustomExercise, setRetired }}
     >
       {children}
     </CustomExercisesContext.Provider>

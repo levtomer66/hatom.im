@@ -246,17 +246,20 @@ export default function TemplateEditor({
     if (isOpen) ensureLoaded();
   }, [isOpen, ensureLoaded]);
 
-  // The catalogue: the code-defined library plus the user's custom exercises.
+  // The pickable catalogue: library plus the user's ACTIVE custom exercises.
   const allExercises = useMemo(() => {
-    return [...EXERCISE_LIBRARY, ...customExercises];
+    return [...EXERCISE_LIBRARY, ...customExercises.filter((e) => !e.retired)];
   }, [customExercises]);
 
-  // Create exercise map for quick lookup
+  // Lookup map for rendering selected rows — includes RETIRED customs too, so
+  // a template that already references one still resolves its name (you just
+  // can't add a new one from the list).
   const exerciseMap = useMemo(() => {
     const map: Record<string, ExerciseDefinition> = {};
-    allExercises.forEach(e => { map[e.id] = e; });
+    EXERCISE_LIBRARY.forEach(e => { map[e.id] = e; });
+    customExercises.forEach(e => { map[e.id] = e; });
     return map;
-  }, [allExercises]);
+  }, [customExercises]);
 
   const selectedIds = useMemo(
     () => new Set(selectedExercises.map(e => e.exerciseId)),

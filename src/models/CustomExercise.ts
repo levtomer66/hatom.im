@@ -13,6 +13,9 @@ export interface CustomExerciseDocument extends Document {
   name: string;
   categories: ExerciseCategory[];
   photo?: string;
+  // Soft-delete: hidden from pickers/browse but still resolves names in
+  // history. Never hard-deleted, so past workouts/templates never orphan.
+  retired: boolean;
   createdAt: Date;
 }
 
@@ -42,6 +45,11 @@ const CustomExerciseSchema = new Schema<CustomExerciseDocument>({
   photo: {
     type: String,
     default: null,
+  },
+  retired: {
+    type: Boolean,
+    default: false,
+    index: true,
   },
 }, {
   timestamps: { createdAt: 'createdAt' },

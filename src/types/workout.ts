@@ -147,6 +147,10 @@ export interface ExerciseDefinition {
   categories: ExerciseCategory[];
   defaultPhoto?: string;
   isCustom?: boolean;
+  // Soft-delete for custom exercises: a retired custom is hidden from the
+  // pickers/browse but still resolves its name/photo in past workouts and
+  // templates. Only ever set on custom exercises.
+  retired?: boolean;
 }
 
 // Single set with its own weight, reps, and optional time-mode duration.

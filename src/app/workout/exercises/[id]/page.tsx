@@ -24,7 +24,8 @@ export default function ExerciseDetailPage() {
   const { currentUser, isLoading } = useWorkoutUser();
   const { language } = useWorkoutLanguage();
   const { unit } = useWorkoutUnit();
-  const { customExercises, loaded: customsLoaded, ensureLoaded } = useCustomExercises();
+  const { customExercises, loaded: customsLoaded, ensureLoaded, setRetired } = useCustomExercises();
+  const [retiring, setRetiring] = useState(false);
   const t = useT();
   const unitSuffix = getUnitSuffix(unit, language);
 
@@ -126,6 +127,35 @@ export default function ExerciseDetailPage() {
     fetchPersonalBests();
   }, [fetchExercise, fetchHistory, fetchPersonalBests]);
 
+  // Retire (soft-delete) or restore a custom exercise. The doc is never hard-
+  // deleted, so this exercise keeps resolving its name in past workouts.
+  const toggleRetired = useCallback(async (next: boolean) => {
+    if (next && !confirm(t('customex.remove_confirm'))) return;
+    setRetiring(true);
+    try {
+      const res = await fetch(`/api/workout/exercises/custom?id=${encodeURIComponent(exerciseId)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ retired: next }),
+      });
+      if (res.ok) {
+        setRetired(exerciseId, next);
+        setExercise((prev) => (prev ? { ...prev, retired: next } : prev));
+        if (next) {
+          // Clear the busy flag before navigating away so we don't setState
+          // mid-transition on the unmounting component.
+          setRetiring(false);
+          router.push('/workout/exercises');
+          return;
+        }
+      }
+    } catch (error) {
+      console.error('Error updating custom exercise:', error);
+    } finally {
+      setRetiring(false);
+    }
+  }, [exerciseId, t, setRetired, setExercise, router]);
+
   // Loading / mid-redirect — render the shell so the page doesn't blank
   // out during fetches (B11). Back button takes you to the previous list.
   if (isLoading || loadingExercise || !currentUser) {
@@ -220,6 +250,48 @@ export default function ExerciseDetailPage() {
                   </span>
                 ))}
               </div>
+
+              {/* Custom-exercise management: retire (soft-delete) or restore.
+                  A retired custom is hidden from the pickers but still resolves
+                  in history. */}
+              {exercise.isCustom && (
+                exercise.retired ? (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px', flexWrap: 'wrap' }}>
+                    <span style={{
+                      fontSize: '12px',
+                      color: 'var(--workout-text-muted)',
+                      backgroundColor: 'var(--workout-bg-secondary)',
+                      padding: '2px 8px',
+                      borderRadius: '4px',
+                    }}>
+                      {t('customex.retired_badge')}
+                    </span>
+                    <button
+                      className="workout-btn workout-btn-secondary"
+                      style={{ padding: '6px 12px', fontSize: '12px', opacity: retiring ? 0.5 : 1 }}
+                      onClick={() => toggleRetired(false)}
+                      disabled={retiring}
+                    >
+                      {t('customex.restore')}
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    className="workout-btn workout-btn-secondary"
+                    style={{
+                      padding: '6px 12px',
+                      fontSize: '12px',
+                      marginBottom: '12px',
+                      color: 'var(--workout-red)',
+                      opacity: retiring ? 0.5 : 1,
+                    }}
+                    onClick={() => toggleRetired(true)}
+                    disabled={retiring}
+                  >
+                    🗑 {t('customex.remove')}
+                  </button>
+                )
+              )}
               {pb && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                   {pb.bestE1rm !== null && pb.bestKg !== null && pb.bestReps !== null ? (

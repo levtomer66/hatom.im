@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ExerciseCategory } from '@/types/workout';
 import { requireSignedIn } from '@/lib/auth-helpers';
-import { listCustomExercises, createCustomExercise } from '@/lib/workout-custom-exercises';
+import {
+  listCustomExercises,
+  createCustomExercise,
+  setCustomExerciseRetired,
+} from '@/lib/workout-custom-exercises';
 
 // Mirror the categories the AddExerciseForm actually offers, so the API can't
 // accept a category the UI can't produce (keeps the model enum in sync too).
@@ -9,11 +13,13 @@ const VALID_CATEGORIES: ExerciseCategory[] = [
   'push', 'pull', 'legs', 'calisthenics', 'full-body',
 ];
 
-// Entry-point caps so a malformed/abusive client can't store a huge name or
-// image blob in Mongo. Photo is currently never sent by the form, but the
-// field is accepted, so bound it (~450 KB once base64-decoded).
+// Entry-point cap so a malformed/abusive client can't store a huge name.
 const MAX_NAME_LEN = 200;
-const MAX_PHOTO_LEN = 600_000;
+
+// Photos are uploaded via /custom/upload and we store the returned Vercel Blob
+// URL — never raw user-supplied URLs (which would let a user point an <img> at
+// an arbitrary host). Validate the shape before persisting.
+const BLOB_URL_RE = /^https:\/\/[a-z0-9-]+\.public\.blob\.vercel-storage\.com\/[^\s"'<>]+$/i;
 
 // GET /api/workout/exercises/custom
 // All custom exercises for the signed-in user. userId is derived from the
@@ -66,8 +72,8 @@ export async function POST(request: NextRequest) {
     if (name.length > MAX_NAME_LEN) {
       return NextResponse.json({ error: 'Name too long' }, { status: 400 });
     }
-    if (photo && photo.length > MAX_PHOTO_LEN) {
-      return NextResponse.json({ error: 'Photo too large' }, { status: 400 });
+    if (photo && (!BLOB_URL_RE.test(photo) || photo.includes('..'))) {
+      return NextResponse.json({ error: 'Invalid photo URL' }, { status: 400 });
     }
 
     const exercise = await createCustomExercise(userId, { name, categories, photo });
@@ -76,6 +82,40 @@ export async function POST(request: NextRequest) {
     console.error('Error creating custom exercise:', error);
     return NextResponse.json(
       { error: 'Failed to create custom exercise' },
+      { status: 500 },
+    );
+  }
+}
+
+// PATCH /api/workout/exercises/custom?id=<exerciseId>
+// Soft-delete (retire) or restore one of the caller's own custom exercises.
+// Body: { retired: boolean }. Scoped to the session user — a user can't touch
+// another user's customs.
+export async function PATCH(request: NextRequest) {
+  const gate = await requireSignedIn();
+  if (gate instanceof NextResponse) return gate;
+  const userId = gate.session.user.email;
+
+  try {
+    const exerciseId = new URL(request.url).searchParams.get('id');
+    if (!exerciseId) {
+      return NextResponse.json({ error: 'Missing exercise id' }, { status: 400 });
+    }
+    const body = await request.json().catch(() => ({}));
+    if (typeof body?.retired !== 'boolean') {
+      return NextResponse.json({ error: 'retired (boolean) is required' }, { status: 400 });
+    }
+
+    const matched = await setCustomExerciseRetired(userId, exerciseId, body.retired);
+    if (!matched) {
+      // 404 (not 403) so we don't reveal whether another user's id exists.
+      return NextResponse.json({ error: 'Custom exercise not found' }, { status: 404 });
+    }
+    return NextResponse.json({ success: true, retired: body.retired });
+  } catch (error) {
+    console.error('Error updating custom exercise:', error);
+    return NextResponse.json(
+      { error: 'Failed to update custom exercise' },
       { status: 500 },
     );
   }

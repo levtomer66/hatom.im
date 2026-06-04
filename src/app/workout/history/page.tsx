@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useWorkoutUser } from '@/context/WorkoutUserContext';
 import { useWorkoutLanguage } from '@/context/WorkoutLanguageContext';
@@ -21,46 +21,89 @@ export default function HistoryPage() {
     }
   }, [isLoading, currentUser, router]);
   
-  const [workouts, setWorkouts] = useState<WorkoutSummary[]>([]);
+  const PAGE_SIZE = 20;
+  // In-progress and completed are tracked separately: in-progress is loaded
+  // unpaginated (an active session must always show, even with a deep history),
+  // while completed is paginated with "Load more".
+  const [inProgressWorkouts, setInProgressWorkouts] = useState<WorkoutSummary[]>([]);
+  const [completedWorkouts, setCompletedWorkouts] = useState<WorkoutSummary[]>([]);
   const [loadingWorkouts, setLoadingWorkouts] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
+  const [loadError, setLoadError] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  // Next page's skip for the COMPLETED list. Tracked in a ref (not derived
+  // from length) so deleting a row doesn't shift the paging window.
+  const nextSkipRef = useRef(0);
+  // Guards against overlapping page loads (e.g. double-tapping "Load more").
+  const inFlightRef = useRef(false);
 
-  // Fetch all workouts (both completed and in-progress)
-  const fetchWorkouts = useCallback(async () => {
-    if (!currentUser) return;
-    
-    setLoadingWorkouts(true);
+  // Load one page of COMPLETED workouts (most-recent first) and append it.
+  // Fetches PAGE_SIZE + 1 to detect "has more" without a trailing empty call.
+  const loadCompletedPage = useCallback(async (skip: number) => {
+    if (!currentUser || inFlightRef.current) return;
+    inFlightRef.current = true;
+    const initial = skip === 0;
+    if (initial) setLoadingWorkouts(true);
+    else setLoadingMore(true);
     try {
-      const res = await fetch(`/api/workout/workouts?userId=${currentUser.id}`);
+      const res = await fetch(`/api/workout/workouts?completed=true&limit=${PAGE_SIZE + 1}&skip=${skip}`);
       if (res.ok) {
-        const data = await res.json();
-        setWorkouts(data);
+        const batch: WorkoutSummary[] = await res.json();
+        const more = batch.length > PAGE_SIZE;
+        const page = more ? batch.slice(0, PAGE_SIZE) : batch;
+        setCompletedWorkouts((prev) => {
+          const base = initial ? [] : prev;
+          const seen = new Set(base.map((w) => w.id));
+          return [...base, ...page.filter((w) => !seen.has(w.id))];
+        });
+        nextSkipRef.current = skip + page.length;
+        setHasMore(more);
+        setLoadError(false);
+      } else {
+        setLoadError(true);
       }
     } catch (error) {
       console.error('Error fetching workouts:', error);
+      setLoadError(true);
     } finally {
-      setLoadingWorkouts(false);
+      inFlightRef.current = false;
+      if (initial) setLoadingWorkouts(false);
+      else setLoadingMore(false);
+    }
+  }, [currentUser]);
+
+  // In-progress sessions — unpaginated (few, and must always be visible).
+  const loadInProgress = useCallback(async () => {
+    if (!currentUser) return;
+    try {
+      const res = await fetch('/api/workout/workouts?completed=false');
+      if (res.ok) setInProgressWorkouts(await res.json());
+    } catch (error) {
+      console.error('Error fetching in-progress workouts:', error);
     }
   }, [currentUser]);
 
   useEffect(() => {
-    fetchWorkouts();
-  }, [fetchWorkouts]);
+    loadInProgress();
+    loadCompletedPage(0);
+  }, [loadInProgress, loadCompletedPage]);
 
-  // Delete workout
+  // Delete workout — drop it from whichever list holds it.
   const deleteWorkout = async (workoutId: string) => {
     if (!confirm(t('history.delete_confirm'))) {
       return;
     }
-    
+
     setDeletingId(workoutId);
     try {
       const res = await fetch(`/api/workout/workouts/${workoutId}`, {
         method: 'DELETE',
       });
-      
+
       if (res.ok) {
-        setWorkouts(prev => prev.filter(w => w.id !== workoutId));
+        setInProgressWorkouts(prev => prev.filter(w => w.id !== workoutId));
+        setCompletedWorkouts(prev => prev.filter(w => w.id !== workoutId));
       }
     } catch (error) {
       console.error('Error deleting workout:', error);
@@ -103,9 +146,7 @@ export default function HistoryPage() {
     );
   }
 
-  // Separate in-progress and completed workouts
-  const inProgressWorkouts = workouts.filter(w => !w.isCompleted);
-  const completedWorkouts = workouts.filter(w => w.isCompleted);
+  // in-progress and completed come from their own state (separate fetches).
 
   // Group completed workouts by month (localised month label)
   const groupedWorkouts = completedWorkouts.reduce((groups, workout) => {
@@ -129,10 +170,10 @@ export default function HistoryPage() {
       <div className="workout-page">
         {loadingWorkouts ? (
           <div className="loading-spinner" />
-        ) : workouts.length === 0 ? (
+        ) : inProgressWorkouts.length === 0 && completedWorkouts.length === 0 ? (
           <div className="empty-state">
-            <div className="empty-state-icon">📊</div>
-            <div className="empty-state-text">{t('history.empty')}</div>
+            <div className="empty-state-icon">{loadError ? '⚠️' : '📊'}</div>
+            <div className="empty-state-text">{loadError ? t('history.load_error') : t('history.empty')}</div>
           </div>
         ) : (
           <>
@@ -328,6 +369,17 @@ export default function HistoryPage() {
                   );
                 })}
               </>
+            )}
+
+            {hasMore && (
+              <button
+                className="workout-btn workout-btn-secondary workout-btn-full"
+                onClick={() => loadCompletedPage(nextSkipRef.current)}
+                disabled={loadingMore}
+                style={{ marginTop: '8px', opacity: loadingMore ? 0.6 : 1 }}
+              >
+                {loadingMore ? t('history.loading_more') : t('history.load_more')}
+              </button>
             )}
           </>
         )}

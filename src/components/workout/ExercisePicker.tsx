@@ -48,10 +48,11 @@ export default function ExercisePicker({
     if (isOpen) ensureLoaded();
   }, [isOpen, ensureLoaded]);
 
-  // The catalogue is the code-defined library plus the user's custom
-  // exercises (custom ids aren't in EXERCISE_LIBRARY).
+  // The catalogue is the code-defined library plus the user's ACTIVE custom
+  // exercises (retired customs stay resolvable in history but aren't offered
+  // for selection here).
   const allExercises = useMemo(() => {
-    return [...EXERCISE_LIBRARY, ...customExercises];
+    return [...EXERCISE_LIBRARY, ...customExercises.filter((e) => !e.retired)];
   }, [customExercises]);
 
   // Toggle muscle filter

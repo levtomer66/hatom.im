@@ -90,10 +90,10 @@ export default function ExercisesPage() {
     });
   };
 
-  // The exercise catalogue: the code-defined library plus the user's custom
-  // exercises (their `custom-*` ids aren't in EXERCISE_LIBRARY).
+  // The exercise catalogue: the code-defined library plus the user's ACTIVE
+  // custom exercises (retired ones are hidden from the browse list).
   const allExercises = useMemo(() => {
-    return [...EXERCISE_LIBRARY, ...customExercises];
+    return [...EXERCISE_LIBRARY, ...customExercises.filter((e) => !e.retired)];
   }, [customExercises]);
 
   // Filter exercises by muscle group and search (matches English or Hebrew name)

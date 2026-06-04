@@ -16,22 +16,41 @@ async function connectDB() {
 // Mongo doc → the client-facing ExerciseDefinition shape. `isCustom` lets the
 // UI tag the row and sort customs first; defaultPhoto falls back to the 🏋️
 // placeholder via ExercisePhoto when absent.
-function toDefinition(e: Pick<CustomExerciseDocument, 'exerciseId' | 'name' | 'categories' | 'photo'>): ExerciseDefinition {
+function toDefinition(e: Pick<CustomExerciseDocument, 'exerciseId' | 'name' | 'categories' | 'photo' | 'retired'>): ExerciseDefinition {
   return {
     id: e.exerciseId,
     name: e.name,
     categories: e.categories as ExerciseCategory[],
     defaultPhoto: e.photo ?? undefined,
     isCustom: true,
+    retired: e.retired ?? false,
   };
 }
 
+// Returns ALL of the user's customs, including retired ones — the client keeps
+// retired entries for name resolution in history and filters them out of the
+// pickers itself. Active-first ordering keeps the catalogue tidy.
 export async function listCustomExercises(userId: string): Promise<ExerciseDefinition[]> {
   await connectDB();
   const docs = await CustomExerciseModel.find({ userId })
-    .sort({ createdAt: -1 })
+    .sort({ retired: 1, createdAt: -1 })
     .lean();
   return docs.map(toDefinition);
+}
+
+// Soft-delete / restore. Scoped to (userId, exerciseId) so a user can only
+// retire their own customs. Returns true when a doc was matched.
+export async function setCustomExerciseRetired(
+  userId: string,
+  exerciseId: string,
+  retired: boolean,
+): Promise<boolean> {
+  await connectDB();
+  const res = await CustomExerciseModel.updateOne(
+    { userId, exerciseId },
+    { $set: { retired } },
+  );
+  return res.matchedCount > 0;
 }
 
 export async function createCustomExercise(

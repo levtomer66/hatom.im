@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import mongoose from 'mongoose';
+import mongoose, { PipelineStage } from 'mongoose';
 import WorkoutModel from '@/models/Workout';
 import { requireSignedIn } from '@/lib/auth-helpers';
 
@@ -20,7 +20,11 @@ async function connectDB() {
 // server-side projection — the full set data of every workout was the
 // dominant cold-load payload. Consumers that need the full document
 // (active-workout resume, history detail) fetch GET /workouts/[id].
-export async function GET() {
+//
+// Optional pagination: `?limit=N&skip=M` returns one page (most-recent first)
+// so the History screen can load incrementally instead of pulling the whole
+// list up front. With no `limit` the full list is returned (back-compat).
+export async function GET(request: NextRequest) {
   const gate = await requireSignedIn();
   if (gate instanceof NextResponse) return gate;
   const userId = gate.session.user.email;
@@ -28,24 +32,45 @@ export async function GET() {
   try {
     await connectDB();
 
+    const params = new URL(request.url).searchParams;
+    const limitRaw = params.get('limit');
+    const skipRaw = params.get('skip');
+    const completedRaw = params.get('completed');
+    // Clamp to a sane window; absent limit => no paging (return all).
+    const limit = limitRaw !== null ? Math.min(Math.max(parseInt(limitRaw, 10) || 0, 1), 100) : null;
+    const skip = skipRaw !== null ? Math.max(parseInt(skipRaw, 10) || 0, 0) : 0;
+
+    // Optional status filter. The History screen paginates COMPLETED workouts
+    // but loads in-progress ones unpaginated (so an active session can't fall
+    // off the end of the page window). Absent => both.
+    const match: Record<string, unknown> = { userId };
+    if (completedRaw === 'true') match.isCompleted = true;
+    else if (completedRaw === 'false') match.isCompleted = false;
+
     // $project with $size(exercises) instead of returning the array —
     // Mongo computes the count server-side so the payload is a handful
     // of scalars per workout regardless of how many sets were logged.
-    const workouts = await WorkoutModel.aggregate([
-      { $match: { userId } },
+    // $skip/$limit go before $project so paging happens on the sorted set.
+    const pipeline: PipelineStage[] = [
+      { $match: match },
       { $sort: { date: -1, createdAt: -1 } },
-      {
-        $project: {
-          workoutName: 1,
-          date: 1,
-          isCompleted: 1,
-          templateId: 1,
-          createdAt: 1,
-          updatedAt: 1,
-          exerciseCount: { $size: { $ifNull: ['$exercises', []] } },
-        },
+    ];
+    if (limit !== null) {
+      pipeline.push({ $skip: skip }, { $limit: limit });
+    }
+    pipeline.push({
+      $project: {
+        workoutName: 1,
+        date: 1,
+        isCompleted: 1,
+        templateId: 1,
+        createdAt: 1,
+        updatedAt: 1,
+        exerciseCount: { $size: { $ifNull: ['$exercises', []] } },
       },
-    ]);
+    });
+
+    const workouts = await WorkoutModel.aggregate(pipeline);
 
     const summaries = workouts.map((w) => ({
       id: w._id.toString(),
