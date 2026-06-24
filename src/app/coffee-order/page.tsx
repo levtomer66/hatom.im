@@ -198,25 +198,32 @@ export default function CoffeeOrderPage() {
     }
   }
 
-  function configFromFavorite(f: CoffeeFavorite): CoffeeDrinkConfig {
+  // Extract just the drink-config fields from anything that carries them — a
+  // favorite or a past order — for loading into the form or re-ordering.
+  function pickConfig(c: CoffeeDrinkConfig): CoffeeDrinkConfig {
     return {
-      drink: f.drink,
-      milk: f.milk,
-      sugar: f.sugar,
-      vanillaPumps: f.vanillaPumps,
-      caramelPumps: f.caramelPumps,
-      notes: f.notes,
+      drink: c.drink,
+      milk: c.milk,
+      sugar: c.sugar,
+      vanillaPumps: c.vanillaPumps,
+      caramelPumps: c.caramelPumps,
+      notes: c.notes,
     };
   }
 
   function loadFavorite(f: CoffeeFavorite) {
-    setConfig(configFromFavorite(f));
+    setConfig(pickConfig(f));
     setPlaced(null);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
   function orderFavoriteNow(f: CoffeeFavorite) {
-    placeOrder({ ...configFromFavorite(f), deliveryType: 'now' });
+    placeOrder({ ...pickConfig(f), deliveryType: 'now' });
+  }
+
+  // Re-place a past order's exact drink, right now.
+  function reorder(o: CoffeeOrder) {
+    placeOrder({ ...pickConfig(o), deliveryType: 'now' });
   }
 
   async function deleteFavorite(id: string) {
@@ -530,14 +537,24 @@ export default function CoffeeOrderPage() {
                             <span className="coffee-order-notes">“{o.notes}”</span>
                           )}
                         </div>
-                        <button
-                          type="button"
-                          className="coffee-delete"
-                          onClick={() => deleteOrder(o.id)}
-                          aria-label="בטל הזמנה"
-                        >
-                          ✕
-                        </button>
+                        <div className="coffee-order-actions">
+                          <button
+                            type="button"
+                            className="coffee-quick-btn"
+                            onClick={() => reorder(o)}
+                            disabled={submitting}
+                          >
+                            ↻ הזמן שוב
+                          </button>
+                          <button
+                            type="button"
+                            className="coffee-delete"
+                            onClick={() => deleteOrder(o.id)}
+                            aria-label="בטל הזמנה"
+                          >
+                            ✕
+                          </button>
+                        </div>
                       </article>
                     ))}
                   </div>
