@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   DndContext,
   DragEndEvent,
@@ -89,6 +89,13 @@ export default function WorkoutsPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [initialLoadDone, setInitialLoadDone] = useState(false);
   const [hasInProgressWorkout, setHasInProgressWorkout] = useState(false);
+
+  // --- autosave plumbing (see saveWorkout / flushSave below) ---
+  // The live debounce timer (so flushSave can cancel it), the freshest
+  // workout snapshot to persist, and whether there are edits not yet saved.
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const latestWorkoutRef = useRef<Workout | null>(null);
+  const dirtyRef = useRef(false);
 
   // Create exercise lookup map — library plus the user's custom exercises, so
   // an in-progress workout that references a `custom-*` id renders its name.
@@ -208,8 +215,10 @@ export default function WorkoutsPage() {
     loadBootstrap();
   }, [isLoading, loadBootstrap]);
 
-  // Auto-save workout changes
-  const saveWorkout = useCallback(async (workout: Workout) => {
+  // Auto-save workout changes. `keepalive` lets the PUT outlive the page
+  // being hidden/unloaded or this component unmounting — used by the flush
+  // path below; the normal debounced path leaves it off.
+  const saveWorkout = useCallback(async (workout: Workout, opts?: { keepalive?: boolean }) => {
     if (!workout.id) return;
 
     setIsSaving(true);
@@ -218,6 +227,7 @@ export default function WorkoutsPage() {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(workout),
+        keepalive: opts?.keepalive,
       });
     } catch (error) {
       console.error('Error saving workout:', error);
@@ -226,21 +236,76 @@ export default function WorkoutsPage() {
     }
   }, []);
 
+  // Flush any pending edit immediately, cancelling the debounce timer. Used
+  // when the page is hidden/unloaded or the active-workout view unmounts:
+  // the debounced PUT would otherwise be cancelled with the user's last
+  // reps still unsaved, and they'd later see "weight but no reps" in
+  // history (the weight was prefilled + saved early; the reps weren't). The
+  // keepalive flag keeps the request alive through page-hide / navigation.
+  const flushSave = useCallback(() => {
+    if (saveTimerRef.current) {
+      clearTimeout(saveTimerRef.current);
+      saveTimerRef.current = null;
+    }
+    const w = latestWorkoutRef.current;
+    if (w && w.id && dirtyRef.current) {
+      dirtyRef.current = false;
+      saveWorkout(w, { keepalive: true });
+    }
+  }, [saveWorkout]);
+
   // Debounced save — fires 900 ms after the last edit. Bumped from 500 ms
   // to coalesce bursty input (typing a number is multiple state updates)
   // and to play nicer with the PWA offline-queue: fewer queued PUTs to
-  // drain when the user reconnects.
+  // drain when the user reconnects. The timer lives in a ref so flushSave
+  // (hide/unmount) can cancel it and send an immediate keepalive save
+  // instead of silently dropping it.
   useEffect(() => {
     if (!activeWorkout || editTick === 0) return;
     const snapshot = activeWorkout;
-    const timeoutId = setTimeout(() => {
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(() => {
+      saveTimerRef.current = null;
+      dirtyRef.current = false;
       saveWorkout(snapshot);
     }, 900);
-    return () => clearTimeout(timeoutId);
+    return () => {
+      if (saveTimerRef.current) {
+        clearTimeout(saveTimerRef.current);
+        saveTimerRef.current = null;
+      }
+    };
   }, [activeWorkout, editTick, saveWorkout]);
 
+  // Keep the flush snapshot pointed at the freshest workout state so a
+  // hide/unmount flush persists the latest edits.
+  useEffect(() => {
+    latestWorkoutRef.current = activeWorkout;
+  }, [activeWorkout]);
+
+  // Persist pending edits when the tab is backgrounded, the PWA is
+  // hidden/killed, or this page unmounts on client-side navigation. On
+  // mobile especially, a backgrounded PWA's debounce timer is throttled or
+  // never fires and the app can be killed outright — so without this the
+  // last burst of input (typically the reps just typed onto already-saved
+  // prefilled weights) is silently lost. Stable deps → mounts once; the
+  // cleanup's flushSave() covers the unmount / client-navigation case.
+  useEffect(() => {
+    const onVisibility = () => {
+      if (document.visibilityState === 'hidden') flushSave();
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+    window.addEventListener('pagehide', flushSave);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibility);
+      window.removeEventListener('pagehide', flushSave);
+      flushSave();
+    };
+  }, [flushSave]);
+
   // Wrapper for setActiveWorkout that also bumps the edit counter so the
-  // autosave effect actually fires. Use this for ANY user-driven edit
+  // autosave effect fires, and marks the workout dirty so a hide/unmount
+  // flush knows there are unsaved edits. Use this for ANY user-driven edit
   // (set value changes, sets +/-, exercise add/remove, reorder, etc.).
   // Programmatic state updates that shouldn't autosave (initial fetch,
   // Complete handler, etc.) use setActiveWorkout directly.
@@ -250,6 +315,7 @@ export default function WorkoutsPage() {
       const next = typeof updater === 'function' ? updater(prev) : updater;
       return next;
     });
+    dirtyRef.current = true;
     setEditTick((n) => n + 1);
   }, []);
 
@@ -327,7 +393,9 @@ export default function WorkoutsPage() {
         // the template-loaded exercises onto the freshly-created workout
         // document. Without this the POST creates an empty workout and
         // the exercises only live in client state — reloading or
-        // navigating away loses them.
+        // navigating away loses them. Mark dirty too so a hide/unmount
+        // flush persists the prefilled exercises even before the debounce.
+        dirtyRef.current = true;
         setEditTick((n) => n + 1);
         setHasInProgressWorkout(true);
         setShowTemplateSelector(false);
@@ -373,6 +441,15 @@ export default function WorkoutsPage() {
     if (!activeWorkout) return;
     if (!confirm(t('workout.complete_confirm'))) return;
 
+    // Cancel any pending debounced in-progress save and clear the dirty
+    // flag: the explicit completed save below carries the final state, and
+    // a stale in-progress snapshot (isCompleted:false) must not land after it.
+    if (saveTimerRef.current) {
+      clearTimeout(saveTimerRef.current);
+      saveTimerRef.current = null;
+    }
+    dirtyRef.current = false;
+
     const exercises = activeWorkout.exercises.map((ex, i) => ({ ...ex, order: i + 1 }));
     const updated = { ...activeWorkout, exercises, isCompleted: true };
     await saveWorkout(updated);
@@ -387,6 +464,9 @@ export default function WorkoutsPage() {
   // itself stays in DB as in-progress, recoverable via History → Resume.
   // No data is lost; we just exit the editor.
   const exitActiveWorkout = () => {
+    // Persist any pending edits before tearing down the editor — otherwise
+    // the back arrow drops the last unsaved burst just like navigation did.
+    flushSave();
     setActiveWorkout(null);
   };
 
