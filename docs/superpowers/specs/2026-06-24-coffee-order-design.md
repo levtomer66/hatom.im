@@ -163,8 +163,10 @@ permission keys:
 
 1. **`src/types/permissions.ts`** — add `'coffee-order'` to the `PermissionKey`
    union, to the `PERMISSION_KEYS` array (placed near the `mekafkefim` group),
-   and to the `PERMISSIONS` meta map: `{ label: 'Coffee Order', emoji: '☕' }`.
-   The admin matrix at `/admin/allowlist` renders the new toggle automatically.
+   and to the `PERMISSIONS` meta map: `{ label: 'Coffee Order', emoji: '🧾' }`
+   (a distinct emoji from Mekafkefim's `☕` so the two coffee features don't
+   render identical icons in the admin matrix). The admin matrix at
+   `/admin/allowlist` renders the new toggle automatically.
 2. **`src/middleware.ts`** — add
    `{ pattern: /^\/coffee-order(?:\/|$)/, permission: 'coffee-order' }` to `GATES`.
 3. **`src/app/page.tsx`** — add a `Feature` to `allFeatures`:

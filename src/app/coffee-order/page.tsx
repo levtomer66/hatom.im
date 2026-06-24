@@ -433,7 +433,9 @@ export default function CoffeeOrderPage() {
             <aside className="coffee-side">
               <div className="coffee-card">
                 <h2 className="coffee-section-title">★ Favorites</h2>
-                {favorites.length === 0 ? (
+                {loading ? (
+                  <p className="coffee-empty">Loading…</p>
+                ) : favorites.length === 0 ? (
                   <p className="coffee-empty">
                     No favorites yet — build a drink and tap “Save as favorite”.
                   </p>
