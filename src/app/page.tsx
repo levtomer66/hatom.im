@@ -5,7 +5,7 @@ import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import { motion } from 'framer-motion';
 import { signIn, useSession } from 'next-auth/react';
-import { FaDog, FaCoffee, FaVideo, FaDumbbell, FaRing, FaPlane, FaSpa, FaHeart, FaSignInAlt } from 'react-icons/fa';
+import { FaDog, FaCoffee, FaMugHot, FaVideo, FaDumbbell, FaRing, FaPlane, FaSpa, FaHeart, FaSignInAlt } from 'react-icons/fa';
 import type { IconType } from 'react-icons';
 import Navbar from '@/components/Navbar';
 import CountdownTimer from '@/components/CountdownTimer';
@@ -28,6 +28,7 @@ interface Feature {
 const allFeatures: Feature[] = [
   { icon: FaDog,      title: 'שמות האוליבון',      description: 'כל שמות האוליבון לעולם ועד',          href: '/family-tree',              linkText: 'צפה בשמות האוליבון', permission: 'family-tree' },
   { icon: FaCoffee,   title: 'מקפקפים',           description: 'ביקורות על קפה מאת תומית ותומרינדי',  href: '/mekafkefim',               linkText: 'צפה במקפקפים',       permission: 'mekafkefim'  },
+  { icon: FaMugHot,   title: 'הזמנת קפה',         description: 'הזמינו קפה — עכשיו או לעתיד',          href: '/coffee-order',             linkText: 'להזמנת קפה',         permission: 'coffee-order' },
   { icon: FaVideo,    title: 'InsTomit',          description: 'סרטונים קצרים של התומים',             href: '/instomit',                 linkText: 'צפה ב-InsTomit',     permission: 'instomit'    },
   { icon: FaRing,     title: 'Wedding Guide',     description: 'מדריך חתונה בלאס וגאס',               href: '/vegas-wedding-guide.html', linkText: 'למדריך החתונה',      permission: 'vegas-guide' },
   { icon: FaDumbbell, title: 'המפלצתומים',        description: 'מעקב אימונים לתום ותומר',             href: '/workout',                  linkText: 'לאימון',             permission: 'workout'     },

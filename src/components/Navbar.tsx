@@ -7,6 +7,7 @@ import { signIn, signOut, useSession } from 'next-auth/react';
 import {
   FaDog,
   FaCoffee,
+  FaMugHot,
   FaVideo,
   FaDumbbell,
   FaHome,
@@ -39,6 +40,7 @@ const allNavItems: NavItem[] = [
   { href: '/',                         label: 'בית',           icon: FaHome,       exact: true, visibility: 'public' },
   { href: '/family-tree',              label: 'שמות האוליבון', icon: FaDog,        visibility: { permission: 'family-tree' } },
   { href: '/mekafkefim',               label: 'מקפקפים',       icon: FaCoffee,     visibility: { permission: 'mekafkefim'  } },
+  { href: '/coffee-order',             label: 'הזמנת קפה',     icon: FaMugHot,     visibility: { permission: 'coffee-order' } },
   { href: '/instomit',                 label: 'InsTomit',      icon: FaVideo,      visibility: { permission: 'instomit'    } },
   { href: '/workout',                  label: 'המפלצתומים',    icon: FaDumbbell,   visibility: { permission: 'workout'     } },
   { href: '/spa',                      label: 'ספא',           icon: FaSpa,        visibility: { permission: 'spa'         } },
