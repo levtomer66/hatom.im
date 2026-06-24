@@ -8,6 +8,7 @@ export type PermissionKey =
   // Granted = the feature card/nav entry shows up and the route renders.
   | 'family-tree'
   | 'mekafkefim'
+  | 'coffee-order'
   | 'instomit'
   | 'vegas-guide'
   | 'workout'
@@ -31,6 +32,7 @@ export const PERMISSION_KEYS: readonly PermissionKey[] = [
   'family-tree:write',
   'mekafkefim',
   'mekafkefim:write',
+  'coffee-order',
   'instomit',
   'vegas-guide',
   'workout',
@@ -54,6 +56,7 @@ export const PERMISSIONS: Record<PermissionKey, PermissionMeta> = {
   'family-tree:write': { label: 'Family Tree write', emoji: '✏️' },
   mekafkefim:          { label: 'Mekafkefim',        emoji: '☕' },
   'mekafkefim:write':  { label: 'Mekafkefim write',  emoji: '✏️' },
+  'coffee-order':      { label: 'Coffee Order',      emoji: '🧾' },
   instomit:            { label: 'InsTomit',          emoji: '🎥' },
   'vegas-guide':       { label: 'Wedding Guide',     emoji: '💒' },
   workout:             { label: 'Workout',           emoji: '🏋️' },

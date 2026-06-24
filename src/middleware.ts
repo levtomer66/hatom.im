@@ -29,6 +29,7 @@ const GATES: readonly Gate[] = [
   { pattern: /^\/vegas-wedding-guide\.html$/, permission: 'vegas-guide' },
   { pattern: /^\/family-tree(?:\/|$)/,       permission: 'family-tree' },
   { pattern: /^\/mekafkefim(?:\/|$)/,        permission: 'mekafkefim'  },
+  { pattern: /^\/coffee-order(?:\/|$)/,      permission: 'coffee-order' },
   { pattern: /^\/instomit(?:\/|$)/,          permission: 'instomit'    },
 ];
 
@@ -82,6 +83,7 @@ export const config = {
     '/sex/:path*',
     '/family-tree/:path*',
     '/mekafkefim/:path*',
+    '/coffee-order/:path*',
     '/instomit/:path*',
     '/trip.html',
     '/vegas-wedding-guide.html',
