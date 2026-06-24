@@ -71,9 +71,14 @@ export async function POST(request: NextRequest) {
   const email = gate.session.user.email;
   const userName = gate.session.user.name ?? email;
 
+  let data: Partial<CreateCoffeeOrderDto>;
   try {
-    const data = (await request.json()) as Partial<CreateCoffeeOrderDto>;
+    data = (await request.json()) as Partial<CreateCoffeeOrderDto>;
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+  }
 
+  try {
     if (!isValidDrink(data.drink)) {
       return NextResponse.json({ error: 'Invalid drink' }, { status: 400 });
     }

@@ -36,9 +36,14 @@ export async function POST(request: NextRequest) {
   if (gate instanceof NextResponse) return gate;
   const email = gate.session.user.email;
 
+  let data: Partial<CreateCoffeeFavoriteDto>;
   try {
-    const data = (await request.json()) as Partial<CreateCoffeeFavoriteDto>;
+    data = (await request.json()) as Partial<CreateCoffeeFavoriteDto>;
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+  }
 
+  try {
     if (typeof data.name !== 'string' || !data.name.trim()) {
       return NextResponse.json({ error: 'name is required' }, { status: 400 });
     }
