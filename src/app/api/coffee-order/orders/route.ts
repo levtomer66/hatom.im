@@ -25,13 +25,19 @@ function notifyCoffeeOrder(order: CoffeeOrder): void {
   const bodyLines = [order.userName, drinkSummary(order), `When: ${when}`];
   if (order.notes.trim()) bodyLines.push(`Notes: ${order.notes.trim()}`);
 
+  // ntfy Title is an HTTP header and must be ASCII. Strip non-ASCII from the
+  // (possibly Hebrew/emoji) display name, falling back to the email local-part.
+  const asciiName =
+    order.userName.replace(/[^\x20-\x7E]/g, '').trim() ||
+    order.userEmail.split('@')[0];
+
   fetch(`https://ntfy.sh/${NTFY_TOPIC}`, {
     method: 'POST',
     body: bodyLines.join('\n'),
     headers: {
       'Content-Type': 'text/plain; charset=utf-8',
       // Title must be ASCII for ntfy.sh.
-      Title: `New coffee order: ${order.userName}`,
+      Title: `New coffee order: ${asciiName}`,
       Tags: 'coffee',
     },
   }).catch((err) => {
