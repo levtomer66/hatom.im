@@ -20,10 +20,14 @@ const NTFY_TOPIC = 'hatomim_coffee';
 function notifyCoffeeOrder(order: CoffeeOrder): void {
   const when =
     order.deliveryType === 'scheduled' && order.scheduledAt
-      ? order.scheduledAt
-      : 'now';
-  const bodyLines = [order.userName, drinkSummary(order), `When: ${when}`];
-  if (order.notes.trim()) bodyLines.push(`Notes: ${order.notes.trim()}`);
+      ? new Date(order.scheduledAt).toLocaleString('he-IL', {
+          dateStyle: 'medium',
+          timeStyle: 'short',
+          timeZone: 'Asia/Jerusalem',
+        })
+      : 'עכשיו';
+  const bodyLines = [order.userName, drinkSummary(order), `מתי: ${when}`];
+  if (order.notes.trim()) bodyLines.push(`הערות: ${order.notes.trim()}`);
 
   // ntfy Title is an HTTP header and must be ASCII. Strip non-ASCII from the
   // (possibly Hebrew/emoji) display name, falling back to the email local-part.

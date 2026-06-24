@@ -14,25 +14,27 @@ export interface CoffeeOption<T extends string> {
   emoji?: string;
 }
 
+// Labels are Hebrew (the page UI is Hebrew/RTL). `id`s stay English — they are
+// the stored values and the validation keys; only the display label changes.
 export const COFFEE_DRINKS: readonly CoffeeOption<CoffeeDrink>[] = [
-  { id: 'espresso',   label: 'Espresso',   emoji: '⚡' },
-  { id: 'lungo',      label: 'Lungo',      emoji: '🫗' },
-  { id: 'cappuccino', label: 'Cappuccino', emoji: '☕' },
+  { id: 'espresso',   label: 'אספרסו',   emoji: '⚡' },
+  { id: 'lungo',      label: 'לונגו',    emoji: '🫗' },
+  { id: 'cappuccino', label: 'קפוצ׳ינו', emoji: '☕' },
 ];
 
 export const COFFEE_MILKS: readonly CoffeeOption<CoffeeMilk>[] = [
-  { id: 'none',         label: 'None'         },
-  { id: 'regular',      label: 'Regular'      },
-  { id: 'soy',          label: 'Soy'          },
-  { id: 'lactose-free', label: 'Lactose-free' },
-  { id: 'oat',          label: 'Oat'          },
+  { id: 'none',         label: 'ללא'          },
+  { id: 'regular',      label: 'רגיל'         },
+  { id: 'soy',          label: 'סויה'         },
+  { id: 'lactose-free', label: 'נטול לקטוז'   },
+  { id: 'oat',          label: 'שיבולת שועל'  },
 ];
 
 export const COFFEE_SUGARS: readonly CoffeeOption<CoffeeSugar>[] = [
-  { id: 'none', label: 'None' },
-  { id: '1',    label: '1'    },
-  { id: '2',    label: '2'    },
-  { id: '3',    label: '3'    },
+  { id: 'none', label: 'ללא' },
+  { id: '1',    label: '1'   },
+  { id: '2',    label: '2'   },
+  { id: '3',    label: '3'   },
 ];
 
 export const MAX_PUMPS = 6;
@@ -101,15 +103,17 @@ export function milkLabel(id: CoffeeMilk): string {
   return COFFEE_MILKS.find((m) => m.id === id)?.label ?? id;
 }
 
-// One-line human summary used in the ntfy push body, the post-submit recap,
+// One-line Hebrew summary used in the ntfy push body, the post-submit recap,
 // and the favorite/history cards, e.g.
-//   "Cappuccino · Oat milk · 1 sugar · Vanilla x2"
+//   "קפוצ׳ינו · חלב שיבולת שועל · כפית סוכר · וניל ×2"
 export function drinkSummary(c: CoffeeDrinkConfig): string {
   const parts: string[] = [drinkLabel(c.drink)];
-  parts.push(c.milk === 'none' ? 'No milk' : `${milkLabel(c.milk)} milk`);
-  if (c.sugar !== 'none') parts.push(`${c.sugar} sugar`);
-  if (c.vanillaPumps > 0) parts.push(`Vanilla x${c.vanillaPumps}`);
-  if (c.caramelPumps > 0) parts.push(`Caramel x${c.caramelPumps}`);
+  parts.push(c.milk === 'none' ? 'ללא חלב' : `חלב ${milkLabel(c.milk)}`);
+  if (c.sugar !== 'none') {
+    parts.push(c.sugar === '1' ? 'כפית סוכר' : `${c.sugar} כפיות סוכר`);
+  }
+  if (c.vanillaPumps > 0) parts.push(`וניל ×${c.vanillaPumps}`);
+  if (c.caramelPumps > 0) parts.push(`קרמל ×${c.caramelPumps}`);
   return parts.join(' · ');
 }
 

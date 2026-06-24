@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import Navbar from '@/components/Navbar';
@@ -20,6 +20,9 @@ import {
 } from '@/types/coffee-order';
 import './coffee-order.css';
 
+// Emoji that rain on a successful order.
+const COFFEE_CONFETTI = ['☕', '🫘', '✨'];
+
 // datetime-local default: tomorrow 09:00 local.
 function defaultScheduledValue(): string {
   const d = new Date();
@@ -35,7 +38,7 @@ function defaultScheduledValue(): string {
 function formatWhen(iso: string): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return iso;
-  return d.toLocaleString(undefined, {
+  return d.toLocaleString('he-IL', {
     weekday: 'short',
     day: 'numeric',
     month: 'short',
@@ -74,6 +77,26 @@ export default function CoffeeOrderPage() {
   const [error, setError] = useState<string | null>(null);
   const [placed, setPlaced] = useState<CoffeeOrder | null>(null);
 
+  // ---- coffee-bean confetti burst on a successful order ----
+  const [showBeans, setShowBeans] = useState(false);
+  const beanTimer = useRef<number | null>(null);
+
+  function fireBeans() {
+    if (beanTimer.current !== null) window.clearTimeout(beanTimer.current);
+    setShowBeans(true);
+    beanTimer.current = window.setTimeout(() => {
+      setShowBeans(false);
+      beanTimer.current = null;
+    }, 2600);
+  }
+
+  useEffect(
+    () => () => {
+      if (beanTimer.current !== null) window.clearTimeout(beanTimer.current);
+    },
+    []
+  );
+
   const canRead =
     status === 'authenticated' && hasPermission(session, 'coffee-order');
 
@@ -95,7 +118,7 @@ export default function CoffeeOrderPage() {
       })
       .catch((err) => {
         console.error(err);
-        if (!cancelled) setError('Could not load your orders.');
+        if (!cancelled) setError('לא ניתן לטעון את ההזמנות שלך.');
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -135,9 +158,10 @@ export default function CoffeeOrderPage() {
       const created = (await res.json()) as CoffeeOrder;
       setOrders((prev) => [created, ...prev]);
       setPlaced(created);
+      fireBeans();
     } catch (err) {
       console.error(err);
-      setError(err instanceof Error ? err.message : 'Failed to place order.');
+      setError(err instanceof Error ? err.message : 'ההזמנה נכשלה.');
     } finally {
       setSubmitting(false);
     }
@@ -153,7 +177,7 @@ export default function CoffeeOrderPage() {
   }
 
   async function saveFavorite() {
-    const name = window.prompt('Name this favorite (e.g. "Morning"):');
+    const name = window.prompt('תנו שם למועדף (למשל "בוקר"):');
     if (!name || !name.trim()) return;
     setError(null);
     try {
@@ -170,7 +194,7 @@ export default function CoffeeOrderPage() {
       setFavorites((prev) => [created, ...prev]);
     } catch (err) {
       console.error(err);
-      setError(err instanceof Error ? err.message : 'Failed to save favorite.');
+      setError(err instanceof Error ? err.message : 'שמירת המועדף נכשלה.');
     }
   }
 
@@ -204,7 +228,7 @@ export default function CoffeeOrderPage() {
       setFavorites((prev) => prev.filter((f) => f.id !== id));
     } catch (err) {
       console.error(err);
-      setError('Failed to delete favorite.');
+      setError('מחיקת המועדף נכשלה.');
     }
   }
 
@@ -218,7 +242,7 @@ export default function CoffeeOrderPage() {
       if (placed?.id === id) setPlaced(null);
     } catch (err) {
       console.error(err);
-      setError('Failed to cancel order.');
+      setError('ביטול ההזמנה נכשל.');
     }
   }
 
@@ -246,17 +270,22 @@ export default function CoffeeOrderPage() {
       <div className="coffee-page">
         <div className="coffee-container">
           <header className="coffee-hero">
-            <p className="coffee-hero-overline">— freshly brewed —</p>
-            <h1 className="coffee-hero-title">☕ Coffee Order</h1>
+            <div className="coffee-steam" aria-hidden="true">
+              <span />
+              <span />
+              <span />
+            </div>
+            <p className="coffee-hero-overline">— טרי מהמכונה —</p>
+            <h1 className="coffee-hero-title">☕ הזמנת קפה</h1>
           </header>
 
           <div className="coffee-grid">
             {/* ---- order form ---- */}
             <form className="coffee-card coffee-form-card" onSubmit={handleSubmit}>
-              <h2 className="coffee-section-title">Your drink</h2>
+              <h2 className="coffee-section-title">המשקה שלך</h2>
 
               <div className="coffee-field">
-                <label id="coffee-type-label">Type</label>
+                <label id="coffee-type-label">סוג</label>
                 <div className="coffee-segmented" role="group" aria-labelledby="coffee-type-label">
                   {COFFEE_DRINKS.map((d) => (
                     <button
@@ -274,7 +303,7 @@ export default function CoffeeOrderPage() {
               </div>
 
               <div className="coffee-field">
-                <label id="coffee-milk-label">Milk</label>
+                <label id="coffee-milk-label">חלב</label>
                 <div className="coffee-segmented" role="group" aria-labelledby="coffee-milk-label">
                   {COFFEE_MILKS.map((m) => (
                     <button
@@ -292,7 +321,7 @@ export default function CoffeeOrderPage() {
 
               <div className="coffee-row">
                 <div className="coffee-field">
-                  <label htmlFor="coffee-sugar">Sugar</label>
+                  <label htmlFor="coffee-sugar">סוכר</label>
                   <select
                     id="coffee-sugar"
                     value={config.sugar}
@@ -311,12 +340,12 @@ export default function CoffeeOrderPage() {
 
               <div className="coffee-row">
                 <div className="coffee-field">
-                  <label id="coffee-vanilla-label">Vanilla pumps</label>
+                  <label id="coffee-vanilla-label">שוטי וניל</label>
                   <div className="coffee-stepper" role="group" aria-labelledby="coffee-vanilla-label">
                     <button
                       type="button"
                       onClick={() => adjustPump('vanillaPumps', -1)}
-                      aria-label="Less vanilla"
+                      aria-label="פחות וניל"
                     >
                       −
                     </button>
@@ -324,19 +353,19 @@ export default function CoffeeOrderPage() {
                     <button
                       type="button"
                       onClick={() => adjustPump('vanillaPumps', 1)}
-                      aria-label="More vanilla"
+                      aria-label="יותר וניל"
                     >
                       +
                     </button>
                   </div>
                 </div>
                 <div className="coffee-field">
-                  <label id="coffee-caramel-label">Caramel pumps</label>
+                  <label id="coffee-caramel-label">שוטי קרמל</label>
                   <div className="coffee-stepper" role="group" aria-labelledby="coffee-caramel-label">
                     <button
                       type="button"
                       onClick={() => adjustPump('caramelPumps', -1)}
-                      aria-label="Less caramel"
+                      aria-label="פחות קרמל"
                     >
                       −
                     </button>
@@ -344,7 +373,7 @@ export default function CoffeeOrderPage() {
                     <button
                       type="button"
                       onClick={() => adjustPump('caramelPumps', 1)}
-                      aria-label="More caramel"
+                      aria-label="יותר קרמל"
                     >
                       +
                     </button>
@@ -353,18 +382,18 @@ export default function CoffeeOrderPage() {
               </div>
 
               <div className="coffee-field">
-                <label htmlFor="coffee-notes">Notes</label>
+                <label htmlFor="coffee-notes">הערות</label>
                 <textarea
                   id="coffee-notes"
                   value={config.notes}
                   onChange={(e) => setField('notes', e.target.value)}
-                  placeholder="Extra hot, oat foam, …"
+                  placeholder="חם במיוחד, קצף שיבולת שועל, …"
                   rows={2}
                   maxLength={500}
                 />
               </div>
 
-              <h2 className="coffee-section-title">When</h2>
+              <h2 className="coffee-section-title">מתי</h2>
               <div className="coffee-segmented coffee-when">
                 <button
                   type="button"
@@ -372,7 +401,7 @@ export default function CoffeeOrderPage() {
                   onClick={() => setDeliveryNow(true)}
                   aria-pressed={deliveryNow}
                 >
-                  Now
+                  עכשיו
                 </button>
                 <button
                   type="button"
@@ -380,12 +409,12 @@ export default function CoffeeOrderPage() {
                   onClick={() => setDeliveryNow(false)}
                   aria-pressed={!deliveryNow}
                 >
-                  Later
+                  מאוחר יותר
                 </button>
               </div>
               {!deliveryNow && (
                 <div className="coffee-field">
-                  <label htmlFor="coffee-when">Scheduled time</label>
+                  <label htmlFor="coffee-when">זמן מתוזמן</label>
                   <input
                     id="coffee-when"
                     type="datetime-local"
@@ -404,26 +433,26 @@ export default function CoffeeOrderPage() {
                   className="coffee-btn-secondary"
                   onClick={saveFavorite}
                 >
-                  ★ Save as favorite
+                  ★ שמירה כמועדף
                 </button>
                 <button
                   type="submit"
                   className="coffee-btn-primary"
                   disabled={submitting}
                 >
-                  {submitting ? 'Sending…' : 'Order'}
+                  {submitting ? 'שולח…' : 'הזמן'}
                 </button>
               </div>
 
               {placed && (
                 <div className="coffee-result">
-                  <h3>Order placed ☕</h3>
+                  <h3>ההזמנה התקבלה ☕</h3>
                   <p>
                     {drinkSummary(placed)}
                     {' · '}
                     {placed.deliveryType === 'scheduled' && placed.scheduledAt
                       ? formatWhen(placed.scheduledAt)
-                      : 'now'}
+                      : 'עכשיו'}
                   </p>
                 </div>
               )}
@@ -432,12 +461,12 @@ export default function CoffeeOrderPage() {
             {/* ---- favorites + history ---- */}
             <aside className="coffee-side">
               <div className="coffee-card">
-                <h2 className="coffee-section-title">★ Favorites</h2>
+                <h2 className="coffee-section-title">★ מועדפים</h2>
                 {loading ? (
-                  <p className="coffee-empty">Loading…</p>
+                  <p className="coffee-empty">טוען…</p>
                 ) : favorites.length === 0 ? (
                   <p className="coffee-empty">
-                    No favorites yet — build a drink and tap “Save as favorite”.
+                    אין עדיין מועדפים — הרכיבו משקה ולחצו על “שמירה כמועדף”.
                   </p>
                 ) : (
                   <div className="coffee-fav-list">
@@ -447,7 +476,7 @@ export default function CoffeeOrderPage() {
                           type="button"
                           className="coffee-fav-body"
                           onClick={() => loadFavorite(f)}
-                          title="Load into form"
+                          title="טען לטופס"
                         >
                           <span className="coffee-fav-name">{f.name}</span>
                           <span className="coffee-fav-summary">
@@ -461,13 +490,13 @@ export default function CoffeeOrderPage() {
                             onClick={() => orderFavoriteNow(f)}
                             disabled={submitting}
                           >
-                            ⚡ Order now
+                            ⚡ הזמן עכשיו
                           </button>
                           <button
                             type="button"
                             className="coffee-delete"
                             onClick={() => deleteFavorite(f.id)}
-                            aria-label="Delete favorite"
+                            aria-label="מחק מועדף"
                           >
                             ✕
                           </button>
@@ -479,11 +508,11 @@ export default function CoffeeOrderPage() {
               </div>
 
               <div className="coffee-card">
-                <h2 className="coffee-section-title">Recent orders</h2>
+                <h2 className="coffee-section-title">הזמנות אחרונות</h2>
                 {loading ? (
-                  <p className="coffee-empty">Loading…</p>
+                  <p className="coffee-empty">טוען…</p>
                 ) : sortedOrders.length === 0 ? (
-                  <p className="coffee-empty">No orders yet.</p>
+                  <p className="coffee-empty">אין עדיין הזמנות.</p>
                 ) : (
                   <div className="coffee-order-list">
                     {sortedOrders.map((o) => (
@@ -495,7 +524,7 @@ export default function CoffeeOrderPage() {
                           <span className="coffee-order-when">
                             {o.deliveryType === 'scheduled' && o.scheduledAt
                               ? `⏰ ${formatWhen(o.scheduledAt)}`
-                              : `now · ${formatWhen(o.createdAt)}`}
+                              : `עכשיו · ${formatWhen(o.createdAt)}`}
                           </span>
                           {o.notes && (
                             <span className="coffee-order-notes">“{o.notes}”</span>
@@ -505,7 +534,7 @@ export default function CoffeeOrderPage() {
                           type="button"
                           className="coffee-delete"
                           onClick={() => deleteOrder(o.id)}
-                          aria-label="Cancel order"
+                          aria-label="בטל הזמנה"
                         >
                           ✕
                         </button>
@@ -518,6 +547,31 @@ export default function CoffeeOrderPage() {
           </div>
         </div>
       </div>
+
+      {showBeans && (
+        <div className="coffee-bean-overlay" aria-hidden="true">
+          {Array.from({ length: 28 }).map((_, i) => {
+            const left = Math.random() * 100;
+            const duration = 2 + Math.random() * 1.2;
+            const delay = Math.random() * 0.5;
+            const emoji = COFFEE_CONFETTI[i % COFFEE_CONFETTI.length];
+            return (
+              <span
+                key={i}
+                className="coffee-bean-piece"
+                style={{
+                  left: `${left}%`,
+                  animationDuration: `${duration}s`,
+                  animationDelay: `${delay}s`,
+                  fontSize: `${1.2 + Math.random()}rem`,
+                }}
+              >
+                {emoji}
+              </span>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
