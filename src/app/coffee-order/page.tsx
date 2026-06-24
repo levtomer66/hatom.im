@@ -256,8 +256,8 @@ export default function CoffeeOrderPage() {
               <h2 className="coffee-section-title">Your drink</h2>
 
               <div className="coffee-field">
-                <label>Type</label>
-                <div className="coffee-segmented">
+                <label id="coffee-type-label">Type</label>
+                <div className="coffee-segmented" role="group" aria-labelledby="coffee-type-label">
                   {COFFEE_DRINKS.map((d) => (
                     <button
                       type="button"
@@ -274,8 +274,8 @@ export default function CoffeeOrderPage() {
               </div>
 
               <div className="coffee-field">
-                <label>Milk</label>
-                <div className="coffee-segmented">
+                <label id="coffee-milk-label">Milk</label>
+                <div className="coffee-segmented" role="group" aria-labelledby="coffee-milk-label">
                   {COFFEE_MILKS.map((m) => (
                     <button
                       type="button"
@@ -311,8 +311,8 @@ export default function CoffeeOrderPage() {
 
               <div className="coffee-row">
                 <div className="coffee-field">
-                  <label>Vanilla pumps</label>
-                  <div className="coffee-stepper">
+                  <label id="coffee-vanilla-label">Vanilla pumps</label>
+                  <div className="coffee-stepper" role="group" aria-labelledby="coffee-vanilla-label">
                     <button
                       type="button"
                       onClick={() => adjustPump('vanillaPumps', -1)}
@@ -331,8 +331,8 @@ export default function CoffeeOrderPage() {
                   </div>
                 </div>
                 <div className="coffee-field">
-                  <label>Caramel pumps</label>
-                  <div className="coffee-stepper">
+                  <label id="coffee-caramel-label">Caramel pumps</label>
+                  <div className="coffee-stepper" role="group" aria-labelledby="coffee-caramel-label">
                     <button
                       type="button"
                       onClick={() => adjustPump('caramelPumps', -1)}
