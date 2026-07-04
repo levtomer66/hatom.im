@@ -9,6 +9,7 @@ import {
   isValidDrink,
   isValidMilk,
   isValidSugar,
+  resolveSource,
   clampPumps,
 } from '@/types/coffee-order';
 
@@ -56,6 +57,10 @@ export async function POST(request: NextRequest) {
     if (!isValidSugar(data.sugar)) {
       return NextResponse.json({ error: 'Invalid sugar' }, { status: 400 });
     }
+    const source = resolveSource(data.source);
+    if (!source) {
+      return NextResponse.json({ error: 'Invalid source' }, { status: 400 });
+    }
 
     const favorite = await createCoffeeFavorite({
       userEmail: email,
@@ -63,6 +68,7 @@ export async function POST(request: NextRequest) {
       drink: data.drink,
       milk: data.milk,
       sugar: data.sugar,
+      source,
       vanillaPumps: clampPumps(data.vanillaPumps),
       caramelPumps: clampPumps(data.caramelPumps),
       notes: typeof data.notes === 'string' ? data.notes.slice(0, 500) : '',

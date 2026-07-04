@@ -7,6 +7,7 @@ import {
   isValidDrink,
   isValidMilk,
   isValidSugar,
+  resolveSource,
   clampPumps,
   drinkSummary,
 } from '@/types/coffee-order';
@@ -92,6 +93,10 @@ export async function POST(request: NextRequest) {
     if (!isValidSugar(data.sugar)) {
       return NextResponse.json({ error: 'Invalid sugar' }, { status: 400 });
     }
+    const source = resolveSource(data.source);
+    if (!source) {
+      return NextResponse.json({ error: 'Invalid source' }, { status: 400 });
+    }
     if (data.deliveryType !== 'now' && data.deliveryType !== 'scheduled') {
       return NextResponse.json(
         { error: 'deliveryType must be "now" or "scheduled"' },
@@ -125,6 +130,7 @@ export async function POST(request: NextRequest) {
       drink: data.drink,
       milk: data.milk,
       sugar: data.sugar,
+      source,
       vanillaPumps: clampPumps(data.vanillaPumps),
       caramelPumps: clampPumps(data.caramelPumps),
       notes,

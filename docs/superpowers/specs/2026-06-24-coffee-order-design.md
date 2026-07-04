@@ -55,9 +55,10 @@ CoffeeOrder {
   id: string;
   userEmail: string;          // from session, never the client
   userName: string;           // display name resolved server-side
-  drink: CoffeeDrink;         // 'espresso' | 'lungo' | 'cappuccino'
+  drink: CoffeeDrink;         // 'espresso' | 'lungo' | 'cappuccino' | 'iced-coffee'
   milk: CoffeeMilk;           // 'none' | 'regular' | 'soy' | 'lactose-free' | 'oat'
   sugar: CoffeeSugar;         // 'none' | '1' | '2' | '3'
+  source: CoffeeSource;       // where to order from; defaults to 'tomer-coffee', missing on legacy docs
   vanillaPumps: number;       // 0..6
   caramelPumps: number;       // 0..6
   notes: string;
@@ -73,16 +74,17 @@ CoffeeFavorite {
   id: string;
   userEmail: string;          // from session
   name: string;               // user-given label, e.g. "My morning"
-  drink, milk, sugar, vanillaPumps, caramelPumps, notes;  // the saved drink config (no time)
+  drink, milk, sugar, source, vanillaPumps, caramelPumps, notes;  // the saved drink config (no time)
   createdAt: string;
 }
 ```
 
 ## Types (`src/types/coffee-order.ts`)
 
-- `CoffeeDrink`, `CoffeeMilk`, `CoffeeSugar` string-literal union types.
-- Option constants for the UI: `COFFEE_DRINKS`, `COFFEE_MILKS`, `COFFEE_SUGARS`
-  (each `{ id, label, emoji? }[]`), plus `MAX_PUMPS = 6`.
+- `CoffeeDrink`, `CoffeeMilk`, `CoffeeSugar`, `CoffeeSource` string-literal union types.
+- Option constants for the UI: `COFFEE_DRINKS`, `COFFEE_MILKS`, `COFFEE_SUGARS`,
+  `COFFEE_SOURCES` (each `{ id, label, emoji? }[]`), plus `MAX_PUMPS = 6` and
+  `DEFAULT_COFFEE_SOURCE = 'tomer-coffee'`.
 - `CoffeeOrder`, `CoffeeFavorite` domain interfaces.
 - `CreateCoffeeOrderDto` (no `id`/`userEmail`/`userName`/`createdAt`) and
   `CreateCoffeeFavoriteDto`.
