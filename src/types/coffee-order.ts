@@ -3,9 +3,17 @@
 // UI maps over, and coercion/validation helpers the API uses so a stale or
 // malicious client can't smuggle bad values into Mongo.
 
-export type CoffeeDrink = 'espresso' | 'lungo' | 'cappuccino';
+export type CoffeeDrink = 'espresso' | 'lungo' | 'cappuccino' | 'iced-coffee';
 export type CoffeeMilk = 'none' | 'regular' | 'soy' | 'lactose-free' | 'oat';
 export type CoffeeSugar = 'none' | '1' | '2' | '3';
+export type CoffeeSource =
+  | 'tomer-coffee'
+  | 'boulangerie'
+  | 'cafe-beit'
+  | 'kibbutz-cafe'
+  | 'hamalabiya'
+  | 'boutique-central'
+  | 'easy';
 export type DeliveryType = 'now' | 'scheduled';
 
 export interface CoffeeOption<T extends string> {
@@ -17,9 +25,10 @@ export interface CoffeeOption<T extends string> {
 // Labels are Hebrew (the page UI is Hebrew/RTL). `id`s stay English — they are
 // the stored values and the validation keys; only the display label changes.
 export const COFFEE_DRINKS: readonly CoffeeOption<CoffeeDrink>[] = [
-  { id: 'espresso',   label: 'אספרסו',   emoji: '⚡' },
-  { id: 'lungo',      label: 'לונגו',    emoji: '🫗' },
-  { id: 'cappuccino', label: 'קפוצ׳ינו', emoji: '☕' },
+  { id: 'espresso',    label: 'אספרסו',   emoji: '⚡' },
+  { id: 'lungo',       label: 'לונגו',    emoji: '🫗' },
+  { id: 'cappuccino',  label: 'קפוצ׳ינו', emoji: '☕' },
+  { id: 'iced-coffee', label: 'קפה קר',   emoji: '🧊' },
 ];
 
 export const COFFEE_MILKS: readonly CoffeeOption<CoffeeMilk>[] = [
@@ -37,6 +46,21 @@ export const COFFEE_SUGARS: readonly CoffeeOption<CoffeeSugar>[] = [
   { id: '3',    label: '3'   },
 ];
 
+// Where the coffee is ordered from. The default is Tomer's own machine; the
+// rest are cafés. Docs written before this field existed have no `source` —
+// readers fall back to DEFAULT_COFFEE_SOURCE (see resolveSource / pickConfig).
+export const COFFEE_SOURCES: readonly CoffeeOption<CoffeeSource>[] = [
+  { id: 'tomer-coffee',     label: 'הקפה של תומר' },
+  { id: 'boulangerie',      label: 'בולונז׳רי'    },
+  { id: 'cafe-beit',        label: 'קפה בית'      },
+  { id: 'kibbutz-cafe',     label: 'קפה בקיבוץ'   },
+  { id: 'hamalabiya',       label: 'המלביה'       },
+  { id: 'boutique-central', label: 'בוטיק סנטרל'  },
+  { id: 'easy',             label: 'איזי'         },
+];
+
+export const DEFAULT_COFFEE_SOURCE: CoffeeSource = 'tomer-coffee';
+
 export const MAX_PUMPS = 6;
 
 // The shared drink-config subset — "an order minus identity and time". Both
@@ -45,6 +69,7 @@ export interface CoffeeDrinkConfig {
   drink: CoffeeDrink;
   milk: CoffeeMilk;
   sugar: CoffeeSugar;
+  source: CoffeeSource;
   vanillaPumps: number;
   caramelPumps: number;
   notes: string;
@@ -78,6 +103,7 @@ export interface CreateCoffeeFavoriteDto extends CoffeeDrinkConfig {
 const DRINK_IDS = new Set<string>(COFFEE_DRINKS.map((d) => d.id));
 const MILK_IDS = new Set<string>(COFFEE_MILKS.map((m) => m.id));
 const SUGAR_IDS = new Set<string>(COFFEE_SUGARS.map((s) => s.id));
+const SOURCE_IDS = new Set<string>(COFFEE_SOURCES.map((s) => s.id));
 
 export function isValidDrink(v: unknown): v is CoffeeDrink {
   return typeof v === 'string' && DRINK_IDS.has(v);
@@ -87,6 +113,13 @@ export function isValidMilk(v: unknown): v is CoffeeMilk {
 }
 export function isValidSugar(v: unknown): v is CoffeeSugar {
   return typeof v === 'string' && SUGAR_IDS.has(v);
+}
+
+// Missing source → default (payloads/docs that predate the field); a present
+// but unknown value → null, which the API rejects with a 400.
+export function resolveSource(v: unknown): CoffeeSource | null {
+  if (v === undefined || v === null) return DEFAULT_COFFEE_SOURCE;
+  return typeof v === 'string' && SOURCE_IDS.has(v) ? (v as CoffeeSource) : null;
 }
 
 // Clamp an arbitrary client value into an integer in [0, MAX_PUMPS].
@@ -102,6 +135,9 @@ export function drinkLabel(id: CoffeeDrink): string {
 export function milkLabel(id: CoffeeMilk): string {
   return COFFEE_MILKS.find((m) => m.id === id)?.label ?? id;
 }
+export function sourceLabel(id: CoffeeSource): string {
+  return COFFEE_SOURCES.find((s) => s.id === id)?.label ?? id;
+}
 
 // One-line Hebrew summary used in the ntfy push body, the post-submit recap,
 // and the favorite/history cards, e.g.
@@ -114,6 +150,8 @@ export function drinkSummary(c: CoffeeDrinkConfig): string {
   }
   if (c.vanillaPumps > 0) parts.push(`וניל ×${c.vanillaPumps}`);
   if (c.caramelPumps > 0) parts.push(`קרמל ×${c.caramelPumps}`);
+  // Guard: docs saved before `source` existed carry no value — skip the part.
+  if (c.source) parts.push(sourceLabel(c.source));
   return parts.join(' · ');
 }
 
@@ -123,6 +161,7 @@ export function defaultDrinkConfig(): CoffeeDrinkConfig {
     drink: 'cappuccino',
     milk: 'regular',
     sugar: 'none',
+    source: DEFAULT_COFFEE_SOURCE,
     vanillaPumps: 0,
     caramelPumps: 0,
     notes: '',

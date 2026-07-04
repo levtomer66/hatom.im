@@ -11,9 +11,12 @@ import {
   CoffeeDrinkConfig,
   CreateCoffeeOrderDto,
   CoffeeSugar,
+  CoffeeSource,
   COFFEE_DRINKS,
   COFFEE_MILKS,
   COFFEE_SUGARS,
+  COFFEE_SOURCES,
+  DEFAULT_COFFEE_SOURCE,
   MAX_PUMPS,
   drinkSummary,
   defaultDrinkConfig,
@@ -205,6 +208,8 @@ export default function CoffeeOrderPage() {
       drink: c.drink,
       milk: c.milk,
       sugar: c.sugar,
+      // Orders/favorites saved before `source` existed have none — default it.
+      source: c.source ?? DEFAULT_COFFEE_SOURCE,
       vanillaPumps: c.vanillaPumps,
       caramelPumps: c.caramelPumps,
       notes: c.notes,
@@ -337,6 +342,22 @@ export default function CoffeeOrderPage() {
                     }
                   >
                     {COFFEE_SUGARS.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="coffee-field">
+                  <label htmlFor="coffee-source">מאיפה מזמינים</label>
+                  <select
+                    id="coffee-source"
+                    value={config.source}
+                    onChange={(e) =>
+                      setField('source', e.target.value as CoffeeSource)
+                    }
+                  >
+                    {COFFEE_SOURCES.map((s) => (
                       <option key={s.id} value={s.id}>
                         {s.label}
                       </option>
