@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import Navbar from '@/components/Navbar';
@@ -20,6 +21,7 @@ import {
   MAX_PUMPS,
   drinkSummary,
   defaultDrinkConfig,
+  isBaristaEmail,
 } from '@/types/coffee-order';
 import './coffee-order.css';
 
@@ -289,6 +291,11 @@ export default function CoffeeOrderPage() {
             </div>
             <p className="coffee-hero-overline">— טרי מהמכונה —</p>
             <h1 className="coffee-hero-title">☕ הזמנת קפה</h1>
+            {isBaristaEmail(session.user.email) && (
+              <Link href="/coffee-order/board" className="coffee-board-link">
+                📋 לוח בריסטה
+              </Link>
+            )}
           </header>
 
           <div className="coffee-grid">

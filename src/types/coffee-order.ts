@@ -15,6 +15,16 @@ export type CoffeeSource =
   | 'boutique-central'
   | 'easy';
 export type DeliveryType = 'now' | 'scheduled';
+export type OrderStatus = 'open' | 'done';
+
+// Who sees the barista board (/coffee-order/board) and may flip order status.
+// Deliberately narrower than OWNER_EMAILS — the board belongs to whoever
+// actually makes the coffee.
+export const BARISTA_EMAILS: readonly string[] = ['levtomer66@gmail.com'];
+
+export function isBaristaEmail(email: string | null | undefined): boolean {
+  return !!email && BARISTA_EMAILS.includes(email.toLowerCase());
+}
 
 export interface CoffeeOption<T extends string> {
   id: T;
@@ -81,6 +91,7 @@ export interface CoffeeOrder extends CoffeeDrinkConfig {
   userName: string;
   deliveryType: DeliveryType;
   scheduledAt?: string; // ISO 8601, present iff deliveryType === 'scheduled'
+  status: OrderStatus;  // barista-controlled; docs predating the field read as 'open'
   createdAt: string;    // ISO 8601
 }
 

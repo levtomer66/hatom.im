@@ -411,3 +411,52 @@
     display: none;
   }
 }
+
+/* ---- barista board (/coffee-order/board) ---- */
+
+.coffee-board-back {
+  display: inline-block;
+  margin-top: 0.6rem;
+  font-size: 0.85rem;
+  color: #9c6f44;
+  text-decoration: none;
+}
+.coffee-board-back:hover {
+  text-decoration: underline;
+}
+
+.coffee-board-count {
+  display: inline-block;
+  min-width: 1.5rem;
+  padding: 0.05rem 0.45rem;
+  border-radius: 999px;
+  background: #6b4423;
+  color: #fffaf3;
+  font-size: 0.8rem;
+  text-align: center;
+}
+
+.coffee-board-name {
+  font-weight: 700;
+  color: #4a2f1b;
+}
+
+.coffee-board-done {
+  opacity: 0.55;
+}
+
+/* Barista-only pill linking the order page to the board. */
+.coffee-board-link {
+  display: inline-block;
+  margin-top: 0.6rem;
+  padding: 0.3rem 0.9rem;
+  border: 1px solid #d8bd9c;
+  border-radius: 999px;
+  background: #fffaf3;
+  color: #6b4423;
+  font-size: 0.85rem;
+  text-decoration: none;
+}
+.coffee-board-link:hover {
+  background: #f3e3cd;
+}
