@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { after } from 'next/server';
 import { requirePagePermission } from '@/lib/auth-helpers';
 import { getCoffeeOrdersForUser, createCoffeeOrder } from '@/models/CoffeeOrder';
 import {
@@ -14,11 +15,11 @@ import {
 
 const NTFY_TOPIC = 'hatomim_coffee';
 
-// Fire-and-forget push so whoever is making coffee sees the order land. Same
-// pattern as notifySpaSchedule. ntfy.sh is already on the CSP connect-src
-// allowlist (and this runs server-side anyway). Failure is logged, never
-// blocks the response.
-function notifyCoffeeOrder(order: CoffeeOrder): void {
+// Push so whoever is making coffee sees the order land. Must run inside
+// `after()` — a bare fire-and-forget fetch dies when Vercel freezes the
+// function right after the response is sent (orders lost their pushes in
+// production exactly this way). Failure is logged, never blocks the response.
+async function notifyCoffeeOrder(order: CoffeeOrder): Promise<void> {
   const when =
     order.deliveryType === 'scheduled' && order.scheduledAt
       ? new Date(order.scheduledAt).toLocaleString('he-IL', {
@@ -36,7 +37,7 @@ function notifyCoffeeOrder(order: CoffeeOrder): void {
     order.userName.replace(/[^\x20-\x7E]/g, '').trim() ||
     order.userEmail.split('@')[0];
 
-  fetch(`https://ntfy.sh/${NTFY_TOPIC}`, {
+  await fetch(`https://ntfy.sh/${NTFY_TOPIC}`, {
     method: 'POST',
     body: bodyLines.join('\n'),
     headers: {
@@ -139,7 +140,9 @@ export async function POST(request: NextRequest) {
       ...(scheduledAt ? { scheduledAt } : {}),
     });
 
-    notifyCoffeeOrder(order);
+    // after() keeps the function alive past the response until the push is
+    // delivered (waitUntil semantics on Vercel) without delaying the caller.
+    after(() => notifyCoffeeOrder(order));
     return NextResponse.json(order, { status: 201 });
   } catch (error) {
     console.error('Error creating coffee order:', error);
