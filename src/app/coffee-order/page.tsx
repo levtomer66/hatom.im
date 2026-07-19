@@ -13,7 +13,6 @@ import {
   CreateCoffeeOrderDto,
   CoffeeSugar,
   CoffeeSource,
-  CoffeeCapsule,
   COFFEE_DRINKS,
   COFFEE_MILKS,
   COFFEE_SUGARS,
@@ -381,20 +380,31 @@ export default function CoffeeOrderPage() {
               </div>
 
               <div className="coffee-field">
-                <label htmlFor="coffee-capsule">קפסולה</label>
-                <select
-                  id="coffee-capsule"
-                  value={config.capsule}
-                  onChange={(e) =>
-                    setField('capsule', e.target.value as CoffeeCapsule)
-                  }
+                <label id="coffee-capsule-label">קפסולה</label>
+                <div
+                  className="coffee-capsule-grid"
+                  role="radiogroup"
+                  aria-labelledby="coffee-capsule-label"
                 >
                   {COFFEE_CAPSULES.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.label}
-                    </option>
+                    <button
+                      type="button"
+                      key={c.id}
+                      className={`coffee-capsule-btn ${config.capsule === c.id ? 'active' : ''}`}
+                      onClick={() => setField('capsule', c.id)}
+                      role="radio"
+                      aria-checked={config.capsule === c.id}
+                      title={c.label}
+                    >
+                      <span
+                        className="coffee-capsule-img"
+                        style={{ backgroundImage: `url('${c.img}')` }}
+                        aria-hidden="true"
+                      />
+                      <span className="coffee-capsule-name">{c.label}</span>
+                    </button>
                   ))}
-                </select>
+                </div>
               </div>
 
               <div className="coffee-field">

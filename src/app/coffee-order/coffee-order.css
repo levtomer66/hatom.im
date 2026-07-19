@@ -134,6 +134,50 @@
   margin-bottom: 0.9rem;
 }
 
+/* Capsule image picker — each tile crops the CDN product shot to just the
+   capsule via background-size/position (validated crop: left 33% top 20%
+   size 43% of the 560px source → size 232.6%, position 57.9% 35.1%; this
+   window clears the "INTENSITY" ribbon and the name/box below). */
+.coffee-capsule-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+.coffee-capsule-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.4rem 0.4rem 0.5rem;
+  border: 2px solid #d8bd9c;
+  border-radius: 14px;
+  background: #fff;
+  cursor: pointer;
+  font: inherit;
+  transition: all 0.15s ease;
+}
+.coffee-capsule-btn:hover {
+  border-color: #b9854f;
+}
+.coffee-capsule-btn.active {
+  border-color: #6b4423;
+  box-shadow: 0 0 0 3px rgba(107, 68, 35, 0.18);
+}
+.coffee-capsule-img {
+  width: 76px;
+  height: 76px;
+  border-radius: 10px;
+  background-color: #fafafa;
+  background-repeat: no-repeat;
+  background-size: 232.6%;
+  background-position: 57.9% 35.1%;
+}
+.coffee-capsule-name {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #6b4423;
+}
+
 /* Glass-color picker swatch inside a segmented button. */
 .coffee-glass-dot {
   width: 0.85rem;

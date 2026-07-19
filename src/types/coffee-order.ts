@@ -37,6 +37,8 @@ export interface CoffeeOption<T extends string> {
   id: T;
   label: string;
   emoji?: string;
+  // Product image (served from /public); capsules use it for the image picker.
+  img?: string;
 }
 
 // Labels are Hebrew (the page UI is Hebrew/RTL). `id`s stay English — they are
@@ -78,12 +80,15 @@ export const COFFEE_SOURCES: readonly CoffeeOption<CoffeeSource>[] = [
 
 export const DEFAULT_COFFEE_SOURCE: CoffeeSource = 'tomer-coffee';
 
+// Product images are hot-linked from the onecoffee.co.il CDN (CSP img-src
+// allows https:). The image picker crops to just the capsule via CSS.
+const CAPSULE_CDN = 'https://www.onecoffee.co.il/images/itempics';
 export const COFFEE_CAPSULES: readonly CoffeeOption<CoffeeCapsule>[] = [
-  { id: 'vanille',   label: 'וניל'       },
-  { id: 'hazelnut',  label: 'אגוזי לוז'  },
-  { id: 'blonde',    label: 'בלונד'      },
-  { id: 'caramel',   label: 'קרמל'       },
-  { id: 'guatemala', label: 'גואטמלה'    },
+  { id: 'vanille',   label: 'וניל',      img: `${CAPSULE_CDN}/8445290156136_280220260034531188_large.jpg` },
+  { id: 'hazelnut',  label: 'אגוזי לוז', img: `${CAPSULE_CDN}/809_230220261114521_large.jpg`              },
+  { id: 'blonde',    label: 'בלונד',     img: `${CAPSULE_CDN}/7613036984478_280220260022291182_large.jpg` },
+  { id: 'caramel',   label: 'קרמל',      img: `${CAPSULE_CDN}/8445290154552_280220260033101187_large.jpg` },
+  { id: 'guatemala', label: 'גואטמלה',   img: `${CAPSULE_CDN}/7613287855565_280220260029011185_large.jpg` },
 ];
 
 export const DEFAULT_CAPSULE: CoffeeCapsule = 'vanille';
