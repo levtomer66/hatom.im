@@ -9,6 +9,8 @@ import {
   isValidMilk,
   isValidSugar,
   resolveSource,
+  resolveCapsule,
+  resolveGlassColor,
   clampPumps,
   drinkSummary,
 } from '@/types/coffee-order';
@@ -98,6 +100,14 @@ export async function POST(request: NextRequest) {
     if (!source) {
       return NextResponse.json({ error: 'Invalid source' }, { status: 400 });
     }
+    const capsule = resolveCapsule(data.capsule);
+    if (!capsule) {
+      return NextResponse.json({ error: 'Invalid capsule' }, { status: 400 });
+    }
+    const glassColor = resolveGlassColor(data.glassColor);
+    if (!glassColor) {
+      return NextResponse.json({ error: 'Invalid glass color' }, { status: 400 });
+    }
     if (data.deliveryType !== 'now' && data.deliveryType !== 'scheduled') {
       return NextResponse.json(
         { error: 'deliveryType must be "now" or "scheduled"' },
@@ -132,6 +142,8 @@ export async function POST(request: NextRequest) {
       milk: data.milk,
       sugar: data.sugar,
       source,
+      capsule,
+      glassColor,
       vanillaPumps: clampPumps(data.vanillaPumps),
       caramelPumps: clampPumps(data.caramelPumps),
       notes,

@@ -14,6 +14,13 @@ export type CoffeeSource =
   | 'hamalabiya'
   | 'boutique-central'
   | 'easy';
+export type CoffeeCapsule =
+  | 'vanille'
+  | 'hazelnut'
+  | 'blonde'
+  | 'caramel'
+  | 'guatemala';
+export type CoffeeGlassColor = 'gray' | 'green' | 'black' | 'pink';
 export type DeliveryType = 'now' | 'scheduled';
 export type OrderStatus = 'open' | 'done';
 
@@ -71,6 +78,26 @@ export const COFFEE_SOURCES: readonly CoffeeOption<CoffeeSource>[] = [
 
 export const DEFAULT_COFFEE_SOURCE: CoffeeSource = 'tomer-coffee';
 
+export const COFFEE_CAPSULES: readonly CoffeeOption<CoffeeCapsule>[] = [
+  { id: 'vanille',   label: 'וניל'       },
+  { id: 'hazelnut',  label: 'אגוזי לוז'  },
+  { id: 'blonde',    label: 'בלונד'      },
+  { id: 'caramel',   label: 'קרמל'       },
+  { id: 'guatemala', label: 'גואטמלה'    },
+];
+
+export const DEFAULT_CAPSULE: CoffeeCapsule = 'vanille';
+
+// Labels are feminine to agree with כוס ("כוס ירוקה").
+export const GLASS_COLORS: readonly CoffeeOption<CoffeeGlassColor>[] = [
+  { id: 'gray',  label: 'אפורה' },
+  { id: 'green', label: 'ירוקה' },
+  { id: 'black', label: 'שחורה' },
+  { id: 'pink',  label: 'ורודה' },
+];
+
+export const DEFAULT_GLASS_COLOR: CoffeeGlassColor = 'gray';
+
 export const MAX_PUMPS = 6;
 
 // The shared drink-config subset — "an order minus identity and time". Both
@@ -80,6 +107,8 @@ export interface CoffeeDrinkConfig {
   milk: CoffeeMilk;
   sugar: CoffeeSugar;
   source: CoffeeSource;
+  capsule: CoffeeCapsule;
+  glassColor: CoffeeGlassColor;
   vanillaPumps: number;
   caramelPumps: number;
   notes: string;
@@ -115,6 +144,8 @@ const DRINK_IDS = new Set<string>(COFFEE_DRINKS.map((d) => d.id));
 const MILK_IDS = new Set<string>(COFFEE_MILKS.map((m) => m.id));
 const SUGAR_IDS = new Set<string>(COFFEE_SUGARS.map((s) => s.id));
 const SOURCE_IDS = new Set<string>(COFFEE_SOURCES.map((s) => s.id));
+const CAPSULE_IDS = new Set<string>(COFFEE_CAPSULES.map((c) => c.id));
+const GLASS_COLOR_IDS = new Set<string>(GLASS_COLORS.map((g) => g.id));
 
 export function isValidDrink(v: unknown): v is CoffeeDrink {
   return typeof v === 'string' && DRINK_IDS.has(v);
@@ -133,6 +164,19 @@ export function resolveSource(v: unknown): CoffeeSource | null {
   return typeof v === 'string' && SOURCE_IDS.has(v) ? (v as CoffeeSource) : null;
 }
 
+// Same contract as resolveSource: missing → default, unknown → null → 400.
+export function resolveCapsule(v: unknown): CoffeeCapsule | null {
+  if (v === undefined || v === null) return DEFAULT_CAPSULE;
+  return typeof v === 'string' && CAPSULE_IDS.has(v) ? (v as CoffeeCapsule) : null;
+}
+
+export function resolveGlassColor(v: unknown): CoffeeGlassColor | null {
+  if (v === undefined || v === null) return DEFAULT_GLASS_COLOR;
+  return typeof v === 'string' && GLASS_COLOR_IDS.has(v)
+    ? (v as CoffeeGlassColor)
+    : null;
+}
+
 // Clamp an arbitrary client value into an integer in [0, MAX_PUMPS].
 export function clampPumps(v: unknown): number {
   const n = typeof v === 'number' ? v : Number(v);
@@ -149,6 +193,12 @@ export function milkLabel(id: CoffeeMilk): string {
 export function sourceLabel(id: CoffeeSource): string {
   return COFFEE_SOURCES.find((s) => s.id === id)?.label ?? id;
 }
+export function capsuleLabel(id: CoffeeCapsule): string {
+  return COFFEE_CAPSULES.find((c) => c.id === id)?.label ?? id;
+}
+export function glassColorLabel(id: CoffeeGlassColor): string {
+  return GLASS_COLORS.find((g) => g.id === id)?.label ?? id;
+}
 
 // One-line Hebrew summary used in the ntfy push body, the post-submit recap,
 // and the favorite/history cards, e.g.
@@ -161,7 +211,9 @@ export function drinkSummary(c: CoffeeDrinkConfig): string {
   }
   if (c.vanillaPumps > 0) parts.push(`וניל ×${c.vanillaPumps}`);
   if (c.caramelPumps > 0) parts.push(`קרמל ×${c.caramelPumps}`);
-  // Guard: docs saved before `source` existed carry no value — skip the part.
+  // Guards: docs saved before these fields existed carry no value — skip.
+  if (c.capsule) parts.push(`קפסולת ${capsuleLabel(c.capsule)}`);
+  if (c.glassColor) parts.push(`כוס ${glassColorLabel(c.glassColor)}`);
   if (c.source) parts.push(sourceLabel(c.source));
   return parts.join(' · ');
 }
@@ -173,6 +225,8 @@ export function defaultDrinkConfig(): CoffeeDrinkConfig {
     milk: 'regular',
     sugar: 'none',
     source: DEFAULT_COFFEE_SOURCE,
+    capsule: DEFAULT_CAPSULE,
+    glassColor: DEFAULT_GLASS_COLOR,
     vanillaPumps: 0,
     caramelPumps: 0,
     notes: '',

@@ -13,11 +13,16 @@ import {
   CreateCoffeeOrderDto,
   CoffeeSugar,
   CoffeeSource,
+  CoffeeCapsule,
   COFFEE_DRINKS,
   COFFEE_MILKS,
   COFFEE_SUGARS,
   COFFEE_SOURCES,
+  COFFEE_CAPSULES,
+  GLASS_COLORS,
   DEFAULT_COFFEE_SOURCE,
+  DEFAULT_CAPSULE,
+  DEFAULT_GLASS_COLOR,
   MAX_PUMPS,
   drinkSummary,
   defaultDrinkConfig,
@@ -210,8 +215,10 @@ export default function CoffeeOrderPage() {
       drink: c.drink,
       milk: c.milk,
       sugar: c.sugar,
-      // Orders/favorites saved before `source` existed have none — default it.
+      // Orders/favorites saved before these fields existed have none — default.
       source: c.source ?? DEFAULT_COFFEE_SOURCE,
+      capsule: c.capsule ?? DEFAULT_CAPSULE,
+      glassColor: c.glassColor ?? DEFAULT_GLASS_COLOR,
       vanillaPumps: c.vanillaPumps,
       caramelPumps: c.caramelPumps,
       notes: c.notes,
@@ -370,6 +377,41 @@ export default function CoffeeOrderPage() {
                       </option>
                     ))}
                   </select>
+                </div>
+              </div>
+
+              <div className="coffee-field">
+                <label htmlFor="coffee-capsule">קפסולה</label>
+                <select
+                  id="coffee-capsule"
+                  value={config.capsule}
+                  onChange={(e) =>
+                    setField('capsule', e.target.value as CoffeeCapsule)
+                  }
+                >
+                  {COFFEE_CAPSULES.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="coffee-field">
+                <label id="coffee-glass-label">צבע כוס</label>
+                <div className="coffee-segmented" role="group" aria-labelledby="coffee-glass-label">
+                  {GLASS_COLORS.map((g) => (
+                    <button
+                      type="button"
+                      key={g.id}
+                      className={`coffee-seg-btn ${config.glassColor === g.id ? 'active' : ''}`}
+                      onClick={() => setField('glassColor', g.id)}
+                      aria-pressed={config.glassColor === g.id}
+                    >
+                      <span className={`coffee-glass-dot ${g.id}`} aria-hidden="true" />
+                      <span>{g.label}</span>
+                    </button>
+                  ))}
                 </div>
               </div>
 

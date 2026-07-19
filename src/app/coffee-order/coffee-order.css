@@ -134,6 +134,27 @@
   margin-bottom: 0.9rem;
 }
 
+/* Glass-color picker swatch inside a segmented button. */
+.coffee-glass-dot {
+  width: 0.85rem;
+  height: 0.85rem;
+  border-radius: 50%;
+  border: 1px solid rgba(58, 42, 29, 0.35);
+  flex-shrink: 0;
+}
+.coffee-glass-dot.gray {
+  background: #9ca3af;
+}
+.coffee-glass-dot.green {
+  background: #4d7c0f;
+}
+.coffee-glass-dot.black {
+  background: #1f2937;
+}
+.coffee-glass-dot.pink {
+  background: #ec4899;
+}
+
 .coffee-stepper {
   display: inline-flex;
   align-items: center;
