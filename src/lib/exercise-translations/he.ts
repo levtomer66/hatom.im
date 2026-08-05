@@ -100,6 +100,18 @@ export const HE_EXERCISE_TRANSLATIONS: ExerciseTranslations = {
   'inverted-row':                 { name: 'חתירה הפוכה',               description: 'חתירה הפוכה עם משקל גוף' },
   'l-sit':                        { name: 'אל סיט',                    description: 'החזקת אל סיט איזומטרית' },
 
+  // ---- CALISTHENICS SKILLS (Planche / Front Lever / Handstand / Muscle-Up) ----
+  'handstand-hspu-progression':   { name: 'עמידת ידיים / HSPU — סקאלה', description: 'עמידת ידיים בקיר, ניסיונות חופשיים, פייק HSPU, HSPU בקיר' },
+  'handstand-progression':        { name: 'עמידת ידיים — סקאלה',       description: 'עמידת ידיים בקיר בהתקדמות לעבר איזון חופשי' },
+  'planche-progression':          { name: 'פלאנש — סקאלה',             description: 'טאק → אדוונסד טאק → סטראדל → פול פלאנש' },
+  'push-up-progression':          { name: 'שכיבות סמיכה — סקאלה',      description: 'התקדמות שכיבות סמיכה (טבעות/ארצ׳ר) לעבר שכיבה על יד אחת' },
+  'front-lever-progression':      { name: 'פרונט לוור — סקאלה',        description: 'טאק → אדוונסד טאק → סטראדל → פול פרונט לוור' },
+  'front-lever-row':              { name: 'חתירת פרונט לוור',           description: 'חתירה מתנוחת פרונט לוור' },
+  'front-lever-pulldown':         { name: 'פולי בזרוע ישרה לפרונט לוור', description: 'משיכת פולי בזרוע ישרה לחיזוק הפרונט לוור והרחב הגבי' },
+  'weighted-pull-up':             { name: 'מתח עם משקל',                description: 'מתח עם תוספת משקל חיצוני' },
+  'explosive-pullup-progression': { name: 'מתח נפיץ / סקאלת מאסל אפ',  description: 'מתח מהיר וממוקד טכניקה לקראת מעבר המאסל אפ' },
+  'muscle-up-progression':        { name: 'מאסל אפ — סקאלה',           description: 'מתח באחיזת פאלס גריפ, תרגילי מעבר, ומתח נפיץ לקראת המאסל אפ' },
+
   // ---- ATLAS UPPER BODY ----
   'active-hang':                  { name: 'תליה אקטיבית',              description: 'תליה אקטיבית עם שכמות מעורבות' },
   'vertical-support':             { name: 'תמיכה אנכית',               description: 'תמיכה אנכית על מקבילים' },

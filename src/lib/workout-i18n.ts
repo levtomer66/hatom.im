@@ -298,6 +298,10 @@ const TEMPLATE_NAME_TRANSLATIONS: Record<string, Record<Language, string>> = {
   'Shoulders & Arms Focus':  { en: 'Shoulders & Arms Focus',   he: 'אימון דגש כתפיים ידיים' },
   'Short Upper Body':        { en: 'Short Upper Body',         he: 'פלג גוף עליון מקוצר' },
   'Short Push':              { en: 'Short Push',               he: 'אימון פוש קצר' },
+  // Hybrid Calisthenics + Hypertrophy 3-day split.
+  'Push — Planche & Pressing':  { en: 'Push — Planche & Pressing',  he: 'דחיפה — פלאנש ולחיצות' },
+  'Pull — Front Lever':         { en: 'Pull — Front Lever',         he: 'משיכה — פרונט לוור' },
+  'Upper — Skills & Strength':  { en: 'Upper — Skills & Strength',  he: 'פלג עליון — סקאלות וכוח' },
 };
 
 // Atlas templates follow a predictable "Atlas L<N> — <Upper|Lower>" pattern;

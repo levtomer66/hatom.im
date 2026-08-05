@@ -621,6 +621,21 @@ export const EXERCISE_LIBRARY: ExerciseDefinition[] = [
   },
 
   // =====================
+  // CALISTHENICS SKILLS (Planche / Front Lever / Handstand / Muscle-Up)
+  // Skill-progression work — added for the Hybrid Calisthenics + Hypertrophy program.
+  // =====================
+  { id: 'handstand-hspu-progression',  name: 'Handstand / HSPU Progression',              description: 'Wall handstand, freestanding attempts, pike HSPU, wall HSPU',                  categories: ['calisthenics', 'push', 'shoulders'],           defaultPhoto: pexels(4162451) },
+  { id: 'handstand-progression',       name: 'Handstand Progression',                     description: 'Wall handstand hold progressing toward a freestanding balance',                categories: ['calisthenics', 'push', 'shoulders'],           defaultPhoto: pexels(4162451) },
+  { id: 'planche-progression',         name: 'Planche Progression',                       description: 'Tuck → advanced tuck → straddle → full planche hold',                         categories: ['calisthenics', 'push', 'shoulders', 'abs'],    defaultPhoto: pexels(4162451) },
+  { id: 'push-up-progression',         name: 'Push-Up Progression',                       description: 'Progressive push-up variation (ring/archer path toward a one-arm push-up)',    categories: ['calisthenics', 'push', 'chest', 'triceps'],   defaultPhoto: pexels(4162438) },
+  { id: 'front-lever-progression',     name: 'Front Lever Progression',                   description: 'Tuck → advanced tuck → straddle → full front lever hold',                      categories: ['calisthenics', 'pull', 'back', 'abs'],         defaultPhoto: pexels(4162451) },
+  { id: 'front-lever-row',             name: 'Front Lever Row',                           description: 'Row performed from a front lever body position',                              categories: ['calisthenics', 'pull', 'back'],                defaultPhoto: pexels(4162485) },
+  { id: 'front-lever-pulldown',        name: 'Front-Lever Pulldown',                      description: 'Straight-arm cable pulldown that builds front lever and lat strength',        categories: ['calisthenics', 'pull', 'back'],                defaultPhoto: pexels(4164587) },
+  { id: 'weighted-pull-up',            name: 'Weighted Pull-Up',                          description: 'Pull-up with added external load',                                            categories: ['calisthenics', 'pull', 'back', 'biceps'],      defaultPhoto: pexels(4162451) },
+  { id: 'explosive-pullup-progression', name: 'Explosive Pull-Ups / Muscle-Up Progression', description: 'Fast, technique-focused pull-ups building toward the muscle-up transition',    categories: ['calisthenics', 'pull', 'back', 'full-body'],  defaultPhoto: pexels(4162451) },
+  { id: 'muscle-up-progression',       name: 'Muscle-Up Progression',                     description: 'False-grip pull-ups, transition drills, and explosive pull-ups toward the muscle-up', categories: ['calisthenics', 'pull', 'back', 'full-body'], defaultPhoto: pexels(4162451) },
+
+  // =====================
   // ATLAS CALISTHENICS — UPPER BODY
   // Skill progressions, scap work, holds, and transitions from the Atlas program
   // =====================
