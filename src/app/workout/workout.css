@@ -1526,3 +1526,58 @@ body[data-rest-active] .workout-page {
 .workout-watch-link:hover {
   filter: brightness(1.08);
 }
+
+/* ── Completion summary: funny "you lifted 4 hippos" brag line ── */
+.workout-summary-brag {
+  margin-bottom: 20px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--workout-gold) 16%, transparent),
+    color-mix(in srgb, var(--workout-gold) 4%, transparent)
+  );
+  border: 1px solid color-mix(in srgb, var(--workout-gold) 28%, transparent);
+  color: var(--workout-text);
+  font-size: 15px;
+  line-height: 1.5;
+  font-weight: 600;
+  text-align: center;
+}
+
+/* ── Completion confetti burst ── */
+.workout-confetti {
+  position: fixed;
+  inset: 0;
+  z-index: 300;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.workout-confetti-piece {
+  position: absolute;
+  top: -12px;
+  display: block;
+  will-change: transform, opacity;
+  animation-name: workout-confetti-fall;
+  animation-timing-function: cubic-bezier(0.3, 0.6, 0.5, 1);
+  animation-fill-mode: forwards;
+  animation-iteration-count: 1;
+}
+
+@keyframes workout-confetti-fall {
+  0% {
+    transform: translate(0, -10vh) rotate(0deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(var(--drift, 0), 105vh) rotate(var(--spin, 360deg));
+    opacity: 0.9;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .workout-confetti {
+    display: none;
+  }
+}

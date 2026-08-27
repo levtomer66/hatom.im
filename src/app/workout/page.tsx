@@ -42,6 +42,7 @@ import {
   DEFAULT_NUM_SETS,
 } from '@/types/workout';
 import { EXERCISE_LIBRARY } from '@/data/exercise-library';
+import { getVolumeBrag } from '@/lib/workout-volume-jokes';
 import { v4 as uuidv4 } from 'uuid';
 import { buildSupersetGroups, supersetLabel } from '@/lib/superset';
 
@@ -875,8 +876,16 @@ function CompletionSummary({ workout, onClose }: { workout: Workout; onClose: ()
     ? `${Math.round(stats.totalVolumeKg * 2.20462).toLocaleString()} lb`
     : `${Math.round(stats.totalVolumeKg).toLocaleString()} kg`;
 
+  // Funny "you basically lifted 4 hippos" line. Deterministic per workout
+  // so re-opening the same summary shows the same brag.
+  const brag = useMemo(
+    () => getVolumeBrag(stats.totalVolumeKg, language, workout.id),
+    [stats.totalVolumeKg, language, workout.id]
+  );
+
   return (
     <div className="workout-modal-overlay" onClick={onClose}>
+      <WorkoutConfetti />
       <div
         className="workout-modal"
         onClick={(e) => e.stopPropagation()}
@@ -908,6 +917,9 @@ function CompletionSummary({ workout, onClose }: { workout: Workout; onClose: ()
             />
             <SummaryStat label={t('workout.summary.volume')} value={volumeDisplay} />
           </div>
+          <div className="workout-summary-brag" role="status">
+            {brag}
+          </div>
           <button
             className="workout-btn workout-btn-primary workout-btn-full"
             onClick={onClose}
@@ -916,6 +928,56 @@ function CompletionSummary({ workout, onClose }: { workout: Workout; onClose: ()
           </button>
         </div>
       </div>
+    </div>
+  );
+}
+
+// A lightweight, dependency-free confetti burst shown when the completion
+// summary opens. Pieces are generated once (stable across re-renders) and
+// the whole thing unmounts after the animation so it never lingers.
+function WorkoutConfetti() {
+  const pieces = useMemo(() => {
+    const colors = ['#ffd166', '#06d6a0', '#ef476f', '#118ab2', '#f78c6b', '#c792ea'];
+    return Array.from({ length: 44 }, (_, i) => ({
+      id: i,
+      left: Math.random() * 100,           // vw start
+      drift: (Math.random() - 0.5) * 160,  // px horizontal wander
+      delay: Math.random() * 0.5,          // s
+      duration: 2.6 + Math.random() * 1.6, // s
+      size: 7 + Math.random() * 7,         // px
+      rotate: Math.random() * 360,         // deg
+      color: colors[i % colors.length],
+      round: Math.random() > 0.5,
+    }));
+  }, []);
+
+  const [show, setShow] = useState(true);
+  useEffect(() => {
+    const timer = setTimeout(() => setShow(false), 4500);
+    return () => clearTimeout(timer);
+  }, []);
+
+  if (!show) return null;
+
+  return (
+    <div className="workout-confetti" aria-hidden="true">
+      {pieces.map((p) => (
+        <span
+          key={p.id}
+          className="workout-confetti-piece"
+          style={{
+            left: `${p.left}vw`,
+            width: p.size,
+            height: p.size,
+            background: p.color,
+            borderRadius: p.round ? '50%' : '2px',
+            animationDelay: `${p.delay}s`,
+            animationDuration: `${p.duration}s`,
+            ['--drift' as string]: `${p.drift}px`,
+            ['--spin' as string]: `${p.rotate}deg`,
+          }}
+        />
+      ))}
     </div>
   );
 }
