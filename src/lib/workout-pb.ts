@@ -9,6 +9,7 @@ import {
   BestE1rm,
 } from '@/types/workout';
 import { resolveExerciseId } from '@/data/exercise-library';
+import { getProgressionStep, stepIndex } from '@/lib/workout-progression';
 
 // Personal-best computation + a materialized per-user store. The expensive
 // full-collection scan (computePersonalBests) now runs only when a workout is
@@ -64,8 +65,49 @@ interface PBCandidate {
   bestSecondsDate: string | null;
   bestSecondsWorkoutId: string | null;
 
+  // Calisthenics: best per progression step, furthest rung ever logged, and
+  // the bodyweight-rep lane.
+  stepBests: Record<string, { best: number; date: string; workoutId: string }>;
+  frontierStepIndex: number;
+  frontierStepId: string | null;
+  bestBodyweightReps: number | null;
+  bestBodyweightRepsDate: string | null;
+  bestBodyweightRepsWorkoutId: string | null;
+
   lastSets: WorkoutSet[] | null;
   lastSetsDate: string;
+}
+
+// Best bodyweight rep set in one workout's sets — rep-mode sets with no added
+// weight (kg null or 0). This is the lane `epleyE1rm` can't score, so without
+// it max-pull-ups / bodyweight rows record no PB at all. 0 = none.
+function getBestBodyweightReps(sets: WorkoutSet[]): number {
+  let max = 0;
+  for (const s of sets) {
+    if (isTimeSet(s)) continue;
+    const bodyweight = s.kg === null || s.kg === 0;
+    if (bodyweight && s.reps !== null && s.reps > 0 && s.reps > max) max = s.reps;
+  }
+  return max;
+}
+
+// Per-set progression measurements in one workout: for each set carrying a
+// valid ladder step, the value in the step's own unit (seconds for holds,
+// reps for dynamic) plus the step's ladder index (for frontier tracking).
+function getStepMeasurements(
+  exerciseId: string,
+  sets: WorkoutSet[],
+): Array<{ stepId: string; value: number; index: number }> {
+  const out: Array<{ stepId: string; value: number; index: number }> = [];
+  for (const s of sets) {
+    if (!s.stepId) continue;
+    const step = getProgressionStep(exerciseId, s.stepId);
+    if (!step) continue;
+    const value = step.measure === 'seconds' ? (s.seconds ?? 0) : (s.reps ?? 0);
+    if (value <= 0) continue;
+    out.push({ stepId: s.stepId, value, index: stepIndex(exerciseId, s.stepId) });
+  }
+  return out;
 }
 
 // Pick the best time-mode (kg, seconds) tuple from a single workout's sets.
@@ -111,10 +153,14 @@ async function computePersonalBests(userId: string): Promise<PBMap> {
       const timeBest = getBestTimeMode(sets);
       const setBest: BestE1rm | null = bestE1rmFromSets(sets);
       const exerciseId = resolveExerciseId(exercise.exerciseId);
+      const bwReps = getBestBodyweightReps(sets);
+      const stepMeas = getStepMeasurements(exerciseId, sets);
 
-      // Skip when this workout's exercise has neither rep-mode nor time-mode
-      // data — purely empty entries shouldn't pollute PB.
-      if (highestKg <= 0 && timeBest === null) continue;
+      // Skip when this workout's exercise has NO usable data at all — no
+      // rep-mode weight, no timed hold, no bodyweight reps, no step data.
+      // (The old guard checked only weight/time, which would have discarded
+      // bodyweight-only and skill-only sessions.)
+      if (highestKg <= 0 && timeBest === null && bwReps <= 0 && stepMeas.length === 0) continue;
 
       if (!pbCandidates[exerciseId]) {
         pbCandidates[exerciseId] = {
@@ -131,6 +177,12 @@ async function computePersonalBests(userId: string): Promise<PBMap> {
           bestSecondsKg: null,
           bestSecondsDate: null,
           bestSecondsWorkoutId: null,
+          stepBests: {},
+          frontierStepIndex: -1,
+          frontierStepId: null,
+          bestBodyweightReps: null,
+          bestBodyweightRepsDate: null,
+          bestBodyweightRepsWorkoutId: null,
           lastSets: null,
           lastSetsDate: '',
         };
@@ -147,6 +199,7 @@ async function computePersonalBests(userId: string): Promise<PBMap> {
           kg: s.kg ?? null,
           reps: s.reps ?? null,
           seconds: s.seconds ?? null,
+          stepId: s.stepId ?? null,
         }));
         candidate.lastSetsDate = workout.date;
       }
@@ -164,6 +217,34 @@ async function computePersonalBests(userId: string): Promise<PBMap> {
           candidate.bestSecondsKg = timeBest.kg;
           candidate.bestSecondsDate = workout.date;
           candidate.bestSecondsWorkoutId = workout._id.toString();
+        }
+      }
+
+      // Bodyweight-rep PB lane: most reps at bodyweight, ever.
+      if (
+        bwReps > 0 &&
+        (candidate.bestBodyweightReps === null || bwReps > candidate.bestBodyweightReps)
+      ) {
+        candidate.bestBodyweightReps = bwReps;
+        candidate.bestBodyweightRepsDate = workout.date;
+        candidate.bestBodyweightRepsWorkoutId = workout._id.toString();
+      }
+
+      // Per-step bests + frontier. Outer loop is date-desc, so on a tie the
+      // existing (earlier-seen) entry is already the more recent one; `>`
+      // keeps the frontier at the furthest rung and best at the top value.
+      for (const m of stepMeas) {
+        const prev = candidate.stepBests[m.stepId];
+        if (!prev || m.value > prev.best) {
+          candidate.stepBests[m.stepId] = {
+            best: m.value,
+            date: workout.date,
+            workoutId: workout._id.toString(),
+          };
+        }
+        if (m.index > candidate.frontierStepIndex) {
+          candidate.frontierStepIndex = m.index;
+          candidate.frontierStepId = m.stepId;
         }
       }
 
@@ -231,6 +312,19 @@ async function computePersonalBests(userId: string): Promise<PBMap> {
       bestSecondsDate: candidate.bestSecondsDate,
       bestSecondsWorkoutId: candidate.bestSecondsWorkoutId,
       lastSets: candidate.lastSets ?? undefined,
+      // Calisthenics lanes — included only when the exercise actually has
+      // progression/bodyweight data, so weighted exercises stay lean.
+      ...(Object.keys(candidate.stepBests).length > 0
+        ? { stepBests: candidate.stepBests }
+        : {}),
+      ...(candidate.frontierStepId ? { frontierStepId: candidate.frontierStepId } : {}),
+      ...(candidate.bestBodyweightReps !== null
+        ? {
+            bestBodyweightReps: candidate.bestBodyweightReps,
+            bestBodyweightRepsDate: candidate.bestBodyweightRepsDate,
+            bestBodyweightRepsWorkoutId: candidate.bestBodyweightRepsWorkoutId,
+          }
+        : {}),
     };
   }
 

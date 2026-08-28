@@ -285,6 +285,7 @@ export default function WorkoutsPage() {
               kg: p.kg ?? null,
               reps: null,                          // leave for the user — prior reps render as placeholder
               seconds: wasTime ? 0 : null,         // preserve time-mode discriminator
+              stepId: p.stepId ?? null,            // carry the progression rung (skill exercises)
             };
           });
         } else {
@@ -413,7 +414,7 @@ export default function WorkoutsPage() {
         ? Array.from({ length: DEFAULT_NUM_SETS }, (_, i) => {
             const p = prior[Math.min(i, prior.length - 1)];
             const wasTime = p.seconds != null;
-            return { kg: p.kg ?? null, reps: null, seconds: wasTime ? 0 : null };
+            return { kg: p.kg ?? null, reps: null, seconds: wasTime ? 0 : null, stepId: p.stepId ?? null };
           })
         : createDefaultSets();
       return {

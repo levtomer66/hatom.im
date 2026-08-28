@@ -1,4 +1,4 @@
-import { EXERCISE_LIBRARY } from '@/data/exercise-library';
+import { EXERCISE_LIBRARY, resolveExerciseId } from '@/data/exercise-library';
 import { ProgressionStep } from '@/types/workout';
 
 // exerciseId → its progression ladder, built once from the library. Only
@@ -10,12 +10,14 @@ const PROGRESSION_BY_EXERCISE: Map<string, ProgressionStep[]> = new Map(
     .map((e) => [e.id, e.progression as ProgressionStep[]]),
 );
 
+// Resolve aliases (e.g. lat-pulldown → wide-grip-lat-pulldown) before lookup
+// so a workout that stored an aliased id still finds its ladder.
 export function getProgression(exerciseId: string): ProgressionStep[] | undefined {
-  return PROGRESSION_BY_EXERCISE.get(exerciseId);
+  return PROGRESSION_BY_EXERCISE.get(resolveExerciseId(exerciseId));
 }
 
 export function hasProgression(exerciseId: string): boolean {
-  return PROGRESSION_BY_EXERCISE.has(exerciseId);
+  return getProgression(exerciseId) !== undefined;
 }
 
 export function getProgressionStep(
