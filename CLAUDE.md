@@ -145,8 +145,13 @@ Identity = Gmail address. Two roles:
 - Legacy-shape templates still in Mongo store `exerciseIds: string[]` — the
   API handlers transparently convert on read (`src/app/api/workout/templates/
   route.ts`). Don't remove that fallback without migrating the documents.
-- Users are three fixed IDs: `tom`, `tomer`, `amit` (see `src/types/workout.ts`
-  — single `USER_IDS` array is the source of truth).
+- **Identity = session email** (post-SSO migration): `UserId` is the user's
+  Gmail address, derived server-side from the Auth.js session in every
+  workout API route (`requireSignedIn()`; any client-supplied userId is
+  ignored). `KNOWN_USERS` in `src/types/workout.ts` maps the three historic
+  emails to display names (Tom, Tomer, Amit); any other allowlisted email is
+  a valid user whose name falls back via `getUserDisplayName()`. The old
+  fixed IDs `tom`/`tomer`/`amit` no longer exist.
 - Alias collision bug fixed once: `lat-pulldown` → `wide-grip-lat-pulldown`.
   Template read/write goes through `resolveExerciseId()` + dedupe helper so
   templates can't hold both forms at once. Don't regress.
