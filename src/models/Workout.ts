@@ -9,6 +9,9 @@ const WorkoutSetSchema = new Schema<WorkoutSet>({
   kg: { type: Number, default: null },
   reps: { type: Number, default: null },
   seconds: { type: Number, default: null },
+  // Calisthenics progression rung (a ProgressionStep.id on the exercise's
+  // ladder). Sanitized against the ladder in the PUT handler before save.
+  stepId: { type: String, default: null },
 }, { _id: false });
 
 // Sub-schema for workout exercises

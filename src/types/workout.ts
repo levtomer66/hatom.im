@@ -135,6 +135,21 @@ export type ExerciseCategory =
   | 'calves'
   | 'abs';
 
+// One rung on a calisthenics progression ladder (tuck → advanced tuck →
+// straddle → full planche). Steps are the "which skill level" datum that
+// distinguishes a tuck hold from a full planche — captured per WorkoutSet
+// via `stepId`. Ordered easiest → hardest on the ExerciseDefinition.
+export interface ProgressionStep {
+  id: string;                     // stable, unique WITHIN one exercise's ladder
+  name: string;                   // canonical English; Hebrew via exercise-translations
+  measure: 'seconds' | 'reps';    // drives the set row's default mode
+  cue?: string;                   // short English form cue
+  // When the frontier step's best meets this target, the UI suggests the
+  // next step. Advisory only — the user always picks the step. Absent on the
+  // final (mastered) step. Values are training conventions, kept as data.
+  advanceAt?: { value: number; sets: number };
+}
+
 // Exercise library definition.
 // `name` and `description` are the canonical English values. Translations for
 // other languages live in `src/lib/exercise-translations/<lang>.ts` — one file
@@ -151,6 +166,10 @@ export interface ExerciseDefinition {
   // pickers/browse but still resolves its name/photo in past workouts and
   // templates. Only ever set on custom exercises.
   retired?: boolean;
+  // Calisthenics progression ladder (easiest → hardest). Present only on
+  // skill exercises; its presence is what flips an exercise into "skill
+  // mode" in the UI. Absent on barbell/machine exercises and all customs.
+  progression?: ProgressionStep[];
 }
 
 // Single set with its own weight, reps, and optional time-mode duration.
@@ -162,6 +181,13 @@ export interface WorkoutSet {
   kg: number | null;
   reps: number | null;
   seconds: number | null;
+  // Calisthenics progression rung this set was performed at, referencing a
+  // `ProgressionStep.id` on the exercise's ladder. Nullable + optional so
+  // legacy sets (saved before the field existed) round-trip untouched, same
+  // as `seconds`. Sanitized server-side against the exercise's ladder on
+  // save — an id not on the ladder is stripped to null. On a laddered set
+  // `kg` means ADDED weight (e.g. weighted straddle planche).
+  stepId?: string | null;
 }
 
 // A set is in time-mode when it has a `seconds` field. Loose `!= null`

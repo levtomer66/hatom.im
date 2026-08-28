@@ -5,6 +5,10 @@
 export interface ExerciseTranslation {
   name?: string;
   description?: string;
+  // Localized names for progression-ladder steps, keyed by
+  // `ProgressionStep.id`. Any missing step falls back to the English
+  // `ProgressionStep.name` on the definition.
+  steps?: Record<string, string>;
 }
 
 export type ExerciseTranslations = Record<string, ExerciseTranslation>;

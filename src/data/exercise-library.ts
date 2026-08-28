@@ -604,6 +604,11 @@ export const EXERCISE_LIBRARY: ExerciseDefinition[] = [
     description: 'Single-leg bodyweight squat',
     categories: ['calisthenics', 'legs', 'quads', 'glutes'],
     defaultPhoto: pexels(4162451), // Pistol squat
+    progression: [
+      { id: 'assisted', name: 'Assisted Pistol', measure: 'reps', cue: 'Hold a post/TRX for balance', advanceAt: { value: 8, sets: 3 } },
+      { id: 'box',      name: 'Box Pistol',      measure: 'reps', cue: 'Sit to a box, stand on one leg', advanceAt: { value: 6, sets: 3 } },
+      { id: 'full',     name: 'Full Pistol Squat', measure: 'reps', cue: 'Full depth, no support' },
+    ],
   },
   {
     id: 'inverted-row',
@@ -618,22 +623,86 @@ export const EXERCISE_LIBRARY: ExerciseDefinition[] = [
     description: 'Isometric L-sit hold',
     categories: ['calisthenics', 'full-body', 'abs'],
     defaultPhoto: pexels(4162451), // L-sit
+    progression: [
+      { id: 'tuck-sit', name: 'Tuck Sit',      measure: 'seconds', cue: 'Knees tucked, hips off the floor', advanceAt: { value: 20, sets: 3 } },
+      { id: 'one-leg',  name: 'One-Leg L-Sit', measure: 'seconds', cue: 'One leg extended, one tucked',     advanceAt: { value: 15, sets: 3 } },
+      { id: 'l-sit',    name: 'L-Sit',         measure: 'seconds', cue: 'Both legs straight, parallel to floor', advanceAt: { value: 10, sets: 3 } },
+      { id: 'v-sit',    name: 'V-Sit',         measure: 'seconds', cue: 'Legs raised above hip height' },
+    ],
   },
 
   // =====================
   // CALISTHENICS SKILLS (Planche / Front Lever / Handstand / Muscle-Up)
   // Skill-progression work — added for the Hybrid Calisthenics + Hypertrophy program.
   // =====================
-  { id: 'handstand-hspu-progression',  name: 'Handstand / HSPU Progression',              description: 'Wall handstand, freestanding attempts, pike HSPU, wall HSPU',                  categories: ['calisthenics', 'push', 'shoulders'],           defaultPhoto: pexels(4162451) },
-  { id: 'handstand-progression',       name: 'Handstand Progression',                     description: 'Wall handstand hold progressing toward a freestanding balance',                categories: ['calisthenics', 'push', 'shoulders'],           defaultPhoto: pexels(4162451) },
-  { id: 'planche-progression',         name: 'Planche Progression',                       description: 'Tuck → advanced tuck → straddle → full planche hold',                         categories: ['calisthenics', 'push', 'shoulders', 'abs'],    defaultPhoto: pexels(4162451) },
+  {
+    id: 'handstand-hspu-progression', name: 'HSPU Progression',
+    description: 'Vertical pressing strength: pike push-up → wall HSPU → freestanding HSPU',
+    categories: ['calisthenics', 'push', 'shoulders'], defaultPhoto: pexels(4162451),
+    progression: [
+      { id: 'pike',              name: 'Pike Push-Up',          measure: 'reps', cue: 'Hips high, press through the top of your head', advanceAt: { value: 10, sets: 3 } },
+      { id: 'elevated-pike',     name: 'Elevated Pike Push-Up', measure: 'reps', cue: 'Feet on a box for a steeper angle',            advanceAt: { value: 8, sets: 3 } },
+      { id: 'wall-hspu',         name: 'Wall HSPU',             measure: 'reps', cue: 'Chest-to-wall handstand, full ROM',           advanceAt: { value: 5, sets: 3 } },
+      { id: 'freestanding-hspu', name: 'Freestanding HSPU',     measure: 'reps', cue: 'No wall — balance and press' },
+    ],
+  },
+  {
+    id: 'handstand-progression', name: 'Handstand Progression',
+    description: 'Balance ladder: back-to-wall → chest-to-wall → freestanding hold',
+    categories: ['calisthenics', 'push', 'shoulders'], defaultPhoto: pexels(4162451),
+    progression: [
+      { id: 'wall-back',    name: 'Back-to-Wall Handstand',  measure: 'seconds', cue: 'Belly to wall, stack shoulders over hands', advanceAt: { value: 45, sets: 3 } },
+      { id: 'wall-chest',   name: 'Chest-to-Wall Handstand', measure: 'seconds', cue: 'Face the wall, tight line',                 advanceAt: { value: 45, sets: 3 } },
+      { id: 'freestanding', name: 'Freestanding Handstand',  measure: 'seconds', cue: 'Kick up and balance, no wall' },
+    ],
+  },
+  {
+    id: 'planche-progression', name: 'Planche Progression',
+    description: 'Tuck → advanced tuck → straddle → full planche hold',
+    categories: ['calisthenics', 'push', 'shoulders', 'abs'], defaultPhoto: pexels(4162451),
+    progression: [
+      { id: 'tuck',     name: 'Tuck Planche',     measure: 'seconds', cue: 'Knees to chest, lean forward, hips at shoulder height', advanceAt: { value: 20, sets: 3 } },
+      { id: 'adv-tuck', name: 'Advanced Tuck Planche', measure: 'seconds', cue: 'Open the knees, flatten the back', advanceAt: { value: 15, sets: 3 } },
+      { id: 'straddle', name: 'Straddle Planche', measure: 'seconds', cue: 'Legs wide and straight', advanceAt: { value: 10, sets: 3 } },
+      { id: 'full',     name: 'Full Planche',     measure: 'seconds', cue: 'Legs together, straight, parallel to floor' },
+    ],
+  },
   { id: 'push-up-progression',         name: 'Push-Up Progression',                       description: 'Progressive push-up variation (ring/archer path toward a one-arm push-up)',    categories: ['calisthenics', 'push', 'chest', 'triceps'],   defaultPhoto: pexels(4162438) },
-  { id: 'front-lever-progression',     name: 'Front Lever Progression',                   description: 'Tuck → advanced tuck → straddle → full front lever hold',                      categories: ['calisthenics', 'pull', 'back', 'abs'],         defaultPhoto: pexels(4162451) },
-  { id: 'front-lever-row',             name: 'Front Lever Row',                           description: 'Row performed from a front lever body position',                              categories: ['calisthenics', 'pull', 'back'],                defaultPhoto: pexels(4162485) },
+  {
+    id: 'front-lever-progression', name: 'Front Lever Progression',
+    description: 'Tuck → advanced tuck → straddle → full front lever hold',
+    categories: ['calisthenics', 'pull', 'back', 'abs'], defaultPhoto: pexels(4162451),
+    progression: [
+      { id: 'tuck',     name: 'Tuck Front Lever',     measure: 'seconds', cue: 'Knees tucked, body horizontal, arms straight', advanceAt: { value: 20, sets: 3 } },
+      { id: 'adv-tuck', name: 'Advanced Tuck Front Lever', measure: 'seconds', cue: 'Open the hips, flat back', advanceAt: { value: 15, sets: 3 } },
+      { id: 'straddle', name: 'Straddle Front Lever', measure: 'seconds', cue: 'Legs wide and straight', advanceAt: { value: 10, sets: 3 } },
+      { id: 'full',     name: 'Full Front Lever',     measure: 'seconds', cue: 'Legs together, whole body horizontal' },
+    ],
+  },
+  {
+    id: 'front-lever-row', name: 'Front Lever Row',
+    description: 'Row performed from a front lever body position',
+    categories: ['calisthenics', 'pull', 'back'], defaultPhoto: pexels(4162485),
+    progression: [
+      { id: 'tuck-row',     name: 'Tuck FL Row',     measure: 'reps', cue: 'Row while holding a tuck lever', advanceAt: { value: 8, sets: 3 } },
+      { id: 'straddle-row', name: 'Straddle FL Row', measure: 'reps', cue: 'Row from a straddle lever',      advanceAt: { value: 6, sets: 3 } },
+      { id: 'full-row',     name: 'Full FL Row',     measure: 'reps', cue: 'Row from a full front lever' },
+    ],
+  },
   { id: 'front-lever-pulldown',        name: 'Front-Lever Pulldown',                      description: 'Straight-arm cable pulldown that builds front lever and lat strength',        categories: ['calisthenics', 'pull', 'back'],                defaultPhoto: pexels(4164587) },
   { id: 'weighted-pull-up',            name: 'Weighted Pull-Up',                          description: 'Pull-up with added external load',                                            categories: ['calisthenics', 'pull', 'back', 'biceps'],      defaultPhoto: pexels(4162451) },
   { id: 'explosive-pullup-progression', name: 'Explosive Pull-Ups / Muscle-Up Progression', description: 'Fast, technique-focused pull-ups building toward the muscle-up transition',    categories: ['calisthenics', 'pull', 'back', 'full-body'],  defaultPhoto: pexels(4162451) },
-  { id: 'muscle-up-progression',       name: 'Muscle-Up Progression',                     description: 'False-grip pull-ups, transition drills, and explosive pull-ups toward the muscle-up', categories: ['calisthenics', 'pull', 'back', 'full-body'], defaultPhoto: pexels(4162451) },
+  {
+    id: 'muscle-up-progression', name: 'Muscle-Up Progression',
+    description: 'False-grip pull-ups, transition drills, and explosive pull-ups toward the muscle-up',
+    categories: ['calisthenics', 'pull', 'back', 'full-body'], defaultPhoto: pexels(4162451),
+    progression: [
+      { id: 'chest-to-bar', name: 'Chest-to-Bar Pull-Up', measure: 'reps', cue: 'Pull until the bar meets your chest', advanceAt: { value: 5, sets: 3 } },
+      { id: 'high-pullup',  name: 'High Pull-Up',         measure: 'reps', cue: 'Explode as high as possible, hips to bar', advanceAt: { value: 3, sets: 3 } },
+      { id: 'band-mu',      name: 'Banded Muscle-Up',     measure: 'reps', cue: 'Full muscle-up assisted by a band',        advanceAt: { value: 3, sets: 3 } },
+      { id: 'muscle-up',    name: 'Muscle-Up',            measure: 'reps', cue: 'Pull, transition, press to support' },
+    ],
+  },
 
   // =====================
   // ATLAS CALISTHENICS — UPPER BODY

@@ -3,6 +3,7 @@ import mongoose from 'mongoose';
 import WorkoutModel from '@/models/Workout';
 import { requireSignedIn } from '@/lib/auth-helpers';
 import { recomputeAndStorePersonalBests } from '@/lib/workout-pb';
+import { sanitizeExercisesStepIds } from '@/lib/workout-progression';
 
 // Connect to MongoDB using mongoose
 async function connectDB() {
@@ -79,6 +80,10 @@ export async function PUT(
     delete updateData.id;
     delete updateData.createdAt;
     delete updateData.userId; // immutable: tied to the signed-in user
+
+    // Calisthenics: keep each set's stepId only if it names a real rung on
+    // that exercise's ladder; unknown/stale ids drop to null. In place.
+    if (updateData.exercises) sanitizeExercisesStepIds(updateData.exercises);
 
     const workout = await WorkoutModel.findByIdAndUpdate(
       id,

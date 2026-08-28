@@ -33,6 +33,17 @@ export function getLocalizedExercise(
   };
 }
 
+// Localized name for a single progression step. Falls back to the step's
+// English `name` when no translation exists for the active language.
+export function getLocalizedStepName(
+  exerciseId: string,
+  step: { id: string; name: string },
+  language: Language
+): string {
+  if (language === 'en') return step.name;
+  return getExerciseTranslation(exerciseId, language).steps?.[step.id] ?? step.name;
+}
+
 // For search: return ALL name variants known for an exercise (English + every
 // translation). Callers can then check whether the search query matches any.
 export function getExerciseSearchNames(
