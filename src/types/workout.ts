@@ -377,6 +377,18 @@ export interface PersonalBest {
   // from `currentReps` which only tracks reps at the highest weight.
   // Absent when the user has never logged this exercise.
   lastSets?: WorkoutSet[];
+  // ── Calisthenics progression PBs (populated in WP3) ──
+  // Best measurement per progression step, keyed by ProgressionStep.id.
+  // The unit is the step's `measure` (seconds for holds, reps for dynamic).
+  stepBests?: Record<string, { best: number; date: string; workoutId: string }>;
+  // Furthest rung the user has ever logged a real set at — their "skill
+  // level" on this exercise. Null until they log a laddered set.
+  frontierStepId?: string | null;
+  // Best bodyweight (kg == null) rep set — the lane `epleyE1rm` can't score
+  // because it needs a weight. Lets max-pull-ups etc. finally record a PB.
+  bestBodyweightReps?: number | null;
+  bestBodyweightRepsDate?: string | null;
+  bestBodyweightRepsWorkoutId?: string | null;
 }
 
 // Exercise history entry (for display)

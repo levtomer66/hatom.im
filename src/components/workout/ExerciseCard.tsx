@@ -3,7 +3,9 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { WorkoutExercise, WorkoutSet, PersonalBest, ExerciseDefinition, ExerciseHistoryEntry, isExerciseCompleted, isTimeSet, getHighestWeight, bestE1rmFromSets, MIN_SETS, MAX_SETS } from '@/types/workout';
 import { getExerciseById } from '@/data/exercise-library';
-import { getLocalizedExercise } from '@/lib/exercise-translations';
+import { getLocalizedExercise, getLocalizedStepName } from '@/lib/exercise-translations';
+import { getProgressionStep } from '@/lib/workout-progression';
+import { ProgressionStep } from '@/types/workout';
 import { useWorkoutUser } from '@/context/WorkoutUserContext';
 import { useWorkoutLanguage } from '@/context/WorkoutLanguageContext';
 import { useWorkoutUnit } from '@/context/WorkoutUnitContext';
@@ -85,6 +87,23 @@ export default function ExerciseCard({
   const isCompleted = isExerciseCompleted(exercise);
   const isEditable = mode === 'edit';
 
+  // Calisthenics: a ladder on the definition flips this into a "skill"
+  // exercise — each set carries a progression step, and the kg field means
+  // ADDED weight. `frontierStepId` (furthest rung ever logged) comes from the
+  // materialized PB; absent until WP3 lands, which just means no frontier
+  // highlight / advance nudge yet.
+  const progression: ProgressionStep[] | undefined = exerciseDef?.progression;
+  const isSkill = !!(progression && progression.length > 0);
+  const frontierStepId = pb?.frontierStepId ?? null;
+  const frontierIndex = frontierStepId
+    ? (progression?.findIndex((s) => s.id === frontierStepId) ?? -1)
+    : -1;
+  // Localized step name for a set, or '' when the set has no (valid) step.
+  const stepLabelFor = (set: WorkoutSet): string => {
+    const step = getProgressionStep(exercise.exerciseId, set.stepId);
+    return step ? getLocalizedStepName(exercise.exerciseId, step, language) : '';
+  };
+
   // Check if form has any data filled
   const hasData = exercise.sets.some(s => s.kg !== null || s.reps !== null || isTimeSet(s));
 
@@ -95,6 +114,9 @@ export default function ExerciseCard({
   const [showHistory, setShowHistory] = useState(false);
   const [history, setHistory] = useState<ExerciseHistoryEntry[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
+
+  // Which set's step picker is open (skill exercises only); null = closed.
+  const [stepPickerSet, setStepPickerSet] = useState<number | null>(null);
 
   // Refs for keyboard navigation and focus tracking
   const cardRef = useRef<HTMLDivElement>(null);
@@ -307,6 +329,23 @@ export default function ExerciseCard({
     onUpdate({ ...exercise, sets: newSets });
   };
 
+  // Assign a progression step to a set and switch the row's measure to match
+  // the step (holds → time mode, dynamic → rep mode), preserving the
+  // background field so a manual toggle can still flip it back.
+  const handleStepChange = (setIndex: number, step: ProgressionStep) => {
+    if (!onUpdate) return;
+    const newSets = [...exercise.sets];
+    const current = newSets[setIndex];
+    const goingToTime = step.measure === 'seconds';
+    newSets[setIndex] = {
+      ...current,
+      stepId: step.id,
+      seconds: goingToTime ? (current.seconds ?? 0) : null,
+    };
+    onUpdate({ ...exercise, sets: newSets });
+    setStepPickerSet(null);
+  };
+
   const handleKeyDown = (
     e: React.KeyboardEvent<HTMLInputElement>,
     nextRefIndex: number | null
@@ -509,6 +548,19 @@ export default function ExerciseCard({
                 : set.reps !== null && set.reps > 0;
               return (
                 <div key={setIndex} className="exercise-set-row-edit">
+                  {isSkill && (
+                    <button
+                      type="button"
+                      className="exercise-set-step-chip"
+                      onClick={() => setStepPickerSet(setIndex)}
+                      title={t('card.step_pick')}
+                    >
+                      <span className="exercise-set-step-name">
+                        {stepLabelFor(set) || t('card.step_choose')}
+                      </span>
+                      <span className="exercise-set-step-caret" aria-hidden="true">▾</span>
+                    </button>
+                  )}
                   <div className="set-number">{t('card.set_n')} {setIndex + 1}</div>
                   <button
                     type="button"
@@ -520,7 +572,7 @@ export default function ExerciseCard({
                     {isTimeMode ? '⏱' : '#'}
                   </button>
                   <div className="exercise-form-field">
-                    <label>{unitLabel}</label>
+                    <label>{isSkill ? `+${unitLabel}` : unitLabel}</label>
                     <input
                       ref={(el) => { inputRefs.current[setIndex * 2] = el; }}
                       type="number"
@@ -605,10 +657,14 @@ export default function ExerciseCard({
           )}
           {exercise.sets.map((set, i) => {
             const chip = formatHistorySet(set, unit, unitSuffix, t('card.bw_label'));
+            const stepLbl = stepLabelFor(set);
             return (
               <div key={i} className="exercise-set-row">
                 <span className="exercise-set-label">{t('card.set_n')} {i + 1}</span>
-                <span>{chip}</span>
+                <span>
+                  {stepLbl && <span className="exercise-set-step-tag">{stepLbl}</span>}
+                  {chip}
+                </span>
               </div>
             );
           })}
@@ -629,6 +685,65 @@ export default function ExerciseCard({
           {t('card.completed_at_prefix')} {formatWeight(highestKg, unit)}{unitSuffix}
         </div>
       )}
+
+      {/* Progression step picker (skill exercises) */}
+      {stepPickerSet !== null && progression && (() => {
+        const activeSetIndex = stepPickerSet;
+        const frontierStep = frontierIndex >= 0 ? progression[frontierIndex] : null;
+        const frontierBest = frontierStepId ? pb?.stepBests?.[frontierStepId]?.best ?? null : null;
+        // Suggest the next rung once the frontier step's best meets its target.
+        const readyIndex =
+          frontierStep?.advanceAt && frontierBest != null && frontierBest >= frontierStep.advanceAt.value
+            ? frontierIndex + 1
+            : -1;
+        return (
+          <div className="workout-modal-overlay" onClick={() => setStepPickerSet(null)}>
+            <div className="workout-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 420 }}>
+              <div className="workout-modal-header">
+                <span className="workout-modal-title">{t('card.step_picker_title')}</span>
+                <button className="workout-modal-close" onClick={() => setStepPickerSet(null)} aria-label={t('generic.close')}>
+                  ✕
+                </button>
+              </div>
+              <div className="workout-modal-body">
+                <div className="step-picker-list">
+                  {progression.map((step, idx) => {
+                    const selected = exercise.sets[activeSetIndex]?.stepId === step.id;
+                    const isFrontier = step.id === frontierStepId;
+                    const ready = idx === readyIndex;
+                    const name = getLocalizedStepName(exercise.exerciseId, step, language);
+                    return (
+                      <button
+                        key={step.id}
+                        type="button"
+                        className={`step-picker-item${selected ? ' step-picker-item-selected' : ''}`}
+                        onClick={() => handleStepChange(activeSetIndex, step)}
+                      >
+                        <span className="step-picker-rung">{idx + 1}</span>
+                        <div className="step-picker-text">
+                          <div className="step-picker-name">
+                            {name}
+                            {isFrontier && (
+                              <span className="step-picker-badge step-picker-badge-frontier">{t('card.step_frontier')}</span>
+                            )}
+                            {ready && (
+                              <span className="step-picker-badge step-picker-badge-ready">{t('card.step_ready')}</span>
+                            )}
+                          </div>
+                          {step.cue && <div className="step-picker-cue">{step.cue}</div>}
+                        </div>
+                        <span className="step-picker-measure">
+                          {step.measure === 'seconds' ? t('card.step_measure_hold') : t('card.step_measure_reps')}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* History modal */}
       {showHistory && (
@@ -724,6 +839,9 @@ export default function ExerciseCard({
                             }}
                           >
                             <span style={{ color: 'var(--workout-text-secondary)' }}>{t('card.set_short')}{setIndex + 1}: </span>
+                            {stepLabelFor(set) && (
+                              <span className="exercise-set-step-tag">{stepLabelFor(set)}</span>
+                            )}
                             <span style={{ fontWeight: 600 }}>
                               {formatHistorySet(set, unit, unitSuffix, t('card.bw_label'))}
                             </span>
