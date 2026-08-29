@@ -871,6 +871,70 @@ body[data-rest-active] .workout-page {
   vertical-align: middle;
 }
 
+/* Motivation feed */
+.feed-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.feed-post {
+  padding: 16px;
+  border-radius: 14px;
+  background: var(--workout-bg-card);
+  border: 1px solid var(--workout-border);
+}
+.feed-post-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.feed-post-who { font-size: 14px; }
+.feed-post-name { font-weight: 700; }
+.feed-post-action { color: var(--workout-text-secondary); }
+.feed-post-unshare {
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+  background: var(--workout-bg-secondary);
+  color: var(--workout-text-muted);
+  font-size: 13px;
+}
+.feed-post-unshare:disabled { opacity: 0.5; }
+.feed-post-workout {
+  margin-top: 2px;
+  font-size: 13px;
+  color: var(--workout-text-secondary);
+}
+.feed-post-date { color: var(--workout-text-muted); }
+.feed-post-stats {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 12px 0;
+  font-size: 14px;
+  color: var(--workout-text-secondary);
+}
+.feed-post-stats strong { color: var(--workout-text); font-weight: 700; }
+.feed-post-brag {
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--workout-gold) 16%, transparent),
+    color-mix(in srgb, var(--workout-gold) 4%, transparent)
+  );
+  border: 1px solid color-mix(in srgb, var(--workout-gold) 28%, transparent);
+  color: var(--workout-text);
+  font-size: 14px;
+  line-height: 1.5;
+  font-weight: 600;
+}
+
 /* Skills overview strip (exercises list page) */
 .skills-overview {
   margin-bottom: 16px;

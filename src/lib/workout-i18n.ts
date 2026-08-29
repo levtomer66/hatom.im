@@ -12,6 +12,14 @@ const DICT = {
   'nav.exercises':       { en: 'Exercises',                       he: 'תרגילים' },
   'nav.history':         { en: 'History',                         he: 'היסטוריה' },
   'nav.music':           { en: 'Music',                           he: 'מוזיקה' },
+  'nav.feed':            { en: 'Feed',                            he: 'פיד' },
+  'feed.title':          { en: 'Motivation Feed',                 he: 'פיד מוטיבציה' },
+  'feed.completed':      { en: 'completed a workout',             he: 'השלים אימון' },
+  'feed.share':          { en: 'Share to feed 📣',                he: 'שיתוף בפיד 📣' },
+  'feed.shared':         { en: 'Shared ✓',                        he: 'שותף ✓' },
+  'feed.unshare':        { en: 'Remove from feed',                he: 'הסרה מהפיד' },
+  'feed.empty':          { en: 'Complete a workout and be the first to flex here 💪', he: 'סיימו אימון והיו הראשונים להשוויץ כאן 💪' },
+  'feed.load_more':      { en: 'Load more',                       he: 'טען עוד' },
   'header.switch_user':  { en: 'Switch',                          he: 'החלף' },
 
   // Login
