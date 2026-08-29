@@ -8,7 +8,6 @@ import { signIn, useSession } from 'next-auth/react';
 import { FaDog, FaCoffee, FaMugHot, FaVideo, FaDumbbell, FaRing, FaPlane, FaSpa, FaHeart, FaSignInAlt } from 'react-icons/fa';
 import type { IconType } from 'react-icons';
 import Navbar from '@/components/Navbar';
-import CountdownTimer from '@/components/CountdownTimer';
 import { hasPermission } from '@/lib/permissions';
 import type { PermissionKey } from '@/types/permissions';
 
@@ -86,9 +85,8 @@ export default function Home() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.7, ease: 'easeOut' }}
         >
-          <h1 className="birthday-title">💍 התומ.ים מתחתנים 💒</h1>
+          <h1 className="birthday-title">התומ.ים</h1>
           <div className="gold-divider" />
-          <CountdownTimer />
 
           <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: '0.75rem', marginTop: '1.5rem' }}>
             {features.map(({ href, title, icon: Icon }) => (
