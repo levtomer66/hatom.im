@@ -7,7 +7,8 @@ import { useWorkoutLanguage } from '@/context/WorkoutLanguageContext';
 import { useWorkoutUnit } from '@/context/WorkoutUnitContext';
 import { useCustomExercises } from '@/context/WorkoutCustomExercisesContext';
 import { useT, getCategoryLabel } from '@/lib/workout-i18n';
-import { getLocalizedExercise, getExerciseSearchNames } from '@/lib/exercise-translations';
+import { getLocalizedExercise, getExerciseSearchNames, getLocalizedStepName } from '@/lib/exercise-translations';
+import { getProgression, getProgressionStep } from '@/lib/workout-progression';
 import { formatWeight, getUnitSuffix } from '@/lib/weight';
 import { formatSeconds } from '@/lib/time';
 import Header from '@/components/workout/Header';
@@ -161,6 +162,16 @@ export default function ExercisesPage() {
     });
   }, [filteredExercises, personalBests]);
 
+  // Calisthenics skills overview — library exercises that carry a ladder.
+  // Shown as a strip at the top only in the unfiltered view (it's a "where
+  // do I stand" home element, not a search result).
+  const skillExercises = useMemo(
+    () => EXERCISE_LIBRARY.filter((e) => (getProgression(e.id)?.length ?? 0) > 0),
+    [],
+  );
+  const showSkills =
+    !search.trim() && muscleFilters.size === 0 && topCategoryFilters.size === 0;
+
   // Loading / mid-redirect — render the shell so the page doesn't collapse
   // to a bare spinner (B11).
   if (isLoading || !currentUser) {
@@ -199,6 +210,38 @@ export default function ExercisesPage() {
             {t('picker.create_custom')}
           </button>
         </div>
+
+        {/* Skills overview — calisthenics progressions and where you stand. */}
+        {showSkills && skillExercises.length > 0 && (
+          <div className="skills-overview">
+            <div className="skills-overview-head">
+              <span className="skills-overview-title">🤸 {t('skills.title')}</span>
+              <span className="skills-overview-sub">{t('skills.subtitle')}</span>
+            </div>
+            <div className="skills-overview-strip">
+              {skillExercises.map((ex) => {
+                const pb = personalBests[ex.id];
+                const frontier = pb?.frontierStepId
+                  ? getProgressionStep(ex.id, pb.frontierStepId)
+                  : undefined;
+                const frontierLabel = frontier
+                  ? getLocalizedStepName(ex.id, frontier, language)
+                  : t('skills.not_started');
+                return (
+                  <button
+                    key={ex.id}
+                    type="button"
+                    className={`skills-chip${frontier ? ' skills-chip-active' : ''}`}
+                    onClick={() => router.push(`/workout/exercises/${ex.id}`)}
+                  >
+                    <span className="skills-chip-name">{getLocalizedExercise(ex, language).name}</span>
+                    <span className="skills-chip-frontier">{frontierLabel}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {/* Top-category filters (Push / Pull / Legs / Calisthenics) —
             match the picker for B8 consistency. */}

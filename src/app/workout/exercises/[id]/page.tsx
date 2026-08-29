@@ -7,7 +7,8 @@ import { useWorkoutLanguage } from '@/context/WorkoutLanguageContext';
 import { useWorkoutUnit } from '@/context/WorkoutUnitContext';
 import { useCustomExercises } from '@/context/WorkoutCustomExercisesContext';
 import { useT, formatDate, getCategoryLabel, getLocalizedTemplateName } from '@/lib/workout-i18n';
-import { getLocalizedExercise } from '@/lib/exercise-translations';
+import { getLocalizedExercise, getLocalizedStepName } from '@/lib/exercise-translations';
+import { getProgression } from '@/lib/workout-progression';
 import { formatHistorySet, formatWeight, getUnitSuffix } from '@/lib/weight';
 import { formatSeconds } from '@/lib/time';
 import Header from '@/components/workout/Header';
@@ -188,6 +189,8 @@ export default function ExerciseDetailPage() {
 
   const pb = personalBests[exerciseId];
   const localized = getLocalizedExercise(exercise, language);
+  const progression = getProgression(exerciseId);
+  const isSkill = !!progression;
 
   return (
     <main className="workout-main">
@@ -376,14 +379,70 @@ export default function ExerciseDetailPage() {
                       </span>
                     </div>
                   )}
+                  {typeof pb.bestBodyweightReps === 'number' && pb.bestBodyweightReps > 0 && (
+                    <div
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        padding: '8px 12px',
+                        backgroundColor: 'var(--workout-green-dim)',
+                        borderRadius: '8px',
+                        border: '1px solid var(--workout-green)',
+                      }}
+                    >
+                      <span style={{ fontSize: '20px' }}>🤸</span>
+                      <span style={{ fontWeight: 700, color: 'var(--workout-green)' }}>
+                        {t('exercise_detail.bodyweight_pb_label')}: {t('card.bw_label')} × {pb.bestBodyweightReps}
+                      </span>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
           </div>
         </div>
 
-        {/* Progress chart (renders only with ≥ 2 data points) */}
-        {!loadingHistory && history.length >= 2 && (
+        {/* Skill ladder — the primary progress view for calisthenics skills,
+            replacing the e1RM chart (weight isn't the axis of progress here). */}
+        {isSkill && progression && (
+          <div className="skill-ladder">
+            <h3 className="skill-ladder-title">{t('exercise_detail.ladder_title')}</h3>
+            {progression.map((step, idx) => {
+              const best = pb?.stepBests?.[step.id];
+              const isFrontier = step.id === pb?.frontierStepId;
+              const bestText = best
+                ? step.measure === 'seconds'
+                  ? formatSeconds(best.best)
+                  : `× ${best.best}`
+                : null;
+              return (
+                <div
+                  key={step.id}
+                  className={`skill-ladder-rung${isFrontier ? ' skill-ladder-rung-frontier' : ''}${best ? '' : ' skill-ladder-rung-locked'}`}
+                >
+                  <span className="skill-ladder-rung-num">{idx + 1}</span>
+                  <div className="skill-ladder-rung-body">
+                    <div className="skill-ladder-rung-name">
+                      {getLocalizedStepName(exerciseId, step, language)}
+                      {isFrontier && (
+                        <span className="skill-ladder-badge">{t('card.step_frontier')}</span>
+                      )}
+                    </div>
+                    {step.cue && <div className="skill-ladder-rung-cue">{step.cue}</div>}
+                  </div>
+                  <span className="skill-ladder-rung-best">
+                    {bestText ?? '—'}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Progress chart (renders only with ≥ 2 data points). Skipped for
+            skill exercises — the ladder above is their progress view. */}
+        {!isSkill && !loadingHistory && history.length >= 2 && (
           <ExerciseProgressChart history={history} />
         )}
 

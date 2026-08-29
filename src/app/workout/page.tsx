@@ -41,7 +41,9 @@ import {
   isTimeSet,
   DEFAULT_NUM_SETS,
 } from '@/types/workout';
-import { EXERCISE_LIBRARY } from '@/data/exercise-library';
+import { EXERCISE_LIBRARY, getExerciseById, resolveExerciseId } from '@/data/exercise-library';
+import { getProgression, getProgressionStep, stepIndex } from '@/lib/workout-progression';
+import { getLocalizedExercise, getLocalizedStepName } from '@/lib/exercise-translations';
 import { getVolumeBrag } from '@/lib/workout-volume-jokes';
 import { v4 as uuidv4 } from 'uuid';
 import { buildSupersetGroups, supersetLabel } from '@/lib/superset';
@@ -77,6 +79,9 @@ export default function WorkoutsPage() {
   // snapshot so the modal can summarize sets/volume even after we've
   // cleared activeWorkout from state.
   const [completedSummary, setCompletedSummary] = useState<Workout | null>(null);
+  // Progression steps unlocked by the just-completed workout (a set logged
+  // beyond the user's prior frontier). Shown in the completion summary.
+  const [completedUnlocks, setCompletedUnlocks] = useState<{ exerciseName: string; stepName: string }[]>([]);
   // Bumped any time activeWorkout changes via the editor — distinct from
   // the workout-id changing — so the autosave effect can debounce on
   // real edits without firing for purely cosmetic state updates (modal
@@ -378,6 +383,39 @@ export default function WorkoutsPage() {
     const exercises = activeWorkout.exercises.map((ex, i) => ({ ...ex, order: i + 1 }));
     const updated = { ...activeWorkout, exercises, isCompleted: true };
     await saveWorkout(updated);
+
+    // Detect progression unlocks BEFORE refreshing PBs — `personalBests`
+    // still holds the pre-workout frontier here. An unlock = a set logged at
+    // a rung further than the user had ever reached on that exercise.
+    const unlocks: { exerciseName: string; stepName: string }[] = [];
+    for (const ex of exercises) {
+      const ladder = getProgression(ex.exerciseId);
+      if (!ladder) continue;
+      let maxIdx = -1;
+      let maxStepId: string | null = null;
+      for (const s of ex.sets) {
+        if (!s.stepId) continue;
+        const step = getProgressionStep(ex.exerciseId, s.stepId);
+        if (!step) continue;
+        const value = step.measure === 'seconds' ? (s.seconds ?? 0) : (s.reps ?? 0);
+        if (value <= 0) continue;
+        const idx = stepIndex(ex.exerciseId, s.stepId);
+        if (idx > maxIdx) { maxIdx = idx; maxStepId = s.stepId; }
+      }
+      if (maxIdx < 0 || !maxStepId) continue;
+      const priorFrontierId = personalBests[resolveExerciseId(ex.exerciseId)]?.frontierStepId ?? null;
+      const priorIdx = priorFrontierId ? stepIndex(ex.exerciseId, priorFrontierId) : -1;
+      if (maxIdx > priorIdx) {
+        const step = getProgressionStep(ex.exerciseId, maxStepId)!;
+        const def = getExerciseById(ex.exerciseId);
+        unlocks.push({
+          exerciseName: def ? getLocalizedExercise(def, language).name : ex.exerciseId,
+          stepName: getLocalizedStepName(ex.exerciseId, step, language),
+        });
+      }
+    }
+    setCompletedUnlocks(unlocks);
+
     setCompletedSummary(updated);  // Show summary modal (Imp 1)
     setActiveWorkout(null);
     setHasInProgressWorkout(false);
@@ -837,7 +875,8 @@ export default function WorkoutsPage() {
       {completedSummary && (
         <CompletionSummary
           workout={completedSummary}
-          onClose={() => setCompletedSummary(null)}
+          unlocks={completedUnlocks}
+          onClose={() => { setCompletedSummary(null); setCompletedUnlocks([]); }}
         />
       )}
     </main>
@@ -847,7 +886,15 @@ export default function WorkoutsPage() {
 // Summary card shown after Complete — counts logged sets, completed
 // exercises, and total volume (kg). Kept inline because it's owned by
 // this page's life cycle and never reused elsewhere.
-function CompletionSummary({ workout, onClose }: { workout: Workout; onClose: () => void }) {
+function CompletionSummary({
+  workout,
+  unlocks = [],
+  onClose,
+}: {
+  workout: Workout;
+  unlocks?: { exerciseName: string; stepName: string }[];
+  onClose: () => void;
+}) {
   const t = useT();
   const { language } = useWorkoutLanguage();
   const { unit } = useWorkoutUnit();
@@ -918,6 +965,12 @@ function CompletionSummary({ workout, onClose }: { workout: Workout; onClose: ()
             />
             <SummaryStat label={t('workout.summary.volume')} value={volumeDisplay} />
           </div>
+          {unlocks.map((u, i) => (
+            <div key={i} className="workout-summary-unlock" role="status">
+              🔓 <strong>{u.stepName}</strong> {t('workout.summary.unlocked')}
+              <span className="workout-summary-unlock-ex"> · {u.exerciseName}</span>
+            </div>
+          ))}
           <div className="workout-summary-brag" role="status">
             {brag}
           </div>

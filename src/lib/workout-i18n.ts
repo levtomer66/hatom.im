@@ -41,6 +41,7 @@ const DICT = {
   'workout.summary.exercises':      { en: 'Exercises',                                      he: 'תרגילים' },
   'workout.summary.volume':         { en: 'Total volume',                                   he: 'נפח כולל' },
   'workout.summary.cta':            { en: 'Nice work',                                      he: 'יפה מאד' },
+  'workout.summary.unlocked':       { en: 'unlocked!',                                      he: 'נפתח!' },
 
   // Exercise card
   'card.sets_label':                { en: 'Sets:',                                          he: 'סטים:' },
@@ -76,6 +77,11 @@ const DICT = {
   'card.step_measure_hold':         { en: 'hold',                                           he: 'החזקה' },
   'card.step_measure_reps':         { en: 'reps',                                           he: 'חזרות' },
   'exercise_detail.hold_pb_label':  { en: 'Longest hold',                                   he: 'אחיזה הכי ארוכה' },
+  'exercise_detail.bodyweight_pb_label': { en: 'Best set',                                  he: 'הסט הכי טוב' },
+  'exercise_detail.ladder_title':   { en: 'Progression ladder',                             he: 'סולם התקדמות' },
+  'skills.title':                   { en: 'Skills',                                         he: 'מיומנויות' },
+  'skills.subtitle':                { en: 'Your calisthenics progressions',                 he: 'ההתקדמות שלך בקליסטניקס' },
+  'skills.not_started':             { en: 'Not started',                                    he: 'טרם התחלת' },
   'card.notes_label':               { en: 'Notes',                                          he: 'הערות' },
   'card.kg_suffix':                 { en: 'kg',                                              he: 'ק"ג' },
   'card.reps_suffix':               { en: 'reps',                                            he: 'חזרות' },
