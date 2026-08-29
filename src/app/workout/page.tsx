@@ -45,6 +45,7 @@ import { EXERCISE_LIBRARY, getExerciseById, resolveExerciseId } from '@/data/exe
 import { getProgression, getProgressionStep, stepIndex } from '@/lib/workout-progression';
 import { getLocalizedExercise, getLocalizedStepName } from '@/lib/exercise-translations';
 import { getVolumeBrag } from '@/lib/workout-volume-jokes';
+import { computeWorkoutStats } from '@/lib/workout-stats';
 import { v4 as uuidv4 } from 'uuid';
 import { buildSupersetGroups, supersetLabel } from '@/lib/superset';
 
@@ -899,26 +900,7 @@ function CompletionSummary({
   const { language } = useWorkoutLanguage();
   const { unit } = useWorkoutUnit();
 
-  const stats = useMemo(() => {
-    let setsLogged = 0;
-    let exercisesDone = 0;
-    let totalVolumeKg = 0;
-    for (const ex of workout.exercises) {
-      let anySet = false;
-      for (const s of ex.sets) {
-        if (s.kg !== null && s.reps !== null && s.reps > 0) {
-          setsLogged += 1;
-          totalVolumeKg += (s.kg ?? 0) * s.reps;
-          anySet = true;
-        } else if (isTimeSet(s) && (s.seconds ?? 0) > 0) {
-          setsLogged += 1;
-          anySet = true;
-        }
-      }
-      if (anySet) exercisesDone += 1;
-    }
-    return { setsLogged, exercisesDone, totalVolumeKg };
-  }, [workout]);
+  const stats = useMemo(() => computeWorkoutStats(workout), [workout]);
 
   const volumeDisplay = unit === 'lb'
     ? `${Math.round(stats.totalVolumeKg * 2.20462).toLocaleString()} lb`
