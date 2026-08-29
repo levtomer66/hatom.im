@@ -899,6 +899,24 @@ function CompletionSummary({
   const t = useT();
   const { language } = useWorkoutLanguage();
   const { unit } = useWorkoutUnit();
+  const [shareState, setShareState] = useState<'idle' | 'sharing' | 'shared'>('idle');
+
+  const shareToFeed = async () => {
+    if (shareState !== 'idle') return;
+    setShareState('sharing');
+    try {
+      const res = await fetch('/api/workout/feed', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ workoutId: workout.id }),
+      });
+      // 409 = already shared → still a success from the user's point of view.
+      setShareState(res.ok || res.status === 409 ? 'shared' : 'idle');
+    } catch (error) {
+      console.error('Error sharing to feed:', error);
+      setShareState('idle');
+    }
+  };
 
   const stats = useMemo(() => computeWorkoutStats(workout), [workout]);
 
@@ -961,6 +979,14 @@ function CompletionSummary({
             onClick={onClose}
           >
             {t('workout.summary.cta')}
+          </button>
+          <button
+            className="workout-btn workout-btn-secondary workout-btn-full"
+            onClick={shareToFeed}
+            disabled={shareState !== 'idle'}
+            style={{ marginTop: 8 }}
+          >
+            {shareState === 'shared' ? t('feed.shared') : t('feed.share')}
           </button>
         </div>
       </div>

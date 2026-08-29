@@ -32,6 +32,24 @@ export default function WorkoutDetailPage() {
   const [workout, setWorkout] = useState<Workout | null>(null);
   const [personalBests, setPersonalBests] = useState<Record<string, PersonalBest>>({});
   const [loadingWorkout, setLoadingWorkout] = useState(true);
+  // Feed share state for THIS workout. 'shared' if a post already exists.
+  const [shareState, setShareState] = useState<'idle' | 'sharing' | 'shared'>('idle');
+
+  const shareToFeed = async () => {
+    if (!workout || shareState !== 'idle') return;
+    setShareState('sharing');
+    try {
+      const res = await fetch('/api/workout/feed', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ workoutId: workout.id }),
+      });
+      setShareState(res.ok || res.status === 409 ? 'shared' : 'idle');
+    } catch (error) {
+      console.error('Error sharing to feed:', error);
+      setShareState('idle');
+    }
+  };
 
   // Library + custom lookup map, so a workout row that references a `custom-*`
   // id renders its name/photo. (ExerciseCard still falls back to
@@ -85,6 +103,25 @@ export default function WorkoutDetailPage() {
   useEffect(() => {
     ensureLoaded();
   }, [ensureLoaded]);
+
+  // Once the workout is loaded, learn whether it's already on the feed so the
+  // button opens in the right state (one round trip).
+  useEffect(() => {
+    if (!workout?.isCompleted) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`/api/workout/feed?workoutId=${workout.id}`);
+        if (!cancelled && res.ok) {
+          const data = await res.json();
+          if (data?.shared) setShareState('shared');
+        }
+      } catch {
+        // Non-fatal: leave the button in its default 'idle' state.
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [workout?.id, workout?.isCompleted]);
 
   // Loading / not-logged-in / workout-loading all share the same shell so
   // the screen never collapses to a bare spinner (B11).
@@ -153,6 +190,18 @@ export default function WorkoutDetailPage() {
             {exerciseCount(workout.exercises.length, language)}
           </div>
         </div>
+
+        {/* Share a completed workout to the motivation feed. */}
+        {workout.isCompleted && (
+          <button
+            className="workout-btn workout-btn-secondary workout-btn-full"
+            onClick={shareToFeed}
+            disabled={shareState !== 'idle'}
+            style={{ marginBottom: '16px' }}
+          >
+            {shareState === 'shared' ? t('feed.shared') : t('feed.share')}
+          </button>
+        )}
 
         {/* Protocol text + example link, if this workout carried them. */}
         {(workout.description || workout.instagramUrl) && (
