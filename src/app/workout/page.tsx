@@ -286,7 +286,10 @@ export default function WorkoutsPage() {
           sets = Array.from({ length: numSets }, (_, i) => {
             const p = prior[Math.min(i, prior.length - 1)];
             if (!p) return { kg: null, reps: null, seconds: null };
-            const wasTime = p.seconds != null;
+            // A carried progression step dictates the row's mode by its own
+            // measure; otherwise fall back to the prior set's discriminator.
+            const step = p.stepId ? getProgressionStep(te.exerciseId, p.stepId) : undefined;
+            const wasTime = step ? step.measure === 'seconds' : p.seconds != null;
             return {
               kg: p.kg ?? null,
               reps: null,                          // leave for the user — prior reps render as placeholder
@@ -452,7 +455,8 @@ export default function WorkoutsPage() {
       const sets: WorkoutSet[] = prior && prior.length > 0
         ? Array.from({ length: DEFAULT_NUM_SETS }, (_, i) => {
             const p = prior[Math.min(i, prior.length - 1)];
-            const wasTime = p.seconds != null;
+            const step = p.stepId ? getProgressionStep(def.id, p.stepId) : undefined;
+            const wasTime = step ? step.measure === 'seconds' : p.seconds != null;
             return { kg: p.kg ?? null, reps: null, seconds: wasTime ? 0 : null, stepId: p.stepId ?? null };
           })
         : createDefaultSets();

@@ -3,8 +3,9 @@ import { Workout, isTimeSet } from '@/types/workout';
 // Sets logged, exercises completed, and total lifted volume (kg) for a
 // workout. Shared by the completion summary and the feed-share endpoint so
 // the numbers a user sees on completion match the snapshot stored in a post.
-// A set counts when it has real data: rep-mode needs kg + reps > 0 (and adds
-// kg×reps to volume); time-mode needs seconds > 0 (no volume).
+// A set counts when it has real data: rep-mode needs reps > 0 (weight is
+// optional — a bodyweight/calisthenics set still counts, it just adds 0 to
+// volume); time-mode needs seconds > 0 (no volume).
 export interface WorkoutStats {
   setsLogged: number;
   exercisesDone: number;
@@ -19,9 +20,9 @@ export function computeWorkoutStats(workout: Pick<Workout, 'exercises'>): Workou
   for (const ex of workout.exercises) {
     let anySet = false;
     for (const s of ex.sets) {
-      if (s.kg !== null && s.reps !== null && s.reps > 0) {
+      if (!isTimeSet(s) && s.reps !== null && s.reps > 0) {
         setsLogged += 1;
-        totalVolumeKg += (s.kg ?? 0) * s.reps;
+        if (s.kg !== null) totalVolumeKg += s.kg * s.reps; // bodyweight adds 0
         anySet = true;
       } else if (isTimeSet(s) && (s.seconds ?? 0) > 0) {
         setsLogged += 1;

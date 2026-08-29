@@ -92,7 +92,11 @@ export async function POST(request: NextRequest) {
       workoutId,
       workoutName: workout.workoutName,
       workoutDate: workout.date,
-      workoutStartedAt: new Date(workout.createdAt).toISOString(),
+      // createdAt is always present (schema timestamps), but fall back to the
+      // workout date so a legacy/odd doc can't throw on an invalid Date.
+      workoutStartedAt: workout.createdAt
+        ? new Date(workout.createdAt).toISOString()
+        : new Date(workout.date).toISOString(),
       stats,
     });
     return NextResponse.json(withDisplayName(post), { status: 201 });

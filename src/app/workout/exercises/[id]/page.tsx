@@ -379,7 +379,7 @@ export default function ExerciseDetailPage() {
                       </span>
                     </div>
                   )}
-                  {typeof pb.bestBodyweightReps === 'number' && pb.bestBodyweightReps > 0 && (
+                  {!isSkill && typeof pb.bestBodyweightReps === 'number' && pb.bestBodyweightReps > 0 && (
                     <div
                       style={{
                         display: 'inline-flex',

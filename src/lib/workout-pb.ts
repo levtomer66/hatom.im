@@ -81,10 +81,15 @@ interface PBCandidate {
 // Best bodyweight rep set in one workout's sets — rep-mode sets with no added
 // weight (kg null or 0). This is the lane `epleyE1rm` can't score, so without
 // it max-pull-ups / bodyweight rows record no PB at all. 0 = none.
+//
+// Laddered sets (those carrying a stepId) are EXCLUDED: they belong to
+// `stepBests`, per rung. Otherwise a skill's easiest rung (e.g. assisted
+// pistol × 12) would masquerade as a flat "bodyweight PB" for the exercise.
 function getBestBodyweightReps(sets: WorkoutSet[]): number {
   let max = 0;
   for (const s of sets) {
     if (isTimeSet(s)) continue;
+    if (s.stepId) continue;
     const bodyweight = s.kg === null || s.kg === 0;
     if (bodyweight && s.reps !== null && s.reps > 0 && s.reps > max) max = s.reps;
   }
