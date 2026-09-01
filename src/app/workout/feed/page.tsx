@@ -27,6 +27,8 @@ interface FeedItem {
   };
   sharedAt: string;
   displayName: string;
+  likeCount: number;
+  likedByMe: boolean;
 }
 
 const PAGE_SIZE = 20;
@@ -50,6 +52,7 @@ export default function FeedPage() {
   const [hasMore, setHasMore] = useState(false);
   const [loadError, setLoadError] = useState(false);
   const [unsharingId, setUnsharingId] = useState<string | null>(null);
+  const [togglingId, setTogglingId] = useState<string | null>(null);
   const nextSkipRef = useRef(0);
   const inFlightRef = useRef(false);
 
@@ -104,6 +107,40 @@ export default function FeedPage() {
       console.error('Error unsharing:', error);
     } finally {
       setUnsharingId(null);
+    }
+  };
+
+  // Merge a partial change into one post by id (drives the optimistic like flow).
+  const patchPost = (id: string, changes: Partial<FeedItem>) =>
+    setPosts((prev) => prev.map((p) => (p.id === id ? { ...p, ...changes } : p)));
+
+  // Toggle my 💪 on someone else's post. Optimistic: flip locally, then
+  // reconcile with the server's authoritative count (or revert on failure).
+  const toggleLike = async (post: FeedItem) => {
+    if (!currentUser || post.userId === currentUser.id || togglingId) return;
+    setTogglingId(post.id);
+
+    const nextLiked = !post.likedByMe;
+    patchPost(post.id, {
+      likedByMe: nextLiked,
+      likeCount: post.likeCount + (nextLiked ? 1 : -1),
+    });
+    const revert = () =>
+      patchPost(post.id, { likedByMe: post.likedByMe, likeCount: post.likeCount });
+
+    try {
+      const res = await fetch(`/api/workout/feed/${post.workoutId}/like`, { method: 'POST' });
+      if (res.ok) {
+        const data: { likeCount: number; likedByMe: boolean } = await res.json();
+        patchPost(post.id, { likeCount: data.likeCount, likedByMe: data.likedByMe });
+      } else {
+        revert();
+      }
+    } catch (error) {
+      console.error('Error toggling like:', error);
+      revert();
+    } finally {
+      setTogglingId(null);
     }
   };
 
@@ -179,6 +216,30 @@ export default function FeedPage() {
                     <span><strong>{volumeText(post.stats.totalVolumeKg)}</strong></span>
                   </div>
                   <div className="feed-post-brag">{brag}</div>
+                  <div className="feed-post-foot">
+                    {mine ? (
+                      // Your own post: count is read-only (you can't flex on yourself).
+                      <span
+                        className="feed-post-like feed-post-like-static"
+                        aria-label={`${post.likeCount} ${t('feed.likes')}`}
+                      >
+                        <span className="feed-post-like-emoji">💪</span>
+                        <span className="feed-post-like-count">{post.likeCount}</span>
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        className={`feed-post-like${post.likedByMe ? ' liked' : ''}`}
+                        onClick={() => toggleLike(post)}
+                        disabled={togglingId === post.id}
+                        aria-pressed={post.likedByMe}
+                        aria-label={t('feed.like')}
+                      >
+                        <span className="feed-post-like-emoji">💪</span>
+                        <span className="feed-post-like-count">{post.likeCount}</span>
+                      </button>
+                    )}
+                  </div>
                 </div>
               );
             })}

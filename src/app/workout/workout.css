@@ -934,6 +934,44 @@ body[data-rest-active] .workout-page {
   line-height: 1.5;
   font-weight: 600;
 }
+.feed-post-foot {
+  display: flex;
+  margin-top: 12px;
+}
+/* 💪 like pill. Emoji can't be recoloured, so "not liked" is a dimmed,
+   greyscaled muscle; "liked" restores full colour and golds the count. */
+.feed-post-like {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--workout-border);
+  background: var(--workout-bg-secondary);
+  color: var(--workout-text-secondary);
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.12s ease, border-color 0.2s ease, background 0.2s ease;
+}
+.feed-post-like:active { transform: scale(0.92); }
+.feed-post-like:disabled { cursor: default; opacity: 0.6; }
+.feed-post-like-emoji {
+  font-size: 16px;
+  line-height: 1;
+  filter: grayscale(1);
+  opacity: 0.55;
+  transition: filter 0.2s ease, opacity 0.2s ease;
+}
+.feed-post-like.liked {
+  border-color: color-mix(in srgb, var(--workout-gold) 45%, transparent);
+  background: color-mix(in srgb, var(--workout-gold) 12%, transparent);
+}
+.feed-post-like.liked .feed-post-like-emoji { filter: none; opacity: 1; }
+.feed-post-like.liked .feed-post-like-count { color: var(--workout-gold); }
+/* Own-post count is informational only — full-colour emoji, no button affordance. */
+.feed-post-like-static { cursor: default; }
+.feed-post-like-static .feed-post-like-emoji { filter: none; opacity: 1; }
 
 /* Skills overview strip (exercises list page) */
 .skills-overview {

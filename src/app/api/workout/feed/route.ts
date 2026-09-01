@@ -17,9 +17,17 @@ async function connectDB() {
   await mongoose.connect(uri);
 }
 
-// Attach the sharer's display name, resolved server-side.
-function withDisplayName(post: WorkoutFeedPost) {
-  return { ...post, displayName: getUserDisplayName(post.userId) };
+// Shape one post for the client: attach the sharer's display name, expose the
+// like count + whether the caller liked it, and drop the raw email array (never
+// leak who liked what).
+function toFeedItem(post: WorkoutFeedPost, callerId: string) {
+  const { likes, ...rest } = post;
+  return {
+    ...rest,
+    displayName: getUserDisplayName(post.userId),
+    likeCount: likes.length,
+    likedByMe: likes.includes(callerId),
+  };
 }
 
 // GET /api/workout/feed
@@ -29,6 +37,7 @@ function withDisplayName(post: WorkoutFeedPost) {
 export async function GET(request: NextRequest) {
   const gate = await requireSignedIn();
   if (gate instanceof NextResponse) return gate;
+  const callerId = gate.session.user.email;
 
   try {
     const params = new URL(request.url).searchParams;
@@ -46,7 +55,7 @@ export async function GET(request: NextRequest) {
     const skip = skipRaw !== null ? Math.max(parseInt(skipRaw, 10) || 0, 0) : 0;
 
     const posts = await getFeedPage(limit, skip);
-    return NextResponse.json(posts.map(withDisplayName));
+    return NextResponse.json(posts.map((p) => toFeedItem(p, callerId)));
   } catch (error) {
     console.error('Error fetching feed:', error);
     return NextResponse.json({ error: 'Failed to fetch feed' }, { status: 500 });
@@ -83,7 +92,7 @@ export async function POST(request: NextRequest) {
     // Already shared? Idempotent-friendly: report the conflict, don't dupe.
     const existing = await getFeedPostByWorkoutId(workoutId);
     if (existing) {
-      return NextResponse.json({ error: 'Already shared', post: withDisplayName(existing) }, { status: 409 });
+      return NextResponse.json({ error: 'Already shared', post: toFeedItem(existing, userId) }, { status: 409 });
     }
 
     const stats = computeWorkoutStats(workout);
@@ -99,7 +108,7 @@ export async function POST(request: NextRequest) {
         : new Date(workout.date).toISOString(),
       stats,
     });
-    return NextResponse.json(withDisplayName(post), { status: 201 });
+    return NextResponse.json(toFeedItem(post, userId), { status: 201 });
   } catch (error) {
     // A racing double-share trips the unique index — treat as already shared.
     if (error && typeof error === 'object' && (error as { code?: number }).code === 11000) {

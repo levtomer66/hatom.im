@@ -20,6 +20,8 @@ const DICT = {
   'feed.unshare':        { en: 'Remove from feed',                he: 'הסרה מהפיד' },
   'feed.empty':          { en: 'Complete a workout and be the first to flex here 💪', he: 'סיימו אימון והיו הראשונים להשוויץ כאן 💪' },
   'feed.load_more':      { en: 'Load more',                       he: 'טען עוד' },
+  'feed.like':           { en: 'Give a flex 💪',                  he: 'תנו כוח 💪' },
+  'feed.likes':          { en: 'flexes',                          he: 'כוח' },
   'header.switch_user':  { en: 'Switch',                          he: 'החלף' },
 
   // Login

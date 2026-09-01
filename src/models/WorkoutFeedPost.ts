@@ -23,9 +23,12 @@ export interface WorkoutFeedPost {
   workoutStartedAt: string;    // Workout.createdAt (ISO) — sort tiebreaker
   stats: WorkoutStats;
   sharedAt: string;            // ISO, audit only — NEVER used for ordering
+  likes: string[];             // session emails that liked this post; count = length
 }
 
-export type CreateWorkoutFeedPost = Omit<WorkoutFeedPost, 'id' | 'sharedAt'>;
+// Callers never set id/sharedAt/likes: id + sharedAt are stamped on insert and
+// likes always start empty.
+export type CreateWorkoutFeedPost = Omit<WorkoutFeedPost, 'id' | 'sharedAt' | 'likes'>;
 
 interface WorkoutFeedPostDocument extends Omit<WorkoutFeedPost, 'id'> {
   _id?: ObjectId;
@@ -54,7 +57,9 @@ async function getCollection() {
 
 function toPost(doc: WorkoutFeedPostDocument): WorkoutFeedPost {
   const { _id, ...rest } = doc;
-  return { ...rest, id: _id!.toString() };
+  // Legacy posts predate the likes field — default to an empty array so callers
+  // never have to null-check.
+  return { ...rest, likes: rest.likes ?? [], id: _id!.toString() };
 }
 
 // One page of the feed, newest WORKOUT first (not newest share).
@@ -81,9 +86,47 @@ export async function getFeedPostByWorkoutId(workoutId: string): Promise<Workout
 // here and is audit-only.
 export async function createFeedPost(data: CreateWorkoutFeedPost): Promise<WorkoutFeedPost> {
   const col = await getCollection();
-  const doc: WorkoutFeedPostDocument = { ...data, sharedAt: new Date().toISOString() };
+  const doc: WorkoutFeedPostDocument = { ...data, sharedAt: new Date().toISOString(), likes: [] };
   const result = await col.insertOne(doc);
   return toPost({ ...doc, _id: result.insertedId });
+}
+
+// Toggle the caller's like on a post and return the post-toggle count + whether
+// the caller now likes it, or null if the post doesn't exist. Owner-can't-like
+// is enforced by the route, not here. The add-if-absent / remove-if-present
+// decision runs inside a single aggregation-pipeline update, so it's atomic —
+// no read-decide-write race, and a vanished post surfaces as a null result
+// (→ 404) rather than a fake zero count.
+export async function toggleLike(
+  workoutId: string,
+  userId: string,
+): Promise<{ likeCount: number; likedByMe: boolean } | null> {
+  const col = await getCollection();
+  const updated = await col.findOneAndUpdate(
+    { workoutId },
+    [
+      {
+        $set: {
+          likes: {
+            $let: {
+              vars: { cur: { $ifNull: ['$likes', []] } },
+              in: {
+                $cond: [
+                  { $in: [userId, '$$cur'] },
+                  { $setDifference: ['$$cur', [userId]] },
+                  { $concatArrays: ['$$cur', [userId]] },
+                ],
+              },
+            },
+          },
+        },
+      },
+    ],
+    { returnDocument: 'after' },
+  );
+  if (!updated) return null;
+  const likes = updated.likes ?? [];
+  return { likeCount: likes.length, likedByMe: likes.includes(userId) };
 }
 
 // Remove a post — own posts only (route enforces ownership by passing userId).
