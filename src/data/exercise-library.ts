@@ -836,6 +836,39 @@ export const EXERCISE_LIBRARY: ExerciseDefinition[] = [
   { id: 'reverse-wrist-curl',   name: 'Reverse Wrist Curl',     description: 'Wrist extension for forearm extensors',    categories: ['pull', 'forearms'],            defaultPhoto: msImg('reverse_grip_barbell_wrist_curl.jpg') },
 ];
 
+// Bodyweight-mode exercises → fraction of bodyweight the movement moves, used
+// by the volume counter (load = bodyweight × factor + any added kg). Applied to
+// the library entries below in one place so the factors are easy to review and
+// tune. Values are training-convention estimates; only rep-loggable bodyweight
+// STRENGTH movements are listed — anything absent stays 'standard' (adds 0 for
+// a null-weight set, exactly as before). Assisted/cable variants are
+// deliberately excluded (their entered number isn't added bodyweight load).
+const BODYWEIGHT_FACTORS: Record<string, number> = {
+  // Pulling — essentially full bodyweight
+  'pull-up': 1, 'chin-up': 1, 'muscle-up': 1, 'muscle-up-progression': 1,
+  'explosive-pullup-progression': 1, 'weighted-pull-up': 1, 'negative-pull-up': 1,
+  // Dips — parallel-bar dips move ~full BW; bench dips much less
+  'parallels': 1, 'weighted-parallels': 1, 'negative-dip': 1, 'dip': 0.5,
+  // Pushing
+  'push-up': 0.65, 'push-up-progression': 0.65, 'elevated-push-up': 0.5,
+  'handstand-hspu-progression': 0.7,
+  // Horizontal pulls
+  'inverted-row': 0.6, 'wide-row-rear-delt': 0.6, 'front-lever-row': 0.6,
+  // Legs
+  'pistol-squat': 0.85, 'elevated-pistol-squat': 0.85, 'deep-squat-bw': 0.6,
+  'split-squat-bw': 0.7, 'step-up': 0.7, 'single-leg-rdl': 0.85, 'nordic-curl': 0.9,
+  // Core (rep-based raises)
+  'hanging-leg-raise': 0.5, 'hanging-knee-raise-v3': 0.5,
+};
+
+for (const ex of EXERCISE_LIBRARY) {
+  const factor = BODYWEIGHT_FACTORS[ex.id];
+  if (factor != null) {
+    ex.loadMode = 'bodyweight';
+    ex.bodyweightFactor = factor;
+  }
+}
+
 // Merged/renamed exercise IDs → canonical ID they were folded into
 const EXERCISE_ID_ALIASES: Record<string, string> = {
   'lat-pulldown': 'wide-grip-lat-pulldown',

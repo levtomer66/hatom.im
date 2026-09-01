@@ -61,6 +61,9 @@ export default function AddExerciseForm({
   const t = useT();
   const [name, setName] = useState('');
   const [selectedCategories, setSelectedCategories] = useState<Set<ExerciseCategory>>(new Set());
+  // Bodyweight exercise: its reps count bodyweight × factor toward volume.
+  const [isBodyweight, setIsBodyweight] = useState(false);
+  const [bwFactorText, setBwFactorText] = useState('100'); // percent of bodyweight
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
   // Resized photo blob to upload on submit + a data URL for the preview.
@@ -132,6 +135,13 @@ export default function AddExerciseForm({
           name: name.trim(),
           categories: Array.from(selectedCategories),
           ...(photoUrl ? { photo: photoUrl } : {}),
+          ...(isBodyweight
+            ? {
+                loadMode: 'bodyweight',
+                // percent → factor; clamp to a sane 10–300% (0.1–3.0).
+                bodyweightFactor: Math.min(3, Math.max(0.1, (parseFloat(bwFactorText) || 100) / 100)),
+              }
+            : {}),
         }),
       });
 
@@ -153,6 +163,8 @@ export default function AddExerciseForm({
   const handleClose = () => {
     setName('');
     setSelectedCategories(new Set());
+    setIsBodyweight(false);
+    setBwFactorText('100');
     setError('');
     clearPhoto();
     onClose();
@@ -333,6 +345,71 @@ export default function AddExerciseForm({
                 );
               })}
             </div>
+          </div>
+
+          {/* Bodyweight exercise toggle + factor */}
+          <div style={{ marginBottom: '20px' }}>
+            <button
+              type="button"
+              onClick={() => setIsBodyweight((v) => !v)}
+              aria-pressed={isBodyweight}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '12px',
+                width: '100%',
+                padding: '12px 16px',
+                backgroundColor: isBodyweight ? 'var(--workout-green-dim)' : 'var(--workout-bg-secondary)',
+                border: isBodyweight ? '2px solid var(--workout-green)' : '2px solid transparent',
+                borderRadius: '8px',
+                color: 'var(--workout-text)',
+                cursor: 'pointer',
+                textAlign: 'start',
+              }}
+            >
+              <div
+                style={{
+                  width: '24px',
+                  height: '24px',
+                  borderRadius: '4px',
+                  border: isBodyweight ? '2px solid var(--workout-green)' : '2px solid var(--workout-border)',
+                  backgroundColor: isBodyweight ? 'var(--workout-green)' : 'transparent',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: '#000',
+                  fontSize: '14px',
+                  fontWeight: 700,
+                  flexShrink: 0,
+                }}
+              >
+                {isBodyweight && '✓'}
+              </div>
+              <span style={{ fontSize: '14px' }}>{t('customex.bodyweight_label')}</span>
+            </button>
+            {isBodyweight && (
+              <div style={{ marginTop: '10px' }}>
+                <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', color: 'var(--workout-text-secondary)' }}>
+                  {t('customex.bw_factor_label')}
+                </label>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <input
+                    type="number"
+                    inputMode="numeric"
+                    min="10"
+                    max="300"
+                    step="5"
+                    className="workout-input"
+                    style={{ width: '90px' }}
+                    value={bwFactorText}
+                    onChange={(e) => setBwFactorText(e.target.value)}
+                  />
+                  <span style={{ fontSize: '13px', color: 'var(--workout-text-muted)' }}>
+                    % · {t('customex.bw_factor_hint')}
+                  </span>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Error message */}

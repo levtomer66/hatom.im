@@ -24,6 +24,22 @@ const DICT = {
   'feed.likes':          { en: 'flexes',                          he: 'כוח' },
   'header.switch_user':  { en: 'Switch',                          he: 'החלף' },
 
+  // Profile menu (bodyweight + prefs)
+  'profile.menu_aria':   { en: 'Profile & settings',              he: 'פרופיל והגדרות' },
+  'profile.bodyweight':  { en: 'Bodyweight',                      he: 'משקל גוף' },
+  'profile.language':    { en: 'Language',                        he: 'שפה' },
+  'profile.units':       { en: 'Units',                           he: 'יחידות' },
+
+  // Per-exercise load / gear (per-side, per-dumbbell, bar)
+  'load.settings_aria':  { en: 'Weight entry settings',           he: 'הגדרות הזנת משקל' },
+  'load.title':          { en: 'How do you enter the weight?',    he: 'איך מזינים את המשקל?' },
+  'load.total':          { en: 'Total load',                      he: 'משקל כולל' },
+  'load.per_side':       { en: 'Per side (+ bar)',                he: 'לכל צד (+ מוט)' },
+  'load.per_dumbbell':   { en: 'Per dumbbell',                    he: 'לכל משקולת' },
+  'load.bar_weight':     { en: 'Bar weight',                      he: 'משקל המוט' },
+  'load.badge_side':     { en: '/side',                           he: 'לצד' },
+  'load.badge_dumbbell': { en: '/dumbbell',                       he: 'למשקולת' },
+
   // Login
   'login.title':         { en: '💪 Workout Tracker',              he: '💪 יומן אימונים' },
   'login.subtitle':      { en: 'Select your profile to continue', he: 'בחר פרופיל כדי להמשיך' },
@@ -112,6 +128,9 @@ const DICT = {
   'customex.name_label':            { en: 'Exercise name',                                  he: 'שם התרגיל' },
   'customex.name_placeholder':      { en: 'e.g. Incline Cable Fly',                         he: 'לדוגמה: פלייז בכבל בשיפוע' },
   'customex.categories_label':      { en: 'Categories (select all that apply)',             he: 'קטגוריות (בחר את כל המתאימות)' },
+  'customex.bodyweight_label':      { en: 'Bodyweight exercise (counts bodyweight in volume)', he: 'תרגיל משקל גוף (משקל הגוף נספר בנפח)' },
+  'customex.bw_factor_label':       { en: 'Bodyweight moved',                               he: 'אחוז ממשקל הגוף' },
+  'customex.bw_factor_hint':        { en: 'of your bodyweight per rep',                     he: 'ממשקל הגוף לכל חזרה' },
   'customex.create':                { en: 'Create exercise',                                he: 'צור תרגיל' },
   'customex.creating':              { en: 'Creating…',                                      he: 'יוצר…' },
   'customex.err_name':              { en: 'Please enter an exercise name',                  he: 'נא להזין שם תרגיל' },

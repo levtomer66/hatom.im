@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { ExerciseCategory } from '@/types/workout';
+import { ExerciseCategory, LoadMode } from '@/types/workout';
 import { requireSignedIn } from '@/lib/auth-helpers';
 import {
   listCustomExercises,
@@ -12,6 +12,8 @@ import {
 const VALID_CATEGORIES: ExerciseCategory[] = [
   'push', 'pull', 'legs', 'calisthenics', 'full-body',
 ];
+
+const VALID_LOAD_MODES: LoadMode[] = ['standard', 'bodyweight', 'barbell', 'dumbbell'];
 
 // Entry-point cap so a malformed/abusive client can't store a huge name.
 const MAX_NAME_LEN = 200;
@@ -76,7 +78,26 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid photo URL' }, { status: 400 });
     }
 
-    const exercise = await createCustomExercise(userId, { name, categories, photo });
+    // Load mode: how this custom's weight maps to volume. Only 'bodyweight'
+    // carries a factor (fraction of BW moved); everything else is 'standard'
+    // and its per-side/per-dumbbell handling is the per-user gear override.
+    const loadMode: LoadMode = VALID_LOAD_MODES.includes(body?.loadMode)
+      ? body.loadMode
+      : 'standard';
+    let bodyweightFactor: number | null = null;
+    if (loadMode === 'bodyweight') {
+      const f = body?.bodyweightFactor;
+      bodyweightFactor =
+        typeof f === 'number' && Number.isFinite(f) && f > 0 && f <= 3 ? f : 1;
+    }
+
+    const exercise = await createCustomExercise(userId, {
+      name,
+      categories,
+      photo,
+      loadMode,
+      bodyweightFactor,
+    });
     return NextResponse.json(exercise, { status: 201 });
   } catch (error) {
     console.error('Error creating custom exercise:', error);

@@ -5,6 +5,7 @@ import { requireSignedIn } from '@/lib/auth-helpers';
 import { getStoredPersonalBests } from '@/lib/workout-pb';
 import { getOwnTemplates, getSharedTemplates, getTemplateUsage } from '@/lib/workout-templates';
 import { listCustomExercises } from '@/lib/workout-custom-exercises';
+import { getUserSettings } from '@/models/WorkoutUserSettings';
 
 async function connectDB() {
   if (mongoose.connection.readyState >= 1) return;
@@ -40,7 +41,7 @@ export async function GET() {
     // connection (their own connectDB() then no-ops) — avoids a connect race.
     await connectDB();
 
-    const [personalBests, templates, sharedTemplates, templateUsage, activeWorkout, customExercises] =
+    const [personalBests, templates, sharedTemplates, templateUsage, activeWorkout, customExercises, settings] =
       await Promise.all([
         getStoredPersonalBests(userId),
         getOwnTemplates(userId),
@@ -48,6 +49,7 @@ export async function GET() {
         getTemplateUsage(userId),
         getInProgressWorkout(userId),
         listCustomExercises(userId),
+        getUserSettings(userId),
       ]);
 
     return NextResponse.json({
@@ -57,6 +59,7 @@ export async function GET() {
       templateUsage,
       activeWorkout,
       customExercises,
+      settings,
     });
   } catch (error) {
     console.error('Error building workout bootstrap:', error);

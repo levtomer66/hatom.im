@@ -23,6 +23,8 @@ import { useWorkoutUser } from '@/context/WorkoutUserContext';
 import { useWorkoutLanguage } from '@/context/WorkoutLanguageContext';
 import { useWorkoutUnit } from '@/context/WorkoutUnitContext';
 import { useCustomExercises } from '@/context/WorkoutCustomExercisesContext';
+import { useWorkoutSettings } from '@/context/WorkoutSettingsContext';
+import { resolveLoadContext, isTrivialLoad } from '@/lib/workout-load';
 import { useT, formatDate, getLocalizedTemplateName } from '@/lib/workout-i18n';
 import Header from '@/components/workout/Header';
 import BottomNav from '@/components/workout/BottomNav';
@@ -54,6 +56,7 @@ export default function WorkoutsPage() {
   const { currentUser, isLoading } = useWorkoutUser();
   const { language } = useWorkoutLanguage();
   const { customExercises, seed: seedCustomExercises } = useCustomExercises();
+  const { bodyweightKg, exerciseLoad, seed: seedSettings } = useWorkoutSettings();
   const { data: session } = useSession();
   const isOwner = session?.user?.isOwner === true;
   const t = useT();
@@ -146,6 +149,9 @@ export default function WorkoutsPage() {
         // Seed the shared custom-exercise context from the same payload — no
         // extra round trip, and the picker/editor read it from context.
         seedCustomExercises(data.customExercises ?? []);
+        // Seed per-user settings (bodyweight + gear overrides) from the same
+        // payload so save-time load stamping and the profile menu are ready.
+        seedSettings(data.settings ?? null);
 
         // A specific resume target (History "resume") wins; but if it can't
         // be loaded (deleted, or belongs to another account left in this
@@ -177,7 +183,7 @@ export default function WorkoutsPage() {
       console.error('Error loading workout bootstrap:', error);
     }
     setInitialLoadDone(true);
-  }, [currentUser, seedCustomExercises]);
+  }, [currentUser, seedCustomExercises, seedSettings]);
 
   // Owner toggle: flip sharedByOwner on one of MY templates. Optimistic
   // update + revert on server failure. The server silently drops the
@@ -215,6 +221,26 @@ export default function WorkoutsPage() {
     loadBootstrap();
   }, [isLoading, loadBootstrap]);
 
+  // Freeze each exercise's load context (bodyweight / per-side / per-dumbbell)
+  // and the current bodyweight onto the workout, so its volume is reproducible
+  // and immune to later changes in the exercise definition or the user's gear
+  // settings. Derived from the exercise definition (built-in or custom) + the
+  // user's per-exercise entry preference. Idempotent — safe to call repeatedly.
+  const stampWorkoutLoad = useCallback((workout: Workout): Workout => {
+    let hasBodyweight = false;
+    const exercises = workout.exercises.map((ex) => {
+      const canonicalId = resolveExerciseId(ex.exerciseId);
+      const def = getExerciseById(ex.exerciseId) ?? customExercises.find((e) => e.id === ex.exerciseId);
+      const pref = exerciseLoad[canonicalId] ?? null;
+      const ctx = resolveLoadContext(def, pref);
+      if (ctx.mode === 'bodyweight') hasBodyweight = true;
+      return { ...ex, load: isTrivialLoad(ctx) ? null : ctx };
+    });
+    // Only freeze a bodyweight snapshot when a bodyweight exercise is present —
+    // keeps the field null on plain weight workouts (see Workout schema note).
+    return { ...workout, exercises, bodyweightKg: hasBodyweight ? (bodyweightKg ?? null) : null };
+  }, [customExercises, exerciseLoad, bodyweightKg]);
+
   // Auto-save workout changes
   const saveWorkout = useCallback(async (workout: Workout) => {
     if (!workout.id) return;
@@ -224,14 +250,14 @@ export default function WorkoutsPage() {
       await fetch(`/api/workout/workouts/${workout.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(workout),
+        body: JSON.stringify(stampWorkoutLoad(workout)),
       });
     } catch (error) {
       console.error('Error saving workout:', error);
     } finally {
       setIsSaving(false);
     }
-  }, []);
+  }, [stampWorkoutLoad]);
 
   // Debounced save — fires 900 ms after the last edit. Bumped from 500 ms
   // to coalesce bursty input (typing a number is multiple state updates)
@@ -385,7 +411,9 @@ export default function WorkoutsPage() {
     if (!confirm(t('workout.complete_confirm'))) return;
 
     const exercises = activeWorkout.exercises.map((ex, i) => ({ ...ex, order: i + 1 }));
-    const updated = { ...activeWorkout, exercises, isCompleted: true };
+    // Freeze the load context + bodyweight so the summary's volume matches what
+    // gets persisted (saveWorkout stamps the same way for the server).
+    const updated = stampWorkoutLoad({ ...activeWorkout, exercises, isCompleted: true });
     await saveWorkout(updated);
 
     // Detect progression unlocks BEFORE refreshing PBs — `personalBests`

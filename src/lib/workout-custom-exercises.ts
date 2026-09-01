@@ -1,6 +1,6 @@
 import mongoose from 'mongoose';
 import CustomExerciseModel, { CustomExerciseDocument } from '@/models/CustomExercise';
-import { ExerciseCategory, ExerciseDefinition } from '@/types/workout';
+import { ExerciseCategory, ExerciseDefinition, LoadMode } from '@/types/workout';
 import { v4 as uuidv4 } from 'uuid';
 
 // Shared data access for per-user custom exercises — used by both the
@@ -16,7 +16,7 @@ async function connectDB() {
 // Mongo doc → the client-facing ExerciseDefinition shape. `isCustom` lets the
 // UI tag the row and sort customs first; defaultPhoto falls back to the 🏋️
 // placeholder via ExercisePhoto when absent.
-function toDefinition(e: Pick<CustomExerciseDocument, 'exerciseId' | 'name' | 'categories' | 'photo' | 'retired'>): ExerciseDefinition {
+function toDefinition(e: Pick<CustomExerciseDocument, 'exerciseId' | 'name' | 'categories' | 'photo' | 'retired' | 'loadMode' | 'bodyweightFactor'>): ExerciseDefinition {
   return {
     id: e.exerciseId,
     name: e.name,
@@ -24,6 +24,8 @@ function toDefinition(e: Pick<CustomExerciseDocument, 'exerciseId' | 'name' | 'c
     defaultPhoto: e.photo ?? undefined,
     isCustom: true,
     retired: e.retired ?? false,
+    loadMode: e.loadMode ?? 'standard',
+    bodyweightFactor: e.bodyweightFactor ?? undefined,
   };
 }
 
@@ -55,7 +57,13 @@ export async function setCustomExerciseRetired(
 
 export async function createCustomExercise(
   userId: string,
-  input: { name: string; categories: ExerciseCategory[]; photo?: string | null },
+  input: {
+    name: string;
+    categories: ExerciseCategory[];
+    photo?: string | null;
+    loadMode?: LoadMode;
+    bodyweightFactor?: number | null;
+  },
 ): Promise<ExerciseDefinition> {
   await connectDB();
   // `custom-<8 hex>` — same id scheme the original feature used, so any
@@ -70,6 +78,8 @@ export async function createCustomExercise(
     name: input.name,
     categories: input.categories,
     photo: input.photo ?? null,
+    loadMode: input.loadMode ?? 'standard',
+    bodyweightFactor: input.bodyweightFactor ?? null,
   });
   return toDefinition(doc);
 }

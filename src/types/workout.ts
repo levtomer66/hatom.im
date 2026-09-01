@@ -135,6 +135,48 @@ export type ExerciseCategory =
   | 'calves'
   | 'abs';
 
+// How an exercise's entered weight maps to the actual load moved, which is
+// what the total-volume counter sums. This is the single concept behind both
+// bodyweight-in-volume and per-side/per-dumbbell entry.
+//   'standard'  — entered kg IS the total load (today's behaviour; the default)
+//   'bodyweight'— load = bodyweight × factor + entered kg (added weight)
+//   'barbell'   — a bar/pole exercise; when entered per-side, load = 2×kg + bar
+//   'dumbbell'  — a paired-dumbbell exercise; per-dumbbell entry → load = 2×kg
+// `loadMode` is an OBJECTIVE property of the exercise (set on the definition);
+// how the user ENTERS the number ('total' vs 'per-side'/'per-dumbbell') is a
+// per-user habit captured in WorkoutUserSettings and frozen per workout.
+export type LoadMode = 'standard' | 'bodyweight' | 'barbell' | 'dumbbell';
+
+// How the user types the number for a barbell/dumbbell exercise.
+export type LoadEntry = 'total' | 'per-side' | 'per-dumbbell';
+
+// The frozen, per-exercise load context stamped onto a WorkoutExercise when it
+// is saved, so a workout's volume is reproducible and never shifts if the
+// exercise definition or the user's settings change later (forward-only
+// snapshot). Absent on legacy/in-progress data → treated as plain 'standard'.
+export interface SetLoadContext {
+  mode: LoadMode;
+  factor?: number | null;       // bodyweight only; fraction of BW moved (pull-up 1.0, push-up ~0.65)
+  entry?: LoadEntry | null;     // barbell/dumbbell only; how the number was typed
+  barWeightKg?: number | null;  // barbell + per-side only; the bar/pole weight
+}
+
+// A user's per-exercise entry preference (feature 2), set via the ⚙️ gear on
+// the exercise. Stored per-user in WorkoutUserSettings, keyed by exerciseId.
+export interface ExerciseLoadPref {
+  entry: LoadEntry;
+  barWeightKg?: number | null;
+}
+
+// Per-user workout settings (server-persisted, keyed by session email).
+// `bodyweightKg` is the current global bodyweight (feature 1); `exerciseLoad`
+// holds the per-exercise gear overrides (feature 2). Both default to
+// today's behaviour when absent.
+export interface WorkoutUserSettings {
+  bodyweightKg: number | null;
+  exerciseLoad: Record<string, ExerciseLoadPref>;
+}
+
 // One rung on a calisthenics progression ladder (tuck → advanced tuck →
 // straddle → full planche). Steps are the "which skill level" datum that
 // distinguishes a tuck hold from a full planche — captured per WorkoutSet
@@ -170,6 +212,13 @@ export interface ExerciseDefinition {
   // skill exercises; its presence is what flips an exercise into "skill
   // mode" in the UI. Absent on barbell/machine exercises and all customs.
   progression?: ProgressionStep[];
+  // How this exercise's entered weight maps to load (see LoadMode). Absent =
+  // 'standard'. Built-ins are tagged in exercise-library.ts; customs carry it
+  // on their Mongo doc.
+  loadMode?: LoadMode;
+  // Bodyweight-mode only: fraction of bodyweight the movement actually moves
+  // (pull-up 1.0, push-up ~0.65). Absent = 1.0.
+  bodyweightFactor?: number;
 }
 
 // Single set with its own weight, reps, and optional time-mode duration.
@@ -262,6 +311,10 @@ export interface WorkoutExercise {
   // rendered together. Undefined/null = a standalone exercise. Carried over
   // from the template at start time.
   supersetGroup?: number | null;
+  // Frozen load context stamped by the client on save (see SetLoadContext).
+  // Makes this exercise's volume reproducible and immune to later changes in
+  // the exercise definition or the user's gear settings. Absent = 'standard'.
+  load?: SetLoadContext | null;
 }
 
 // Default number of sets for new exercises
@@ -332,6 +385,11 @@ export interface Workout {
   createdAt: string;
   updatedAt: string;
   isCompleted: boolean;
+  // Bodyweight snapshot (kg) frozen when the workout is saved — used by the
+  // volume counter for bodyweight-mode exercises. Editable later from the
+  // workout's history detail, which recomputes just this workout. Absent on
+  // workouts saved before this feature / with no bodyweight exercises.
+  bodyweightKg?: number | null;
   // Carried from the template at start time, if it had one — the active
   // workout surfaces the protocol text and a "Watch example" link.
   instagramUrl?: string;

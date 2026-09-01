@@ -2,8 +2,11 @@
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { WorkoutExercise, WorkoutSet, PersonalBest, ExerciseDefinition, ExerciseHistoryEntry, isExerciseCompleted, isTimeSet, getHighestWeight, bestE1rmFromSets, MIN_SETS, MAX_SETS } from '@/types/workout';
-import { getExerciseById } from '@/data/exercise-library';
+import { getExerciseById, resolveExerciseId } from '@/data/exercise-library';
 import { getLocalizedExercise, getLocalizedStepName } from '@/lib/exercise-translations';
+import { useWorkoutSettings } from '@/context/WorkoutSettingsContext';
+import { resolveLoadContext, effectiveSetKg } from '@/lib/workout-load';
+import ExerciseLoadMenu from './ExerciseLoadMenu';
 import { getProgressionStep } from '@/lib/workout-progression';
 import { ProgressionStep } from '@/types/workout';
 import { useWorkoutUser } from '@/context/WorkoutUserContext';
@@ -86,6 +89,32 @@ export default function ExerciseCard({
   const displayDescription = localized.description;
   const isCompleted = isExerciseCompleted(exercise);
   const isEditable = mode === 'edit';
+
+  // Load context for this exercise (bodyweight / per-side / per-dumbbell),
+  // used for the live "typed → total" badge while logging. Derived from the
+  // exercise definition + the user's gear override in settings.
+  const { exerciseLoad, bodyweightKg } = useWorkoutSettings();
+  const loadPref = exerciseLoad[resolveExerciseId(exercise.exerciseId)] ?? null;
+  const loadCtx = resolveLoadContext(exerciseDef, loadPref);
+  // The ⚙️ gear (per-side/per-dumbbell entry) only applies to non-bodyweight
+  // exercises — a bodyweight movement's load isn't entered per-side.
+  const showLoadGear = isEditable && exerciseDef?.loadMode !== 'bodyweight';
+  // The badge suffix keyed off the resolved entry mode.
+  const loadBadgeSuffix =
+    loadCtx.mode === 'barbell'
+      ? t('load.badge_side')
+      : loadCtx.mode === 'dumbbell'
+        ? t('load.badge_dumbbell')
+        : '';
+  // Effective total for a set's badge, or null when nothing meaningful to show.
+  const setBadgeTotal = (set: WorkoutSet): number | null => {
+    if (isTimeSet(set)) return null;
+    if (loadCtx.mode === 'standard') return null;
+    const hasInput = loadCtx.mode === 'bodyweight' ? (bodyweightKg ?? 0) > 0 : set.kg !== null;
+    if (!hasInput) return null;
+    const total = effectiveSetKg(set.kg, loadCtx, bodyweightKg);
+    return total > 0 ? total : null;
+  };
 
   // Calisthenics: a ladder on the definition flips this into a "skill"
   // exercise — each set carries a progression step, and the kg field means
@@ -480,6 +509,7 @@ export default function ExerciseCard({
         {isEditable && (
           <div className="exercise-card-actions">
             {dragHandle}
+            {showLoadGear && <ExerciseLoadMenu exerciseId={exercise.exerciseId} />}
             {onReplace && (
               <button
                 className="exercise-card-action"
@@ -587,6 +617,15 @@ export default function ExerciseCard({
                       max="999"
                       step="0.5"
                     />
+                    {(() => {
+                      const total = setBadgeTotal(set);
+                      return total !== null ? (
+                        <span className="exercise-set-load-badge">
+                          {loadBadgeSuffix ? `${loadBadgeSuffix} · ` : '≈ '}
+                          {formatWeight(total, unit)}{unitSuffix}
+                        </span>
+                      ) : null;
+                    })()}
                   </div>
                   {isTimeMode ? (
                     <SetStopwatch

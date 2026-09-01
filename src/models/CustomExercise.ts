@@ -1,5 +1,5 @@
 import mongoose, { Schema, Document, Model } from 'mongoose';
-import { ExerciseCategory, UserId } from '@/types/workout';
+import { ExerciseCategory, LoadMode, UserId } from '@/types/workout';
 
 // Per-user custom exercise. Users can add exercises that aren't in the
 // code-defined EXERCISE_LIBRARY; they live in the `customexercises`
@@ -13,6 +13,10 @@ export interface CustomExerciseDocument extends Document {
   name: string;
   categories: ExerciseCategory[];
   photo?: string;
+  // How this custom's entered weight maps to load (see LoadMode). Default
+  // 'standard'. `bodyweightFactor` applies only to bodyweight mode.
+  loadMode?: LoadMode;
+  bodyweightFactor?: number | null;
   // Soft-delete: hidden from pickers/browse but still resolves names in
   // history. Never hard-deleted, so past workouts/templates never orphan.
   retired: boolean;
@@ -44,6 +48,15 @@ const CustomExerciseSchema = new Schema<CustomExerciseDocument>({
   },
   photo: {
     type: String,
+    default: null,
+  },
+  loadMode: {
+    type: String,
+    enum: ['standard', 'bodyweight', 'barbell', 'dumbbell'],
+    default: 'standard',
+  },
+  bodyweightFactor: {
+    type: Number,
     default: null,
   },
   retired: {

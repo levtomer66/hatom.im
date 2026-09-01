@@ -4,8 +4,11 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useWorkoutUser } from '@/context/WorkoutUserContext';
 import { useWorkoutLanguage } from '@/context/WorkoutLanguageContext';
+import { useWorkoutUnit } from '@/context/WorkoutUnitContext';
 import { useCustomExercises } from '@/context/WorkoutCustomExercisesContext';
 import { useT, formatDate, exerciseCount, getLocalizedTemplateName } from '@/lib/workout-i18n';
+import { kgToDisplay, displayToKg } from '@/lib/weight';
+import { computeWorkoutStats } from '@/lib/workout-stats';
 import Header from '@/components/workout/Header';
 import BottomNav from '@/components/workout/BottomNav';
 import ExerciseCard from '@/components/workout/ExerciseCard';
@@ -18,6 +21,7 @@ export default function WorkoutDetailPage() {
   const router = useRouter();
   const { currentUser, isLoading } = useWorkoutUser();
   const { language } = useWorkoutLanguage();
+  const { unit } = useWorkoutUnit();
   const { customExercises, ensureLoaded } = useCustomExercises();
   const t = useT();
 
@@ -34,6 +38,10 @@ export default function WorkoutDetailPage() {
   const [loadingWorkout, setLoadingWorkout] = useState(true);
   // Feed share state for THIS workout. 'shared' if a post already exists.
   const [shareState, setShareState] = useState<'idle' | 'sharing' | 'shared'>('idle');
+  // Editable bodyweight snapshot (feature 1) — lets the user fix a mistaken
+  // bodyweight after the fact; recomputes this workout's volume on save.
+  const [bwText, setBwText] = useState('');
+  const [bwSaving, setBwSaving] = useState(false);
 
   const shareToFeed = async () => {
     if (!workout || shareState !== 'idle') return;
@@ -60,6 +68,55 @@ export default function WorkoutDetailPage() {
     customExercises.forEach(e => { map[e.id] = e; });
     return map;
   }, [customExercises]);
+
+  // This workout counts bodyweight in its volume if any exercise was stamped as
+  // bodyweight-mode, or resolves to a bodyweight definition. Only then do we
+  // surface the editable bodyweight snapshot.
+  const hasBodyweightExercise = useMemo(
+    () =>
+      !!workout?.exercises.some(
+        (ex) => ex.load?.mode === 'bodyweight' || exerciseMap[ex.exerciseId]?.loadMode === 'bodyweight',
+      ),
+    [workout, exerciseMap],
+  );
+
+  // Total volume for this workout (recomputes when the bodyweight snapshot is
+  // edited below, so the edit has a visible effect).
+  const volumeDisplay = useMemo(() => {
+    if (!workout) return null;
+    const kg = computeWorkoutStats(workout).totalVolumeKg;
+    return unit === 'lb'
+      ? `${Math.round(kg * 2.20462).toLocaleString()} lb`
+      : `${Math.round(kg).toLocaleString()} kg`;
+  }, [workout, unit]);
+
+  // Sync the bodyweight input from the loaded workout, in the active unit.
+  useEffect(() => {
+    const kg = workout?.bodyweightKg;
+    setBwText(kg != null ? String(Math.round(kgToDisplay(kg, unit) * 10) / 10) : '');
+  }, [workout?.bodyweightKg, unit]);
+
+  // Persist an edited bodyweight snapshot and update the volume locally.
+  const saveBodyweight = async () => {
+    if (!workout) return;
+    const trimmed = bwText.trim();
+    const kg = trimmed === '' ? null : Math.round(displayToKg(parseFloat(trimmed), unit) * 10) / 10;
+    if (kg !== null && (!Number.isFinite(kg) || kg <= 0)) return;
+    if (kg === (workout.bodyweightKg ?? null)) return; // no change
+    setBwSaving(true);
+    try {
+      const res = await fetch(`/api/workout/workouts/${workout.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bodyweightKg: kg }),
+      });
+      if (res.ok) setWorkout((w) => (w ? { ...w, bodyweightKg: kg } : w));
+    } catch (error) {
+      console.error('Error saving bodyweight:', error);
+    } finally {
+      setBwSaving(false);
+    }
+  };
 
   // Fetch workout
   const fetchWorkout = useCallback(async () => {
@@ -188,7 +245,47 @@ export default function WorkoutDetailPage() {
             color: 'var(--workout-text-secondary)',
           }}>
             {exerciseCount(workout.exercises.length, language)}
+            {volumeDisplay && (
+              <> · {t('workout.summary.volume')}: <strong style={{ color: 'var(--workout-text)' }}>{volumeDisplay}</strong></>
+            )}
           </div>
+
+          {hasBodyweightExercise && (
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                marginTop: '12px',
+                paddingTop: '12px',
+                borderTop: '1px solid var(--workout-border)',
+              }}
+            >
+              <label htmlFor="history-bodyweight" style={{ fontSize: '13px', color: 'var(--workout-text-secondary)' }}>
+                {t('profile.bodyweight')}
+              </label>
+              <input
+                id="history-bodyweight"
+                type="number"
+                inputMode="decimal"
+                min="0"
+                step="0.1"
+                className="profile-menu-bw-input"
+                value={bwText}
+                disabled={bwSaving}
+                onChange={(e) => setBwText(e.target.value)}
+                onBlur={saveBodyweight}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    saveBodyweight();
+                    (e.target as HTMLInputElement).blur();
+                  }
+                }}
+                placeholder="—"
+              />
+              <span className="profile-menu-bw-unit">{unit}</span>
+            </div>
+          )}
         </div>
 
         {/* Share a completed workout to the motivation feed. */}

@@ -1,5 +1,5 @@
 import mongoose, { Schema, Document, Model } from 'mongoose';
-import { Workout, WorkoutExercise, WorkoutSet } from '@/types/workout';
+import { Workout, WorkoutExercise, WorkoutSet, SetLoadContext } from '@/types/workout';
 
 // Mongoose document interface
 export interface WorkoutDocument extends Omit<Workout, '_id' | 'id'>, Document {}
@@ -14,6 +14,16 @@ const WorkoutSetSchema = new Schema<WorkoutSet>({
   stepId: { type: String, default: null },
 }, { _id: false });
 
+// Frozen per-exercise load context (see SetLoadContext). Stamped by the client
+// on save so a workout's volume never shifts when the exercise definition or
+// the user's gear settings change later. Absent/standard = entered kg is total.
+const SetLoadContextSchema = new Schema<SetLoadContext>({
+  mode: { type: String, default: 'standard' },
+  factor: { type: Number, default: null },
+  entry: { type: String, default: null },
+  barWeightKg: { type: Number, default: null },
+}, { _id: false });
+
 // Sub-schema for workout exercises
 const WorkoutExerciseSchema = new Schema<WorkoutExercise>({
   id: { type: String, required: true },
@@ -25,6 +35,8 @@ const WorkoutExerciseSchema = new Schema<WorkoutExercise>({
   replacedFromExerciseId: { type: String, default: null },
   // 1-based superset group id (carried from the template); null = standalone.
   supersetGroup: { type: Number, default: null },
+  // Frozen load context for volume (bodyweight / per-side / per-dumbbell).
+  load: { type: SetLoadContextSchema, default: null },
 }, { _id: false });
 
 // Main workout schema
@@ -58,6 +70,13 @@ const WorkoutSchema = new Schema<WorkoutDocument>({
   isCompleted: {
     type: Boolean,
     default: false
+  },
+  // Bodyweight (kg) snapshot frozen on save, used by the volume counter for
+  // bodyweight-mode exercises. Editable from history. Null on legacy workouts
+  // and those with no bodyweight exercises.
+  bodyweightKg: {
+    type: Number,
+    default: null,
   },
   // Optional example link + protocol text, carried from the template.
   instagramUrl: { type: String, default: '' },
