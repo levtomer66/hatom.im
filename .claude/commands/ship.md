@@ -29,7 +29,7 @@ The `/code-review` skill reviews a **committed** diff, so land the work first (t
 - **Case A**: stage with targeted `git add <paths>` (never `git add -A` without checking for secrets — if `git diff --cached` shows anything credential-like, stop and ask), then create a single commit. Use the user's `$ARGUMENTS` as the subject when provided; otherwise write a descriptive subject + body that explains the change and why.
 - **Case B**: already committed — skip.
 
-Always append the standard `Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>` trailer. Never amend a commit that is already on `origin`.
+Always append the session's standard `Co-Authored-By:` commit trailer — use the exact one your environment's commit guidance specifies, rather than hardcoding a model version here (it goes stale). Never amend a commit that is already on `origin`.
 
 ## 4. Run the code review
 

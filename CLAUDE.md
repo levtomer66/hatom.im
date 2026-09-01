@@ -68,10 +68,11 @@ The project-level slash command is the blessed path:
 /ship "scope: short subject"  # custom subject
 ```
 
-`/ship` implements the full loop: git state probe → `/codex:review` (background
-when diff > 2 files) → fix P0/P1 (judge P2/P3) → tsc + lint + build → commit →
-push (fast-forward only; asks before force-pushing). Source:
-`.claude/commands/ship.md`.
+`/ship` implements the full loop: git state probe → verify (tsc + lint + build)
+→ commit → `/code-review` (the built-in skill, run against `origin/main`; two
+parallel axes, Standards + Spec) → apply findings (you triage severity — there
+is no P0–P3 labelling) → push (fast-forward only; asks before force-pushing).
+Source: `.claude/commands/ship.md`.
 
 ## Environment
 
