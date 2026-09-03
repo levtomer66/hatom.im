@@ -1080,6 +1080,139 @@ body[data-rest-active] .workout-page {
 .feed-post-like-static { cursor: default; }
 .feed-post-like-static .feed-post-like-emoji { filter: none; opacity: 1; }
 
+/* ── The Moving Car — group goal pinned under the header on the feed ── */
+.car-strip {
+  position: sticky;
+  top: var(--header-height);
+  z-index: 90;
+  padding: 10px 16px 10px;
+  background: var(--workout-bg);
+  border-bottom: 1px solid var(--workout-border);
+}
+.car-strip-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 13px;
+}
+.car-strip-title {
+  font-weight: 700;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.car-strip-level {
+  flex-shrink: 0;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--workout-gold);
+  background: color-mix(in srgb, var(--workout-gold) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--workout-gold) 35%, transparent);
+}
+/* The track: a thin road with the car riding along its filled portion. Inline
+   (logical) offsets so the car drives right in LTR and LEFT in RTL. */
+.car-track {
+  position: relative;
+  height: 10px;
+  margin: 18px 14px 14px 6px;
+  border-radius: 999px;
+  background: var(--workout-bg-secondary);
+  border: 1px solid var(--workout-border);
+}
+.car-track-fill {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: 0;
+  border-radius: 999px;
+  background: linear-gradient(90deg,
+    color-mix(in srgb, var(--workout-gold) 55%, transparent),
+    var(--workout-gold));
+  transition: width 0.8s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.car-track-car {
+  position: absolute;
+  top: 50%;
+  inset-inline-start: 0;
+  font-size: 24px;
+  line-height: 1;
+  /* Vehicle emojis face LEFT on every major platform. In LTR the car travels
+     right, so mirror it; the translate centres the glyph on its position. */
+  transform: translate(-50%, -56%) scaleX(-1);
+  transition: inset-inline-start 0.8s cubic-bezier(0.22, 1, 0.36, 1);
+  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.45));
+}
+.workout-app[dir="rtl"] .car-track-car {
+  /* RTL: the anchor is the right edge; it already faces its travel direction. */
+  transform: translate(50%, -56%);
+}
+.car-track-flag {
+  position: absolute;
+  top: 50%;
+  inset-inline-end: -12px;
+  font-size: 18px;
+  line-height: 1;
+  transform: translateY(-60%);
+}
+.car-strip-foot {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--workout-text-muted);
+}
+.car-strip-distance strong {
+  color: var(--workout-text);
+  font-size: 14px;
+  font-weight: 700;
+}
+.car-strip-pushers {
+  margin-top: 4px;
+  font-size: 11px;
+  color: var(--workout-text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.car-strip-pushers strong { color: var(--workout-text-secondary); font-weight: 600; }
+/* Level-up: the car hops and a toast slides in over the strip. */
+.car-strip-levelup .car-track-car { animation: car-hop 0.5s ease 4; }
+.workout-app[dir="rtl"] .car-strip-levelup .car-track-car { animation-name: car-hop-rtl; }
+@keyframes car-hop {
+  0%, 100% { transform: translate(-50%, -56%) scaleX(-1); }
+  50%      { transform: translate(-50%, -110%) scaleX(-1); }
+}
+@keyframes car-hop-rtl {
+  0%, 100% { transform: translate(50%, -56%); }
+  50%      { transform: translate(50%, -110%); }
+}
+.car-strip-toast {
+  margin-top: 8px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 700;
+  text-align: center;
+  color: var(--workout-bg);
+  background: var(--workout-gold);
+  animation: car-toast-in 0.35s ease-out;
+}
+@keyframes car-toast-in {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+/* "+X m" line under the Shared ✓ button in the completion summary */
+.workout-summary-car {
+  margin-top: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--workout-gold);
+}
+
 /* Skills overview strip (exercises list page) */
 .skills-overview {
   margin-bottom: 16px;

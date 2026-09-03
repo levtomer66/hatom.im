@@ -50,6 +50,7 @@ import { getProgression, getProgressionStep, stepIndex } from '@/lib/workout-pro
 import { getLocalizedExercise, getLocalizedStepName } from '@/lib/exercise-translations';
 import { getVolumeBrag } from '@/lib/workout-volume-jokes';
 import { computeWorkoutStats } from '@/lib/workout-stats';
+import { kgToMeters, formatMeters } from '@/lib/workout-car';
 import { v4 as uuidv4 } from 'uuid';
 import { buildSupersetGroups, supersetLabel } from '@/lib/superset';
 
@@ -1147,6 +1148,12 @@ function CompletionSummary({
           >
             {shareState === 'shared' ? t('feed.shared') : t('feed.share')}
           </button>
+          {/* How far this share pushed the feed's 1-ton car (1 000 kg = 1 m). */}
+          {shareState === 'shared' && stats.totalVolumeKg > 0 && (
+            <div className="workout-summary-car" role="status">
+              {t('car.pushed').replace('{m}', formatMeters(kgToMeters(stats.totalVolumeKg)))}
+            </div>
+          )}
         </div>
       </div>
     </div>

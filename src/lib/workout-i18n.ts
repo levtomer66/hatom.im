@@ -22,6 +22,16 @@ const DICT = {
   'feed.load_more':      { en: 'Load more',                       he: 'טען עוד' },
   'feed.like':           { en: 'Give a flex 💪',                  he: 'תנו כוח 💪' },
   'feed.likes':          { en: 'flexes',                          he: 'כוח' },
+  // The Moving Car — shared group goal pinned on top of the feed
+  'car.aria':            { en: 'Group progress: the 1-ton car',   he: 'התקדמות קבוצתית: הרכב של טון' },
+  'car.title':           { en: 'The 1-ton car',                   he: 'הרכב של טון' },
+  'car.rule':            { en: 'Every 1,000 kg lifted moves it 1 m', he: 'כל 1,000 ק"ג שמורמים מזיזים אותו מטר' },
+  'car.level':           { en: 'Level',                           he: 'רמה' },
+  'car.to_go':           { en: '{m} m to the finish line',        he: 'עוד {m} מ׳ לקו הסיום' },
+  'car.level_up':        { en: 'Level up! The finish line just moved further away', he: 'עלינו רמה! קו הסיום התרחק' },
+  'car.empty':           { en: 'Share a workout to give the car its first push', he: 'שתפו אימון כדי לתת לרכב את הדחיפה הראשונה' },
+  'car.pushed':          { en: 'You pushed the car {m} m 🚗',    he: 'הרכב התקדם {m} מ׳ בזכותך 🚗' },
+  'car.ton_short':       { en: 't',                               he: 'ט׳' },
   'header.switch_user':  { en: 'Switch',                          he: 'החלף' },
 
   // Profile menu (bodyweight + prefs)

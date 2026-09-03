@@ -9,6 +9,7 @@ import { useT, formatDate, getLocalizedTemplateName } from '@/lib/workout-i18n';
 import { getVolumeBrag } from '@/lib/workout-volume-jokes';
 import Header from '@/components/workout/Header';
 import BottomNav from '@/components/workout/BottomNav';
+import MovingCar from '@/components/workout/MovingCar';
 
 // Shape of one GET /api/workout/feed item (server attaches displayName).
 // Declared locally so this client page never imports the server-only model.
@@ -53,6 +54,8 @@ export default function FeedPage() {
   const [loadError, setLoadError] = useState(false);
   const [unsharingId, setUnsharingId] = useState<string | null>(null);
   const [togglingId, setTogglingId] = useState<string | null>(null);
+  // Bumped when this viewer unshares a post so the car strip re-totals.
+  const [carRefresh, setCarRefresh] = useState(0);
   const nextSkipRef = useRef(0);
   const inFlightRef = useRef(false);
 
@@ -102,6 +105,7 @@ export default function FeedPage() {
       const res = await fetch(`/api/workout/feed/${post.workoutId}`, { method: 'DELETE' });
       if (res.ok) {
         setPosts((prev) => prev.filter((p) => p.id !== post.id));
+        setCarRefresh((n) => n + 1);
       }
     } catch (error) {
       console.error('Error unsharing:', error);
@@ -164,6 +168,9 @@ export default function FeedPage() {
   return (
     <main className="workout-main">
       <Header title={t('feed.title')} />
+      {/* Sits between the sticky header and the page so it stays pinned
+          under the header while the posts scroll beneath it. */}
+      <MovingCar refreshKey={carRefresh} />
       <div className="workout-page">
         {loading ? (
           <div className="loading-spinner" />

@@ -74,6 +74,42 @@ export async function getFeedPage(limit: number, skip: number): Promise<WorkoutF
   return docs.map(toPost);
 }
 
+// Group-wide totals that drive "The Moving Car" (see src/lib/workout-car.ts):
+// the sum of every post's snapshot volume, overall and per sharer. One
+// $group over the collection — the car's level/progress is derived from
+// `totalKg` by a pure function, so nothing about it is stored here.
+export interface FeedTotals {
+  totalKg: number;
+  postCount: number;
+  byUser: { userId: string; kg: number; posts: number }[]; // heaviest pusher first
+}
+
+export async function getFeedTotals(): Promise<FeedTotals> {
+  const col = await getCollection();
+  const rows = await col
+    .aggregate<{ _id: string; kg: number; posts: number }>([
+      {
+        $group: {
+          _id: '$userId',
+          kg: { $sum: { $ifNull: ['$stats.totalVolumeKg', 0] } },
+          posts: { $sum: 1 },
+        },
+      },
+      { $sort: { kg: -1, _id: 1 } },
+    ])
+    .toArray();
+
+  let totalKg = 0;
+  let postCount = 0;
+  const byUser = rows.map((r) => {
+    const kg = Number.isFinite(r.kg) ? r.kg : 0;
+    totalKg += kg;
+    postCount += r.posts;
+    return { userId: r._id, kg, posts: r.posts };
+  });
+  return { totalKg, postCount, byUser };
+}
+
 // Lookup by workoutId — powers the share-state check on completion/history.
 export async function getFeedPostByWorkoutId(workoutId: string): Promise<WorkoutFeedPost | null> {
   const col = await getCollection();
