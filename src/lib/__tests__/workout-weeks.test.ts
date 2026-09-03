@@ -5,7 +5,8 @@ import {
   toYmd,
   startOfWeek,
   endOfWeek,
-  weekAnchor,
+  startOfMonth,
+  endOfMonth,
   monthKey,
   groupByMonthAndWeek,
   weeksAgo,
@@ -33,19 +34,17 @@ test('endOfWeek is the following Saturday', () => {
   assert.equal(toYmd(endOfWeek(parseLocalDate('2026-08-30'))), '2026-09-05');
 });
 
-test('a straddling week belongs to the month of its Wednesday', () => {
-  // Aug 30 – Sep 5: Wednesday is Sep 2 → September.
-  assert.equal(monthKey(weekAnchor(parseLocalDate('2026-08-30'))), '2026-09');
-  // Aug 23 – Aug 29: Wednesday is Aug 26 → August.
-  assert.equal(monthKey(weekAnchor(parseLocalDate('2026-08-23'))), '2026-08');
-  // Dec 28 2025 – Jan 3 2026: Wednesday is Dec 31 → December 2025.
-  assert.equal(monthKey(weekAnchor(parseLocalDate('2025-12-28'))), '2025-12');
+test('month bounds', () => {
+  assert.equal(toYmd(startOfMonth(parseLocalDate('2026-09-17'))), '2026-09-01');
+  assert.equal(toYmd(endOfMonth(parseLocalDate('2026-09-17'))), '2026-09-30');
+  assert.equal(toYmd(endOfMonth(parseLocalDate('2026-02-10'))), '2026-02-28');
+  assert.equal(monthKey(parseLocalDate('2026-09-03')), '2026-09');
 });
 
-test('groupByMonthAndWeek nests weeks under months, newest first, and counts', () => {
+test('groupByMonthAndWeek nests weeks under calendar months, newest first, and counts', () => {
   const items = [
     { id: 'a', date: '2026-09-03' }, // Thu, week Aug 30 → Sep
-    { id: 'b', date: '2026-08-30' }, // Sun, same week → Sep (not Aug!)
+    { id: 'b', date: '2026-08-30' }, // Sun, same week → Aug (calendar month wins)
     { id: 'c', date: '2026-08-29' }, // Sat, week Aug 23 → Aug
     { id: 'd', date: '2026-08-24' }, // Mon, week Aug 23 → Aug
     { id: 'e', date: '2026-08-05' }, // Wed, week Aug 2 → Aug
@@ -53,29 +52,59 @@ test('groupByMonthAndWeek nests weeks under months, newest first, and counts', (
   const months = groupByMonthAndWeek(items);
 
   assert.deepEqual(months.map((m) => m.key), ['2026-09', '2026-08']);
-  assert.deepEqual(months.map((m) => m.count), [2, 3]);
+  assert.deepEqual(months.map((m) => m.count), [1, 4]);
 
   const sep = months[0];
+  assert.equal(toYmd(sep.monthStart), '2026-09-01');
   assert.equal(sep.weeks.length, 1);
   assert.equal(sep.weeks[0].key, '2026-08-30');
-  assert.deepEqual(sep.weeks[0].items.map((i) => i.id), ['a', 'b']);
-  assert.equal(toYmd(sep.anchor), '2026-09-01');
+  assert.deepEqual(sep.weeks[0].items.map((i) => i.id), ['a']);
 
   const aug = months[1];
-  assert.deepEqual(aug.weeks.map((w) => w.key), ['2026-08-23', '2026-08-02']);
-  assert.deepEqual(aug.weeks[0].items.map((i) => i.id), ['c', 'd']);
-  assert.deepEqual(aug.weeks[1].items.map((i) => i.id), ['e']);
+  assert.deepEqual(aug.weeks.map((w) => w.key), ['2026-08-30', '2026-08-23', '2026-08-02']);
+  assert.deepEqual(aug.weeks[0].items.map((i) => i.id), ['b']);
+  assert.deepEqual(aug.weeks[1].items.map((i) => i.id), ['c', 'd']);
+  assert.deepEqual(aug.weeks[2].items.map((i) => i.id), ['e']);
 });
 
-test('groupByMonthAndWeek puts New Year week entirely in December', () => {
+test('a straddling week is clipped to each month and marked partial', () => {
+  const months = groupByMonthAndWeek([
+    { id: 'a', date: '2026-09-03' },
+    { id: 'b', date: '2026-08-30' },
+  ]);
+  const sepWeek = months[0].weeks[0];
+  assert.equal(toYmd(sepWeek.start), '2026-08-30');      // the real week
+  assert.equal(toYmd(sepWeek.end), '2026-09-05');
+  assert.equal(toYmd(sepWeek.rangeStart), '2026-09-01'); // what September shows
+  assert.equal(toYmd(sepWeek.rangeEnd), '2026-09-05');
+  assert.equal(sepWeek.partial, true);
+
+  const augWeek = months[1].weeks[0];
+  assert.equal(toYmd(augWeek.rangeStart), '2026-08-30'); // what August shows
+  assert.equal(toYmd(augWeek.rangeEnd), '2026-08-31');
+  assert.equal(augWeek.partial, true);
+});
+
+test('a week fully inside a month is not partial and shows its full range', () => {
+  const [aug] = groupByMonthAndWeek([{ id: 'c', date: '2026-08-29' }]);
+  const week = aug.weeks[0];
+  assert.equal(toYmd(week.rangeStart), '2026-08-23');
+  assert.equal(toYmd(week.rangeEnd), '2026-08-29');
+  assert.equal(week.partial, false);
+});
+
+test('New Year week is split between December and January', () => {
   const months = groupByMonthAndWeek([
     { id: 'jan1', date: '2026-01-01' },
     { id: 'dec29', date: '2025-12-29' },
   ]);
-  assert.equal(months.length, 1);
-  assert.equal(months[0].key, '2025-12');
+  assert.deepEqual(months.map((m) => m.key), ['2026-01', '2025-12']);
   assert.equal(months[0].weeks[0].key, '2025-12-28');
-  assert.equal(months[0].count, 2);
+  assert.equal(toYmd(months[0].weeks[0].rangeStart), '2026-01-01');
+  assert.equal(toYmd(months[0].weeks[0].rangeEnd), '2026-01-03');
+  assert.equal(months[1].weeks[0].key, '2025-12-28');
+  assert.equal(toYmd(months[1].weeks[0].rangeStart), '2025-12-28');
+  assert.equal(toYmd(months[1].weeks[0].rangeEnd), '2025-12-31');
 });
 
 test('groupByMonthAndWeek handles an empty list', () => {

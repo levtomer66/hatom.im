@@ -4,6 +4,7 @@ import WorkoutModel from '@/models/Workout';
 import { requireSignedIn } from '@/lib/auth-helpers';
 import { recomputeAndStorePersonalBests } from '@/lib/workout-pb';
 import { sanitizeExercisesStepIds } from '@/lib/workout-progression';
+import { updateFeedPostWorkoutName } from '@/models/WorkoutFeedPost';
 
 // Connect to MongoDB using mongoose
 async function connectDB() {
@@ -93,6 +94,17 @@ export async function PUT(
 
     if (!workout) {
       return NextResponse.json({ error: 'Workout not found' }, { status: 404 });
+    }
+
+    // A rename after sharing (freestyle "save as template") would otherwise
+    // leave the feed post showing the old name — keep the post's name in step.
+    // Best-effort like the PB refresh below; no-op if never shared.
+    if (typeof updateData.workoutName === 'string' && workout.workoutName !== owned.workout.workoutName) {
+      try {
+        await updateFeedPostWorkoutName(id, workout.workoutName);
+      } catch (feedError) {
+        console.error('Feed post rename after workout rename failed (non-fatal):', feedError);
+      }
     }
 
     // Refresh the materialized PB store only when the workout is now

@@ -1,11 +1,14 @@
 // Month → week grouping for the History page.
 //
-// Weeks run Sunday → Saturday and are computed in the device's LOCAL time
-// from the workout's `YYYY-MM-DD` date. A week that straddles two months is
-// never split: it belongs to the month containing its Wednesday — the month
-// that holds at least 4 of its 7 days (the Sun–Sat analogue of ISO-8601's
-// "week belongs to the year of its Thursday"). Splitting would defeat the
-// point of the grouping, which is an honest "how many workouts this week".
+// Months are calendar months of the workout's own date (the grouping the
+// owner asked to keep). Inside each month, weeks run Sunday → Saturday and
+// are computed in the device's LOCAL time from the `YYYY-MM-DD` date. A week
+// that straddles two months appears in BOTH months, each showing only the
+// days that fall inside it — the visible range is clipped to the month
+// ("Aug 30 – 31" under August, "Sep 1 – 5" under September) so a partial
+// week is self-explanatory. (The alternative — assigning the whole week to
+// one month so its count is never split — was considered and rejected
+// because it moves workouts out of their calendar month.)
 //
 // Pure + import-free so it is unit-testable with `node --test`.
 
@@ -41,9 +44,12 @@ export function endOfWeek(weekStart: Date): Date {
   return addDays(weekStart, 6);
 }
 
-// The month a Sun–Sat week belongs to is the one containing its Wednesday.
-export function weekAnchor(weekStart: Date): Date {
-  return addDays(weekStart, 3);
+export function startOfMonth(d: Date): Date {
+  return new Date(d.getFullYear(), d.getMonth(), 1);
+}
+
+export function endOfMonth(d: Date): Date {
+  return new Date(d.getFullYear(), d.getMonth() + 1, 0);
 }
 
 export function monthKey(d: Date): string {
@@ -51,16 +57,19 @@ export function monthKey(d: Date): string {
 }
 
 export interface WeekGroup<T> {
-  key: string;   // YYYY-MM-DD of the week's Sunday
-  start: Date;   // Sunday, local midnight
-  end: Date;     // Saturday, local midnight
+  key: string;        // YYYY-MM-DD of the week's Sunday
+  start: Date;        // the week's Sunday — may fall in the previous month
+  end: Date;          // the week's Saturday — may fall in the next month
+  rangeStart: Date;   // `start` clipped to this month (what the label shows)
+  rangeEnd: Date;     // `end` clipped to this month
+  partial: boolean;   // true when the week continues in an adjacent month
   items: T[];
 }
 
 export interface MonthGroup<T> {
-  key: string;   // YYYY-MM (of the weeks' anchor month)
-  anchor: Date;  // first day of that month, for the label
-  count: number; // total items across its weeks
+  key: string;        // YYYY-MM
+  monthStart: Date;   // first day of the month, for the label
+  count: number;      // total items across its weeks
   weeks: WeekGroup<T>[];
 }
 
@@ -70,25 +79,31 @@ export function groupByMonthAndWeek<T extends { date: string }>(items: T[]): Mon
   const months = new Map<string, MonthGroup<T>>();
   for (const item of items) {
     const day = parseLocalDate(item.date);
-    const weekStart = startOfWeek(day);
-    const anchor = weekAnchor(weekStart);
-    const mk = monthKey(anchor);
+    const mk = monthKey(day);
 
     let month = months.get(mk);
     if (!month) {
-      month = {
-        key: mk,
-        anchor: new Date(anchor.getFullYear(), anchor.getMonth(), 1),
-        count: 0,
-        weeks: [],
-      };
+      month = { key: mk, monthStart: startOfMonth(day), count: 0, weeks: [] };
       months.set(mk, month);
     }
 
+    const weekStart = startOfWeek(day);
     const wk = toYmd(weekStart);
     let week = month.weeks.find((w) => w.key === wk);
     if (!week) {
-      week = { key: wk, start: weekStart, end: endOfWeek(weekStart), items: [] };
+      const weekEnd = endOfWeek(weekStart);
+      const monthEnd = endOfMonth(day);
+      const rangeStart = weekStart < month.monthStart ? month.monthStart : weekStart;
+      const rangeEnd = weekEnd > monthEnd ? monthEnd : weekEnd;
+      week = {
+        key: wk,
+        start: weekStart,
+        end: weekEnd,
+        rangeStart,
+        rangeEnd,
+        partial: rangeStart.getTime() !== weekStart.getTime() || rangeEnd.getTime() !== weekEnd.getTime(),
+        items: [],
+      };
       month.weeks.push(week);
     }
     week.items.push(item);

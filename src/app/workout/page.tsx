@@ -289,6 +289,28 @@ export default function WorkoutsPage() {
     setEditTick((n) => n + 1);
   }, []);
 
+  // POST a new (empty) workout session; exercises are added client-side and
+  // autosaved onto it. userId is derived from the session server-side, so it
+  // isn't sent. Returns null on failure.
+  const createWorkout = async (fields: { templateId?: string; workoutName: string }): Promise<Workout | null> => {
+    const res = await fetch('/api/workout/workouts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        ...fields,
+        date: new Date().toISOString().split('T')[0],
+        // Idempotency: a client-minted UUID so a PWA offline-queue replay of
+        // this same POST collapses to the same workout server-side instead
+        // of creating a duplicate.
+        clientRequestId: uuidv4(),
+      }),
+    });
+    if (!res.ok) return null;
+    const workout: Workout = await res.json();
+    workout.exercises = workout.exercises ?? [];
+    return workout;
+  };
+
   // Start new workout from template — carry per-exercise defaults
   // (numSets, notes) AND prefill each set's KG from the user's most
   // recent occurrence (per PB endpoint's `lastSets`). REPS are NOT
@@ -340,23 +362,8 @@ export default function WorkoutsPage() {
         };
       });
 
-      const res = await fetch('/api/workout/workouts', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userId: currentUser.id,
-          templateId: template.id,
-          workoutName: template.name,
-          date: new Date().toISOString().split('T')[0],
-          // Idempotency: a client-minted UUID so a PWA offline-queue
-          // replay of this same POST collapses to the same workout
-          // server-side instead of creating a duplicate.
-          clientRequestId: uuidv4(),
-        }),
-      });
-      
-      if (res.ok) {
-        const workout = await res.json();
+      const workout = await createWorkout({ templateId: template.id, workoutName: template.name });
+      if (workout) {
         // Add the exercises from the template
         workout.exercises = exercises;
         // Carry the template's example link + protocol text to the workout.
@@ -384,19 +391,8 @@ export default function WorkoutsPage() {
   const startEmptyWorkout = async () => {
     if (!currentUser) return;
     try {
-      const res = await fetch('/api/workout/workouts', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userId: currentUser.id,
-          workoutName: FREESTYLE_WORKOUT_NAME,
-          date: new Date().toISOString().split('T')[0],
-          clientRequestId: uuidv4(),
-        }),
-      });
-      if (res.ok) {
-        const workout: Workout = await res.json();
-        workout.exercises = workout.exercises ?? [];
+      const workout = await createWorkout({ workoutName: FREESTYLE_WORKOUT_NAME });
+      if (workout) {
         setActiveWorkout(workout);
         setHasInProgressWorkout(true);
         setShowTemplateSelector(false);
@@ -421,7 +417,6 @@ export default function WorkoutsPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          userId: currentUser.id,
           name: trimmed,
           exercises: templateExercisesFromWorkout(workout.exercises),
         }),
@@ -1018,6 +1013,10 @@ function CompletionSummary({
   const [shareState, setShareState] = useState<'idle' | 'sharing' | 'shared'>('idle');
   const [saveName, setSaveName] = useState('');
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  // Latched at mount: a successful save stamps templateId onto the summary
+  // workout, which flips `canSaveAsTemplate` false — without the latch the
+  // card would unmount before "Saved ✓" ever rendered.
+  const [showSave] = useState(canSaveAsTemplate);
 
   const saveAsTemplate = async () => {
     if (!onSaveAsTemplate || saveState === 'saving' || saveState === 'saved') return;
@@ -1100,7 +1099,7 @@ function CompletionSummary({
           <div className="workout-summary-brag" role="status">
             {brag}
           </div>
-          {canSaveAsTemplate && onSaveAsTemplate && (
+          {showSave && onSaveAsTemplate && (
             <div className="workout-summary-save">
               <div className="workout-summary-save-title">{t('workout.summary.save_title')}</div>
               <div className="workout-summary-save-hint">{t('workout.summary.save_hint')}</div>

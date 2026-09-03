@@ -3,6 +3,7 @@
 import { useCallback } from 'react';
 import { Language, ExerciseCategory } from '@/types/workout';
 import { useWorkoutLanguage } from '@/context/WorkoutLanguageContext';
+import { parseLocalDate } from '@/lib/workout-weeks';
 
 // Flat translation keys. One source of truth so TS flags any typo when the
 // dictionary is keyed by `TranslationKey`.
@@ -32,6 +33,7 @@ const DICT = {
   'car.empty':           { en: 'Share a workout to give the car its first push', he: 'שתפו אימון כדי לתת לרכב את הדחיפה הראשונה' },
   'car.pushed':          { en: 'You pushed the car {m} m 🚗',    he: 'הרכב התקדם {m} מ׳ בזכותך 🚗' },
   'car.ton_short':       { en: 't',                               he: 'ט׳' },
+  'car.meter_short':     { en: 'm',                               he: 'מ׳' },
   'header.switch_user':  { en: 'Switch',                          he: 'החלף' },
 
   // Profile menu (bodyweight + prefs)
@@ -330,12 +332,18 @@ export function getCategoryLabel(category: ExerciseCategory, language: Language)
 }
 
 // Locale-aware date formatter. Use this in place of toLocaleDateString('en-US', …).
+// A bare `YYYY-MM-DD` (the shape Workout.date is stored in) is read as a LOCAL
+// calendar day — `new Date('2026-09-03')` is UTC midnight, i.e. the previous
+// evening in negative-UTC zones. Full ISO timestamps keep their instant.
+const YMD_ONLY = /^\d{4}-\d{2}-\d{2}$/;
 export function formatDate(
   date: Date | string,
   language: Language,
   opts?: Intl.DateTimeFormatOptions
 ): string {
-  const d = typeof date === 'string' ? new Date(date) : date;
+  const d = typeof date === 'string'
+    ? (YMD_ONLY.test(date) ? parseLocalDate(date) : new Date(date))
+    : date;
   const locale = language === 'he' ? 'he-IL' : 'en-US';
   return d.toLocaleDateString(locale, opts);
 }
@@ -355,20 +363,17 @@ export function formatDateRange(
   return `${fmt.format(start)} – ${fmt.format(end)}`;
 }
 
-// English/Hebrew-aware simple count phrase, e.g. "3 exercises" / "3 תרגילים".
-export function exerciseCount(n: number, language: Language): string {
-  const word = n === 1
-    ? translate(language, 'count.exercise_one')
-    : translate(language, 'count.exercise_many');
-  return `${n} ${word}`;
+// English/Hebrew-aware simple count phrase: "1 exercise" / "3 exercises" / "3 תרגילים".
+function countPhrase(n: number, oneKey: TranslationKey, manyKey: TranslationKey, language: Language): string {
+  return `${n} ${translate(language, n === 1 ? oneKey : manyKey)}`;
 }
 
-// Same for workouts: "1 workout" / "4 workouts" / "4 אימונים".
+export function exerciseCount(n: number, language: Language): string {
+  return countPhrase(n, 'count.exercise_one', 'count.exercise_many', language);
+}
+
 export function workoutCount(n: number, language: Language): string {
-  const word = n === 1
-    ? translate(language, 'count.workout_one')
-    : translate(language, 'count.workout_many');
-  return `${n} ${word}`;
+  return countPhrase(n, 'count.workout_one', 'count.workout_many', language);
 }
 
 // Template / workout names are user-authored strings stored in the DB. When a

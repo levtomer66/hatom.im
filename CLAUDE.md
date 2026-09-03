@@ -43,8 +43,8 @@ Vercel's GitHub integration. There is no separate `master` branch.
   careful when adding new external origins — the site has strict CSP and
   past incidents blocked features in production.
 - **Never amend a commit that's already on `origin`** — always follow up.
-- **Pre-commit hook** (Husky) runs `next build`. A failed build blocks the
-  commit. If the Next cache seems stuck (e.g. `Cannot find module for page:
+- **Pre-commit hook** (Husky) runs `npm test` then `next build`. A failed
+  test or build blocks the commit. If the Next cache seems stuck (e.g. `Cannot find module for page:
   /_document`), `rm -rf .next` and retry — this has happened twice.
 
 ## Running things
@@ -170,9 +170,11 @@ Identity = Gmail address. Two roles:
   `stats.totalVolumeKg` by `computeCarState()` in `src/lib/workout-car.ts`
   (1 000 kg = 1 m; level 1 = 50 m, ×1.25 per level). Nothing is stored —
   don't add a level document; change the constants instead.
-- **History weeks**: Sun–Sat, grouped by `src/lib/workout-weeks.ts`. A week
-  straddling two months belongs to the month of its Wednesday — never split.
-  Parse `YYYY-MM-DD` with `parseLocalDate()`, not `new Date(str)` (UTC).
+- **History weeks**: Sun–Sat inside calendar months, grouped by
+  `src/lib/workout-weeks.ts`. A week straddling two months appears in both,
+  clipped to each month's days (`rangeStart`/`rangeEnd`, `partial: true`).
+  Parse `YYYY-MM-DD` with `parseLocalDate()`, not `new Date(str)` (UTC) —
+  `formatDate()` already does this for bare date strings.
 - Alias collision bug fixed once: `lat-pulldown` → `wide-grip-lat-pulldown`.
   Template read/write goes through `resolveExerciseId()` + dedupe helper so
   templates can't hold both forms at once. Don't regress.

@@ -127,6 +127,14 @@ export async function createFeedPost(data: CreateWorkoutFeedPost): Promise<Worko
   return toPost({ ...doc, _id: result.insertedId });
 }
 
+// Keep a post's displayed name in step with an explicit rename of its workout
+// (a freestyle workout saved as a template after completion gets its chosen
+// name). Stats remain a snapshot. No-op when the workout was never shared.
+export async function updateFeedPostWorkoutName(workoutId: string, workoutName: string): Promise<void> {
+  const col = await getCollection();
+  await col.updateOne({ workoutId }, { $set: { workoutName } });
+}
+
 // Toggle the caller's like on a post and return the post-toggle count + whether
 // the caller now likes it, or null if the post doesn't exist. Owner-can't-like
 // is enforced by the route, not here. The add-if-absent / remove-if-present

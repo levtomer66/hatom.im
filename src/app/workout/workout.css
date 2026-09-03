@@ -1113,9 +1113,11 @@ body[data-rest-active] .workout-page {
   background: color-mix(in srgb, var(--workout-gold) 14%, transparent);
   border: 1px solid color-mix(in srgb, var(--workout-gold) 35%, transparent);
 }
-/* The track: a thin road with the car riding along its filled portion. Inline
-   (logical) offsets so the car drives right in LTR and LEFT in RTL. */
+/* The track: a thin road with the car riding along its filled portion. The
+   car always drives LEFT → RIGHT — as specified — even in Hebrew, so the
+   track is forced LTR while the text around it stays RTL. */
 .car-track {
+  direction: ltr;
   position: relative;
   height: 10px;
   margin: 18px 14px 14px 6px;
@@ -1125,8 +1127,9 @@ body[data-rest-active] .workout-page {
 }
 .car-track-fill {
   position: absolute;
-  inset-block: 0;
-  inset-inline-start: 0;
+  top: 0;
+  bottom: 0;
+  left: 0;
   border-radius: 999px;
   background: linear-gradient(90deg,
     color-mix(in srgb, var(--workout-gold) 55%, transparent),
@@ -1136,23 +1139,19 @@ body[data-rest-active] .workout-page {
 .car-track-car {
   position: absolute;
   top: 50%;
-  inset-inline-start: 0;
+  left: 0;
   font-size: 24px;
   line-height: 1;
-  /* Vehicle emojis face LEFT on every major platform. In LTR the car travels
-     right, so mirror it; the translate centres the glyph on its position. */
+  /* Vehicle emojis face LEFT on every major platform; the car travels right,
+     so mirror it. The translate centres the glyph on its position. */
   transform: translate(-50%, -56%) scaleX(-1);
-  transition: inset-inline-start 0.8s cubic-bezier(0.22, 1, 0.36, 1);
+  transition: left 0.8s cubic-bezier(0.22, 1, 0.36, 1);
   filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.45));
-}
-.workout-app[dir="rtl"] .car-track-car {
-  /* RTL: the anchor is the right edge; it already faces its travel direction. */
-  transform: translate(50%, -56%);
 }
 .car-track-flag {
   position: absolute;
   top: 50%;
-  inset-inline-end: -12px;
+  right: -12px;
   font-size: 18px;
   line-height: 1;
   transform: translateY(-60%);
@@ -1181,14 +1180,13 @@ body[data-rest-active] .workout-page {
 .car-strip-pushers strong { color: var(--workout-text-secondary); font-weight: 600; }
 /* Level-up: the car hops and a toast slides in over the strip. */
 .car-strip-levelup .car-track-car { animation: car-hop 0.5s ease 4; }
-.workout-app[dir="rtl"] .car-strip-levelup .car-track-car { animation-name: car-hop-rtl; }
 @keyframes car-hop {
   0%, 100% { transform: translate(-50%, -56%) scaleX(-1); }
   50%      { transform: translate(-50%, -110%) scaleX(-1); }
 }
-@keyframes car-hop-rtl {
-  0%, 100% { transform: translate(50%, -56%); }
-  50%      { transform: translate(50%, -110%); }
+@media (prefers-reduced-motion: reduce) {
+  .car-strip-levelup .car-track-car { animation: none; }
+  .car-track-car, .car-track-fill { transition: none; }
 }
 .car-strip-toast {
   margin-top: 8px;

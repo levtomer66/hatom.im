@@ -16,6 +16,7 @@ Run `git status --short --untracked-files=all` and `git log --oneline origin/mai
 
 Run, in order, until each one passes:
 
+- `npm test` (node:test unit tests for the pure workout helpers)
 - `npx tsc --noEmit --incremental false --pretty false`
 - `npm run lint`
 - `npm run build`

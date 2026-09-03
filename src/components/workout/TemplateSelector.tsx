@@ -71,6 +71,18 @@ export default function TemplateSelector({
   const visible = tab === 'mine' ? templates : sharedTemplates;
   const isMineTab = tab === 'mine';
 
+  // Rendered in both the empty state and the list footer.
+  const startEmptyButton = (style: React.CSSProperties) => (
+    <button
+      className="workout-btn workout-btn-secondary"
+      onClick={onStartEmpty}
+      title={t('selector.start_empty_hint')}
+      style={style}
+    >
+      {t('selector.start_empty')}
+    </button>
+  );
+
   const tabButtonStyle = (active: boolean): React.CSSProperties => ({
     flex: 1,
     padding: '10px 12px',
@@ -145,14 +157,7 @@ export default function TemplateSelector({
                   >
                     {t('selector.create_first')}
                   </button>
-                  <button
-                    className="workout-btn workout-btn-secondary"
-                    onClick={onStartEmpty}
-                    title={t('selector.start_empty_hint')}
-                    style={{ marginTop: '10px' }}
-                  >
-                    {t('selector.start_empty')}
-                  </button>
+                  {startEmptyButton({ marginTop: '10px' })}
                 </>
               )}
             </div>
@@ -331,14 +336,7 @@ export default function TemplateSelector({
                   >
                     {t('selector.create_new')}
                   </button>
-                  <button
-                    className="workout-btn workout-btn-secondary"
-                    onClick={onStartEmpty}
-                    title={t('selector.start_empty_hint')}
-                    style={{ flex: 1, minWidth: 0 }}
-                  >
-                    {t('selector.start_empty')}
-                  </button>
+                  {startEmptyButton({ flex: 1, minWidth: 0 })}
                 </div>
               )}
             </div>

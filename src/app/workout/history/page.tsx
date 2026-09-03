@@ -12,7 +12,7 @@ import {
   workoutCount,
   getLocalizedTemplateName,
 } from '@/lib/workout-i18n';
-import { groupByMonthAndWeek, weeksAgo, parseLocalDate } from '@/lib/workout-weeks';
+import { groupByMonthAndWeek, weeksAgo } from '@/lib/workout-weeks';
 import Header from '@/components/workout/Header';
 import BottomNav from '@/components/workout/BottomNav';
 import { WorkoutSummary } from '@/types/workout';
@@ -156,10 +156,11 @@ export default function HistoryPage() {
 
   // in-progress and completed come from their own state (separate fetches).
 
-  // Completed workouts grouped Month → Week (Sun–Sat), newest first. A week
-  // that straddles two months lives under the month of its Wednesday, so the
-  // per-week count is never split. Counts reflect what's loaded so far — with
-  // "Load more" the oldest visible week may fill in as the next page arrives.
+  // Completed workouts grouped calendar Month → Week (Sun–Sat), newest first.
+  // A week that straddles two months shows up in both, each clipped to its
+  // own days ("Aug 30 – 31" / "Sep 1 – 5"). Counts reflect what's loaded so
+  // far — with "Load more" the oldest visible week may fill in as the next
+  // page arrives.
   const monthGroups = groupByMonthAndWeek(completedWorkouts);
 
   return (
@@ -225,7 +226,7 @@ export default function HistoryPage() {
                             🏋️ {getLocalizedTemplateName(workout.workoutName, language)}
                           </div>
                           <div className="history-item-date">
-                            {formatDate(parseLocalDate(workout.date), language, {
+                            {formatDate(workout.date, language, {
                               weekday: 'short',
                               month: 'short',
                               day: 'numeric',
@@ -285,7 +286,7 @@ export default function HistoryPage() {
                   <section key={month.key} className="history-month">
                     <div className="history-month-head">
                       <h4 className="history-month-label">
-                        {formatDate(month.anchor, language, { year: 'numeric', month: 'long' })}
+                        {formatDate(month.monthStart, language, { year: 'numeric', month: 'long' })}
                       </h4>
                       <span className="history-month-count">
                         {workoutCount(month.count, language)}
@@ -294,9 +295,10 @@ export default function HistoryPage() {
 
                     {month.weeks.map((week) => {
                       // "This week" / "Last week" get a friendly name; older
-                      // weeks show their Sun–Sat range only.
+                      // weeks show their range only. The range is clipped to
+                      // this month, so a straddling week reads "Aug 30 – 31".
                       const ago = weeksAgo(week.start);
-                      const range = formatDateRange(week.start, week.end, language);
+                      const range = formatDateRange(week.rangeStart, week.rangeEnd, language);
                       const relative =
                         ago === 0 ? t('history.this_week')
                         : ago === 1 ? t('history.last_week')
@@ -338,7 +340,7 @@ export default function HistoryPage() {
                                       🏋️ {getLocalizedTemplateName(workout.workoutName, language)}
                                     </div>
                                     <div className="history-item-date">
-                                      {formatDate(parseLocalDate(workout.date), language, {
+                                      {formatDate(workout.date, language, {
                                         weekday: 'short',
                                         month: 'short',
                                         day: 'numeric',
