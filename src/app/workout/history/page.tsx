@@ -4,7 +4,15 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useWorkoutUser } from '@/context/WorkoutUserContext';
 import { useWorkoutLanguage } from '@/context/WorkoutLanguageContext';
-import { useT, formatDate, exerciseCount, getLocalizedTemplateName } from '@/lib/workout-i18n';
+import {
+  useT,
+  formatDate,
+  formatDateRange,
+  exerciseCount,
+  workoutCount,
+  getLocalizedTemplateName,
+} from '@/lib/workout-i18n';
+import { groupByMonthAndWeek, weeksAgo, parseLocalDate } from '@/lib/workout-weeks';
 import Header from '@/components/workout/Header';
 import BottomNav from '@/components/workout/BottomNav';
 import { WorkoutSummary } from '@/types/workout';
@@ -148,20 +156,11 @@ export default function HistoryPage() {
 
   // in-progress and completed come from their own state (separate fetches).
 
-  // Group completed workouts by month (localised month label)
-  const groupedWorkouts = completedWorkouts.reduce((groups, workout) => {
-    const date = new Date(workout.date);
-    const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-    const monthLabel = formatDate(date, language, { year: 'numeric', month: 'long' });
-
-    if (!groups[monthKey]) {
-      groups[monthKey] = { label: monthLabel, workouts: [] };
-    }
-    groups[monthKey].workouts.push(workout);
-    return groups;
-  }, {} as Record<string, { label: string; workouts: WorkoutSummary[] }>);
-
-  const sortedMonths = Object.keys(groupedWorkouts).sort().reverse();
+  // Completed workouts grouped Month → Week (Sun–Sat), newest first. A week
+  // that straddles two months lives under the month of its Wednesday, so the
+  // per-week count is never split. Counts reflect what's loaded so far — with
+  // "Load more" the oldest visible week may fill in as the next page arrives.
+  const monthGroups = groupByMonthAndWeek(completedWorkouts);
 
   return (
     <main className="workout-main">
@@ -226,7 +225,7 @@ export default function HistoryPage() {
                             🏋️ {getLocalizedTemplateName(workout.workoutName, language)}
                           </div>
                           <div className="history-item-date">
-                            {formatDate(workout.date, language, {
+                            {formatDate(parseLocalDate(workout.date), language, {
                               weekday: 'short',
                               month: 'short',
                               day: 'numeric',
@@ -266,13 +265,13 @@ export default function HistoryPage() {
               </div>
             )}
 
-            {/* Completed Workouts */}
-            {sortedMonths.length > 0 && (
+            {/* Completed Workouts — Month → Week → workouts */}
+            {monthGroups.length > 0 && (
               <>
                 {inProgressWorkouts.length > 0 && (
-                  <h3 style={{ 
-                    fontSize: '14px', 
-                    fontWeight: 600, 
+                  <h3 style={{
+                    fontSize: '14px',
+                    fontWeight: 600,
                     color: 'var(--workout-text-secondary)',
                     marginBottom: '12px',
                     textTransform: 'uppercase',
@@ -281,93 +280,121 @@ export default function HistoryPage() {
                     {t('history.completed')}
                   </h3>
                 )}
-                
-                {sortedMonths.map(monthKey => {
-                  const { label, workouts: monthWorkouts } = groupedWorkouts[monthKey];
-                  
-                  return (
-                    <div key={monthKey} style={{ marginBottom: '24px' }}>
-                      <h4 style={{ 
-                        fontSize: '13px', 
-                        fontWeight: 500, 
-                        color: 'var(--workout-text-muted)',
-                        marginBottom: '8px',
-                      }}>
-                        {label}
-                      </h4>
-                      
-                      {monthWorkouts.map(workout => {
-                        const n = workout.exerciseCount;
 
-                        return (
-                          <div
-                            key={workout.id}
-                            className="history-item"
-                          >
-                            <div
-                              style={{ flex: 1, cursor: 'pointer' }}
-                              onClick={() => router.push(`/workout/history/${workout.id}`)}
-                            >
-                              <div className="history-item-info">
-                                <div className="history-item-type">
-                                  🏋️ {getLocalizedTemplateName(workout.workoutName, language)}
+                {monthGroups.map((month) => (
+                  <section key={month.key} className="history-month">
+                    <div className="history-month-head">
+                      <h4 className="history-month-label">
+                        {formatDate(month.anchor, language, { year: 'numeric', month: 'long' })}
+                      </h4>
+                      <span className="history-month-count">
+                        {workoutCount(month.count, language)}
+                      </span>
+                    </div>
+
+                    {month.weeks.map((week) => {
+                      // "This week" / "Last week" get a friendly name; older
+                      // weeks show their Sun–Sat range only.
+                      const ago = weeksAgo(week.start);
+                      const range = formatDateRange(week.start, week.end, language);
+                      const relative =
+                        ago === 0 ? t('history.this_week')
+                        : ago === 1 ? t('history.last_week')
+                        : null;
+
+                      return (
+                        <div key={week.key} className="history-week">
+                          <div className="history-week-head">
+                            <span className="history-week-label">
+                              {relative ? (
+                                <>
+                                  <strong>{relative}</strong>
+                                  {' · '}
+                                  {range}
+                                </>
+                              ) : (
+                                range
+                              )}
+                            </span>
+                            <span className="history-week-count">
+                              {workoutCount(week.items.length, language)}
+                            </span>
+                          </div>
+
+                          {week.items.map((workout) => {
+                            const n = workout.exerciseCount;
+
+                            return (
+                              <div
+                                key={workout.id}
+                                className="history-item"
+                              >
+                                <div
+                                  style={{ flex: 1, cursor: 'pointer' }}
+                                  onClick={() => router.push(`/workout/history/${workout.id}`)}
+                                >
+                                  <div className="history-item-info">
+                                    <div className="history-item-type">
+                                      🏋️ {getLocalizedTemplateName(workout.workoutName, language)}
+                                    </div>
+                                    <div className="history-item-date">
+                                      {formatDate(parseLocalDate(workout.date), language, {
+                                        weekday: 'short',
+                                        month: 'short',
+                                        day: 'numeric',
+                                      })}
+                                    </div>
+                                  </div>
                                 </div>
-                                <div className="history-item-date">
-                                  {formatDate(workout.date, language, {
-                                    weekday: 'short',
-                                    month: 'short',
-                                    day: 'numeric',
-                                  })}
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                  <span className="history-item-count">
+                                    {n}
+                                  </span>
+                                  {/* Completed workouts get "View" → read-only
+                                      detail page. Clicking Resume on a
+                                      completed entry used to silently flip the
+                                      isCompleted flag back to false (B1).
+                                      Use the explicit Resume action on the
+                                      in-progress section above instead. */}
+                                  <button
+                                    className="workout-btn workout-btn-secondary"
+                                    style={{ padding: '6px 12px', fontSize: '12px' }}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      router.push(`/workout/history/${workout.id}`);
+                                    }}
+                                    aria-label={t('history.view_aria')}
+                                  >
+                                    {t('history.view')}
+                                  </button>
+                                  <button
+                                    className="exercise-card-action"
+                                    style={{
+                                      backgroundColor: 'var(--workout-red)',
+                                      color: 'white',
+                                      opacity: deletingId === workout.id ? 0.5 : 1,
+                                      width: '32px',
+                                      height: '32px',
+                                    }}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      deleteWorkout(workout.id);
+                                    }}
+                                    disabled={deletingId === workout.id}
+                                    aria-label={t('history.delete_aria')}
+                                    title={t('history.delete_aria')}
+                                  >
+                                    🗑
+                                  </button>
                                 </div>
                               </div>
-                            </div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                              <span className="history-item-count">
-                                {n}
-                              </span>
-                              {/* Completed workouts get "View" → read-only
-                                  detail page. Clicking Resume on a
-                                  completed entry used to silently flip the
-                                  isCompleted flag back to false (B1).
-                                  Use the explicit Resume action on the
-                                  in-progress section above instead. */}
-                              <button
-                                className="workout-btn workout-btn-secondary"
-                                style={{ padding: '6px 12px', fontSize: '12px' }}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  router.push(`/workout/history/${workout.id}`);
-                                }}
-                                aria-label={t('history.view_aria')}
-                              >
-                                {t('history.view')}
-                              </button>
-                              <button
-                                className="exercise-card-action"
-                                style={{
-                                  backgroundColor: 'var(--workout-red)',
-                                  color: 'white',
-                                  opacity: deletingId === workout.id ? 0.5 : 1,
-                                  width: '32px',
-                                  height: '32px',
-                                }}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  deleteWorkout(workout.id);
-                                }}
-                                disabled={deletingId === workout.id}
-                                aria-label={t('history.delete_aria')}
-                                title={t('history.delete_aria')}
-                              >
-                                🗑
-                              </button>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  );
-                })}
+                            );
+                          })}
+                        </div>
+                      );
+                    })}
+                  </section>
+                ))}
               </>
             )}
 

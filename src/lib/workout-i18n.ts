@@ -197,6 +197,8 @@ const DICT = {
   'history.delete_confirm':         { en: 'Delete this workout? This action cannot be undone.', he: 'למחוק את האימון? לא ניתן לבטל.' },
   'history.load_more':              { en: 'Load more',                                      he: 'טען עוד' },
   'history.loading_more':           { en: 'Loading…',                                       he: 'טוען…' },
+  'history.this_week':              { en: 'This week',                                      he: 'השבוע' },
+  'history.last_week':              { en: 'Last week',                                      he: 'שבוע שעבר' },
   'history.load_error':             { en: 'Couldn’t load workouts — try again later.',      he: 'טעינת האימונים נכשלה — נסה שוב מאוחר יותר.' },
 
   // History detail
@@ -210,6 +212,8 @@ const DICT = {
   // Exercise counts
   'count.exercise_one':             { en: 'exercise',                                       he: 'תרגיל' },
   'count.exercise_many':            { en: 'exercises',                                      he: 'תרגילים' },
+  'count.workout_one':              { en: 'workout',                                        he: 'אימון' },
+  'count.workout_many':             { en: 'workouts',                                       he: 'אימונים' },
 
   // Exercises page
   'exercises.title':                { en: 'Exercises',                                      he: 'תרגילים' },
@@ -316,11 +320,34 @@ export function formatDate(
   return d.toLocaleDateString(locale, opts);
 }
 
+// Locale-aware date RANGE, e.g. "Aug 30 – Sep 5" / "Aug 3 – 9" — the browser
+// picks the punctuation and RTL ordering. Falls back to two formatted dates
+// where Intl.DateTimeFormat#formatRange is unavailable.
+export function formatDateRange(
+  start: Date,
+  end: Date,
+  language: Language,
+  opts: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric' }
+): string {
+  const locale = language === 'he' ? 'he-IL' : 'en-US';
+  const fmt = new Intl.DateTimeFormat(locale, opts);
+  if (typeof fmt.formatRange === 'function') return fmt.formatRange(start, end);
+  return `${fmt.format(start)} – ${fmt.format(end)}`;
+}
+
 // English/Hebrew-aware simple count phrase, e.g. "3 exercises" / "3 תרגילים".
 export function exerciseCount(n: number, language: Language): string {
   const word = n === 1
     ? translate(language, 'count.exercise_one')
     : translate(language, 'count.exercise_many');
+  return `${n} ${word}`;
+}
+
+// Same for workouts: "1 workout" / "4 workouts" / "4 אימונים".
+export function workoutCount(n: number, language: Language): string {
+  const word = n === 1
+    ? translate(language, 'count.workout_one')
+    : translate(language, 'count.workout_many');
   return `${n} ${word}`;
 }
 

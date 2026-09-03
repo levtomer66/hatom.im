@@ -1646,6 +1646,62 @@ body[data-rest-active] .workout-page {
   color: var(--workout-text-muted);
 }
 
+/* History — month → week grouping. Weeks run Sun–Sat (see workout-weeks.ts). */
+.history-month {
+  margin-bottom: 24px;
+}
+.history-month-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.history-month-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--workout-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.history-month-count {
+  flex-shrink: 0;
+  font-size: 12px;
+  color: var(--workout-text-muted);
+}
+.history-week {
+  margin-bottom: 14px;
+}
+.history-week-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 0 4px;
+  margin-bottom: 6px;
+  font-size: 12px;
+  color: var(--workout-text-muted);
+}
+.history-week-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.history-week-label strong {
+  color: var(--workout-text-secondary);
+  font-weight: 600;
+}
+.history-week-count {
+  flex-shrink: 0;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--workout-bg-secondary);
+  border: 1px solid var(--workout-border);
+  font-weight: 600;
+  color: var(--workout-text-secondary);
+}
+
 /* Login screen */
 .login-container {
   min-height: 100vh;
