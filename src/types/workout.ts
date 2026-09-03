@@ -373,6 +373,14 @@ export interface WorkoutSummary {
   updatedAt: string;
 }
 
+// Canonical (English) name given to a workout started WITHOUT a template
+// ("Start Empty Workout"). Localised like any well-known template name via
+// getLocalizedTemplateName(); the user is offered a real name when they
+// complete it and choose to save it as a template. A freestyle workout is
+// recognisable by `templateId == null` — template-started workouts always
+// carry one — so no extra flag is stored.
+export const FREESTYLE_WORKOUT_NAME = 'Freestyle Workout';
+
 // Workout session (training instance)
 export interface Workout {
   _id?: string;
@@ -501,6 +509,25 @@ export function getHighestWeight(exercise: WorkoutExercise): number {
 // Helper to create default sets for a new exercise
 export function createDefaultSets(count: number = DEFAULT_NUM_SETS): WorkoutSet[] {
   return Array.from({ length: count }, () => ({ kg: null, reps: null, seconds: null }));
+}
+
+// Turn what the user actually did in a (freestyle) workout into template
+// entries, so "save this workout for next time" reproduces the session:
+// same exercise order, `numSets` = sets performed (clamped to the template
+// range), notes and superset groups carried over. Exercises the user swapped
+// mid-workout keep their FINAL exerciseId — the template should reflect what
+// was done, not what was planned.
+export function templateExercisesFromWorkout(exercises: WorkoutExercise[]): TemplateExercise[] {
+  return [...exercises]
+    .sort((a, b) => a.order - b.order)
+    .map((ex) => ({
+      exerciseId: ex.exerciseId,
+      numSets: ex.sets.length > 0
+        ? Math.min(MAX_SETS, Math.max(MIN_SETS, ex.sets.length))
+        : DEFAULT_NUM_SETS,
+      notes: ex.notes ?? '',
+      supersetGroup: ex.supersetGroup ?? null,
+    }));
 }
 
 // Workout type to exercise categories mapping for filtering

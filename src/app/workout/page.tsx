@@ -42,6 +42,8 @@ import {
   createDefaultSets,
   isTimeSet,
   DEFAULT_NUM_SETS,
+  FREESTYLE_WORKOUT_NAME,
+  templateExercisesFromWorkout,
 } from '@/types/workout';
 import { EXERCISE_LIBRARY, getExerciseById, resolveExerciseId } from '@/data/exercise-library';
 import { getProgression, getProgressionStep, stepIndex } from '@/lib/workout-progression';
@@ -371,6 +373,78 @@ export default function WorkoutsPage() {
       }
     } catch (error) {
       console.error('Error starting workout:', error);
+    }
+  };
+
+  // Start a FREESTYLE workout — no template, no exercises; the user picks
+  // exercises as they go. The picker opens straight away so the first
+  // exercise is one tap from here. Nothing to autosave yet (the POST already
+  // persisted the empty session), so editTick is left alone.
+  const startEmptyWorkout = async () => {
+    if (!currentUser) return;
+    try {
+      const res = await fetch('/api/workout/workouts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: currentUser.id,
+          workoutName: FREESTYLE_WORKOUT_NAME,
+          date: new Date().toISOString().split('T')[0],
+          clientRequestId: uuidv4(),
+        }),
+      });
+      if (res.ok) {
+        const workout: Workout = await res.json();
+        workout.exercises = workout.exercises ?? [];
+        setActiveWorkout(workout);
+        setHasInProgressWorkout(true);
+        setShowTemplateSelector(false);
+        setShowExercisePicker(true);
+      }
+    } catch (error) {
+      console.error('Error starting empty workout:', error);
+    }
+  };
+
+  // "Save this workout for next time" from the completion summary of a
+  // freestyle workout: create a template from what was actually done, then
+  // rename the completed workout and link it to the new template so history
+  // and the feed show the chosen name. Returns true when the template landed
+  // (the rename is best-effort — the template is the part the user asked for).
+  const saveCompletedAsTemplate = async (workout: Workout, name: string): Promise<boolean> => {
+    if (!currentUser) return false;
+    const trimmed = name.trim();
+    if (!trimmed) return false;
+    try {
+      const res = await fetch('/api/workout/templates', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: currentUser.id,
+          name: trimmed,
+          exercises: templateExercisesFromWorkout(workout.exercises),
+        }),
+      });
+      if (!res.ok) return false;
+      const created: WorkoutTemplate = await res.json();
+      handleTemplateSave(created);
+
+      const put = await fetch(`/api/workout/workouts/${workout.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ workoutName: trimmed, templateId: created.id }),
+      });
+      if (put.ok) {
+        setCompletedSummary((prev) =>
+          prev && prev.id === workout.id
+            ? { ...prev, workoutName: trimmed, templateId: created.id }
+            : prev,
+        );
+      }
+      return true;
+    } catch (error) {
+      console.error('Error saving workout as template:', error);
+      return false;
     }
   };
 
@@ -855,6 +929,7 @@ export default function WorkoutsPage() {
           setShowTemplateSelector(false);
           setShowTemplateEditor(true);
         }}
+        onStartEmpty={startEmptyWorkout}
         onToggleShare={handleToggleShare}
       />
 
@@ -909,6 +984,9 @@ export default function WorkoutsPage() {
         <CompletionSummary
           workout={completedSummary}
           unlocks={completedUnlocks}
+          // Freestyle (template-less) workouts with content can be kept as a template.
+          canSaveAsTemplate={!completedSummary.templateId && completedSummary.exercises.length > 0}
+          onSaveAsTemplate={(name) => saveCompletedAsTemplate(completedSummary, name)}
           onClose={() => { setCompletedSummary(null); setCompletedUnlocks([]); }}
         />
       )}
@@ -922,16 +1000,31 @@ export default function WorkoutsPage() {
 function CompletionSummary({
   workout,
   unlocks = [],
+  canSaveAsTemplate = false,
+  onSaveAsTemplate,
   onClose,
 }: {
   workout: Workout;
   unlocks?: { exerciseName: string; stepName: string }[];
+  // Freestyle workouts: offer to keep the session as a reusable template.
+  canSaveAsTemplate?: boolean;
+  onSaveAsTemplate?: (name: string) => Promise<boolean>;
   onClose: () => void;
 }) {
   const t = useT();
   const { language } = useWorkoutLanguage();
   const { unit } = useWorkoutUnit();
   const [shareState, setShareState] = useState<'idle' | 'sharing' | 'shared'>('idle');
+  const [saveName, setSaveName] = useState('');
+  const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+
+  const saveAsTemplate = async () => {
+    if (!onSaveAsTemplate || saveState === 'saving' || saveState === 'saved') return;
+    if (!saveName.trim()) return;
+    setSaveState('saving');
+    const ok = await onSaveAsTemplate(saveName);
+    setSaveState(ok ? 'saved' : 'error');
+  };
 
   const shareToFeed = async () => {
     if (shareState !== 'idle') return;
@@ -1006,6 +1099,40 @@ function CompletionSummary({
           <div className="workout-summary-brag" role="status">
             {brag}
           </div>
+          {canSaveAsTemplate && onSaveAsTemplate && (
+            <div className="workout-summary-save">
+              <div className="workout-summary-save-title">{t('workout.summary.save_title')}</div>
+              <div className="workout-summary-save-hint">{t('workout.summary.save_hint')}</div>
+              <div className="workout-summary-save-row">
+                <input
+                  type="text"
+                  className="workout-input"
+                  placeholder={t('workout.summary.save_placeholder')}
+                  value={saveName}
+                  onChange={(e) => { setSaveName(e.target.value); if (saveState === 'error') setSaveState('idle'); }}
+                  onKeyDown={(e) => { if (e.key === 'Enter') saveAsTemplate(); }}
+                  maxLength={50}
+                  disabled={saveState === 'saving' || saveState === 'saved'}
+                  aria-label={t('template.name_label')}
+                />
+                <button
+                  type="button"
+                  className="workout-btn workout-btn-primary"
+                  onClick={saveAsTemplate}
+                  disabled={!saveName.trim() || saveState === 'saving' || saveState === 'saved'}
+                  style={{ padding: '10px 14px', fontSize: '14px', whiteSpace: 'nowrap', flexShrink: 0 }}
+                >
+                  {saveState === 'saving' ? t('workout.summary.save_saving') : t('workout.summary.save_button')}
+                </button>
+              </div>
+              {saveState === 'saved' && (
+                <div className="workout-summary-save-status ok" role="status">{t('workout.summary.save_saved')}</div>
+              )}
+              {saveState === 'error' && (
+                <div className="workout-summary-save-status err" role="alert">{t('workout.summary.save_error')}</div>
+              )}
+            </div>
+          )}
           <button
             className="workout-btn workout-btn-primary workout-btn-full"
             onClick={onClose}

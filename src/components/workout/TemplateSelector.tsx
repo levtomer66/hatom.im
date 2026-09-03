@@ -26,6 +26,9 @@ interface TemplateSelectorProps {
   onEdit: (template: WorkoutTemplate) => void;
   onDelete: (template: WorkoutTemplate) => void;
   onCreateNew: () => void;
+  // "Start Empty Workout" — a template-less session where exercises are
+  // picked on the fly; the user is offered to save it as a template on completion.
+  onStartEmpty: () => void;
   onToggleShare: (template: WorkoutTemplate) => void;
 }
 
@@ -43,6 +46,7 @@ export default function TemplateSelector({
   onEdit,
   onDelete,
   onCreateNew,
+  onStartEmpty,
   onToggleShare,
 }: TemplateSelectorProps) {
   const { language } = useWorkoutLanguage();
@@ -133,13 +137,23 @@ export default function TemplateSelector({
                 {isMineTab ? t('selector.no_templates') : t('selector.tab.byTomer.empty')}
               </div>
               {isMineTab && (
-                <button
-                  className="workout-btn workout-btn-primary"
-                  onClick={onCreateNew}
-                  style={{ marginTop: '16px' }}
-                >
-                  {t('selector.create_first')}
-                </button>
+                <>
+                  <button
+                    className="workout-btn workout-btn-primary"
+                    onClick={onCreateNew}
+                    style={{ marginTop: '16px' }}
+                  >
+                    {t('selector.create_first')}
+                  </button>
+                  <button
+                    className="workout-btn workout-btn-secondary"
+                    onClick={onStartEmpty}
+                    title={t('selector.start_empty_hint')}
+                    style={{ marginTop: '10px' }}
+                  >
+                    {t('selector.start_empty')}
+                  </button>
+                </>
               )}
             </div>
           ) : (
@@ -307,15 +321,25 @@ export default function TemplateSelector({
                 );
               })}
 
-              {/* Only show Create New on the user's own tab. */}
+              {/* Create New + Start Empty live side by side on the user's own tab. */}
               {isMineTab && (
-                <button
-                  className="workout-btn workout-btn-secondary workout-btn-full"
-                  onClick={onCreateNew}
-                  style={{ marginTop: '8px' }}
-                >
-                  {t('selector.create_new')}
-                </button>
+                <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
+                  <button
+                    className="workout-btn workout-btn-secondary"
+                    onClick={onCreateNew}
+                    style={{ flex: 1, minWidth: 0 }}
+                  >
+                    {t('selector.create_new')}
+                  </button>
+                  <button
+                    className="workout-btn workout-btn-secondary"
+                    onClick={onStartEmpty}
+                    title={t('selector.start_empty_hint')}
+                    style={{ flex: 1, minWidth: 0 }}
+                  >
+                    {t('selector.start_empty')}
+                  </button>
+                </div>
               )}
             </div>
           )}

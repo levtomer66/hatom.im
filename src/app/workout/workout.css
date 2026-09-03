@@ -2049,6 +2049,42 @@ body[data-rest-active] .workout-page {
   font-weight: 500;
 }
 
+/* Freestyle → "save this workout for next time" card in the completion summary */
+.workout-summary-save {
+  margin-bottom: 20px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: var(--workout-bg-secondary);
+  border: 1px solid var(--workout-border);
+  text-align: start;
+}
+.workout-summary-save-title {
+  font-size: 15px;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+.workout-summary-save-hint {
+  font-size: 12px;
+  color: var(--workout-text-muted);
+  margin-bottom: 10px;
+  line-height: 1.4;
+}
+.workout-summary-save-row {
+  display: flex;
+  gap: 8px;
+}
+.workout-summary-save-row .workout-input {
+  flex: 1;
+  min-width: 0;
+}
+.workout-summary-save-status {
+  margin-top: 8px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.workout-summary-save-status.ok { color: var(--workout-green); }
+.workout-summary-save-status.err { color: var(--workout-red); }
+
 .workout-summary-brag {
   margin-bottom: 20px;
   padding: 14px 16px;

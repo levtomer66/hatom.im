@@ -68,6 +68,14 @@ const DICT = {
   'workout.summary.volume':         { en: 'Total volume',                                   he: 'נפח כולל' },
   'workout.summary.cta':            { en: 'Nice work',                                      he: 'יפה מאד' },
   'workout.summary.unlocked':       { en: 'unlocked!',                                      he: 'נפתח!' },
+  // Freestyle → save as template (shown only for template-less workouts)
+  'workout.summary.save_title':     { en: 'Save this workout for next time?',               he: 'לשמור את האימון לפעם הבאה?' },
+  'workout.summary.save_hint':      { en: 'It becomes a template in My Workouts with the exercises and sets you just did.', he: 'הוא יישמר כתבנית באימונים שלי עם התרגילים והסטים שביצעת.' },
+  'workout.summary.save_placeholder': { en: 'Name it, e.g. Push Day',                       he: 'שם, למשל יום דחיפה' },
+  'workout.summary.save_button':    { en: 'Save workout',                                   he: 'שמור אימון' },
+  'workout.summary.save_saving':    { en: 'Saving…',                                        he: 'שומר…' },
+  'workout.summary.save_saved':     { en: 'Saved to My Workouts ✓',                         he: 'נשמר באימונים שלי ✓' },
+  'workout.summary.save_error':     { en: 'Couldn’t save — try again',                      he: 'השמירה נכשלה — נסו שוב' },
 
   // Exercise card
   'card.sets_label':                { en: 'Sets:',                                          he: 'סטים:' },
@@ -172,6 +180,8 @@ const DICT = {
   'selector.no_templates':          { en: 'No workouts created yet',                        he: 'לא נוצרו עדיין אימונים' },
   'selector.create_first':          { en: '+ Create Your First Workout',                    he: '+ צור את האימון הראשון שלך' },
   'selector.create_new':            { en: '+ Create New Workout',                           he: '+ צור אימון חדש' },
+  'selector.start_empty':           { en: '▶ Start Empty Workout',                          he: '▶ התחל אימון חופשי' },
+  'selector.start_empty_hint':      { en: 'Pick exercises as you go',                       he: 'בוחרים תרגילים תוך כדי' },
   'selector.start':                 { en: 'Start',                                          he: 'התחל' },
   'selector.confirm_delete_prefix': { en: 'Delete',                                         he: 'למחוק' },
   'selector.tab.mine':              { en: 'My Workouts',                                    he: 'האימונים שלי' },
@@ -360,6 +370,8 @@ export function workoutCount(n: number, language: Language): string {
 // mapping to both locales. Looked up in both directions, so a Hebrew-named
 // template still shows an English title in EN mode and vice-versa.
 const TEMPLATE_NAME_TRANSLATIONS: Record<string, Record<Language, string>> = {
+  // Default name of a workout started without a template (FREESTYLE_WORKOUT_NAME).
+  'Freestyle Workout':       { en: 'Freestyle Workout',        he: 'אימון חופשי' },
   'Tomers Upper Body':       { en: 'Tomers Upper Body',        he: 'גפה עליונה של תומר' },
   "Tomer's Pull Day":        { en: "Tomer's Pull Day",         he: 'יום משיכה של תומר' },
   "Tomer's Push Day - Chest": { en: "Tomer's Push Day - Chest", he: 'יום דחיפה של תומר – חזה' },
