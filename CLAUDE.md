@@ -57,7 +57,15 @@ npm run dev
 npx tsc --noEmit --incremental false --pretty false
 npm run lint
 npm run build
+
+# unit tests for the pure workout helpers (node:test, no extra deps)
+npm test
 ```
+
+Tests live in `src/lib/__tests__/*.test.ts` and import the module under test
+with an explicit `.ts` extension (Node's type-stripping needs it; tsconfig has
+`allowImportingTsExtensions`). Only import-free modules are testable this way
+— path aliases (`@/…`) don't resolve under Node.
 
 ## Shipping
 
@@ -153,6 +161,18 @@ Identity = Gmail address. Two roles:
   emails to display names (Tom, Tomer, Amit); any other allowlisted email is
   a valid user whose name falls back via `getUserDisplayName()`. The old
   fixed IDs `tom`/`tomer`/`amit` no longer exist.
+- **Freestyle workouts**: "Start Empty Workout" creates a workout named
+  `FREESTYLE_WORKOUT_NAME` with `templateId: null` — that null IS the
+  freestyle marker (template-started workouts always carry a templateId).
+  On completion the summary offers "save as template" via
+  `templateExercisesFromWorkout()`; saving renames + links the workout.
+- **The Moving Car** (feed): derived purely from the sum of all feed posts'
+  `stats.totalVolumeKg` by `computeCarState()` in `src/lib/workout-car.ts`
+  (1 000 kg = 1 m; level 1 = 50 m, ×1.25 per level). Nothing is stored —
+  don't add a level document; change the constants instead.
+- **History weeks**: Sun–Sat, grouped by `src/lib/workout-weeks.ts`. A week
+  straddling two months belongs to the month of its Wednesday — never split.
+  Parse `YYYY-MM-DD` with `parseLocalDate()`, not `new Date(str)` (UTC).
 - Alias collision bug fixed once: `lat-pulldown` → `wide-grip-lat-pulldown`.
   Template read/write goes through `resolveExerciseId()` + dedupe helper so
   templates can't hold both forms at once. Don't regress.
