@@ -200,6 +200,25 @@ Identity = Gmail address. Two roles:
 - Photos stored base64 inside the Mongo document (`src/models/CoffeeReview.ts`);
   served via `/api/coffee-reviews/[id]/image`. This pattern pre-dates the
   Blob setup and is fine to leave alone.
+- **Scoring has one source of truth**: `scoreReview()` in `src/types/coffee.ts`,
+  used by the API sort, the list page and the card. It replaced three
+  implementations that disagreed (two `nonZeroAvg` copies plus a naive `/4`
+  API sort that counted zeros). Don't add a fourth.
+- Two distinct blank states, and the card renders them differently: a rating
+  of `0` means *not rated yet* (`—`), while a category listed in the place's
+  `disabledCategories` means *not measured here* (`אין`) — the café has no
+  kitchen. Both are excluded from the averages.
+- Disabling a category **never clears the stored ratings** — they're ignored,
+  so un-ticking restores the old score. Don't "tidy up" by zeroing them.
+- `COFFEE_CATEGORIES` in `src/types/coffee.ts` is the registry both forms and
+  the card map over. A new category is one entry there plus two fields on
+  `CoffeeReviewRatings` — not four more hand-written slider blocks.
+- `src/types/coffee.ts` must stay **import-free**:
+  `src/lib/__tests__/coffee-score.test.ts` imports it via a relative `.ts`
+  path for `node --test`, which can't resolve the `@/…` alias.
+- `ScaleBar` is `min="1"` on purpose (`src/components/RatingStars.tsx`). A
+  rating can't be un-set by dragging; per-place disabling is the intended way
+  to take a category out of the score.
 
 ## Quick sanity checks before making changes
 
