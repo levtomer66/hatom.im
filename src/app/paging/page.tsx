@@ -13,8 +13,6 @@ import './paging.css';
 
 type SendState = 'idle' | 'sending' | 'sent' | 'error';
 
-const shortcutInstallURL = process.env.NEXT_PUBLIC_PAGING_SHORTCUT_URL;
-
 export default function PagingPage() {
   const router = useRouter();
   const { data: session, status } = useSession();
@@ -103,38 +101,6 @@ export default function PagingPage() {
               {sendState === 'sending' ? 'שולח…' : 'שלח פייג׳'}
             </button>
           </form>
-        </section>
-
-        <section className="paging-card paging-shortcut" aria-labelledby="paging-shortcut-heading">
-          <h2 id="paging-shortcut-heading">קיצור דרך באייפון</h2>
-          <p>
-            הגדר ב-Shortcuts בקשת POST אל
-            <code>https://www.hatom.im/api/paging/pages</code>.
-            טוקן ה-Bearer מוגדר על ידי מנהל המערכת ישירות בקיצור — הוא לא
-            מוצג כאן ולא מועבר בכתובת.
-          </p>
-          {shortcutInstallURL ? (
-            <a className="paging-install-link" href={shortcutInstallURL}>
-              פתח והתקן או עדכן את הקיצור
-            </a>
-          ) : (
-            <p>קישור ההתקנה עדיין לא הוגדר.</p>
-          )}
-          <ol>
-            <li>
-              הוסף פעולת URL עם
-              <code>https://www.hatom.im/api/paging/pages</code>
-            </li>
-            <li>הוסף Get Contents of URL מסוג POST עם גוף JSON.</li>
-            <li>
-              בגוף שלח <code>emoji</code> בערך <code>📟</code> ואת
-              <code>message</code> כמחרוזת ריקה.
-            </li>
-            <li>
-              הוסף כותרת <code>Authorization</code> עם
-              <code>Bearer</code>, רווח, וטוקן שהמנהל סיפק.
-            </li>
-          </ol>
         </section>
       </main>
     </div>
