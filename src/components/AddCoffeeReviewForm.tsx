@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { RatingStars, ScaleBar } from './RatingStars';
+import { COFFEE_CATEGORIES, type CoffeeCategory } from '@/types/coffee';
 
 interface AddCoffeeReviewFormProps {
   onSuccess: () => void;
@@ -22,6 +23,16 @@ const AddCoffeeReviewForm: React.FC<AddCoffeeReviewFormProps> = ({ onSuccess }) 
   const [photoUrl, setPhotoUrl] = useState('');
   const [mapsUrl, setMapsUrl] = useState('');
   const [instagramUrl, setInstagramUrl] = useState('');
+  // Per-place, not per-reviewer: a café with no kitchen has no food score for
+  // either of us. Toggling one off removes its slider from BOTH tabs.
+  const [disabledCategories, setDisabledCategories] = useState<CoffeeCategory[]>([]);
+
+  const toggleCategory = (id: CoffeeCategory) => {
+    setDisabledCategories((prev) =>
+      prev.includes(id) ? prev.filter((c) => c !== id) : [...prev, id]
+    );
+  };
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // Active tab for the form
@@ -49,6 +60,7 @@ const AddCoffeeReviewForm: React.FC<AddCoffeeReviewFormProps> = ({ onSuccess }) 
         },
         body: JSON.stringify({
           placeName,
+          disabledCategories,
           // Tom's ratings
           tomCoffeeRating,
           tomFoodRating,
@@ -87,6 +99,7 @@ const AddCoffeeReviewForm: React.FC<AddCoffeeReviewFormProps> = ({ onSuccess }) 
       setPhotoUrl('');
       setMapsUrl('');
       setInstagramUrl('');
+      setDisabledCategories([]);
 
       // Notify parent component
       onSuccess();
@@ -102,74 +115,36 @@ const AddCoffeeReviewForm: React.FC<AddCoffeeReviewFormProps> = ({ onSuccess }) 
   const renderRatingForm = (reviewer: 'tom' | 'tomer') => {
     const displayName = reviewer === 'tom' ? 'תום' : 'תומר';
 
-    // Select the appropriate state setters based on the reviewer
-    const setCoffeeRating = reviewer === 'tom' ? setTomCoffeeRating : setTomerCoffeeRating;
-    const setFoodRating = reviewer === 'tom' ? setTomFoodRating : setTomerFoodRating;
-    const setAtmosphereRating = reviewer === 'tom' ? setTomAtmosphereRating : setTomerAtmosphereRating;
-    const setPriceRating = reviewer === 'tom' ? setTomPriceRating : setTomerPriceRating;
+    const ratings: Record<CoffeeCategory, number> = reviewer === 'tom'
+      ? { coffee: tomCoffeeRating, food: tomFoodRating, atmosphere: tomAtmosphereRating, price: tomPriceRating }
+      : { coffee: tomerCoffeeRating, food: tomerFoodRating, atmosphere: tomerAtmosphereRating, price: tomerPriceRating };
 
-    // Select the appropriate state values based on the reviewer
-    const coffeeRating = reviewer === 'tom' ? tomCoffeeRating : tomerCoffeeRating;
-    const foodRating = reviewer === 'tom' ? tomFoodRating : tomerFoodRating;
-    const atmosphereRating = reviewer === 'tom' ? tomAtmosphereRating : tomerAtmosphereRating;
-    const priceRating = reviewer === 'tom' ? tomPriceRating : tomerPriceRating;
+    const setters: Record<CoffeeCategory, (v: number) => void> = reviewer === 'tom'
+      ? { coffee: setTomCoffeeRating, food: setTomFoodRating, atmosphere: setTomAtmosphereRating, price: setTomPriceRating }
+      : { coffee: setTomerCoffeeRating, food: setTomerFoodRating, atmosphere: setTomerAtmosphereRating, price: setTomerPriceRating };
+
+    // A disabled category's stored rating is deliberately left alone — it is
+    // just not shown and not scored, so un-ticking the pill brings it back.
+    const active = COFFEE_CATEGORIES.filter((c) => !disabledCategories.includes(c.id));
 
     return (
       <div>
         <h3 className="text-xl font-bold text-amber-800 mb-4 text-center">הדירוג של {displayName}</h3>
 
         <div className="space-y-4 mb-6">
-          <div>
-            <ScaleBar
-              label="קפה"
-              rating={coffeeRating}
-              onChange={setCoffeeRating}
-            />
-            {coffeeRating > 0 && (
-              <div className="mt-1 flex justify-end">
-                <RatingStars rating={coffeeRating} size="sm" />
-              </div>
-            )}
-          </div>
-
-          <div>
-            <ScaleBar
-              label="אוכל"
-              rating={foodRating}
-              onChange={setFoodRating}
-            />
-            {foodRating > 0 && (
-              <div className="mt-1 flex justify-end">
-                <RatingStars rating={foodRating} size="sm" />
-              </div>
-            )}
-          </div>
-
-          <div>
-            <ScaleBar
-              label="אווירה"
-              rating={atmosphereRating}
-              onChange={setAtmosphereRating}
-            />
-            {atmosphereRating > 0 && (
-              <div className="mt-1 flex justify-end">
-                <RatingStars rating={atmosphereRating} size="sm" />
-              </div>
-            )}
-          </div>
-
-          <div>
-            <ScaleBar
-              label="מחיר"
-              rating={priceRating}
-              onChange={setPriceRating}
-            />
-            {priceRating > 0 && (
-              <div className="mt-1 flex justify-end">
-                <RatingStars rating={priceRating} size="sm" />
-              </div>
-            )}
-          </div>
+          {active.map((c) => (
+            <div key={c.id}>
+              <ScaleBar label={c.label} rating={ratings[c.id]} onChange={setters[c.id]} />
+              {ratings[c.id] > 0 && (
+                <div className="mt-1 flex justify-end">
+                  <RatingStars rating={ratings[c.id]} size="sm" />
+                </div>
+              )}
+            </div>
+          ))}
+          {active.length === 0 && (
+            <p className="text-amber-600 text-center text-sm">כל הקטגוריות מושבתות במקום הזה</p>
+          )}
         </div>
       </div>
     );
@@ -244,6 +219,37 @@ const AddCoffeeReviewForm: React.FC<AddCoffeeReviewFormProps> = ({ onSuccess }) 
             placeholder="https://..."
             dir="ltr"
           />
+        </div>
+
+        {/* Place-level, deliberately above the reviewer tabs: this is a fact
+            about the café, not about either reviewer's visit. */}
+        <div>
+          <label className="block text-amber-800 font-medium mb-2 text-right">
+            מה לא נמדד במקום הזה?
+          </label>
+          <div className="flex flex-wrap gap-2 justify-end" dir="rtl">
+            {COFFEE_CATEGORIES.map((c) => {
+              const off = disabledCategories.includes(c.id);
+              return (
+                <button
+                  key={c.id}
+                  type="button"
+                  onClick={() => toggleCategory(c.id)}
+                  aria-pressed={off}
+                  className={`px-3 py-1 rounded-full border text-sm transition-colors duration-150 ${
+                    off
+                      ? 'bg-amber-700 border-amber-700 text-white'
+                      : 'bg-white border-amber-300 text-amber-700 hover:bg-amber-50'
+                  }`}
+                >
+                  {off ? `✓ ${c.label}` : c.label}
+                </button>
+              );
+            })}
+          </div>
+          <p className="text-xs text-amber-600 mt-1 text-right">
+            מסומן = לא נספר בדירוג הכללי
+          </p>
         </div>
 
         {/* Rating tabs */}
