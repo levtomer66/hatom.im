@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { CreateCoffeeReviewDto } from '@/types/coffee';
+import { CreateCoffeeReviewDto, resolveDisabledCategories, scoreReview } from '@/types/coffee';
 import {
   getAllCoffeeReviews,
   createCoffeeReview
@@ -12,22 +12,12 @@ export async function GET() {
     // Get all reviews
     const reviews = await getAllCoffeeReviews();
     
-    // Sort by average combined rating
-    const sortedReviews = reviews.sort((a, b) => {
-      // Calculate Tom's average for each review
-      const tomAvgA = (a.tomCoffeeRating + a.tomFoodRating + a.tomAtmosphereRating + a.tomPriceRating) / 4;
-      const tomAvgB = (b.tomCoffeeRating + b.tomFoodRating + b.tomAtmosphereRating + b.tomPriceRating) / 4;
-      
-      // Calculate Tomer's average for each review
-      const tomerAvgA = (a.tomerCoffeeRating + a.tomerFoodRating + a.tomerAtmosphereRating + a.tomerPriceRating) / 4;
-      const tomerAvgB = (b.tomerCoffeeRating + b.tomerFoodRating + b.tomerAtmosphereRating + b.tomerPriceRating) / 4;
-      
-      // Calculate combined average for each review
-      const combinedAvgA = (tomAvgA + tomerAvgA) / 2;
-      const combinedAvgB = (tomAvgB + tomerAvgB) / 2;
-      
-      return combinedAvgB - combinedAvgA; // Descending order
-    });
+    // Same ordering the page uses. The previous version divided by 4 and
+    // counted unrated zeros, so it disagreed with the client on every review
+    // that wasn't fully rated.
+    const sortedReviews = reviews.sort(
+      (a, b) => scoreReview(b).combined - scoreReview(a).combined
+    );
     
     return NextResponse.json(sortedReviews);
   } catch (error) {
@@ -100,8 +90,16 @@ export async function POST(request: NextRequest) {
       );
     }
     
+    const disabledCategories = resolveDisabledCategories(data.disabledCategories);
+    if (disabledCategories === null) {
+      return NextResponse.json(
+        { error: 'Invalid disabledCategories' },
+        { status: 400 }
+      );
+    }
+
     // Create new review in MongoDB
-    const newReview = await createCoffeeReview(data);
+    const newReview = await createCoffeeReview({ ...data, disabledCategories });
     
     return NextResponse.json(newReview, { status: 201 });
   } catch (error) {

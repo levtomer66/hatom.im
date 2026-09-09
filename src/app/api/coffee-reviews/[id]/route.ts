@@ -5,6 +5,7 @@ import {
   deleteCoffeeReview
 } from '@/models/CoffeeReview';
 import { requirePagePermission } from '@/lib/auth-helpers';
+import { resolveDisabledCategories } from '@/types/coffee';
 
 // GET handler to retrieve a single coffee review by ID
 export async function GET(
@@ -71,6 +72,19 @@ export async function PATCH(
       );
     }
     
+    // Only touch the field when the client actually sent it — a patch that
+    // changes just photoUrl must not silently re-enable categories.
+    if ('disabledCategories' in data) {
+      const resolved = resolveDisabledCategories(data.disabledCategories);
+      if (resolved === null) {
+        return NextResponse.json(
+          { error: 'Invalid disabledCategories' },
+          { status: 400 }
+        );
+      }
+      data.disabledCategories = resolved;
+    }
+
     const updatedReview = await updateCoffeeReview(id, data);
     
     if (!updatedReview) {
