@@ -1,0 +1,207 @@
+.paging-page-blank {
+  min-height: 100vh;
+  background: #0b0b0f;
+}
+
+.paging-page {
+  min-height: calc(100vh - 64px);
+  padding: 3rem 1rem;
+  color: #f8f2e8;
+  background:
+    radial-gradient(circle at top, rgba(201, 169, 110, 0.18), transparent 40%),
+    #0b0b0f;
+  direction: rtl;
+  text-align: start;
+}
+
+.paging-card {
+  width: min(100%, 680px);
+  margin: 0 auto 1.25rem;
+  padding: 1.5rem;
+  border: 1px solid rgba(201, 169, 110, 0.35);
+  border-radius: 20px;
+  background: rgba(20, 20, 26, 0.94);
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.35);
+}
+
+.paging-card form {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.paging-overline {
+  margin: 0 0 0.35rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  color: rgba(201, 169, 110, 0.72);
+}
+
+.paging-page h1 {
+  margin: 0 0 1.25rem;
+  font-size: clamp(1.65rem, 4vw, 2.1rem);
+  font-weight: 700;
+  line-height: 1.2;
+  color: #f8f2e8;
+}
+
+.paging-page h2 {
+  margin: 0 0 0.75rem;
+  font-size: clamp(1.15rem, 3vw, 1.35rem);
+  font-weight: 700;
+  line-height: 1.3;
+  color: #f1d49b;
+}
+
+.paging-card label {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.75rem;
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: rgba(248, 242, 232, 0.88);
+}
+
+.paging-char-count {
+  font-size: 0.78rem;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  color: rgba(248, 242, 232, 0.45);
+}
+
+.paging-card input,
+.paging-card textarea {
+  width: 100%;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 12px;
+  padding: 0.9rem 1rem;
+  color: inherit;
+  background: rgba(255, 255, 255, 0.06);
+  font: inherit;
+}
+
+.paging-card input:focus-visible,
+.paging-card textarea:focus-visible,
+.paging-card button:focus-visible,
+.paging-install-link:focus-visible {
+  outline: 2px solid #c9a96e;
+  outline-offset: 2px;
+}
+
+.paging-card textarea {
+  resize: vertical;
+  min-height: 5.5rem;
+}
+
+.paging-card button {
+  min-height: 48px;
+  border: 0;
+  border-radius: 999px;
+  padding: 0.8rem 1.2rem;
+  color: #111;
+  background: #c9a96e;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.paging-card button:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
+.paging-send button[type='submit'] {
+  margin-top: 0.25rem;
+}
+
+.paging-install-link {
+  display: inline-flex;
+  min-height: 48px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  padding: 0.8rem 1.2rem;
+  color: #111;
+  background: #f1d49b;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.paging-error {
+  margin: 0;
+  color: #ff9b9b;
+}
+
+.paging-success {
+  margin: 0;
+  color: #99e6b3;
+}
+
+.paging-shortcut code {
+  display: block;
+  direction: ltr;
+  overflow-wrap: anywhere;
+  margin-block: 0.5rem;
+  padding: 0.55rem 0.75rem;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.35);
+  font-family: ui-monospace, 'Cascadia Code', 'Source Code Pro', Menlo, monospace;
+  font-size: 0.82rem;
+  color: #f1d49b;
+}
+
+.paging-token-ready {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid rgba(201, 169, 110, 0.22);
+}
+
+.paging-token-ready label {
+  display: block;
+}
+
+.paging-token-ready input[type='password'] {
+  font-family: ui-monospace, 'Cascadia Code', 'Source Code Pro', Menlo, monospace;
+  font-size: 0.88rem;
+  letter-spacing: 0.08em;
+  -webkit-text-security: disc;
+}
+
+.paging-shortcut ol {
+  margin: 0.5rem 0 0;
+  padding-inline-start: 1.25rem;
+  line-height: 1.55;
+}
+
+.paging-shortcut ol li + li {
+  margin-top: 0.45rem;
+}
+
+@media (max-width: 600px) {
+  .paging-page {
+    padding: 1.5rem 0.85rem 2.5rem;
+  }
+
+  .paging-card {
+    padding: 1.15rem;
+    border-radius: 16px;
+  }
+
+  .paging-card form {
+    gap: 0.65rem;
+  }
+
+  .paging-page h1 {
+    margin-bottom: 1rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .paging-card button,
+  .paging-install-link {
+    transition: none;
+  }
+}
