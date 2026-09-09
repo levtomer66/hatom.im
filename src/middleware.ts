@@ -31,6 +31,7 @@ const GATES: readonly Gate[] = [
   { pattern: /^\/mekafkefim(?:\/|$)/,        permission: 'mekafkefim'  },
   { pattern: /^\/coffee-order(?:\/|$)/,      permission: 'coffee-order' },
   { pattern: /^\/instomit(?:\/|$)/,          permission: 'instomit'    },
+  { pattern: /^\/paging(?:\/|$)/,            permission: 'paging'      },
 ];
 
 export default auth((req) => {
@@ -85,6 +86,7 @@ export const config = {
     '/mekafkefim/:path*',
     '/coffee-order/:path*',
     '/instomit/:path*',
+    '/paging/:path*',
     '/trip.html',
     '/vegas-wedding-guide.html',
   ],

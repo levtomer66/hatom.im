@@ -15,6 +15,7 @@ import {
   FaPlane,
   FaSpa,
   FaHeart,
+  FaBell,
   FaUserShield,
   FaChartLine,
   FaSignOutAlt,
@@ -47,6 +48,7 @@ const allNavItems: NavItem[] = [
   { href: '/vegas-wedding-guide.html', label: 'מדריך חתונה',   icon: FaRing,       visibility: { permission: 'vegas-guide' } },
   { href: '/trip.html',                label: 'מסלול הטיול',   icon: FaPlane,      visibility: { permission: 'trip'        } },
   { href: '/sex',                      label: 'ולנטיין',       icon: FaHeart,      visibility: { permission: 'valentine'   } },
+  { href: '/paging',                   label: 'פייג׳ר',        icon: FaBell,       visibility: { permission: 'paging'      } },
   { href: '/admin/allowlist',          label: 'הרשאות',        icon: FaUserShield, visibility: 'owner' },
   { href: '/admin/workout-activity',    label: 'פעילות אימונים', icon: FaChartLine,  visibility: 'owner' },
 ];

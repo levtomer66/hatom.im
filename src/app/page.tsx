@@ -5,7 +5,7 @@ import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import { motion } from 'framer-motion';
 import { signIn, useSession } from 'next-auth/react';
-import { FaDog, FaCoffee, FaMugHot, FaVideo, FaDumbbell, FaRing, FaPlane, FaSpa, FaHeart, FaSignInAlt } from 'react-icons/fa';
+import { FaDog, FaCoffee, FaMugHot, FaVideo, FaDumbbell, FaRing, FaPlane, FaSpa, FaHeart, FaBell, FaSignInAlt } from 'react-icons/fa';
 import type { IconType } from 'react-icons';
 import Navbar from '@/components/Navbar';
 import { hasPermission } from '@/lib/permissions';
@@ -34,6 +34,7 @@ const allFeatures: Feature[] = [
   { icon: FaPlane,    title: 'USA & Mexico Trip', description: 'מסלול הטיול המלא 2026',               href: '/trip.html',                linkText: 'צפה במסלול',         permission: 'trip'        },
   { icon: FaSpa,      title: 'ספא',               description: 'תזמון עיסוי בין התומ.ים עם הזמנה ליומן', href: '/spa',                  linkText: 'לתזמון עיסוי',       permission: 'spa'         },
   { icon: FaHeart,    title: 'ולנטיין',           description: 'משחק ציפיות + לוח פוזות',                  href: '/sex',                      linkText: 'אלינו',              permission: 'valentine'   },
+  { icon: FaBell,     title: 'פייג׳ר',            description: 'שליחת התראה דחופה לאייפון ול-Mac',         href: '/paging',                   linkText: 'שלח פייג׳',          permission: 'paging'      },
 ];
 
 const containerVariants = {
