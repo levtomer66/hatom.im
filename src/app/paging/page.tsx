@@ -12,6 +12,9 @@ import {
 import './paging.css';
 
 type SendState = 'idle' | 'sending' | 'sent' | 'error';
+type ShortcutTokenState = 'idle' | 'creating';
+type CopyStatus = 'idle' | 'copied' | 'failed';
+
 const shortcutInstallURL = process.env.NEXT_PUBLIC_PAGING_SHORTCUT_URL;
 
 export default function PagingPage() {
@@ -20,8 +23,12 @@ export default function PagingPage() {
   const [emoji, setEmoji] = useState(DEFAULT_PAGE_EMOJI);
   const [message, setMessage] = useState('');
   const [sendState, setSendState] = useState<SendState>('idle');
-  const [error, setError] = useState<string | null>(null);
+  const [sendError, setSendError] = useState<string | null>(null);
+  const [shortcutTokenState, setShortcutTokenState] = useState<ShortcutTokenState>('idle');
+  const [shortcutError, setShortcutError] = useState<string | null>(null);
   const [shortcutToken, setShortcutToken] = useState<string | null>(null);
+  const [initialCopyStatus, setInitialCopyStatus] = useState<CopyStatus>('idle');
+  const [copyAgainStatus, setCopyAgainStatus] = useState<CopyStatus>('idle');
 
   useEffect(() => {
     if (status === 'loading') return;
@@ -32,7 +39,7 @@ export default function PagingPage() {
   async function sendPage(event: FormEvent) {
     event.preventDefault();
     setSendState('sending');
-    setError(null);
+    setSendError(null);
     try {
       const response = await fetch('/api/paging/pages', {
         method: 'POST',
@@ -47,29 +54,53 @@ export default function PagingPage() {
       setMessage('');
     } catch (sendError) {
       setSendState('error');
-      setError(sendError instanceof Error ? sendError.message : 'שליחת הפייג׳ נכשלה');
+      setSendError(sendError instanceof Error ? sendError.message : 'שליחת הפייג׳ נכשלה');
     }
   }
 
   async function createShortcutToken() {
-    setError(null);
-    const response = await fetch('/api/paging/shortcut-token', { method: 'POST' });
-    const body = (await response.json().catch(() => ({}))) as {
-      token?: string;
-      error?: string;
-    };
-    if (!response.ok || !body.token) {
-      setError(body.error ?? 'יצירת הטוקן נכשלה');
-      return;
+    if (shortcutTokenState === 'creating') return;
+    setShortcutTokenState('creating');
+    setShortcutError(null);
+    setInitialCopyStatus('idle');
+    setCopyAgainStatus('idle');
+    try {
+      const response = await fetch('/api/paging/shortcut-token', { method: 'POST' });
+      const body = (await response.json().catch(() => ({}))) as {
+        token?: string;
+        error?: string;
+      };
+      if (!response.ok || !body.token) {
+        setShortcutError(body.error ?? 'יצירת הטוקן נכשלה');
+        return;
+      }
+      setShortcutToken(body.token);
+      try {
+        await navigator.clipboard.writeText(body.token);
+        setInitialCopyStatus('copied');
+      } catch {
+        setInitialCopyStatus('failed');
+      }
+    } catch {
+      setShortcutError('שגיאת רשת ביצירת הטוקן. נסה שוב.');
+    } finally {
+      setShortcutTokenState('idle');
     }
-    setShortcutToken(body.token);
-    await navigator.clipboard.writeText(body.token).catch(() => undefined);
   }
 
   async function copyShortcutToken() {
     if (!shortcutToken) return;
-    await navigator.clipboard.writeText(shortcutToken);
+    setCopyAgainStatus('idle');
+    try {
+      await navigator.clipboard.writeText(shortcutToken);
+      setCopyAgainStatus('copied');
+    } catch {
+      setCopyAgainStatus('failed');
+    }
   }
+
+  const tokenLabel =
+    initialCopyStatus === 'copied' ? 'הטוקן הועתק' : 'טוקן קיצור דרך';
 
   if (
     status === 'loading' ||
@@ -109,9 +140,9 @@ export default function PagingPage() {
               maxLength={MAX_PAGE_MESSAGE_LENGTH}
               rows={3}
             />
-            {error && (
+            {sendError && (
               <p className="paging-error" role="alert">
-                {error}
+                {sendError}
               </p>
             )}
             {sendState === 'sent' && (
@@ -131,12 +162,27 @@ export default function PagingPage() {
             צור טוקן, ואז הגדר ב-Shortcuts בקשת POST אל
             <code>https://www.hatom.im/api/paging/pages</code>.
           </p>
-          <button type="button" onClick={createShortcutToken}>
-            צור והעתק טוקן
+          {shortcutError && (
+            <p className="paging-error" role="alert">
+              {shortcutError}
+            </p>
+          )}
+          <button
+            type="button"
+            onClick={createShortcutToken}
+            disabled={shortcutTokenState === 'creating'}
+            aria-busy={shortcutTokenState === 'creating'}
+          >
+            {shortcutTokenState === 'creating' ? 'יוצר טוקן…' : 'צור והעתק טוקן'}
           </button>
           {shortcutToken && (
             <div className="paging-token-ready">
-              <label htmlFor="paging-shortcut-token">הטוקן הועתק</label>
+              <label htmlFor="paging-shortcut-token">{tokenLabel}</label>
+              {initialCopyStatus === 'failed' && (
+                <p className="paging-error" role="status">
+                  לא הצלחנו להעתיק אוטומטית — העתק ידנית מהשדה למטה.
+                </p>
+              )}
               <input
                 id="paging-shortcut-token"
                 type="password"
@@ -147,6 +193,16 @@ export default function PagingPage() {
               <button type="button" onClick={copyShortcutToken}>
                 העתק שוב
               </button>
+              {copyAgainStatus === 'copied' && (
+                <p className="paging-success" role="status">
+                  הועתק ללוח ✓
+                </p>
+              )}
+              {copyAgainStatus === 'failed' && (
+                <p className="paging-error" role="alert">
+                  ההעתקה נכשלה — בחר את הטוקן מהשדה והעתק ידנית.
+                </p>
+              )}
               {shortcutInstallURL ? (
                 <a className="paging-install-link" href={shortcutInstallURL}>
                   פתח והתקן או עדכן את הקיצור
@@ -156,7 +212,7 @@ export default function PagingPage() {
               )}
               <p id="paging-token-hint">
                 הוסף כותרת Authorization שמתחילה ב-
-                <code>Bearer</code> ואחריה הטוקן שהועתק.
+                <code>Bearer</code> ואחריה הטוקן.
               </p>
               <ol>
                 <li>
@@ -170,7 +226,7 @@ export default function PagingPage() {
                 </li>
                 <li>
                   הוסף כותרת <code>Authorization</code> עם
-                  <code>Bearer</code>, רווח, והטוקן שהועתק.
+                  <code>Bearer</code>, רווח, והטוקן.
                 </li>
               </ol>
             </div>
