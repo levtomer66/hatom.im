@@ -27,8 +27,11 @@
 - Respect `Retry-After` and never interpret a failed poll as an empty snapshot.
 - Keep the system awake only while armed; allow normal display sleep.
 - Do not attempt to bypass the macOS secure lock screen.
-- The PagerDuty custom-details contract is exactly `emoji`, `message`,
-  `caller_email`, `source`, and `page_id`.
+- PagerDuty REST incident creation stores page fields in `incident.body.details`
+  as a JSON string. The Mac alert decoder must accept that string and decode the
+  six keys exactly: `schema_version`, `emoji`, `message`, `caller_email`,
+  `source`, and `page_id`. It may also accept a direct JSON object as a
+  compatibility fallback.
 - Manual verification replaces new automated tests.
 
 ---
@@ -565,10 +568,29 @@ struct AlertListResponse: Decodable, Sendable {
     }
 
     struct Body: Decodable, Sendable {
-        let details: Details?
+        let details: PageDetailsPayload?
+    }
+}
+
+/// REST incidents store `body.details` as a JSON string; decode that first,
+/// then fall back to a direct object for compatibility.
+struct PageDetailsPayload: Decodable, Sendable {
+    let schemaVersion: Int?
+    let emoji: String?
+    let message: String?
+    let callerEmail: String?
+    let source: String?
+    let pageID: String?
+
+    private enum CodingKeys: String, CodingKey {
+        case schemaVersion = "schema_version"
+        case emoji, message, source
+        case callerEmail = "caller_email"
+        case pageID = "page_id"
     }
 
-    struct Details: Decodable, Sendable {
+    private struct Fields: Decodable, Sendable {
+        let schemaVersion: Int?
         let emoji: String?
         let message: String?
         let callerEmail: String?
@@ -576,10 +598,28 @@ struct AlertListResponse: Decodable, Sendable {
         let pageID: String?
 
         enum CodingKeys: String, CodingKey {
+            case schemaVersion = "schema_version"
             case emoji, message, source
             case callerEmail = "caller_email"
             case pageID = "page_id"
         }
+    }
+
+    init(from decoder: Decoder) throws {
+        let fields: Fields
+        if let container = try? decoder.singleValueContainer(),
+           let jsonString = try? container.decode(String.self),
+           let data = jsonString.data(using: .utf8) {
+            fields = try JSONDecoder().decode(Fields.self, from: data)
+        } else {
+            fields = try Fields(from: decoder)
+        }
+        schemaVersion = fields.schemaVersion
+        emoji = fields.emoji
+        message = fields.message
+        callerEmail = fields.callerEmail
+        source = fields.source
+        pageID = fields.pageID
     }
 }
 
@@ -649,18 +689,18 @@ actor PagerDutyClient {
         }
         let data = try await send(request(url: url))
         let response = try decoder.decode(AlertListResponse.self, from: data)
-        guard let details = response.alerts.first(where: { $0.status == "triggered" })?.body.details
+        guard let rawDetails = response.alerts.first(where: { $0.status == "triggered" })?.body.details
         else {
             throw PagerDutyError.missingAlertDetails
         }
         return PagePayload(
             id: incident.id,
             incidentNumber: incident.incidentNumber,
-            emoji: details.emoji?.isEmpty == false ? details.emoji! : "📟",
-            message: details.message ?? "",
-            callerEmail: details.callerEmail ?? "Unknown caller",
-            source: details.source ?? "unknown",
-            pageID: details.pageID ?? incident.incidentKey ?? incident.id,
+            emoji: rawDetails.emoji?.isEmpty == false ? rawDetails.emoji! : "📟",
+            message: rawDetails.message ?? "",
+            callerEmail: rawDetails.callerEmail ?? "Unknown caller",
+            source: rawDetails.source ?? "unknown",
+            pageID: rawDetails.pageID ?? incident.incidentKey ?? incident.id,
             createdAt: incident.createdAt
         )
     }

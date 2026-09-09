@@ -18,9 +18,10 @@ for active and acknowledged pages.
 
 ## Decisions
 
-1. **PagerDuty is the only paging backend.** The website triggers incidents
-   through Events API v2. The Mac reads and acknowledges incidents through the
-   REST API. The iPhone uses PagerDuty's native Critical Alerts.
+1. **PagerDuty is the only paging backend.** The website creates incidents
+   through the PagerDuty REST API (`POST /incidents`). The Mac reads and
+   acknowledges incidents through the same REST API. The iPhone uses
+   PagerDuty's native Critical Alerts.
 2. **The Mac app polls.** It requests triggered incidents for one dedicated
    PagerDuty service every five seconds. This avoids webhooks, a realtime
    relay, and application-side event storage.
@@ -41,14 +42,14 @@ for active and acknowledged pages.
 ### `hatom.im`
 
 The existing Next.js application owns caller authentication, the paging UI,
-Shortcut authorization, input validation, and creation of PagerDuty events.
+Shortcut authorization, input validation, and creation of PagerDuty incidents.
 It never reads PagerDuty incidents and stores no paging events.
 
 ### PagerDuty
 
 A dedicated service named **Hatom Paging** owns incident state and routes
 high-urgency notifications to the recipient. PagerDuty is the only component
-that persists a page after the trigger request finishes.
+that persists a page after the create request finishes.
 
 ### `hatom-pager`
 
@@ -83,7 +84,7 @@ storage; existing login and permission data continue to use MongoDB.
 The initial version has no page list, history, active-state indicator, cancel
 flow, scheduling, or recipient selector.
 
-### Trigger API
+### Create incident API
 
 `POST /api/paging/pages` accepts either the existing Auth.js session or a
 signed Shortcut bearer token. Its body is:
@@ -99,14 +100,15 @@ The route:
 
 1. Authenticates the caller and checks the current `paging` permission.
 2. Validates and normalizes the emoji and message.
-3. Generates a UUID used as the PagerDuty `dedup_key`.
-4. Sends an Events API v2 `trigger` event with `severity: "critical"` to the
-   Hatom Paging service.
-5. Returns success only after PagerDuty accepts the event.
+3. Generates a UUID used as the PagerDuty `incident_key`.
+4. Calls `POST /incidents` on the Hatom Paging service with `urgency: "high"`.
+5. Returns `{ incidentId, pageId, status: "accepted" }` with HTTP `201` only
+   after PagerDuty accepts the incident.
 
-The PagerDuty summary is human-readable for the iPhone notification. Structured
-custom details carry the emoji, message, caller email, source (`web` or
-`shortcut`), and page UUID for the Mac app.
+The PagerDuty incident `title` is human-readable for the iPhone notification.
+`incident.body.details` is a JSON string containing exactly `schema_version`,
+`emoji`, `message`, `caller_email`, `source` (`web` or `shortcut`), and
+`page_id` for the Mac app.
 
 ### iPhone Shortcut
 
@@ -127,20 +129,21 @@ message.
 
 Create a dedicated **Hatom Paging** service with:
 
-- An Events API v2 integration and routing key.
 - A high-urgency notification policy routed to the recipient.
 - The PagerDuty iOS app configured to allow Critical Alerts.
 - Acknowledgement timeout disabled, preventing acknowledged pages from
   retriggering.
 - No automatic merge with unrelated PagerDuty services.
 
-`hatom.im` stores the Events API routing key only in Vercel environment
-variables. It is never sent to a browser.
+`hatom.im` stores a server-only PagerDuty REST API key (`PAGERDUTY_API_KEY`) in
+Vercel environment variables. It optionally sets `PAGERDUTY_SERVICE_ID` to skip
+service discovery and `PAGERDUTY_FROM_EMAIL` for the required REST `From`
+header. The key is never sent to a browser.
 
-The Mac uses a user-specific PagerDuty REST API token capable of reading and
-acknowledging assigned incidents. The token lives only in macOS Keychain.
-A distributable version would use scoped OAuth instead; personal token setup
-is the intentionally smaller first version.
+The Mac uses the same PagerDuty REST API key (or a user-specific token with
+equivalent read/acknowledge scope) stored only in macOS Keychain. A
+distributable version would use scoped OAuth instead; personal token setup is
+the intentionally smaller first version.
 
 ## `hatom-pager` design
 
@@ -168,8 +171,9 @@ snapshot source:
 - A triggered incident not present in the previous successful snapshot is a
   new page.
 - For each new incident, the app fetches its associated alert details once to
-  read the structured `custom_details` payload; the incident-list response is
-  used only to discover IDs and statuses.
+  read `body.details` — a JSON string of the structured page payload (with a
+  direct-object decode fallback for compatibility); the incident-list response
+  is used only to discover IDs and statuses.
 - An active incident that becomes acknowledged or resolved disappears from
   the triggered snapshot and is dismissed locally.
 - A failed request never acts like an empty snapshot.
@@ -217,10 +221,10 @@ within five seconds.
   permission.
 - Shortcut requests require a signed bearer token and a fresh permission
   check.
-- The PagerDuty Events routing key and Shortcut signing secret exist only in
-  Vercel environment variables.
-- The Mac's user-specific REST token exists only in Keychain and is never
-  written to logs or preferences.
+- The PagerDuty REST API key (`PAGERDUTY_API_KEY`) and Shortcut signing secret
+  exist only in Vercel environment variables.
+- The Mac's PagerDuty REST token exists only in Keychain and is never written
+  to logs or preferences.
 - Browser and server logs exclude secrets and authorization headers.
 - Emoji and message values are length-limited plain text; they are never
   interpreted as HTML.
@@ -229,8 +233,8 @@ within five seconds.
 
 ## Failure behavior
 
-- If PagerDuty rejects the website trigger, the caller sees a failure and no
-  local success is claimed.
+- If PagerDuty rejects the website incident creation, the caller sees a failure
+  and no local success is claimed.
 - If the iPhone receives a page while the Mac is offline, PagerDuty retains the
   triggered incident. The Mac presents it after connectivity returns.
 - If a poll fails, the current alarm remains unchanged and the app indicates

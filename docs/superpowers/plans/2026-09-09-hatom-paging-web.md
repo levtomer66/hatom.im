@@ -2,11 +2,11 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Add a permissioned `hatom.im/paging` page and iPhone Shortcut endpoint that trigger critical incidents in a dedicated PagerDuty service.
+**Goal:** Add a permissioned `hatom.im/paging` page and iPhone Shortcut endpoint that create high-urgency incidents in a dedicated PagerDuty service.
 
-**Architecture:** `hatom.im` authenticates callers, validates a small page payload, and sends one Events API v2 request. PagerDuty owns all incident state. The website never reads incidents and creates no paging collection. Web callers use Auth.js; Shortcuts use a stateless HMAC token whose email is checked against the existing permission store on every request.
+**Architecture:** `hatom.im` authenticates callers, validates a small page payload, and creates one PagerDuty REST incident (`POST /incidents`). PagerDuty owns all incident state. The website never reads incidents and creates no paging collection. Web callers use Auth.js; Shortcuts use a stateless HMAC token whose email is checked against the existing permission store on every request.
 
-**Tech Stack:** Next.js 15 App Router, React 19, TypeScript, Auth.js v5, Node `crypto`, PagerDuty Events API v2, Vercel
+**Tech Stack:** Next.js 15 App Router, React 19, TypeScript, Auth.js v5, Node `crypto`, PagerDuty REST API v2, Vercel
 
 ## Global Constraints
 
@@ -16,12 +16,15 @@
 - Do not add automated tests or test files unless the user explicitly requests them.
 - Do not modify `CLAUDE.md`, `AGENTS.md`, README files, or other documentation without separate user approval.
 - Do not stage the existing untracked `AGENTS.md` or `scripts/backfill-bodyweight.mjs`.
-- Keep `PAGERDUTY_EVENTS_ROUTING_KEY` and `PAGING_SHORTCUT_SECRET` server-only.
+- Keep `PAGERDUTY_API_KEY`, optional `PAGERDUTY_SERVICE_ID`, optional
+  `PAGERDUTY_FROM_EMAIL`, and `PAGING_SHORTCUT_SECRET` server-only.
 - Use `NEXT_PUBLIC_PAGING_SHORTCUT_URL` only for the non-secret iCloud
   installation link; never put a paging token in that URL.
 - Accept at most one emoji grapheme and 280 normalized message characters.
-- PagerDuty `custom_details` keys are exactly `emoji`, `message`, `caller_email`, `source`, and `page_id`.
-- The successful trigger response is exactly `{ pageId: string, status: "accepted" }`.
+- PagerDuty `incident.body.details` is a JSON string whose keys are exactly
+  `schema_version`, `emoji`, `message`, `caller_email`, `source`, and `page_id`.
+- The successful create response is exactly
+  `{ incidentId: string, pageId: string, status: "accepted" }` with HTTP `201`.
 - Manual verification replaces new automated tests.
 
 ---
@@ -117,16 +120,16 @@ files.
 
 ---
 
-### Task 2: Define the page payload and PagerDuty trigger module
+### Task 2: Define the page payload and PagerDuty incident module
 
 **Files:**
 - Create: `src/types/paging.ts`
-- Create: `src/lib/pagerduty-events.ts`
+- Create: `src/lib/pagerduty.ts`
 - Create: `src/app/api/paging/pages/route.ts`
 
 **Interfaces:**
 - Produces: `parsePageRequest(value): NormalizedPageRequest | null`
-- Produces: `triggerPageEvent(input): Promise<PagerDutyTriggerResult>`
+- Produces: `createPageIncident(input): Promise<CreatePageIncidentResult>`
 - Produces: `POST /api/paging/pages`
 - Consumes: `requirePagePermission('paging')`
 
@@ -145,10 +148,13 @@ export interface NormalizedPageRequest {
   message: string;
 }
 
-export interface PageEventInput extends NormalizedPageRequest {
-  pageId: string;
-  callerEmail: string;
+export interface StoredPagePayload {
+  schema_version: number;
+  emoji: string;
+  message: string;
+  caller_email: string;
   source: PageSource;
+  page_id: string;
 }
 
 const CONTROL_CHARS = /[\u0000-\u001f\u007f]/gu;
@@ -179,22 +185,27 @@ export function parsePageRequest(value: unknown): NormalizedPageRequest | null {
 }
 ```
 
-- [ ] **Step 2: Create the PagerDuty Events adapter**
+- [ ] **Step 2: Create the PagerDuty REST adapter**
 
-Create `src/lib/pagerduty-events.ts`:
+Create `src/lib/pagerduty.ts`:
 
 ```ts
-import type { PageEventInput } from '@/types/paging';
+import { OWNER_EMAILS } from '@/types/auth';
+import type { PageSource, StoredPagePayload } from '@/types/paging';
 
-const PAGERDUTY_EVENTS_URL = 'https://events.pagerduty.com/v2/enqueue';
+const PAGERDUTY_BASE_URL = 'https://api.pagerduty.com';
+const HATOM_PAGING_SERVICE_NAME = 'Hatom Paging';
 
-interface PagerDutyAcceptedBody {
-  status: 'success';
+export interface CreatePageIncidentInput {
+  emoji: string;
   message: string;
-  dedup_key: string;
+  callerEmail: string;
+  source: PageSource;
+  pageId: string;
 }
 
-export interface PagerDutyTriggerResult {
+export interface CreatePageIncidentResult {
+  incidentId: string;
   pageId: string;
   status: 'accepted';
 }
@@ -209,62 +220,119 @@ export class PagerDutyUpstreamError extends Error {
   }
 }
 
-export async function triggerPageEvent(
-  input: PageEventInput
-): Promise<PagerDutyTriggerResult> {
-  const routingKey = process.env.PAGERDUTY_EVENTS_ROUTING_KEY;
-  if (!routingKey) {
+let cachedServiceId: string | null = null;
+
+function apiKey(): string {
+  const key = process.env.PAGERDUTY_API_KEY;
+  if (!key) {
+    throw new PagerDutyConfigurationError('PAGERDUTY_API_KEY is not configured');
+  }
+  return key;
+}
+
+function fromEmail(): string {
+  return process.env.PAGERDUTY_FROM_EMAIL ?? OWNER_EMAILS[0];
+}
+
+function pagerDutyHeaders(): Record<string, string> {
+  return {
+    Authorization: `Token token=${apiKey()}`,
+    Accept: 'application/vnd.pagerduty+json;version=2',
+  };
+}
+
+async function resolveServiceId(): Promise<string> {
+  const configured = process.env.PAGERDUTY_SERVICE_ID;
+  if (configured) return configured;
+  if (cachedServiceId) return cachedServiceId;
+
+  const url = `${PAGERDUTY_BASE_URL}/services?query=Hatom%20Paging&limit=100`;
+  const response = await fetch(url, {
+    headers: pagerDutyHeaders(),
+    cache: 'no-store',
+  });
+  if (!response.ok) {
     throw new PagerDutyConfigurationError(
-      'PAGERDUTY_EVENTS_ROUTING_KEY is not configured'
+      `PagerDuty service discovery failed with HTTP ${response.status}`
     );
   }
+  const body = (await response.json()) as { services: { id: string; name: string }[] };
+  const matches = body.services.filter((s) => s.name === HATOM_PAGING_SERVICE_NAME);
+  if (matches.length !== 1) {
+    throw new PagerDutyConfigurationError(
+      `Expected exactly one "${HATOM_PAGING_SERVICE_NAME}" service, found ${matches.length}`
+    );
+  }
+  cachedServiceId = matches[0].id;
+  return cachedServiceId;
+}
 
-  const summary = input.message
+function buildStoredPayload(input: CreatePageIncidentInput): StoredPagePayload {
+  return {
+    schema_version: 1,
+    emoji: input.emoji,
+    message: input.message,
+    caller_email: input.callerEmail,
+    source: input.source,
+    page_id: input.pageId,
+  };
+}
+
+export async function createPageIncident(
+  input: CreatePageIncidentInput
+): Promise<CreatePageIncidentResult> {
+  const serviceId = await resolveServiceId();
+  const title = input.message
     ? `${input.emoji} ${input.message}`
     : `${input.emoji} Page from ${input.callerEmail}`;
+  const storedPayload = buildStoredPayload(input);
 
-  const response = await fetch(PAGERDUTY_EVENTS_URL, {
+  const response = await fetch(`${PAGERDUTY_BASE_URL}/incidents`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      ...pagerDutyHeaders(),
+      'Content-Type': 'application/json',
+      From: fromEmail(),
+    },
     body: JSON.stringify({
-      routing_key: routingKey,
-      event_action: 'trigger',
-      dedup_key: input.pageId,
-      payload: {
-        summary,
-        source: 'hatom.im',
-        severity: 'critical',
-        custom_details: {
-          emoji: input.emoji,
-          message: input.message,
-          caller_email: input.callerEmail,
-          source: input.source,
-          page_id: input.pageId,
+      incident: {
+        type: 'incident',
+        title,
+        service: { id: serviceId, type: 'service_reference' },
+        urgency: 'high',
+        incident_key: input.pageId,
+        body: {
+          type: 'incident_body',
+          details: JSON.stringify(storedPayload),
         },
       },
     }),
     cache: 'no-store',
   });
 
-  if (response.status !== 202) {
-    const text = await response.text();
+  if (response.status !== 201) {
     throw new PagerDutyUpstreamError(
-      `PagerDuty rejected the page: ${text.slice(0, 300)}`,
+      `PagerDuty rejected the page with HTTP ${response.status}`,
       response.status
     );
   }
 
-  const accepted = (await response.json()) as PagerDutyAcceptedBody;
-  if (accepted.status !== 'success' || accepted.dedup_key !== input.pageId) {
+  const body = (await response.json()) as {
+    incident: { id: string; incident_key: string };
+  };
+  const incidentId = body.incident?.id;
+  const incidentKey = body.incident?.incident_key;
+  if (!incidentId || incidentKey !== input.pageId) {
     throw new PagerDutyUpstreamError('Unexpected PagerDuty response', 502);
   }
-  return { pageId: input.pageId, status: 'accepted' };
+  return { incidentId, pageId: input.pageId, status: 'accepted' };
 }
 ```
 
 This module is the only website seam that knows PagerDuty's wire format.
+Never log the API key or upstream request body.
 
-- [ ] **Step 3: Add the session-authenticated trigger route**
+- [ ] **Step 3: Add the session-authenticated create route**
 
 Create `src/app/api/paging/pages/route.ts`:
 
@@ -275,8 +343,8 @@ import { requirePagePermission } from '@/lib/auth-helpers';
 import {
   PagerDutyConfigurationError,
   PagerDutyUpstreamError,
-  triggerPageEvent,
-} from '@/lib/pagerduty-events';
+  createPageIncident,
+} from '@/lib/pagerduty';
 import { parsePageRequest } from '@/types/paging';
 
 export async function POST(request: NextRequest) {
@@ -298,7 +366,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const result = await triggerPageEvent({
+    const result = await createPageIncident({
       ...page,
       pageId: randomUUID(),
       callerEmail: gate.session.user.email.toLowerCase(),
@@ -311,16 +379,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Paging is not configured' }, { status: 503 });
     }
     if (error instanceof PagerDutyUpstreamError) {
-      console.error('[paging] PagerDuty trigger failed', error.status);
+      console.error('[paging] PagerDuty create failed', error.status);
       return NextResponse.json({ error: 'PagerDuty rejected the page' }, { status: 502 });
     }
-    console.error('[paging] Unexpected trigger failure', error);
+    console.error('[paging] Unexpected create failure');
     return NextResponse.json({ error: 'Failed to send page' }, { status: 500 });
   }
 }
 ```
-
-Never log the routing key or the upstream request body.
 
 - [ ] **Step 4: Type-check and inspect the route**
 
@@ -333,11 +399,11 @@ git diff --check
 
 Expected: both commands exit `0`.
 
-- [ ] **Step 5: Commit the trigger slice**
+- [ ] **Step 5: Commit the incident slice**
 
 ```bash
-git add src/types/paging.ts src/lib/pagerduty-events.ts src/app/api/paging/pages/route.ts
-git commit -m "feat(paging): trigger PagerDuty incidents"
+git add src/types/paging.ts src/lib/pagerduty.ts src/app/api/paging/pages/route.ts
+git commit -m "feat(paging): create PagerDuty incidents"
 ```
 
 ---
@@ -497,16 +563,16 @@ export async function POST() {
 }
 ```
 
-- [ ] **Step 4: Switch the trigger route to the dual-auth gate**
+- [ ] **Step 4: Switch the create route to the dual-auth gate**
 
 Replace `requirePagePermission` with `requirePagingCaller(request)`. Build the
-event input from:
+incident input from:
 
 ```ts
 const caller = await requirePagingCaller(request);
 if (caller instanceof NextResponse) return caller;
 
-const result = await triggerPageEvent({
+const result = await createPageIncident({
   ...page,
   pageId: randomUUID(),
   callerEmail: caller.email,
@@ -859,7 +925,7 @@ git commit -m "feat(paging): add PagerDuty page form"
 - No repository files
 
 **Interfaces:**
-- Produces: dedicated PagerDuty service ID and Events API routing key
+- Produces: dedicated PagerDuty service ID and REST API key
 - Produces: Vercel secrets consumed by Tasks 2 and 3
 
 - [ ] **Step 1: Configure the PagerDuty service**
@@ -868,11 +934,12 @@ In PagerDuty:
 
 1. Create the service **Hatom Paging**.
 2. Assign its escalation policy to the intended iPhone user.
-3. Add an **Events API v2** integration.
-4. Set incident urgency to high.
-5. Disable **Re-trigger acknowledged incidents after**.
-6. In the iPhone PagerDuty app, enable **Critical Alerts for High-Urgency**.
-7. Record the service ID for the separate `hatom-pager` plan.
+3. Set incident urgency to high.
+4. Disable **Re-trigger acknowledged incidents after**.
+5. In the iPhone PagerDuty app, enable **Critical Alerts for High-Urgency**.
+6. Record the service ID for Vercel (`PAGERDUTY_SERVICE_ID`) and the separate
+   `hatom-pager` plan.
+7. Create a REST API key with permission to create incidents on that service.
 
 - [ ] **Step 2: Create and share the installable iPhone Shortcut**
 
@@ -895,12 +962,19 @@ Import Question.
 - [ ] **Step 3: Add production and preview environment values**
 
 From the linked `hatom.im` checkout, run the interactive commands and paste
-the PagerDuty integration key only when prompted:
+the PagerDuty REST API key only when prompted:
 
 ```bash
-vercel env add PAGERDUTY_EVENTS_ROUTING_KEY production
-vercel env add PAGERDUTY_EVENTS_ROUTING_KEY preview ""
+vercel env add PAGERDUTY_API_KEY production
+vercel env add PAGERDUTY_API_KEY preview ""
+vercel env add PAGERDUTY_SERVICE_ID production
+vercel env add PAGERDUTY_SERVICE_ID preview ""
+vercel env add PAGERDUTY_FROM_EMAIL production
+vercel env add PAGERDUTY_FROM_EMAIL preview ""
 ```
+
+`PAGERDUTY_SERVICE_ID` and `PAGERDUTY_FROM_EMAIL` are optional; omit them to
+use service discovery and the first owner email respectively.
 
 Generate the Shortcut secret without printing it:
 
@@ -931,13 +1005,17 @@ Verify in this order:
    session permission refresh.
 3. Blank emoji becomes `📟`; two graphemes and messages over 280 characters
    return `400`.
-4. A valid web page creates one critical PagerDuty incident with the five
-   exact `custom_details` keys.
-5. PagerDuty rejection produces a visible failure, not a false success.
-6. Generate a Shortcut token and send the default JSON body with its Bearer
+4. A valid web page returns HTTP `201` with `{ incidentId, pageId, status:
+   "accepted" }` and creates one high-urgency PagerDuty incident whose
+   `body.details` JSON string contains the six exact payload keys including
+   `schema_version`.
+5. PagerDuty rejection produces HTTP `502` and a visible failure, not a false
+   success.
+6. Missing `PAGERDUTY_API_KEY` or failed service discovery returns HTTP `503`.
+7. Generate a Shortcut token and send the default JSON body with its Bearer
    header.
-7. Revoke `paging`; the same Shortcut token now returns `403`.
-8. Rotate `PAGING_SHORTCUT_SECRET`; the previous token now returns `401`.
+8. Revoke `paging`; the same Shortcut token now returns `403`.
+9. Rotate `PAGING_SHORTCUT_SECRET`; the previous token now returns `401`.
 
 - [ ] **Step 5: Final repository verification**
 
