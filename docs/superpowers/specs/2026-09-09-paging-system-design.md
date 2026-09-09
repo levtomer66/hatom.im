@@ -79,7 +79,9 @@ storage; existing login and permission data continue to use MongoDB.
 - An optional plain-text message of at most 280 characters.
 - A single prominent Page button.
 - Immediate accepted/failed feedback from PagerDuty.
-- A control for installing or updating the caller's iPhone Shortcut.
+- Instructions and an optional link for installing or updating the iPhone
+  Shortcut. The bearer token is configured by the administrator, not in the
+  browser.
 
 The initial version has no page list, history, active-state indicator, cancel
 flow, scheduling, or recipient selector.
@@ -87,7 +89,7 @@ flow, scheduling, or recipient selector.
 ### Create incident API
 
 `POST /api/paging/pages` accepts either the existing Auth.js session or a
-signed Shortcut bearer token. Its body is:
+static Shortcut bearer token. Its body is:
 
 ```json
 {
@@ -112,14 +114,16 @@ The PagerDuty incident `title` is human-readable for the iPhone notification.
 
 ### iPhone Shortcut
 
-An authenticated user with `paging` permission can request a signed,
-long-lived Shortcut token. The token contains the caller email and a token
-version and is signed with `PAGING_SHORTCUT_SECRET`; no token row is stored.
+The Shortcut sends `Authorization: Bearer <PAGING_SHORTCUT_TOKEN>`. The token
+is a static server environment value configured directly in the Shortcut by
+the administrator; it is never returned to or rendered in the browser and must
+not appear in a URL.
 
-Every Shortcut request rechecks the caller's current site permission. Removing
-`paging` from the allowlist therefore revokes the Shortcut without maintaining
-a separate token database. Rotating `PAGING_SHORTCUT_SECRET` revokes all
-issued Shortcut tokens.
+`PAGING_SHORTCUT_TOKEN` is associated with a normalized
+`PAGING_SHORTCUT_EMAIL`. Every Shortcut request loads that email's current site
+permission. Removing `paging` from the allowlist therefore returns `403`
+without maintaining a separate token database. Rotating `PAGING_SHORTCUT_TOKEN`
+revokes the previous token.
 
 The default one-tap Shortcut sends `{ "emoji": "📟", "message": "" }`.
 Callers use the web page when they want to choose another emoji or include a
@@ -219,10 +223,12 @@ within five seconds.
 
 - Website requests require the existing authenticated session and `paging`
   permission.
-- Shortcut requests require a signed bearer token and a fresh permission
-  check.
-- The PagerDuty REST API key (`PAGERDUTY_API_KEY`) and Shortcut signing secret
-  exist only in Vercel environment variables.
+- Shortcut requests use any case-insensitive `Bearer` Authorization header;
+  missing, blank, or wrong credentials return `401` and never fall through to
+  session auth. Valid bearer attempts compare a static token in constant time
+  after loading configuration, then recheck `PAGING_SHORTCUT_EMAIL` permission.
+- The PagerDuty REST API key (`PAGERDUTY_API_KEY`), `PAGING_SHORTCUT_TOKEN`,
+  and `PAGING_SHORTCUT_EMAIL` exist only in Vercel environment variables.
 - The Mac's PagerDuty REST token exists only in Keychain and is never written
   to logs or preferences.
 - Browser and server logs exclude secrets and authorization headers.

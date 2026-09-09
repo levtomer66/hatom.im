@@ -4,7 +4,7 @@
 
 **Goal:** Add a permissioned `hatom.im/paging` page and iPhone Shortcut endpoint that create high-urgency incidents in a dedicated PagerDuty service.
 
-**Architecture:** `hatom.im` authenticates callers, validates a small page payload, and creates one PagerDuty REST incident (`POST /incidents`). PagerDuty owns all incident state. The website never reads incidents and creates no paging collection. Web callers use Auth.js; Shortcuts use a stateless HMAC token whose email is checked against the existing permission store on every request.
+**Architecture:** `hatom.im` authenticates callers, validates a small page payload, and creates one PagerDuty REST incident (`POST /incidents`). PagerDuty owns all incident state. The website never reads incidents and creates no paging collection. Web callers use Auth.js; Shortcuts send a static bearer token compared in constant time against `PAGING_SHORTCUT_TOKEN`, and every request loads current authorization for normalized `PAGING_SHORTCUT_EMAIL`.
 
 **Tech Stack:** Next.js 15 App Router, React 19, TypeScript, Auth.js v5, Node `crypto`, PagerDuty REST API v2, Vercel
 
@@ -12,14 +12,16 @@
 
 - Follow `docs/superpowers/specs/2026-09-09-paging-system-design.md`.
 - Do not add a paging MongoDB collection, ntfy integration, webhook, or incident history.
-- Do not add dependencies; use `node:crypto` for UUIDs and HMAC.
+- Do not add dependencies; use `node:crypto` for UUIDs and constant-time token comparison.
 - Do not add automated tests or test files unless the user explicitly requests them.
 - Do not modify `CLAUDE.md`, `AGENTS.md`, README files, or other documentation without separate user approval.
 - Do not stage the existing untracked `AGENTS.md` or `scripts/backfill-bodyweight.mjs`.
 - Keep `PAGERDUTY_API_KEY`, optional `PAGERDUTY_SERVICE_ID`, optional
-  `PAGERDUTY_FROM_EMAIL`, and `PAGING_SHORTCUT_SECRET` server-only.
+  `PAGERDUTY_FROM_EMAIL`, `PAGING_SHORTCUT_TOKEN`, and `PAGING_SHORTCUT_EMAIL`
+  server-only.
 - Use `NEXT_PUBLIC_PAGING_SHORTCUT_URL` only for the non-secret iCloud
-  installation link; never put a paging token in that URL.
+  installation link; never put a paging token in that URL or expose
+  `PAGING_SHORTCUT_TOKEN` to client code.
 - Accept at most one emoji grapheme and 280 normalized message characters.
 - PagerDuty `incident.body.details` is a JSON string whose keys are exactly
   `schema_version`, `emoji`, `message`, `caller_email`, `source`, and `page_id`.
@@ -408,84 +410,33 @@ git commit -m "feat(paging): create PagerDuty incidents"
 
 ---
 
-### Task 3: Add stateless iPhone Shortcut authentication
+### Task 3: Add static iPhone Shortcut authentication
 
 **Files:**
-- Create: `src/lib/paging-shortcut-token.ts`
+- Create: `src/lib/paging-shortcut-auth.ts`
 - Create: `src/lib/paging-auth.ts`
-- Create: `src/app/api/paging/shortcut-token/route.ts`
 - Modify: `src/app/api/paging/pages/route.ts`
 
 **Interfaces:**
-- Produces: `signPagingShortcutToken(email): string`
-- Produces: `verifyPagingShortcutToken(token): PagingShortcutClaims | null`
+- Produces: `loadPagingShortcutConfiguration(): PagingShortcutConfiguration`
+- Produces: `verifySuppliedPagingShortcutBearerToken(token, expected): boolean`
 - Produces: `requirePagingCaller(request): Promise<PagingCaller | NextResponse>`
-- Produces: `POST /api/paging/shortcut-token`
 - Consumes: current `paging` permission from `AuthorizedEmail`
 
-- [ ] **Step 1: Create the HMAC token module**
+- [ ] **Step 1: Create the static token module**
 
-Create `src/lib/paging-shortcut-token.ts`:
+Create `src/lib/paging-shortcut-auth.ts` with:
 
-```ts
-import { createHmac, timingSafeEqual } from 'node:crypto';
-
-const TOKEN_VERSION = 1;
-
-export interface PagingShortcutClaims {
-  v: 1;
-  sub: string;
-  iat: number;
-}
-
-function secret(): string {
-  const value = process.env.PAGING_SHORTCUT_SECRET;
-  if (!value) throw new Error('PAGING_SHORTCUT_SECRET is not configured');
-  return value;
-}
-
-function signature(payload: string): Buffer {
-  return createHmac('sha256', secret()).update(payload).digest();
-}
-
-export function signPagingShortcutToken(email: string): string {
-  const claims: PagingShortcutClaims = {
-    v: TOKEN_VERSION,
-    sub: email.trim().toLowerCase(),
-    iat: Math.floor(Date.now() / 1000),
-  };
-  const payload = Buffer.from(JSON.stringify(claims)).toString('base64url');
-  return `${payload}.${signature(payload).toString('base64url')}`;
-}
-
-export function verifyPagingShortcutToken(
-  token: string
-): PagingShortcutClaims | null {
-  try {
-    const [payload, encodedSignature, extra] = token.split('.');
-    if (!payload || !encodedSignature || extra) return null;
-    const actual = Buffer.from(encodedSignature, 'base64url');
-    const expected = signature(payload);
-    if (actual.length !== expected.length || !timingSafeEqual(actual, expected)) {
-      return null;
-    }
-    const claims = JSON.parse(
-      Buffer.from(payload, 'base64url').toString('utf8')
-    ) as Partial<PagingShortcutClaims>;
-    if (
-      claims.v !== TOKEN_VERSION ||
-      typeof claims.sub !== 'string' ||
-      !claims.sub.includes('@') ||
-      typeof claims.iat !== 'number'
-    ) {
-      return null;
-    }
-    return claims as PagingShortcutClaims;
-  } catch {
-    return null;
-  }
-}
-```
+- `PAGING_SHORTCUT_TOKEN` read server-side only; reject missing,
+  whitespace-only, or leading/trailing whitespace values as invalid
+  configuration.
+- `PAGING_SHORTCUT_EMAIL` normalized with `trim().toLowerCase()` and validated
+  to contain `@`.
+- `loadPagingShortcutConfiguration()` loads email and token before comparison.
+- `verifySuppliedPagingShortcutBearerToken(suppliedToken, expectedToken)` using
+  `timingSafeEqual`, rejecting supplied values over 512 UTF-8 bytes only after
+  configuration is valid.
+- `PagingShortcutConfigurationError` for missing or invalid env configuration.
 
 - [ ] **Step 2: Create the dual-auth gate**
 
@@ -495,7 +446,11 @@ Create `src/lib/paging-auth.ts`:
 import { NextRequest, NextResponse } from 'next/server';
 import { requirePagePermission } from '@/lib/auth-helpers';
 import { getAuthorizedEmailEntry } from '@/models/AuthorizedEmail';
-import { verifyPagingShortcutToken } from '@/lib/paging-shortcut-token';
+import {
+  PagingShortcutConfigurationError,
+  loadPagingShortcutConfiguration,
+  verifySuppliedPagingShortcutBearerToken,
+} from '@/lib/paging-shortcut-auth';
 import { isOwnerEmail } from '@/types/auth';
 import type { PageSource } from '@/types/paging';
 
@@ -510,20 +465,54 @@ async function hasFreshPagingPermission(email: string): Promise<boolean> {
   return entry?.allowedPages.includes('paging') === true;
 }
 
+function isBearerAuthorization(authorization: string): boolean {
+  const spaceIndex = authorization.indexOf(' ');
+  const scheme =
+    spaceIndex === -1
+      ? authorization
+      : authorization.slice(0, spaceIndex);
+  return scheme.toLowerCase() === 'bearer';
+}
+
 export async function requirePagingCaller(
   request: NextRequest
 ): Promise<PagingCaller | NextResponse> {
   const authorization = request.headers.get('authorization');
-  if (authorization?.startsWith('Bearer ')) {
-    const claims = verifyPagingShortcutToken(authorization.slice(7).trim());
-    if (!claims) {
+  if (authorization && isBearerAuthorization(authorization)) {
+    const spaceIndex = authorization.indexOf(' ');
+    const suppliedToken =
+      spaceIndex === -1 ? '' : authorization.slice(spaceIndex + 1).trim();
+    if (!suppliedToken) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-    const email = claims.sub.toLowerCase();
-    if (!(await hasFreshPagingPermission(email))) {
+
+    let shortcutConfig;
+    try {
+      shortcutConfig = loadPagingShortcutConfiguration();
+    } catch (error) {
+      if (error instanceof PagingShortcutConfigurationError) {
+        console.error('[paging] Shortcut auth is not configured');
+        return NextResponse.json(
+          { error: 'Shortcut setup is not configured' },
+          { status: 503 }
+        );
+      }
+      throw error;
+    }
+
+    if (
+      !verifySuppliedPagingShortcutBearerToken(
+        suppliedToken,
+        shortcutConfig.token
+      )
+    ) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    if (!(await hasFreshPagingPermission(shortcutConfig.email))) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
-    return { email, source: 'shortcut' };
+    return { email: shortcutConfig.email, source: 'shortcut' };
   }
 
   const gate = await requirePagePermission('paging');
@@ -533,37 +522,13 @@ export async function requirePagingCaller(
 ```
 
 This fresh Mongo lookup applies only to Shortcut calls and is what makes
-permission removal revoke a token without storing the token itself.
+permission removal revoke access without storing the token itself. Any
+case-insensitive `Bearer` Authorization header enters the Shortcut branch;
+missing, blank, or wrong credentials return `401` and never fall through to
+session auth. Non-Bearer Authorization headers may still use session auth.
+Never log token, Authorization header, or env values.
 
-- [ ] **Step 3: Add the token issuance route**
-
-Create `src/app/api/paging/shortcut-token/route.ts`:
-
-```ts
-import { NextResponse } from 'next/server';
-import { requirePagePermission } from '@/lib/auth-helpers';
-import { signPagingShortcutToken } from '@/lib/paging-shortcut-token';
-
-export async function POST() {
-  const gate = await requirePagePermission('paging');
-  if (gate instanceof NextResponse) return gate;
-  try {
-    const token = signPagingShortcutToken(gate.session.user.email);
-    return NextResponse.json(
-      { token },
-      { headers: { 'Cache-Control': 'no-store' } }
-    );
-  } catch (error) {
-    console.error('[paging] Shortcut token signing is not configured', error);
-    return NextResponse.json(
-      { error: 'Shortcut setup is not configured' },
-      { status: 503 }
-    );
-  }
-}
-```
-
-- [ ] **Step 4: Switch the create route to the dual-auth gate**
+- [ ] **Step 3: Switch the create route to the dual-auth gate**
 
 Replace `requirePagePermission` with `requirePagingCaller(request)`. Build the
 incident input from:
@@ -580,13 +545,13 @@ const result = await createPageIncident({
 });
 ```
 
-- [ ] **Step 5: Type-check and commit**
+- [ ] **Step 4: Type-check and commit**
 
 ```bash
 npx tsc --noEmit --incremental false --pretty false
 git diff --check
-git add src/lib/paging-shortcut-token.ts src/lib/paging-auth.ts \
-  src/app/api/paging/shortcut-token/route.ts src/app/api/paging/pages/route.ts
+git add src/lib/paging-shortcut-auth.ts src/lib/paging-auth.ts \
+  src/app/api/paging/pages/route.ts
 git commit -m "feat(paging): authorize iPhone Shortcut pages"
 ```
 
@@ -603,7 +568,6 @@ Expected: type-check and pre-commit hook pass.
 
 **Interfaces:**
 - Consumes: `POST /api/paging/pages`
-- Consumes: `POST /api/paging/shortcut-token`
 - Consumes: `DEFAULT_PAGE_EMOJI` and `MAX_PAGE_MESSAGE_LENGTH`
 
 - [ ] **Step 1: Add route metadata**
@@ -654,7 +618,6 @@ export default function PagingPage() {
   const [message, setMessage] = useState('');
   const [sendState, setSendState] = useState<SendState>('idle');
   const [error, setError] = useState<string | null>(null);
-  const [shortcutToken, setShortcutToken] = useState<string | null>(null);
 
   useEffect(() => {
     if (status === 'loading') return;
@@ -682,26 +645,6 @@ export default function PagingPage() {
       setSendState('error');
       setError(sendError instanceof Error ? sendError.message : 'שליחת הפייג׳ נכשלה');
     }
-  }
-
-  async function createShortcutToken() {
-    setError(null);
-    const response = await fetch('/api/paging/shortcut-token', { method: 'POST' });
-    const body = (await response.json().catch(() => ({}))) as {
-      token?: string;
-      error?: string;
-    };
-    if (!response.ok || !body.token) {
-      setError(body.error ?? 'יצירת הטוקן נכשלה');
-      return;
-    }
-    setShortcutToken(body.token);
-    await navigator.clipboard.writeText(body.token).catch(() => undefined);
-  }
-
-  async function copyShortcutToken() {
-    if (!shortcutToken) return;
-    await navigator.clipboard.writeText(shortcutToken);
   }
 
   if (
@@ -747,52 +690,33 @@ export default function PagingPage() {
         <section className="paging-card paging-shortcut">
           <h2>קיצור דרך באייפון</h2>
           <p>
-            צור טוקן, ואז הגדר ב-Shortcuts בקשת POST אל
+            הגדר ב-Shortcuts בקשת POST אל
             <code>https://www.hatom.im/api/paging/pages</code>.
+            טוקן ה-Bearer מוגדר על ידי מנהל המערכת ישירות בקיצור — הוא לא
+            מוצג כאן ולא מועבר בכתובת.
           </p>
-          <button type="button" onClick={createShortcutToken}>
-            צור והעתק טוקן
-          </button>
-          {shortcutToken && (
-            <div className="paging-token-ready">
-              <label htmlFor="paging-shortcut-token">הטוקן הועתק</label>
-              <input
-                id="paging-shortcut-token"
-                type="password"
-                readOnly
-                value={shortcutToken}
-              />
-              <button type="button" onClick={copyShortcutToken}>
-                העתק שוב
-              </button>
-              {shortcutInstallURL ? (
-                <a className="paging-install-link" href={shortcutInstallURL}>
-                  פתח והתקן או עדכן את הקיצור
-                </a>
-              ) : (
-                <p>קישור ההתקנה עדיין לא הוגדר.</p>
-              )}
-              <p>
-                הוסף כותרת Authorization שמתחילה ב-
-                <code>Bearer</code> ואחריה הטוקן שהועתק.
-              </p>
-              <ol>
-                <li>
-                  הוסף פעולת URL עם
-                  <code>https://www.hatom.im/api/paging/pages</code>
-                </li>
-                <li>הוסף Get Contents of URL מסוג POST עם גוף JSON.</li>
-                <li>
-                  בגוף שלח <code>emoji</code> בערך <code>📟</code> ואת
-                  <code>message</code> כמחרוזת ריקה.
-                </li>
-                <li>
-                  הוסף כותרת <code>Authorization</code> עם
-                  <code>Bearer</code>, רווח, והטוקן שהועתק.
-                </li>
-              </ol>
-            </div>
+          {shortcutInstallURL ? (
+            <a className="paging-install-link" href={shortcutInstallURL}>
+              פתח והתקן או עדכן את הקיצור
+            </a>
+          ) : (
+            <p>קישור ההתקנה עדיין לא הוגדר.</p>
           )}
+          <ol>
+            <li>
+              הוסף פעולת URL עם
+              <code>https://www.hatom.im/api/paging/pages</code>
+            </li>
+            <li>הוסף Get Contents of URL מסוג POST עם גוף JSON.</li>
+            <li>
+              בגוף שלח <code>emoji</code> בערך <code>📟</code> ואת
+              <code>message</code> כמחרוזת ריקה.
+            </li>
+            <li>
+              הוסף כותרת <code>Authorization</code> עם
+              <code>Bearer</code>, רווח, וטוקן שהמנהל סיפק.
+            </li>
+          </ol>
         </section>
       </main>
     </div>
@@ -800,7 +724,7 @@ export default function PagingPage() {
 }
 ```
 
-Do not put the token in a URL query string.
+Do not put the token in a URL query string or expose it through client code.
 
 - [ ] **Step 3: Add scoped responsive styling**
 
@@ -890,8 +814,8 @@ contract is:
 }
 ```
 
-Add focus-visible outlines, mobile spacing below `600px`, overline/title
-styles, and masked token styling without introducing global selectors.
+Add focus-visible outlines, mobile spacing below `600px`, and overline/title
+styles without introducing global selectors.
 
 - [ ] **Step 4: Type-check, build, and inspect manually**
 
@@ -945,19 +869,17 @@ In PagerDuty:
 
 In the Shortcuts app, create **Hatom Pager** with:
 
-1. A Text value for the paging token and an Import Question named
-   **Paging token** so each installer pastes their own generated token.
-2. A URL action containing
-   `https://www.hatom.im/api/paging/pages`.
-3. A Get Contents of URL action using POST with JSON keys `emoji` = `📟` and
+1. A URL action containing `https://www.hatom.im/api/paging/pages`.
+2. A Get Contents of URL action using POST with JSON keys `emoji` = `📟` and
    `message` = an empty string.
-4. An `Authorization` header composed of `Bearer ` followed by the imported
-   token.
-5. A Show Result action that reports whether the request succeeded.
+3. An `Authorization` header composed of `Bearer ` followed by
+   `PAGING_SHORTCUT_TOKEN` configured directly in the Shortcut by the
+   administrator.
+4. A Show Result action that reports whether the request succeeded.
 
 Share the Shortcut through iCloud and copy its public installation URL. The
-shared Shortcut contains no live token; each user supplies one through the
-Import Question.
+shared Shortcut must not embed the live token in the iCloud link; configure the
+token separately after installation or distribute it out of band.
 
 - [ ] **Step 3: Add production and preview environment values**
 
@@ -976,15 +898,18 @@ vercel env add PAGERDUTY_FROM_EMAIL preview ""
 `PAGERDUTY_SERVICE_ID` and `PAGERDUTY_FROM_EMAIL` are optional; omit them to
 use service discovery and the first owner email respectively.
 
-Generate the Shortcut secret without printing it:
+Generate the Shortcut token without printing it:
 
 ```bash
 openssl rand -hex 32 | pbcopy
-vercel env add PAGING_SHORTCUT_SECRET production
-vercel env add PAGING_SHORTCUT_SECRET preview ""
+vercel env add PAGING_SHORTCUT_TOKEN production
+vercel env add PAGING_SHORTCUT_TOKEN preview ""
+vercel env add PAGING_SHORTCUT_EMAIL production
+vercel env add PAGING_SHORTCUT_EMAIL preview ""
 ```
 
-Paste from the clipboard at each Shortcut-secret prompt. Pull development
+Paste from the clipboard at each token prompt and set
+`PAGING_SHORTCUT_EMAIL` to the normalized allowlisted caller. Pull development
 values only if local live PagerDuty verification is required:
 
 ```bash
@@ -1012,10 +937,17 @@ Verify in this order:
 5. PagerDuty rejection produces HTTP `502` and a visible failure, not a false
    success.
 6. Missing `PAGERDUTY_API_KEY` or failed service discovery returns HTTP `503`.
-7. Generate a Shortcut token and send the default JSON body with its Bearer
+7. Send the default JSON body from the Shortcut with its configured Bearer
    header.
-8. Revoke `paging`; the same Shortcut token now returns `403`.
-9. Rotate `PAGING_SHORTCUT_SECRET`; the previous token now returns `401`.
+8. Revoke `paging` from `PAGING_SHORTCUT_EMAIL`; the same Shortcut token now
+   returns `403`.
+9. Rotate `PAGING_SHORTCUT_TOKEN`; the previous token now returns `401`.
+10. Missing or invalid `PAGING_SHORTCUT_TOKEN` or `PAGING_SHORTCUT_EMAIL`
+    returns `503` for nonempty Shortcut requests before token mismatch.
+11. `Authorization: Bearer` with missing or blank credentials returns `401`
+    even when a valid session cookie is present.
+12. A `PAGING_SHORTCUT_TOKEN` value with leading or trailing whitespace returns
+    `503`.
 
 - [ ] **Step 5: Final repository verification**
 

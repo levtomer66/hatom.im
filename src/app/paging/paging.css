@@ -151,25 +151,6 @@
   color: #f1d49b;
 }
 
-.paging-token-ready {
-  display: grid;
-  gap: 0.75rem;
-  margin-top: 1rem;
-  padding-top: 1rem;
-  border-top: 1px solid rgba(201, 169, 110, 0.22);
-}
-
-.paging-token-ready label {
-  display: block;
-}
-
-.paging-token-ready input[type='password'] {
-  font-family: ui-monospace, 'Cascadia Code', 'Source Code Pro', Menlo, monospace;
-  font-size: 0.88rem;
-  letter-spacing: 0.08em;
-  -webkit-text-security: disc;
-}
-
 .paging-shortcut ol {
   margin: 0.5rem 0 0;
   padding-inline-start: 1.25rem;
