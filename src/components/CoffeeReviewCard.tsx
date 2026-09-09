@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import Image from 'next/image';
 import { Playfair_Display, Courier_Prime } from 'next/font/google';
-import { CoffeeReview } from '@/types/coffee';
+import { CoffeeReview, scoreReview } from '@/types/coffee';
 import EditCoffeeReviewForm from './EditCoffeeReviewForm';
 
 const playfair = Playfair_Display({ subsets: ['latin'], weight: ['400', '600', '700', '900'], style: ['normal', 'italic'] });
@@ -19,13 +19,16 @@ interface CoffeeReviewCardProps {
   isPriority?: boolean;
 }
 
-const nonZeroAvg = (vals: number[]) => {
-  const rated = vals.filter(v => v > 0);
-  return rated.length ? rated.reduce((a, b) => a + b, 0) / rated.length : 0;
-};
-
-// SVG ring gauge for a score
-const ScoreRing = ({ score, label, size = 72 }: { score: number; label: string; size?: number }) => {
+// SVG ring gauge for a score. Three states: rated (coloured arc + number),
+// active-but-unrated (empty ring + "—"), and disabled (dashed grey ring, empty
+// centre, and an "אין" line above the category name — the place doesn't have
+// this category at all).
+const ScoreRing = ({
+  score,
+  label,
+  size = 72,
+  disabled = false,
+}: { score: number; label: string; size?: number; disabled?: boolean }) => {
   const r = size * 0.38;
   const circ = 2 * Math.PI * r;
   const fill = score > 0 ? (score / 10) * circ : 0;
@@ -35,19 +38,35 @@ const ScoreRing = ({ score, label, size = 72 }: { score: number; label: string; 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
       <svg width={size} height={size} style={{ transform: 'rotate(-90deg)' }}>
-        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="#e8ddc8" strokeWidth="4" />
-        {score > 0 && (
+        <circle cx={size / 2} cy={size / 2} r={r} fill="none"
+          stroke={disabled ? '#d0c4a8' : '#e8ddc8'} strokeWidth="4"
+          strokeDasharray={disabled ? '3 5' : undefined}
+        />
+        {!disabled && score > 0 && (
           <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={colors} strokeWidth="4"
             strokeDasharray={`${fill} ${gap}`} strokeLinecap="round"
             style={{ transition: 'stroke-dasharray 0.8s ease' }}
           />
         )}
-        <text x="50%" y="50%" textAnchor="middle" dominantBaseline="central"
-          style={{ transform: 'rotate(90deg)', transformOrigin: 'center', fontFamily: 'monospace', fontSize: size * 0.22 + 'px', fill: score > 0 ? '#3a2c1a' : '#bba', fontWeight: 700 }}>
-          {score > 0 ? score.toFixed(1) : '—'}
-        </text>
+        {!disabled && (
+          <text x="50%" y="50%" textAnchor="middle" dominantBaseline="central"
+            style={{ transform: 'rotate(90deg)', transformOrigin: 'center', fontFamily: 'monospace', fontSize: size * 0.22 + 'px', fill: score > 0 ? '#3a2c1a' : '#bba', fontWeight: 700 }}>
+            {score > 0 ? score.toFixed(1) : '—'}
+          </text>
+        )}
       </svg>
-      <span style={{ fontSize: '10px', color: '#8a7a60', letterSpacing: '0.08em', textTransform: 'uppercase', fontFamily: 'monospace' }}>{label}</span>
+      {/* minHeight keeps all four columns the same height whether or not a
+          category is disabled, so the ring grid never jumps. */}
+      <div style={{ minHeight: '26px', textAlign: 'center' }}>
+        {disabled && (
+          <span style={{ display: 'block', fontSize: '10px', color: '#a09070', letterSpacing: '0.08em', fontFamily: 'monospace', fontWeight: 700 }}>
+            אין
+          </span>
+        )}
+        <span style={{ display: 'block', fontSize: '10px', color: disabled ? '#b0a488' : '#8a7a60', letterSpacing: '0.08em', textTransform: 'uppercase', fontFamily: 'monospace' }}>
+          {label}
+        </span>
+      </div>
     </div>
   );
 };
@@ -57,32 +76,18 @@ const CoffeeReviewCard: React.FC<CoffeeReviewCardProps> = ({ review, onDelete, o
   const [isEditing, setIsEditing] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [activeTab, setActiveTab] = useState<'overview' | 'tom' | 'tomer'>('overview');
-  const tomAvg = nonZeroAvg([review.tomCoffeeRating ?? 0, review.tomFoodRating ?? 0, review.tomAtmosphereRating ?? 0, review.tomPriceRating ?? 0]);
-  const tomerAvg = nonZeroAvg([review.tomerCoffeeRating ?? 0, review.tomerFoodRating ?? 0, review.tomerAtmosphereRating ?? 0, review.tomerPriceRating ?? 0]);
-  const combinedAvg = nonZeroAvg([tomAvg, tomerAvg].filter(v => v > 0));
+  const scores = scoreReview(review);
+  const tomAvg = scores.tom;
+  const tomerAvg = scores.tomer;
+  const combinedAvg = scores.combined;
 
-  const avgCategory = (a: number, b: number) => nonZeroAvg([a, b].filter(v => v > 0));
-
-  const overviewRings = [
-    { score: avgCategory(review.tomCoffeeRating ?? 0, review.tomerCoffeeRating ?? 0), label: 'קפה' },
-    { score: avgCategory(review.tomFoodRating ?? 0, review.tomerFoodRating ?? 0), label: 'אוכל' },
-    { score: avgCategory(review.tomAtmosphereRating ?? 0, review.tomerAtmosphereRating ?? 0), label: 'אווירה' },
-    { score: avgCategory(review.tomPriceRating ?? 0, review.tomerPriceRating ?? 0), label: 'מחיר' },
-  ];
-  const tomRings = [
-    { score: review.tomCoffeeRating ?? 0, label: 'קפה' },
-    { score: review.tomFoodRating ?? 0, label: 'אוכל' },
-    { score: review.tomAtmosphereRating ?? 0, label: 'אווירה' },
-    { score: review.tomPriceRating ?? 0, label: 'מחיר' },
-  ];
-  const tomerRings = [
-    { score: review.tomerCoffeeRating ?? 0, label: 'קפה' },
-    { score: review.tomerFoodRating ?? 0, label: 'אוכל' },
-    { score: review.tomerAtmosphereRating ?? 0, label: 'אווירה' },
-    { score: review.tomerPriceRating ?? 0, label: 'מחיר' },
-  ];
-
-  const rings = activeTab === 'overview' ? overviewRings : activeTab === 'tom' ? tomRings : tomerRings;
+  // One list instead of three hand-written literals; the tab picks which
+  // number to show and `disabled` rides along unchanged.
+  const rings = scores.categories.map((c) => ({
+    label: c.label,
+    disabled: c.disabled,
+    score: activeTab === 'overview' ? c.combined : activeTab === 'tom' ? c.tom : c.tomer,
+  }));
 
   const formattedDate = new Date(review.createdAt).toLocaleDateString('he-IL', { year: 'numeric', month: '2-digit', day: '2-digit' });
 
@@ -229,7 +234,7 @@ const CoffeeReviewCard: React.FC<CoffeeReviewCardProps> = ({ review, onDelete, o
 
         {/* Score rings */}
         <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0 4px' }}>
-          {rings.map(r => <ScoreRing key={r.label} score={r.score} label={r.label} size={62} />)}
+          {rings.map(r => <ScoreRing key={r.label} score={r.score} label={r.label} disabled={r.disabled} size={62} />)}
         </div>
 
         {/* Reviewer averages in overview */}

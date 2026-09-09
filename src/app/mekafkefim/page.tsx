@@ -7,7 +7,7 @@ import { Playfair_Display, Courier_Prime } from 'next/font/google';
 import Navbar from '@/components/Navbar';
 import CoffeeReviewCard from '@/components/CoffeeReviewCard';
 import AddCoffeeReviewForm from '@/components/AddCoffeeReviewForm';
-import { CoffeeReview } from '@/types/coffee';
+import { CoffeeReview, scoreReview } from '@/types/coffee';
 import { hasPermission } from '@/lib/permissions';
 
 const playfair = Playfair_Display({ subsets: ['latin'], weight: ['400', '600', '700', '900'], style: ['normal', 'italic'] });
@@ -60,19 +60,9 @@ export default function MekafkefimPage() {
     fetchReviews();
   };
 
-  const nonZeroAvg = (vals: number[]) => {
-    const rated = vals.filter(v => v > 0);
-    return rated.length ? rated.reduce((a, b) => a + b, 0) / rated.length : 0;
-  };
-
-  const sortedReviews = [...reviews].sort((a, b) => {
-    const getAvg = (r: CoffeeReview) => {
-      const t = nonZeroAvg([r.tomCoffeeRating ?? 0, r.tomFoodRating ?? 0, r.tomAtmosphereRating ?? 0, r.tomPriceRating ?? 0]);
-      const tr = nonZeroAvg([r.tomerCoffeeRating ?? 0, r.tomerFoodRating ?? 0, r.tomerAtmosphereRating ?? 0, r.tomerPriceRating ?? 0]);
-      return nonZeroAvg([t, tr].filter(v => v > 0));
-    };
-    return getAvg(b) - getAvg(a);
-  });
+  const sortedReviews = [...reviews].sort(
+    (a, b) => scoreReview(b).combined - scoreReview(a).combined
+  );
 
   return (
     <>
@@ -221,7 +211,7 @@ export default function MekafkefimPage() {
         {!isLoading && reviews.length > 0 && (
           <div style={{ textAlign: 'center', marginTop: '48px' }}>
             <p className={courier.className} style={{ fontSize: '10px', color: '#a09060', letterSpacing: '0.15em' }}>
-              {reviews.length} בתי קפה · מיוין לפי דירוג ממוצע · 0 = לא דורג
+              {reviews.length} בתי קפה · מיוין לפי דירוג ממוצע · 0 = לא דורג · &quot;אין&quot; = לא נמדד במקום
             </p>
           </div>
         )}
