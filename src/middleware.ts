@@ -32,6 +32,7 @@ const GATES: readonly Gate[] = [
   { pattern: /^\/coffee-order(?:\/|$)/,      permission: 'coffee-order' },
   { pattern: /^\/instomit(?:\/|$)/,          permission: 'instomit'    },
   { pattern: /^\/paging(?:\/|$)/,            permission: 'paging'      },
+  { pattern: /^\/todo(?:\/|$)/,              permission: 'todo'        },
 ];
 
 export default auth((req) => {
@@ -87,6 +88,7 @@ export const config = {
     '/coffee-order/:path*',
     '/instomit/:path*',
     '/paging/:path*',
+    '/todo/:path*',
     '/trip.html',
     '/vegas-wedding-guide.html',
   ],

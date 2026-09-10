@@ -16,6 +16,7 @@ export type PermissionKey =
   | 'spa'
   | 'valentine'
   | 'paging'
+  | 'todo'
   // Write keys — independent of visibility (you could grant write without
   // visibility, but the matrix UI nudges toward pairing them). Owned by
   // the same `allowedPages` array on the AuthorizedEmail doc.
@@ -42,6 +43,7 @@ export const PERMISSION_KEYS: readonly PermissionKey[] = [
   'spa',
   'valentine',
   'paging',
+  'todo',
 ];
 
 const PERMISSION_KEY_SET = new Set<string>(PERMISSION_KEYS);
@@ -67,6 +69,7 @@ export const PERMISSIONS: Record<PermissionKey, PermissionMeta> = {
   spa:                 { label: 'Spa',               emoji: '🌹' },
   valentine:           { label: 'Valentine',         emoji: '💋' },
   paging:              { label: 'Paging',              emoji: '📟' },
+  todo:                { label: 'To-Do',               emoji: '📝' },
 };
 
 export function isPermissionKey(value: unknown): value is PermissionKey {

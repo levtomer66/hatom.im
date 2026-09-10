@@ -16,6 +16,7 @@ import {
   FaSpa,
   FaHeart,
   FaBell,
+  FaTasks,
   FaUserShield,
   FaChartLine,
   FaSignOutAlt,
@@ -49,6 +50,7 @@ const allNavItems: NavItem[] = [
   { href: '/trip.html',                label: 'מסלול הטיול',   icon: FaPlane,      visibility: { permission: 'trip'        } },
   { href: '/sex',                      label: 'ולנטיין',       icon: FaHeart,      visibility: { permission: 'valentine'   } },
   { href: '/paging',                   label: 'פייג׳ר',        icon: FaBell,       visibility: { permission: 'paging'      } },
+  { href: '/todo',                     label: 'משימות',        icon: FaTasks,      visibility: { permission: 'todo'        } },
   { href: '/admin/allowlist',          label: 'הרשאות',        icon: FaUserShield, visibility: 'owner' },
   { href: '/admin/workout-activity',    label: 'פעילות אימונים', icon: FaChartLine,  visibility: 'owner' },
 ];
