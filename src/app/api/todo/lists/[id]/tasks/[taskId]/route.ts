@@ -2,9 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireListMember } from '@/lib/todo-access';
 import { getTaskById, updateTask, deleteTask } from '@/models/Todo';
 import { notifyAssignment } from '@/lib/todo-notify';
-import type { UpdateTaskDto } from '@/types/todo';
-
-const YMD = /^\d{4}-\d{2}-\d{2}$/;
+import { isYmd, sanitizeAssignees, type UpdateTaskDto } from '@/types/todo';
 
 export async function PATCH(request: NextRequest, ctx: { params: Promise<{ id: string; taskId: string }> }) {
   const { id, taskId } = await ctx.params;
@@ -18,11 +16,11 @@ export async function PATCH(request: NextRequest, ctx: { params: Promise<{ id: s
     if (typeof data.text === 'string' && data.text.trim()) patch.text = data.text.trim();
     if (data.assignees !== undefined) {
       if (!Array.isArray(data.assignees)) return NextResponse.json({ error: 'bad assignees' }, { status: 400 });
-      patch.assignees = [...new Set(data.assignees.filter((e) => access.list.members.includes(e)))];
+      patch.assignees = sanitizeAssignees(data.assignees, access.list.members);
     }
     if (data.dueDate !== undefined) {
       if (data.dueDate === null) patch.dueDate = null;
-      else if (typeof data.dueDate === 'string' && YMD.test(data.dueDate)) patch.dueDate = data.dueDate;
+      else if (isYmd(data.dueDate)) patch.dueDate = data.dueDate;
       else return NextResponse.json({ error: 'bad dueDate' }, { status: 400 });
     }
     if (data.description !== undefined) {

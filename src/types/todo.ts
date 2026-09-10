@@ -97,3 +97,16 @@ export interface UpdateTaskDto {
   description?: string | null;// null clears the description
   done?: boolean;
 }
+
+// --- Shared request validation (used by the task route handlers) ---
+
+// A bare 'YYYY-MM-DD' string. Shape check only — not calendar validity.
+export function isYmd(v: unknown): v is string {
+  return typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v);
+}
+
+// Keep only assignees that are strings AND members of the list, de-duplicated.
+export function sanitizeAssignees(input: unknown, members: string[]): string[] {
+  if (!Array.isArray(input)) return [];
+  return [...new Set(input.filter((e): e is string => typeof e === 'string' && members.includes(e)))];
+}

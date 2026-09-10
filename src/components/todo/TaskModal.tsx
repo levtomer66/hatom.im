@@ -23,6 +23,7 @@ export default function TaskModal({
   const [assignees, setAssignees] = useState<string[]>(task.assignees);
   const [dueDate, setDueDate] = useState(task.dueDate ?? '');
   const [description, setDescription] = useState(task.description ?? '');
+  const [done, setDone] = useState(task.done);
   const [busy, setBusy] = useState(false);
 
   const toggle = (email: string) =>
@@ -40,6 +41,7 @@ export default function TaskModal({
           assignees,
           dueDate: dueDate ? dueDate : null,
           description: description.trim() ? description.trim() : null,
+          done,
         }),
       });
       if (res.ok) onSaved(await res.json());
@@ -86,6 +88,15 @@ export default function TaskModal({
         <div className="todo-field">
           <label>תיאור</label>
           <textarea value={description} onChange={(e) => setDescription(e.target.value)} />
+        </div>
+        <div className="todo-field">
+          <label>סטטוס</label>
+          <button type="button"
+            className={`todo-member-pill ${done ? 'selected' : ''}`}
+            aria-pressed={done}
+            onClick={() => setDone((d) => !d)}>
+            {done ? '✓ בוצע' : 'לא בוצע'}
+          </button>
         </div>
         <div className="todo-modal-actions">
           <button className="todo-btn todo-btn--danger" onClick={remove} disabled={busy}>מחק</button>

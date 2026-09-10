@@ -1,18 +1,14 @@
-// Bare-date helpers for the ToDo feature. Import-free (unit-tested with
-// node --test). `YYYY-MM-DD` is parsed at LOCAL midnight — never `new
-// Date(str)`, which is UTC and lands on the previous day west of Greenwich.
+// Bare-date helpers for the ToDo feature. Import-free apart from the canonical
+// date primitives in `workout-weeks.ts` (also import-free), so it stays
+// node --test-able via relative `.ts` imports. `YYYY-MM-DD` is parsed at LOCAL
+// midnight by `parseLocalDate` — never `new Date(str)`, which is UTC and lands
+// on the previous day west of Greenwich (CLAUDE.md).
+import { parseLocalDate, toYmd } from './workout-weeks.ts';
 
-export function parseLocalDate(ymd: string): Date {
-  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(ymd);
-  if (m) return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
-  return new Date(ymd);
-}
+export { parseLocalDate };
 
 export function todayYmd(now: Date = new Date()): string {
-  const y = now.getFullYear();
-  const m = String(now.getMonth() + 1).padStart(2, '0');
-  const d = String(now.getDate()).padStart(2, '0');
-  return `${y}-${m}-${d}`;
+  return toYmd(now);
 }
 
 // True when `dueYmd` is strictly before today's local date. Zero-padded YMD

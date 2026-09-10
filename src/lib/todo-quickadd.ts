@@ -1,4 +1,5 @@
 import type { TodoMember } from '../types/todo.ts';
+import { toYmd as ymd } from './workout-weeks.ts';
 
 export interface QuickAddResult {
   text: string;
@@ -15,13 +16,6 @@ const WEEKDAYS: Record<string, number> = {
   friday: 5, fri: 5,
   saturday: 6, sat: 6,
 };
-
-function ymd(d: Date): string {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${y}-${m}-${day}`;
-}
 
 // Resolve a `!token` (without the '!') to 'YYYY-MM-DD', or null if not a date.
 // A weekday equal to `today` resolves to today (offset 0), not next week.
