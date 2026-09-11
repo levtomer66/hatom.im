@@ -28,10 +28,13 @@ export default function UserPicker({
   }, [candidates]);
 
   const suggestions = useMemo(() => {
+    // Only surface matches once the user actually searches — never list the
+    // whole directory on focus/empty input.
     const term = q.trim().toLowerCase();
+    if (!term) return [];
     return candidates
       .filter((c) => !selected.includes(c.email))
-      .filter((c) => !term || c.name.toLowerCase().includes(term) || c.email.toLowerCase().includes(term))
+      .filter((c) => c.name.toLowerCase().includes(term) || c.email.toLowerCase().includes(term))
       .slice(0, 6);
   }, [candidates, selected, q]);
 
