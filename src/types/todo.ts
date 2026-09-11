@@ -10,6 +10,14 @@ export function isTodoSortBy(v: unknown): v is TodoSortBy {
   return v === 'created' || v === 'dueDate' || v === 'assignee';
 }
 
+// A notepad has two side-by-side columns — two independent sub-lists on one
+// page. A task belongs to exactly one column and never moves on its own.
+export type TodoColumn = 0 | 1;
+
+export function normalizeColumn(v: unknown): TodoColumn {
+  return v === 1 ? 1 : 0;
+}
+
 export interface TodoList {
   id: string;
   name: string;
@@ -24,6 +32,7 @@ export interface TodoList {
 export interface TodoTask {
   id: string;
   listId: string;
+  column: TodoColumn;         // which of the two sub-lists this task lives in
   text: string;
   description?: string;
   assignees: string[];        // emails, subset of the list's members
@@ -38,6 +47,7 @@ export interface TodoTask {
 
 // Snapshot of a task at renewal time (no ids — it's frozen history).
 export interface ArchivedTask {
+  column: TodoColumn;
   text: string;
   description?: string;
   assignees: string[];
@@ -88,6 +98,7 @@ export interface UpdateListDto {
 
 export interface CreateTaskDto {
   text: string;
+  column?: TodoColumn;
   assignees?: string[];
   dueDate?: string;
   description?: string;
@@ -95,6 +106,7 @@ export interface CreateTaskDto {
 
 export interface UpdateTaskDto {
   text?: string;
+  column?: TodoColumn;
   assignees?: string[];
   dueDate?: string | null;    // null clears the due date
   description?: string | null;// null clears the description

@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import UserPicker from '@/components/todo/UserPicker';
-import type { TodoTask, TodoMember } from '@/types/todo';
+import type { TodoTask, TodoMember, TodoColumn } from '@/types/todo';
 
 export default function TaskModal({
   listId,
@@ -24,6 +24,7 @@ export default function TaskModal({
   const [dueDate, setDueDate] = useState(task.dueDate ?? '');
   const [description, setDescription] = useState(task.description ?? '');
   const [done, setDone] = useState(task.done);
+  const [column, setColumn] = useState<TodoColumn>(task.column);
   const [busy, setBusy] = useState(false);
 
   const save = async () => {
@@ -39,6 +40,7 @@ export default function TaskModal({
           dueDate: dueDate ? dueDate : null,
           description: description.trim() ? description.trim() : null,
           done,
+          column,
         }),
       });
       if (res.ok) onSaved(await res.json());
@@ -77,6 +79,15 @@ export default function TaskModal({
         <div className="todo-field">
           <label>תיאור</label>
           <textarea value={description} onChange={(e) => setDescription(e.target.value)} />
+        </div>
+        <div className="todo-field">
+          <label>טור</label>
+          <div style={{ display: 'flex', gap: '0.4rem' }}>
+            <button type="button" className={`todo-btn ${column === 0 ? 'todo-btn--active' : ''}`}
+              onClick={() => setColumn(0)}>ימין</button>
+            <button type="button" className={`todo-btn ${column === 1 ? 'todo-btn--active' : ''}`}
+              onClick={() => setColumn(1)}>שמאל</button>
+          </div>
         </div>
         <div className="todo-field">
           <label>סטטוס</label>

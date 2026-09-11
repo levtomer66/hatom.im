@@ -1,7 +1,8 @@
 import { ObjectId } from 'mongodb';
 import { randomUUID } from 'crypto';
 import clientPromise from '@/lib/mongodb';
-import type { TodoList, TodoTask, TodoArchive, ArchivedTask, TodoSortBy } from '@/types/todo';
+import { normalizeColumn } from '@/types/todo';
+import type { TodoList, TodoTask, TodoArchive, ArchivedTask, TodoSortBy, TodoColumn } from '@/types/todo';
 
 const LISTS = 'todoLists';
 const TASKS = 'todoTasks';
@@ -16,7 +17,11 @@ async function tasksCol() { const c = await clientPromise; return c.db().collect
 async function archivesCol() { const c = await clientPromise; return c.db().collection<TodoArchiveDocument>(ARCHIVES); }
 
 function toList(d: TodoListDocument): TodoList { const { _id, ...r } = d; return { ...r, id: _id!.toString() }; }
-function toTask(d: TodoTaskDocument): TodoTask { const { _id, ...r } = d; return { ...r, id: _id!.toString() }; }
+function toTask(d: TodoTaskDocument): TodoTask {
+  const { _id, ...r } = d;
+  // Legacy tasks (pre-columns) default to column 0 via the shared rule.
+  return { ...r, id: _id!.toString(), column: normalizeColumn(r.column) };
+}
 function toArchive(d: TodoArchiveDocument): TodoArchive { const { _id, ...r } = d; return { ...r, id: _id!.toString() }; }
 
 // --- Lists ---
@@ -98,12 +103,12 @@ export async function getTaskById(listId: string, taskId: string): Promise<TodoT
 
 export async function createTask(
   listId: string,
-  input: { text: string; assignees: string[]; dueDate?: string; description?: string; createdBy: string },
+  input: { text: string; column: TodoColumn; assignees: string[]; dueDate?: string; description?: string; createdBy: string },
 ): Promise<TodoTask> {
   const col = await tasksCol();
   const now = new Date().toISOString();
   const doc: Omit<TodoTaskDocument, '_id'> = {
-    listId, text: input.text, assignees: input.assignees,
+    listId, column: input.column, text: input.text, assignees: input.assignees,
     ...(input.dueDate ? { dueDate: input.dueDate } : {}),
     ...(input.description ? { description: input.description } : {}),
     done: false, createdBy: input.createdBy, createdAt: now, updatedAt: now,
@@ -117,6 +122,7 @@ export async function updateTask(
   taskId: string,
   patch: {
     text?: string;
+    column?: TodoColumn;
     assignees?: string[];
     dueDate?: string | null;
     description?: string | null;
@@ -129,6 +135,7 @@ export async function updateTask(
     const set: Record<string, unknown> = { updatedAt: new Date().toISOString() };
     const unset: Record<string, ''> = {};
     if (patch.text !== undefined) set.text = patch.text;
+    if (patch.column !== undefined) set.column = patch.column;
     if (patch.assignees !== undefined) set.assignees = patch.assignees;
     if (patch.dueDate !== undefined) {
       if (patch.dueDate === null) unset.dueDate = ''; else set.dueDate = patch.dueDate;
@@ -165,6 +172,7 @@ export async function renewList(listId: string, renewedBy: string): Promise<Todo
   const tc = await tasksCol();
   const docs = await tc.find({ listId }).toArray();
   const tasks: ArchivedTask[] = docs.map((d) => ({
+    column: normalizeColumn(d.column),
     text: d.text, description: d.description, assignees: d.assignees,
     dueDate: d.dueDate, done: d.done, doneAt: d.doneAt, doneBy: d.doneBy,
     createdBy: d.createdBy, createdAt: d.createdAt,

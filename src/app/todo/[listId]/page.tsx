@@ -14,9 +14,10 @@ import { getUserDisplayName } from '@/types/workout';
 import { sortTasks } from '@/lib/todo-sort';
 import { parseQuickAdd } from '@/lib/todo-quickadd';
 import { formatDueLabel, isOverdue } from '@/lib/todo-date';
-import { TODO_SORT_OPTIONS, type TodoList, type TodoTask, type TodoSortBy, type TodoMember } from '@/types/todo';
+import { TODO_SORT_OPTIONS, type TodoList, type TodoTask, type TodoSortBy, type TodoMember, type TodoColumn } from '@/types/todo';
 
 const SORT_LABEL: Record<TodoSortBy, string> = { created: 'נוצר', dueDate: 'יעד', assignee: 'אחראי' };
+const MIN_ROWS = 14; // pre-drawn ruled lines per column, like the paper notepad
 
 export default function TodoListPage() {
   const params = useParams<{ listId: string }>();
@@ -29,12 +30,13 @@ export default function TodoListPage() {
   const [tasks, setTasks] = useState<TodoTask[]>([]);
   const [archiveCount, setArchiveCount] = useState(0);
   const [notFound, setNotFound] = useState(false);
-  const [draft, setDraft] = useState('');
+  const [drafts, setDrafts] = useState<[string, string]>(['', '']);
   const [nameDraft, setNameDraft] = useState('');
   const [memberMap, setMemberMap] = useState<Record<string, TodoMember>>({});
   const [editing, setEditing] = useState<TodoTask | null>(null);
   const [showHistory, setShowHistory] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const inputRefs = useRef<Array<HTMLInputElement | null>>([null, null]);
 
   // Pause polling while any modal is open so it can't stomp an in-progress edit.
   const modalOpen = !!editing || showHistory || showSettings;
@@ -53,7 +55,6 @@ export default function TodoListPage() {
 
   useEffect(() => { load(); }, [load]);
 
-  // Member directory (name + Google avatar), keyed by email, for chips + picker.
   useEffect(() => {
     fetch('/api/todo/members')
       .then((r) => (r.ok ? r.json() : []))
@@ -65,7 +66,6 @@ export default function TodoListPage() {
       .catch(() => setMemberMap({}));
   }, []);
 
-  // Light polling + focus refetch, paused while a modal is open.
   useEffect(() => {
     const tick = () => { if (!modalOpenRef.current && document.visibilityState === 'visible') load(); };
     const id = window.setInterval(tick, 15000);
@@ -73,8 +73,6 @@ export default function TodoListPage() {
     return () => { window.clearInterval(id); window.removeEventListener('focus', tick); };
   }, [load]);
 
-  // Keep the editable title in sync with the server value. Keyed on the name
-  // primitive so a routine poll won't stomp an in-progress edit.
   const listName = list?.name;
   useEffect(() => { if (listName != null) setNameDraft(listName); }, [listName]);
 
@@ -90,18 +88,19 @@ export default function TodoListPage() {
     });
   };
 
-  // Members of THIS list, enriched with name + avatar from the directory.
   const members: TodoMember[] = useMemo(
     () => (list?.members ?? []).map((email) => memberMap[email] ?? { email, name: getUserDisplayName(email) }),
     [list?.members, memberMap],
   );
-
   const infoFor = (email: string): TodoMember => memberMap[email] ?? { email, name: getUserDisplayName(email) };
 
-  const sorted = useMemo(
-    () => (list ? sortTasks(tasks, list.sortBy, getUserDisplayName) : tasks),
-    [tasks, list],
-  );
+  // Two independent sub-lists — sort within each column; tasks never cross.
+  const columns = useMemo(() => {
+    const sortBy = list?.sortBy ?? 'created';
+    const col0 = sortTasks(tasks.filter((t) => t.column === 0), sortBy, getUserDisplayName);
+    const col1 = sortTasks(tasks.filter((t) => t.column === 1), sortBy, getUserDisplayName);
+    return [col0, col1] as [TodoTask[], TodoTask[]];
+  }, [tasks, list?.sortBy]);
 
   const toggleDone = async (task: TodoTask) => {
     const next = !task.done;
@@ -116,15 +115,18 @@ export default function TodoListPage() {
     setTasks((prev) => prev.map((t) => (t.id === task.id ? updated : t)));
   };
 
-  const addTask = async () => {
-    const raw = draft.trim();
+  const setDraft = (column: TodoColumn, value: string) =>
+    setDrafts((prev) => (column === 0 ? [value, prev[1]] : [prev[0], value]));
+
+  const addTask = async (column: TodoColumn) => {
+    const raw = drafts[column].trim();
     if (!raw) return;
     const parsed = parseQuickAdd(raw, members, new Date());
-    setDraft('');
+    setDraft(column, '');
     const res = await fetch(`/api/todo/lists/${listId}/tasks`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text: parsed.text || raw, assignees: parsed.assignees, dueDate: parsed.dueDate }),
+      body: JSON.stringify({ text: parsed.text || raw, column, assignees: parsed.assignees, dueDate: parsed.dueDate }),
     });
     if (res.ok) { const created = await res.json(); setTasks((prev) => [...prev, created]); }
     else load();
@@ -154,6 +156,54 @@ export default function TodoListPage() {
   }
 
   const isCreator = list.createdBy.toLowerCase() === myEmail;
+  const rows = Math.max(MIN_ROWS, columns[0].length + 1, columns[1].length + 1);
+
+  const renderColumn = (column: TodoColumn) => {
+    const colTasks = columns[column];
+    const blanks = Math.max(0, rows - colTasks.length - 1);
+    return (
+      <ul className="todo-lines todo-column" key={column}>
+        {colTasks.map((task) => (
+          <li key={task.id} className={`todo-line ${task.done ? 'done' : ''}`}
+            onClick={() => setEditing(task)}>
+            <span className="todo-text">{task.text}</span>
+            {task.assignees.length > 0 && (
+              <span className="todo-assignees">
+                {task.assignees.map((email) => {
+                  const m = infoFor(email);
+                  return <Avatar key={email} email={email} name={m.name} image={m.image} size={20} />;
+                })}
+              </span>
+            )}
+            {task.dueDate && (
+              <span className={`todo-due ${isOverdue(task.dueDate) ? 'overdue' : ''}`}>
+                {formatDueLabel(task.dueDate)}
+              </span>
+            )}
+            <button className="todo-check" role="checkbox" aria-checked={task.done}
+              aria-label={task.done ? 'בטל השלמה' : 'סמן כהושלם'}
+              onClick={(e) => { e.stopPropagation(); toggleDone(task); }}>
+              {task.done ? '✓' : ''}
+            </button>
+          </li>
+        ))}
+        <li className="todo-line todo-add-line">
+          <input
+            ref={(el) => { inputRefs.current[column] = el; }}
+            value={drafts[column]}
+            placeholder="כתבו כאן…"
+            onChange={(e) => setDraft(column, e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') addTask(column); }}
+          />
+          <span className="todo-check" aria-hidden style={{ visibility: 'hidden' }} />
+        </li>
+        {Array.from({ length: blanks }).map((_, i) => (
+          <li key={`blank-${i}`} className="todo-line todo-line--blank"
+            onClick={() => inputRefs.current[column]?.focus()} aria-hidden />
+        ))}
+      </ul>
+    );
+  };
 
   return (
     <>
@@ -169,50 +219,21 @@ export default function TodoListPage() {
         />
 
         <div className="todo-toolbar">
-          <span style={{ color: '#607d8b', fontSize: '0.85rem' }}>מיון:</span>
+          <span className="todo-toolbar-label">מיון:</span>
           {TODO_SORT_OPTIONS.map((s) => (
             <button key={s} className={`todo-btn ${list.sortBy === s ? 'todo-btn--active' : ''}`}
               onClick={() => changeSort(s)}>{SORT_LABEL[s]}</button>
           ))}
-          <div style={{ flex: '1 1 auto' }} />
+          <div className="todo-toolbar-spacer" />
           <button className="todo-btn" onClick={renew}>♻︎ חדש</button>
           <button className="todo-btn" onClick={() => setShowHistory(true)}>היסטוריה{archiveCount ? ` (${archiveCount})` : ''}</button>
-          <button className="todo-btn" onClick={() => setShowSettings(true)}>⚙︎</button>
+          <button className="todo-btn" onClick={() => setShowSettings(true)}>⚙︎ הגדרות</button>
         </div>
 
         <NotepadFrame>
-          <ul className="todo-lines">
-            {sorted.map((task) => (
-              <li key={task.id} className={`todo-line ${task.done ? 'done' : ''}`}
-                onClick={() => setEditing(task)}>
-                <span className="todo-text">{task.text}</span>
-                {task.assignees.length > 0 && (
-                  <span className="todo-assignees">
-                    {task.assignees.map((email) => {
-                      const m = infoFor(email);
-                      return <Avatar key={email} email={email} name={m.name} image={m.image} size={20} />;
-                    })}
-                  </span>
-                )}
-                {task.dueDate && (
-                  <span className={`todo-due ${isOverdue(task.dueDate) ? 'overdue' : ''}`}>
-                    {formatDueLabel(task.dueDate)}
-                  </span>
-                )}
-                {/* Checkbox sits at the line's end, echoing the paper notepad's boxes. */}
-                <button className="todo-check" role="checkbox" aria-checked={task.done}
-                  aria-label={task.done ? 'בטל השלמה' : 'סמן כהושלם'}
-                  onClick={(e) => { e.stopPropagation(); toggleDone(task); }}>
-                  {task.done ? '✓' : ''}
-                </button>
-              </li>
-            ))}
-          </ul>
-          <div className="todo-add">
-            <input value={draft} placeholder="הוספת משימה…  (@שם ‎!friday)"
-              onChange={(e) => setDraft(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter') addTask(); }} />
-            <span className="todo-check" aria-hidden style={{ visibility: 'hidden' }} />
+          <div className="todo-columns">
+            {renderColumn(0)}
+            {renderColumn(1)}
           </div>
         </NotepadFrame>
       </div>

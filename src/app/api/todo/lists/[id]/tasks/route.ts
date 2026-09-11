@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireListMember } from '@/lib/todo-access';
 import { createTask } from '@/models/Todo';
 import { notifyAssignment } from '@/lib/todo-notify';
-import { isYmd, sanitizeAssignees, type CreateTaskDto } from '@/types/todo';
+import { isYmd, sanitizeAssignees, normalizeColumn, type CreateTaskDto } from '@/types/todo';
 
 export async function POST(request: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   const { id } = await ctx.params;
@@ -16,7 +16,8 @@ export async function POST(request: NextRequest, ctx: { params: Promise<{ id: st
     const dueDate = isYmd(data.dueDate) ? data.dueDate : undefined;
     const description = typeof data.description === 'string' && data.description.trim()
       ? data.description.trim() : undefined;
-    const task = await createTask(id, { text, assignees, dueDate, description, createdBy: access.email });
+    const column = normalizeColumn(data.column);
+    const task = await createTask(id, { text, column, assignees, dueDate, description, createdBy: access.email });
     if (assignees.length) {
       await notifyAssignment(access.list.notifyTopic, { taskText: text, assignees, byEmail: access.email });
     }

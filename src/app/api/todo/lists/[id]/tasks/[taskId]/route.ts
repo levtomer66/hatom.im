@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireListMember } from '@/lib/todo-access';
 import { getTaskById, updateTask, deleteTask } from '@/models/Todo';
 import { notifyAssignment } from '@/lib/todo-notify';
-import { isYmd, sanitizeAssignees, type UpdateTaskDto } from '@/types/todo';
+import { isYmd, sanitizeAssignees, normalizeColumn, type UpdateTaskDto } from '@/types/todo';
 
 export async function PATCH(request: NextRequest, ctx: { params: Promise<{ id: string; taskId: string }> }) {
   const { id, taskId } = await ctx.params;
@@ -14,6 +14,7 @@ export async function PATCH(request: NextRequest, ctx: { params: Promise<{ id: s
     const data = (await request.json()) as UpdateTaskDto;
     const patch: Parameters<typeof updateTask>[2] = {};
     if (typeof data.text === 'string' && data.text.trim()) patch.text = data.text.trim();
+    if (data.column !== undefined) patch.column = normalizeColumn(data.column);
     if (data.assignees !== undefined) {
       if (!Array.isArray(data.assignees)) return NextResponse.json({ error: 'bad assignees' }, { status: 400 });
       patch.assignees = sanitizeAssignees(data.assignees, access.list.members);

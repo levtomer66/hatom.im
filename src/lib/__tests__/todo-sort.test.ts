@@ -5,7 +5,7 @@ import type { TodoTask } from '../../types/todo.ts';
 
 function task(p: Partial<TodoTask> & { id: string; createdAt: string }): TodoTask {
   return {
-    listId: 'L', text: p.id, assignees: [], done: false,
+    listId: 'L', column: 0, text: p.id, assignees: [], done: false,
     createdBy: 'x@x', updatedAt: p.createdAt,
     ...p,
   } as TodoTask;
