@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import Navbar from '@/components/Navbar';
@@ -238,6 +239,9 @@ export default function TodoListPage() {
     <>
       <Navbar />
       <div className={`todo-page ${caveat.variable} ${hebrewHand.variable}`}>
+        <div className="todo-topbar">
+          <Link href="/todo" className="todo-back" aria-label="חזרה לרשימות">‹ רשימות</Link>
+        </div>
         <input
           className="todo-list-name"
           value={nameDraft}

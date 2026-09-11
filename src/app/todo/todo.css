@@ -22,6 +22,18 @@
   padding: 1rem 0.75rem 3rem;
 }
 
+/* Back-to-lists button, pinned top-left (force LTR so it sits on the left
+   despite the RTL page). */
+.todo-topbar { direction: ltr; margin-bottom: 0.4rem; }
+.todo-back {
+  display: inline-flex; align-items: center; gap: 0.2rem;
+  font: inherit; font-size: 0.85rem; font-weight: 600;
+  color: var(--teal); text-decoration: none;
+  border: 1.5px solid var(--teal); background: #fff;
+  border-radius: 999px; padding: 0.25rem 0.7rem;
+}
+.todo-back:hover { background: #eafaf7; }
+
 /* Index page heading. */
 .todo-page-heading {
   font-family: var(--hand);
