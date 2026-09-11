@@ -9,12 +9,20 @@ type State =
   | { phase: 'done'; order: CoffeeOrder }
   | { phase: 'error'; message: string };
 
+// iOS resumes a standalone home-screen web app instead of reloading it, so a
+// re-tap never remounts — we re-order on foreground (visibilitychange) too.
+// This cooldown blocks the mount+resume overlap, React's dev double-mount, and
+// rapid double-taps of the "order again" button.
+const REFIRE_COOLDOWN_MS = 2500;
+
 export default function QuickOrderClient({ favoriteId }: { favoriteId: string }) {
   const [state, setState] = useState<State>({ phase: 'ordering' });
-  // Guard React's dev double-mount so we never place two orders per open.
-  const firedRef = useRef(false);
+  const lastFiredRef = useRef(0);
 
   async function placeOrder() {
+    const now = Date.now();
+    if (now - lastFiredRef.current < REFIRE_COOLDOWN_MS) return;
+    lastFiredRef.current = now;
     setState({ phase: 'ordering' });
     try {
       const res = await fetch(
@@ -38,9 +46,14 @@ export default function QuickOrderClient({ favoriteId }: { favoriteId: string })
   }
 
   useEffect(() => {
-    if (firedRef.current) return;
-    firedRef.current = true;
+    // Fire on first open, and again whenever the app is re-foregrounded — the
+    // only signal iOS gives when the user re-taps an already-running PWA.
     void placeOrder();
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') void placeOrder();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
