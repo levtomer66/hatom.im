@@ -194,8 +194,10 @@
 .todo-field textarea { min-height: 4rem; resize: vertical; }
 .todo-modal-actions { display: flex; gap: 0.5rem; justify-content: space-between; margin-top: 1rem; flex-wrap: wrap; }
 .todo-modal-actions .spacer { flex: 1 1 auto; }
+.todo-hint { color: var(--muted); font-size: 0.8rem; margin: 0.25rem 0 0; }
 
 /* User picker (autocomplete) + chips */
+.todo-members { display: flex; flex-wrap: wrap; gap: 0.4rem; }
 .todo-userpicker-selected { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-bottom: 0.45rem; }
 .todo-userchip {
   display: inline-flex; align-items: center; gap: 0.35rem;
@@ -226,7 +228,22 @@
 .todo-userpicker-email { color: var(--muted); font-size: 0.75rem; margin-inline-start: auto; }
 
 @media (max-width: 620px) {
-  .todo-columns { flex-direction: column; gap: 0.5rem; }
+  /* One column per screen; swipe left/right to move between the two lists.
+     Columns are slightly narrower than the viewport so a sliver of the next
+     one peeks in, hinting the swipe. */
+  .todo-columns {
+    gap: 0;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .todo-columns::-webkit-scrollbar { display: none; }
+  .todo-column {
+    flex: 0 0 90%;
+    scroll-snap-align: center;
+    padding-inline: 0.35rem;
+  }
   .todo-notepad-title, .todo-list-name { font-size: 1.7rem; }
   .todo-text, .todo-add-line input { font-size: 1.2rem; }
   .todo-chevron-col { flex-basis: 16px; }

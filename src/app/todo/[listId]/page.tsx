@@ -88,10 +88,9 @@ export default function TodoListPage() {
     });
   };
 
-  const members: TodoMember[] = useMemo(
-    () => (list?.members ?? []).map((email) => memberMap[email] ?? { email, name: getUserDisplayName(email) }),
-    [list?.members, memberMap],
-  );
+  // Any app account can be tagged (tagging shares the list), so the assignee
+  // picker + quick-add search the whole directory, not just current members.
+  const members: TodoMember[] = useMemo(() => Object.values(memberMap), [memberMap]);
   const infoFor = (email: string): TodoMember => memberMap[email] ?? { email, name: getUserDisplayName(email) };
 
   // Two independent sub-lists — sort within each column; tasks never cross.

@@ -1,4 +1,5 @@
-import { Caveat, Amatic_SC } from 'next/font/google';
+import { Caveat } from 'next/font/google';
+import localFont from 'next/font/local';
 
 // Latin handwriting face for the "Things To Do" title and Latin task text.
 // adjustFontFallback is disabled so next/font doesn't inject a metric-adjusted
@@ -12,13 +13,12 @@ export const caveat = Caveat({
   adjustFontFallback: false,
 });
 
-// Hebrew handwriting face (Amatic SC ships a `hebrew` subset and is the only
-// hand-drawn Hebrew face in next/font's registry). Caveat has no Hebrew glyphs,
-// so Hebrew characters fall through to this via the `--font-hand-he` slot in
-// the todo.css stack.
-export const hebrewHand = Amatic_SC({
-  subsets: ['hebrew'],
-  weight: ['400', '700'],
+// Hebrew handwriting face: "Dana Yad" (Dana Nof & Avraham Cornfeld). It isn't
+// on Google Fonts, so it's self-hosted via next/font/local — served from the
+// app origin (no CSP change needed). Caveat has no Hebrew glyphs, so Hebrew
+// characters fall through to this via the `--font-hand-he` slot in todo.css.
+export const hebrewHand = localFont({
+  src: './DanaYad.woff',
   variable: '--font-hand-he',
   display: 'swap',
 });

@@ -1,7 +1,6 @@
 'use client';
 
-import React, { useEffect, useMemo, useState } from 'react';
-import UserPicker from '@/components/todo/UserPicker';
+import React, { useEffect, useState } from 'react';
 import Avatar from '@/components/todo/Avatar';
 import type { TodoList, TodoMember } from '@/types/todo';
 import { getUserDisplayName } from '@/types/workout';
@@ -20,32 +19,32 @@ export default function ListSettingsModal({
   onDeleted: () => void;
 }) {
   const [name, setName] = useState(list.name);
-  // The picker only manages the non-creator members; the creator is always in.
-  const [others, setOthers] = useState<string[]>(list.members.filter((e) => e !== list.createdBy));
-  const [directory, setDirectory] = useState<TodoMember[]>([]);
+  const [dir, setDir] = useState<Record<string, TodoMember>>({});
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    if (!isCreator) return;
-    fetch('/api/todo/members').then((r) => (r.ok ? r.json() : [])).then(setDirectory).catch(() => setDirectory([]));
-  }, [isCreator]);
+    fetch('/api/todo/members')
+      .then((r) => (r.ok ? r.json() : []))
+      .then((rows: TodoMember[]) => {
+        const map: Record<string, TodoMember> = {};
+        for (const m of rows) map[m.email] = m;
+        setDir(map);
+      })
+      .catch(() => setDir({}));
+  }, []);
 
-  const creator = useMemo(
-    () => directory.find((m) => m.email === list.createdBy),
-    [directory, list.createdBy],
-  );
+  const infoFor = (email: string): TodoMember => dir[email] ?? { email, name: getUserDisplayName(email) };
 
   const save = async () => {
     if (busy) return;
     setBusy(true);
     try {
-      const body: Record<string, unknown> = {};
-      if (name.trim() && name.trim() !== list.name) body.name = name.trim();
-      if (isCreator) body.members = [list.createdBy, ...others];
+      const trimmed = name.trim();
+      if (!trimmed || trimmed === list.name) { onClose(); return; }
       const res = await fetch(`/api/todo/lists/${list.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
+        body: JSON.stringify({ name: trimmed }),
       });
       if (res.ok) onSaved(await res.json());
     } finally {
@@ -73,20 +72,21 @@ export default function ListSettingsModal({
           <label>שם</label>
           <input type="text" value={name} onChange={(e) => setName(e.target.value)} />
         </div>
-        {isCreator && (
-          <div className="todo-field">
-            <label>חברים</label>
-            <div className="todo-userchip todo-userchip--fixed">
-              <Avatar email={list.createdBy} name={creator?.name ?? getUserDisplayName(list.createdBy)} image={creator?.image} size={18} />
-              <span className="todo-userchip-name">{creator?.name ?? getUserDisplayName(list.createdBy)} (יוצר)</span>
-            </div>
-            <UserPicker
-              candidates={directory.filter((m) => m.email !== list.createdBy)}
-              selected={others}
-              onChange={setOthers}
-            />
+        <div className="todo-field">
+          <label>משותף עם</label>
+          <div className="todo-members">
+            {list.members.map((email) => {
+              const m = infoFor(email);
+              return (
+                <span key={email} className="todo-userchip">
+                  <Avatar email={email} name={m.name} image={m.image} size={18} />
+                  <span className="todo-userchip-name">{m.name}{email === list.createdBy ? ' (יוצר)' : ''}</span>
+                </span>
+              );
+            })}
           </div>
-        )}
+          <p className="todo-hint">כדי לשתף עם עוד אנשים — תייגו אותם במשימה.</p>
+        </div>
         <div className="todo-modal-actions">
           {isCreator && <button className="todo-btn todo-btn--danger" onClick={remove} disabled={busy}>מחק רשימה</button>}
           <div className="spacer" />

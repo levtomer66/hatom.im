@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireListMember } from '@/lib/todo-access';
-import { createTask } from '@/models/Todo';
+import { requireListMember, getAppUserEmails } from '@/lib/todo-access';
+import { createTask, addListMembers } from '@/models/Todo';
 import { notifyAssignment } from '@/lib/todo-notify';
 import { isYmd, sanitizeAssignees, normalizeColumn, type CreateTaskDto } from '@/types/todo';
 
@@ -12,13 +12,19 @@ export async function POST(request: NextRequest, ctx: { params: Promise<{ id: st
     const data = (await request.json()) as CreateTaskDto;
     const text = typeof data.text === 'string' ? data.text.trim() : '';
     if (!text) return NextResponse.json({ error: 'text required' }, { status: 400 });
-    const assignees = sanitizeAssignees(data.assignees, access.list.members);
+    // Assignees can be ANY app account — tagging someone shares the list with
+    // them (there is no upfront member selection). Validate against the app
+    // directory, not the current members.
+    const assignees = sanitizeAssignees(data.assignees, await getAppUserEmails());
     const dueDate = isYmd(data.dueDate) ? data.dueDate : undefined;
     const description = typeof data.description === 'string' && data.description.trim()
       ? data.description.trim() : undefined;
     const column = normalizeColumn(data.column);
     const task = await createTask(id, { text, column, assignees, dueDate, description, createdBy: access.email });
+
     if (assignees.length) {
+      // Tagging shares the list (atomic add-to-set), then notify the tagged.
+      await addListMembers(id, assignees);
       await notifyAssignment(access.list.notifyTopic, { taskText: text, assignees, byEmail: access.email });
     }
     return NextResponse.json(task, { status: 201 });

@@ -67,6 +67,24 @@ export async function updateList(
   } catch { return null; }
 }
 
+// Add members to a list atomically (tag-to-share). $addToSet dedupes against
+// the stored array, so concurrent tags can't lost-update each other the way a
+// read-union-$set would. No-op when `add` is empty. Used by the task routes;
+// deliberately bypasses the creator-only members guard in the list PATCH route
+// (any member may grow membership by tagging, and this can only ADD).
+export async function addListMembers(listId: string, add: string[]): Promise<void> {
+  if (add.length === 0) return;
+  try {
+    const col = await listsCol();
+    await col.updateOne(
+      { _id: new ObjectId(listId) },
+      { $addToSet: { members: { $each: add } }, $set: { updatedAt: new Date().toISOString() } },
+    );
+  } catch (e) {
+    console.error('addListMembers failed:', e);
+  }
+}
+
 export async function deleteListCascade(id: string): Promise<boolean> {
   try {
     const lc = await listsCol();

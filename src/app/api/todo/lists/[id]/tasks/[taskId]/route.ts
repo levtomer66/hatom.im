@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireListMember } from '@/lib/todo-access';
-import { getTaskById, updateTask, deleteTask } from '@/models/Todo';
+import { requireListMember, getAppUserEmails } from '@/lib/todo-access';
+import { getTaskById, updateTask, deleteTask, addListMembers } from '@/models/Todo';
 import { notifyAssignment } from '@/lib/todo-notify';
 import { isYmd, sanitizeAssignees, normalizeColumn, type UpdateTaskDto } from '@/types/todo';
 
@@ -17,7 +17,8 @@ export async function PATCH(request: NextRequest, ctx: { params: Promise<{ id: s
     if (data.column !== undefined) patch.column = normalizeColumn(data.column);
     if (data.assignees !== undefined) {
       if (!Array.isArray(data.assignees)) return NextResponse.json({ error: 'bad assignees' }, { status: 400 });
-      patch.assignees = sanitizeAssignees(data.assignees, access.list.members);
+      // Any app account can be tagged; tagging shares the list (see below).
+      patch.assignees = sanitizeAssignees(data.assignees, await getAppUserEmails());
     }
     if (data.dueDate !== undefined) {
       if (data.dueDate === null) patch.dueDate = null;
@@ -33,6 +34,8 @@ export async function PATCH(request: NextRequest, ctx: { params: Promise<{ id: s
     if (patch.assignees) {
       const added = patch.assignees.filter((e) => !existing.assignees.includes(e));
       if (added.length) {
+        // Share the list with anyone newly tagged (atomic add-to-set).
+        await addListMembers(id, added);
         await notifyAssignment(access.list.notifyTopic, { taskText: updated.text, assignees: added, byEmail: access.email });
       }
     }

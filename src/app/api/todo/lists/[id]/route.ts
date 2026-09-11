@@ -30,7 +30,9 @@ export async function PATCH(request: NextRequest, ctx: { params: Promise<{ id: s
       patch.sortBy = data.sortBy;
     }
     if (data.members !== undefined) {
-      // Membership changes are creator-only.
+      // Explicit membership edits here are creator-only. (Tag-to-share is a
+      // separate, add-only path: the task routes call addListMembers directly,
+      // deliberately bypassing this guard so any member can share by tagging.)
       if (access.list.createdBy !== access.email) {
         return NextResponse.json({ error: 'Only the creator can change members' }, { status: 403 });
       }

@@ -1,8 +1,7 @@
 import { NextResponse } from 'next/server';
 import { requirePagePermission } from '@/lib/auth-helpers';
-import { getAllAuthorizedEmails } from '@/models/AuthorizedEmail';
+import { getAppUserEmails } from '@/lib/todo-access';
 import { getUserProfiles } from '@/models/UserProfile';
-import { OWNER_EMAILS } from '@/types/auth';
 import { getUserDisplayName } from '@/types/workout';
 import type { TodoMember } from '@/types/todo';
 
@@ -14,9 +13,7 @@ export async function GET() {
   const gate = await requirePagePermission('todo');
   if (gate instanceof NextResponse) return gate;
   try {
-    const rows = await getAllAuthorizedEmails();
-    const emails = new Set<string>(rows.map((r) => r.email.toLowerCase()));
-    for (const o of OWNER_EMAILS) emails.add(o.toLowerCase());
+    const emails = new Set<string>(await getAppUserEmails());
     emails.add(gate.session.user.email.toLowerCase());
 
     const list = [...emails].sort();
