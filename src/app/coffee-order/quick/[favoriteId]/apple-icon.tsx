@@ -19,19 +19,28 @@ export default async function AppleIcon({
   const { favoriteId } = await params;
 
   let capsuleImg: string | null = null;
+  // Bound the third-party CDN fetch so a hang can't block the icon route
+  // (mirrors src/lib/reverseGeocode.ts). Any failure falls back to the glyph.
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 5000);
   try {
     const fav = await getCoffeeFavoriteById(favoriteId);
     const cap = fav && COFFEE_CAPSULES.find((c) => c.id === fav.capsule);
     if (cap?.img) {
-      const res = await fetch(cap.img, { headers: { 'User-Agent': 'Mozilla/5.0' } });
+      const res = await fetch(cap.img, {
+        headers: { 'User-Agent': 'hatom.im coffee (https://www.hatom.im)' },
+        signal: controller.signal,
+      });
       if (res.ok) {
         const buf = Buffer.from(await res.arrayBuffer());
         const type = res.headers.get('content-type') || 'image/jpeg';
         capsuleImg = `data:${type};base64,${buf.toString('base64')}`;
       }
     }
-  } catch {
-    capsuleImg = null;
+  } catch (err) {
+    console.warn('quick apple-icon capsule fetch failed', String(err));
+  } finally {
+    clearTimeout(timer);
   }
 
   return new ImageResponse(

@@ -10,19 +10,23 @@ type State =
   | { phase: 'error'; message: string };
 
 // iOS resumes a standalone home-screen web app instead of reloading it, so a
-// re-tap never remounts — we re-order on foreground (visibilitychange) too.
-// This cooldown blocks the mount+resume overlap, React's dev double-mount, and
-// rapid double-taps of the "order again" button.
+// re-tap never remounts. We re-order whenever the app returns to the foreground
+// (visibilitychange→visible) — note that fires on ANY foregrounding, not only an
+// icon tap, which is acceptable for a page whose sole purpose is to order. Two
+// guards keep it from placing stray orders: an in-flight ref (never two
+// overlapping POSTs — the cooldown alone can't prevent that, being timed from
+// request start, so a slow POST could outlast it) and a cooldown timed from
+// completion (spaces repeats; absorbs the dev double-mount).
 const REFIRE_COOLDOWN_MS = 2500;
 
 export default function QuickOrderClient({ favoriteId }: { favoriteId: string }) {
   const [state, setState] = useState<State>({ phase: 'ordering' });
   const lastFiredRef = useRef(0);
+  const inFlightRef = useRef(false);
 
   async function placeOrder() {
-    const now = Date.now();
-    if (now - lastFiredRef.current < REFIRE_COOLDOWN_MS) return;
-    lastFiredRef.current = now;
+    if (inFlightRef.current || Date.now() - lastFiredRef.current < REFIRE_COOLDOWN_MS) return;
+    inFlightRef.current = true;
     setState({ phase: 'ordering' });
     try {
       const res = await fetch(
@@ -42,6 +46,9 @@ export default function QuickOrderClient({ favoriteId }: { favoriteId: string })
       setState({ phase: 'done', order });
     } catch {
       setState({ phase: 'error', message: 'אין חיבור לרשת' });
+    } finally {
+      inFlightRef.current = false;
+      lastFiredRef.current = Date.now();
     }
   }
 
