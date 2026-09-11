@@ -17,6 +17,8 @@ export async function notifyCoffeeOrder(order: CoffeeOrder): Promise<void> {
   const bodyLines = [order.userName, drinkSummary(order), `מתי: ${when}`];
   if (order.notes.trim()) bodyLines.push(`הערות: ${order.notes.trim()}`);
 
+  // ntfy Title is an HTTP header and must be ASCII. Strip non-ASCII from the
+  // (possibly Hebrew/emoji) display name, falling back to the email local-part.
   const asciiName =
     order.userName.replace(/[^\x20-\x7E]/g, '').trim() ||
     order.userEmail.split('@')[0];
@@ -26,6 +28,7 @@ export async function notifyCoffeeOrder(order: CoffeeOrder): Promise<void> {
     body: bodyLines.join('\n'),
     headers: {
       'Content-Type': 'text/plain; charset=utf-8',
+      // Title must be ASCII for ntfy.sh.
       Title: `New coffee order: ${asciiName}`,
       Tags: 'coffee',
     },
