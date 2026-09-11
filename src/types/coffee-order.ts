@@ -141,6 +141,24 @@ export interface CreateCoffeeOrderDto extends CoffeeDrinkConfig {
   scheduledAt?: string;
 }
 
+// A saved favorite → a "place it now" order DTO. Favorites carry no
+// deliveryType, so a one-tap order is always immediate. Pure (import-free)
+// so it stays node:test-able and shared by the from-favorite endpoint.
+export function orderDtoFromFavorite(fav: CoffeeDrinkConfig): CreateCoffeeOrderDto {
+  return {
+    drink: fav.drink,
+    milk: fav.milk,
+    sugar: fav.sugar,
+    source: fav.source,
+    capsule: fav.capsule,
+    glassColor: fav.glassColor,
+    vanillaPumps: fav.vanillaPumps,
+    caramelPumps: fav.caramelPumps,
+    notes: fav.notes,
+    deliveryType: 'now',
+  };
+}
+
 export interface CreateCoffeeFavoriteDto extends CoffeeDrinkConfig {
   name: string;
 }
