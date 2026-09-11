@@ -58,10 +58,13 @@ export interface TodoArchive {
   tasks: ArchivedTask[];      // full snapshot of every task at renewal
 }
 
-// Slim member record for the picker (from /api/todo/members).
+// Slim member record for the picker (from /api/todo/members). `image` is the
+// Google avatar URL when the user has signed in at least once (absent for
+// allowlisted addresses that never logged in).
 export interface TodoMember {
   email: string;
   name: string;
+  image?: string;
 }
 
 // GET /api/todo/lists/[id] response: the list plus its live tasks.

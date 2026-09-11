@@ -8,8 +8,8 @@ import NotepadFrame from '@/components/todo/NotepadFrame';
 import TaskModal from '@/components/todo/TaskModal';
 import ArchiveHistory from '@/components/todo/ArchiveHistory';
 import ListSettingsModal from '@/components/todo/ListSettingsModal';
-import { colorForEmail, initialOf } from '@/components/todo/todo-colors';
-import { caveat } from '@/app/todo/fonts';
+import Avatar from '@/components/todo/Avatar';
+import { caveat, hebrewHand } from '@/app/todo/fonts';
 import { getUserDisplayName } from '@/types/workout';
 import { sortTasks } from '@/lib/todo-sort';
 import { parseQuickAdd } from '@/lib/todo-quickadd';
@@ -31,6 +31,7 @@ export default function TodoListPage() {
   const [notFound, setNotFound] = useState(false);
   const [draft, setDraft] = useState('');
   const [nameDraft, setNameDraft] = useState('');
+  const [memberMap, setMemberMap] = useState<Record<string, TodoMember>>({});
   const [editing, setEditing] = useState<TodoTask | null>(null);
   const [showHistory, setShowHistory] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
@@ -52,6 +53,18 @@ export default function TodoListPage() {
 
   useEffect(() => { load(); }, [load]);
 
+  // Member directory (name + Google avatar), keyed by email, for chips + picker.
+  useEffect(() => {
+    fetch('/api/todo/members')
+      .then((r) => (r.ok ? r.json() : []))
+      .then((rows: TodoMember[]) => {
+        const map: Record<string, TodoMember> = {};
+        for (const m of rows) map[m.email] = m;
+        setMemberMap(map);
+      })
+      .catch(() => setMemberMap({}));
+  }, []);
+
   // Light polling + focus refetch, paused while a modal is open.
   useEffect(() => {
     const tick = () => { if (!modalOpenRef.current && document.visibilityState === 'visible') load(); };
@@ -61,8 +74,7 @@ export default function TodoListPage() {
   }, [load]);
 
   // Keep the editable title in sync with the server value. Keyed on the name
-  // primitive so it only fires when the name actually changes — it won't stomp
-  // an in-progress edit on a routine poll, only when someone else renames.
+  // primitive so a routine poll won't stomp an in-progress edit.
   const listName = list?.name;
   useEffect(() => { if (listName != null) setNameDraft(listName); }, [listName]);
 
@@ -78,10 +90,13 @@ export default function TodoListPage() {
     });
   };
 
+  // Members of THIS list, enriched with name + avatar from the directory.
   const members: TodoMember[] = useMemo(
-    () => (list?.members ?? []).map((email) => ({ email, name: getUserDisplayName(email) })),
-    [list?.members],
+    () => (list?.members ?? []).map((email) => memberMap[email] ?? { email, name: getUserDisplayName(email) }),
+    [list?.members, memberMap],
   );
+
+  const infoFor = (email: string): TodoMember => memberMap[email] ?? { email, name: getUserDisplayName(email) };
 
   const sorted = useMemo(
     () => (list ? sortTasks(tasks, list.sortBy, getUserDisplayName) : tasks),
@@ -143,9 +158,18 @@ export default function TodoListPage() {
   return (
     <>
       <Navbar />
-      <div className={`todo-page ${caveat.variable}`}>
+      <div className={`todo-page ${caveat.variable} ${hebrewHand.variable}`}>
+        <input
+          className="todo-list-name"
+          value={nameDraft}
+          aria-label="שם הרשימה"
+          onChange={(e) => setNameDraft(e.target.value)}
+          onBlur={commitName}
+          onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+        />
+
         <div className="todo-toolbar">
-          <span style={{ color: '#90a4ae', fontSize: '0.85rem' }}>מיון:</span>
+          <span style={{ color: '#607d8b', fontSize: '0.85rem' }}>מיון:</span>
           {TODO_SORT_OPTIONS.map((s) => (
             <button key={s} className={`todo-btn ${list.sortBy === s ? 'todo-btn--active' : ''}`}
               onClick={() => changeSort(s)}>{SORT_LABEL[s]}</button>
@@ -156,17 +180,7 @@ export default function TodoListPage() {
           <button className="todo-btn" onClick={() => setShowSettings(true)}>⚙︎</button>
         </div>
 
-        <NotepadFrame
-          title={
-            <input
-              value={nameDraft}
-              aria-label="שם הרשימה"
-              onChange={(e) => setNameDraft(e.target.value)}
-              onBlur={commitName}
-              onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
-            />
-          }
-        >
+        <NotepadFrame>
           <ul className="todo-lines">
             {sorted.map((task) => (
               <li key={task.id} className={`todo-line ${task.done ? 'done' : ''}`}
@@ -174,10 +188,10 @@ export default function TodoListPage() {
                 <span className="todo-text">{task.text}</span>
                 {task.assignees.length > 0 && (
                   <span className="todo-assignees">
-                    {task.assignees.map((email) => (
-                      <span key={email} className="todo-chip" style={{ background: colorForEmail(email) }}
-                        title={getUserDisplayName(email)}>{initialOf(getUserDisplayName(email))}</span>
-                    ))}
+                    {task.assignees.map((email) => {
+                      const m = infoFor(email);
+                      return <Avatar key={email} email={email} name={m.name} image={m.image} size={20} />;
+                    })}
                   </span>
                 )}
                 {task.dueDate && (
@@ -193,13 +207,13 @@ export default function TodoListPage() {
                 </button>
               </li>
             ))}
-            <li className="todo-add">
-              <input value={draft} placeholder="הוספת משימה…  (@שם ‎!friday)"
-                onChange={(e) => setDraft(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter') addTask(); }} />
-              <span className="todo-check" aria-hidden style={{ visibility: 'hidden' }} />
-            </li>
           </ul>
+          <div className="todo-add">
+            <input value={draft} placeholder="הוספת משימה…  (@שם ‎!friday)"
+              onChange={(e) => setDraft(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') addTask(); }} />
+            <span className="todo-check" aria-hidden style={{ visibility: 'hidden' }} />
+          </div>
         </NotepadFrame>
       </div>
 
@@ -207,7 +221,7 @@ export default function TodoListPage() {
         <TaskModal
           listId={listId}
           task={editing}
-          members={list.members}
+          members={members}
           onClose={() => setEditing(null)}
           onSaved={(t) => { setTasks((prev) => prev.map((x) => (x.id === t.id ? t : x))); setEditing(null); }}
           onDeleted={(taskId) => { setTasks((prev) => prev.filter((x) => x.id !== taskId)); setEditing(null); }}

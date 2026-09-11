@@ -1,8 +1,8 @@
 'use client';
 
 import React, { useState } from 'react';
-import type { TodoTask } from '@/types/todo';
-import { getUserDisplayName } from '@/types/workout';
+import UserPicker from '@/components/todo/UserPicker';
+import type { TodoTask, TodoMember } from '@/types/todo';
 
 export default function TaskModal({
   listId,
@@ -14,7 +14,7 @@ export default function TaskModal({
 }: {
   listId: string;
   task: TodoTask;
-  members: string[];
+  members: TodoMember[];
   onClose: () => void;
   onSaved: (task: TodoTask) => void;
   onDeleted: (taskId: string) => void;
@@ -25,9 +25,6 @@ export default function TaskModal({
   const [description, setDescription] = useState(task.description ?? '');
   const [done, setDone] = useState(task.done);
   const [busy, setBusy] = useState(false);
-
-  const toggle = (email: string) =>
-    setAssignees((prev) => (prev.includes(email) ? prev.filter((e) => e !== email) : [...prev, email]));
 
   const save = async () => {
     if (busy) return;
@@ -71,15 +68,7 @@ export default function TaskModal({
         </div>
         <div className="todo-field">
           <label>אחראים</label>
-          <div className="todo-members">
-            {members.map((email) => (
-              <button type="button" key={email}
-                className={`todo-member-pill ${assignees.includes(email) ? 'selected' : ''}`}
-                onClick={() => toggle(email)}>
-                {getUserDisplayName(email)}
-              </button>
-            ))}
-          </div>
+          <UserPicker candidates={members} selected={assignees} onChange={setAssignees} />
         </div>
         <div className="todo-field">
           <label>תאריך יעד</label>
@@ -92,7 +81,7 @@ export default function TaskModal({
         <div className="todo-field">
           <label>סטטוס</label>
           <button type="button"
-            className={`todo-member-pill ${done ? 'selected' : ''}`}
+            className={`todo-btn ${done ? 'todo-btn--active' : ''}`}
             aria-pressed={done}
             onClick={() => setDone((d) => !d)}>
             {done ? '✓ בוצע' : 'לא בוצע'}

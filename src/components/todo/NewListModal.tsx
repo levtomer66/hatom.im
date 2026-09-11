@@ -2,8 +2,8 @@
 
 import React, { useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
+import UserPicker from '@/components/todo/UserPicker';
 import type { TodoList, TodoMember } from '@/types/todo';
-import { getUserDisplayName } from '@/types/workout';
 
 export default function NewListModal({
   onClose,
@@ -16,7 +16,7 @@ export default function NewListModal({
   const myEmail = (session?.user?.email ?? '').toLowerCase();
   const [members, setMembers] = useState<TodoMember[]>([]);
   const [name, setName] = useState('');
-  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [selected, setSelected] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -26,14 +26,6 @@ export default function NewListModal({
       .catch(() => setMembers([]));
   }, []);
 
-  const toggle = (email: string) => {
-    setSelected((prev) => {
-      const next = new Set(prev);
-      if (next.has(email)) next.delete(email); else next.add(email);
-      return next;
-    });
-  };
-
   const create = async () => {
     if (!name.trim() || saving) return;
     setSaving(true);
@@ -41,7 +33,7 @@ export default function NewListModal({
       const res = await fetch('/api/todo/lists', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: name.trim(), members: [...selected] }),
+        body: JSON.stringify({ name: name.trim(), members: selected }),
       });
       if (res.ok) onCreated(await res.json());
     } finally {
@@ -60,18 +52,11 @@ export default function NewListModal({
         </div>
         <div className="todo-field">
           <label>חברים ברשימה</label>
-          <div className="todo-members">
-            {members.filter((m) => m.email !== myEmail).map((m) => (
-              <button
-                type="button"
-                key={m.email}
-                className={`todo-member-pill ${selected.has(m.email) ? 'selected' : ''}`}
-                onClick={() => toggle(m.email)}
-              >
-                {m.name || getUserDisplayName(m.email)}
-              </button>
-            ))}
-          </div>
+          <UserPicker
+            candidates={members.filter((m) => m.email !== myEmail)}
+            selected={selected}
+            onChange={setSelected}
+          />
         </div>
         <div className="todo-modal-actions">
           <button className="todo-btn" onClick={onClose}>ביטול</button>

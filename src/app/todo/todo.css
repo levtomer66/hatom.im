@@ -1,11 +1,20 @@
 /* Shared ToDo — the "Things To Do" notepad. Frame is LTR to match the paper
-   product; individual task text auto-directions via unicode-bidi: plaintext. */
+   product; individual task text auto-directions via unicode-bidi: plaintext.
+   Handwriting stack: Caveat for Latin, Gveret Levin for Hebrew glyphs. */
+/* Palette is shared by the page AND the modal backdrop, because the modals
+   render as siblings of .todo-page (not descendants) — without this the
+   var(--rule)/var(--line) borders inside a modal resolve to nothing and the
+   controls wash out on white. */
+.todo-page, .todo-modal-backdrop {
+  --rule: #b7c4ca;
+  --ink: #26363c;
+  --muted: #55707a;
+  --teal: #2f9e93;
+  --line: #93a7ae;
+}
 .todo-page {
-  --hand: var(--font-hand), 'Segoe Print', 'Bradley Hand', cursive;
-  --rule: #c9d3d8;
-  --ink: #33484f;
-  --teal: #4db6ac;
-  max-width: 760px;
+  --hand: var(--font-hand), var(--font-hand-he), 'Segoe Print', 'Bradley Hand', cursive;
+  max-width: 780px;
   margin: 0 auto;
   padding: 1.25rem 1rem 4rem;
 }
@@ -13,10 +22,27 @@
 .todo-page-heading {
   font-family: var(--hand);
   color: var(--teal);
-  font-size: 2rem;
+  font-size: 2.1rem;
   text-align: center;
   margin: 0.5rem 0 1.25rem;
 }
+
+/* Editable list name shown above the notepad (the notepad keeps "Things To Do"). */
+.todo-list-name {
+  display: block;
+  width: 100%;
+  text-align: center;
+  font-family: var(--hand);
+  font-size: 1.9rem;
+  color: var(--ink);
+  border: none;
+  background: transparent;
+  outline: none;
+  margin: 0.25rem 0 0.5rem;
+  border-bottom: 1px dashed transparent;
+  unicode-bidi: plaintext;
+}
+.todo-list-name:focus { border-bottom-color: var(--rule); }
 
 /* --- Notepad --- */
 .todo-notepad {
@@ -24,7 +50,7 @@
   position: relative;
   background: #fff;
   border-radius: 14px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.14);
   overflow: hidden;
 }
 .todo-stripe {
@@ -38,13 +64,13 @@
 .todo-notepad-body { display: flex; }
 .todo-chevron-col {
   flex: 0 0 26px;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='22' viewBox='0 0 16 22'%3E%3Cpath d='M3 2 L13 11 L3 20' fill='none' stroke='%234db6ac' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='22' viewBox='0 0 16 22'%3E%3Cpath d='M3 2 L13 11 L3 20' fill='none' stroke='%232f9e93' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
   background-repeat: repeat-y;
   background-position: center;
   opacity: 0.9;
 }
 .todo-chevron-col--left { transform: scaleX(-1); }
-.todo-notepad-content { flex: 1 1 auto; padding: 0.75rem 0.75rem 1.25rem; min-width: 0; }
+.todo-notepad-content { flex: 1 1 auto; padding: 0.75rem 0.9rem 1.25rem; min-width: 0; }
 
 .todo-notepad-header {
   display: flex; align-items: center; gap: 0.5rem;
@@ -52,27 +78,27 @@
 }
 .todo-title-chevrons { color: var(--teal); font-weight: 700; letter-spacing: 2px; }
 .todo-notepad-title {
-  font-family: var(--hand);
+  font-family: var(--font-hand), 'Segoe Print', cursive; /* Latin title */
   color: var(--teal);
   font-size: 2rem;
   margin: 0;
   flex: 1 1 auto;
   min-width: 0;
 }
-.todo-notepad-title input {
-  font: inherit; color: inherit; border: none; background: transparent;
-  width: 100%; outline: none; border-bottom: 1px dashed transparent;
-}
-.todo-notepad-title input:focus { border-bottom-color: var(--rule); }
 .todo-notepad-header-actions { display: flex; gap: 0.4rem; align-items: center; flex-wrap: wrap; }
 
-/* --- Task lines --- */
+/* --- Task lines: two columns, like the paper notepad --- */
 .todo-lines { list-style: none; margin: 0; padding: 0; }
+.todo-notepad .todo-lines {
+  column-count: 2;
+  column-gap: 1.75rem;
+}
 .todo-line {
   display: flex; align-items: center; gap: 0.5rem;
   min-height: 2.4rem; padding: 0.15rem 0;
   border-bottom: 1px solid var(--rule);
   cursor: pointer;
+  break-inside: avoid;
 }
 .todo-text {
   flex: 1 1 auto; min-width: 0;
@@ -82,89 +108,120 @@
 }
 .todo-line.done .todo-text { text-decoration: line-through; opacity: 0.45; }
 
-.todo-due { font-size: 0.8rem; color: #90a4ae; white-space: nowrap; }
-.todo-due.overdue { color: #e53935; font-weight: 600; }
+.todo-due { font-size: 0.8rem; color: var(--muted); white-space: nowrap; }
+.todo-due.overdue { color: #d32f2f; font-weight: 600; }
 
-.todo-assignees { display: flex; gap: 2px; flex-shrink: 0; }
-.todo-chip {
-  width: 20px; height: 20px; border-radius: 50%;
-  color: #fff; font-size: 0.7rem; font-weight: 700;
+.todo-assignees { display: flex; gap: 3px; flex-shrink: 0; }
+.todo-avatar {
+  border-radius: 50%;
+  object-fit: cover;
   display: inline-flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  vertical-align: middle;
+  border: 1px solid rgba(0, 0, 0, 0.08);
 }
+.todo-avatar--initial { color: #fff; font-weight: 700; border: none; }
 
 /* Checkbox square at the line's inline-end, echoing the paper's boxes. */
 .todo-check {
-  flex-shrink: 0; width: 22px; height: 22px; border: 2px solid #90a4ae;
+  flex-shrink: 0; width: 22px; height: 22px; border: 2px solid var(--line);
   border-radius: 4px; background: #fff; cursor: pointer;
   display: inline-flex; align-items: center; justify-content: center;
   color: var(--teal); font-size: 1rem; line-height: 1; padding: 0;
 }
 .todo-check[aria-checked='true'] { border-color: var(--teal); }
 
-/* Add-task row */
-.todo-add { display: flex; align-items: center; gap: 0.5rem; min-height: 2.4rem; border-bottom: 1px solid var(--rule); }
+/* Add-task row (full width, below the two columns) */
+.todo-add { display: flex; align-items: center; gap: 0.5rem; min-height: 2.4rem; margin-top: 0.4rem; border-top: 2px solid var(--rule); padding-top: 0.3rem; }
 .todo-add input {
   flex: 1 1 auto; border: none; outline: none; background: transparent;
   font-family: var(--hand); font-size: 1.35rem; color: var(--ink);
   unicode-bidi: plaintext; text-align: start;
 }
-.todo-add input::placeholder { color: #b0bec5; }
+.todo-add input::placeholder { color: #97a9b0; }
 
 /* Toolbar (sort / renew / history) */
 .todo-toolbar { display: flex; gap: 0.4rem; align-items: center; flex-wrap: wrap; margin: 0.25rem 0 0.75rem; }
 .todo-btn {
-  font: inherit; font-size: 0.85rem; border: 1px solid var(--rule); background: #fff;
-  border-radius: 999px; padding: 0.3rem 0.7rem; cursor: pointer; color: var(--ink);
+  font: inherit; font-size: 0.85rem; border: 1px solid var(--line); background: #eef3f4;
+  border-radius: 999px; padding: 0.35rem 0.75rem; cursor: pointer; color: var(--ink);
 }
-.todo-btn:hover { background: #f5f7f8; }
+.todo-btn:hover { background: #e0e9eb; }
 .todo-btn--active { background: var(--teal); border-color: var(--teal); color: #fff; }
-.todo-btn--danger { color: #e53935; border-color: #f2b8b5; }
+.todo-btn--danger { color: #c62828; border-color: #e6a3a0; background: #fdeeee; }
 
 /* Index cards */
 .todo-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 1rem; }
 .todo-notepad--mini .todo-notepad-title { font-size: 1.4rem; }
-.todo-notepad--mini .todo-notepad-content { padding: 0.5rem 0.6rem 0.8rem; }
+.todo-notepad--mini .todo-notepad-content { padding: 0.5rem 0.7rem 0.8rem; }
 .todo-card-link { text-decoration: none; color: inherit; display: block; }
-.todo-card-meta { font-family: var(--hand); font-size: 1.05rem; color: var(--ink); line-height: 1.5; }
-.todo-card-progress { font-size: 0.8rem; color: #90a4ae; margin-top: 0.4rem; }
+.todo-card-name { font-family: var(--hand); font-size: 1.25rem; font-weight: 700; color: var(--ink); margin-bottom: 0.4rem; unicode-bidi: plaintext; }
+.todo-card-meta { display: flex; align-items: center; gap: 0.5rem; }
 
 /* My tasks */
 .todo-mytasks { margin-top: 2rem; }
-.todo-mytasks h2 { font-family: var(--hand); color: var(--teal); font-size: 1.5rem; margin: 0 0 0.5rem; }
+.todo-mytasks h2 { font-family: var(--hand); color: var(--teal); font-size: 1.6rem; margin: 0 0 0.5rem; }
 .todo-mytasks ul { list-style: none; margin: 0; padding: 0; }
 .todo-mytasks li { display: flex; gap: 0.5rem; align-items: baseline; padding: 0.35rem 0; border-bottom: 1px solid var(--rule); }
 .todo-mytasks .todo-text { font-size: 1.1rem; }
-.todo-mytasks a { text-decoration: none; color: #90a4ae; font-size: 0.8rem; white-space: nowrap; }
+.todo-mytasks a { text-decoration: none; color: var(--muted); font-size: 0.8rem; white-space: nowrap; }
 
-/* Modal */
+/* Modal — deliberately high contrast (previous version washed out on white). */
 .todo-modal-backdrop {
-  position: fixed; inset: 0; background: rgba(0, 0, 0, 0.45);
+  position: fixed; inset: 0; background: rgba(20, 30, 34, 0.55);
   display: flex; align-items: center; justify-content: center; padding: 1rem; z-index: 1000;
 }
 .todo-modal {
   direction: rtl; background: #fff; border-radius: 14px; width: min(520px, 100%);
-  max-height: 90vh; overflow-y: auto; padding: 1.25rem; box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3);
+  max-height: 90vh; overflow-y: auto; padding: 1.25rem;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.4);
+  border: 1px solid #cdd8dc;
+  color: var(--ink);
 }
-.todo-modal h2 { margin: 0 0 1rem; font-size: 1.2rem; }
+.todo-modal h2 { margin: 0 0 1rem; font-size: 1.25rem; color: var(--ink); }
 .todo-field { margin-bottom: 1rem; }
-.todo-field label { display: block; font-size: 0.85rem; color: #607d8b; margin-bottom: 0.3rem; }
+.todo-field label { display: block; font-size: 0.85rem; font-weight: 600; color: #37474f; margin-bottom: 0.35rem; }
 .todo-field input[type='text'], .todo-field input[type='date'], .todo-field textarea {
-  width: 100%; padding: 0.5rem; border: 1px solid var(--rule); border-radius: 8px; font: inherit; box-sizing: border-box;
+  width: 100%; padding: 0.55rem; border: 1px solid var(--line); border-radius: 8px; font: inherit; box-sizing: border-box; color: var(--ink); background: #fff;
 }
+.todo-field input:focus, .todo-field textarea:focus { border-color: var(--teal); outline: none; }
 .todo-field textarea { min-height: 4rem; resize: vertical; }
-.todo-members { display: flex; flex-wrap: wrap; gap: 0.4rem; }
-.todo-member-pill {
-  display: inline-flex; align-items: center; gap: 0.3rem; padding: 0.3rem 0.6rem;
-  border: 1px solid var(--rule); border-radius: 999px; cursor: pointer; font-size: 0.9rem;
-  background: #fff; color: var(--ink);
-}
-.todo-member-pill.selected { background: var(--teal); border-color: var(--teal); color: #fff; }
-.todo-member-pill:disabled { opacity: 0.6; cursor: default; }
 .todo-modal-actions { display: flex; gap: 0.5rem; justify-content: space-between; margin-top: 1rem; flex-wrap: wrap; }
 .todo-modal-actions .spacer { flex: 1 1 auto; }
 
-@media (max-width: 480px) {
-  .todo-notepad-title, .todo-page-heading { font-size: 1.6rem; }
+/* User picker (autocomplete) + chips */
+.todo-userpicker-selected { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-bottom: 0.45rem; }
+.todo-userchip {
+  display: inline-flex; align-items: center; gap: 0.35rem;
+  padding: 0.2rem 0.55rem; border-radius: 999px;
+  background: #e4eef0; border: 1px solid var(--line); color: var(--ink); font-size: 0.88rem;
+}
+.todo-userchip--fixed { margin-bottom: 0.45rem; background: #eef3f4; }
+.todo-userchip-name { line-height: 1; }
+.todo-userchip button { border: none; background: transparent; cursor: pointer; font-size: 1.05rem; line-height: 1; color: var(--muted); padding: 0 0.1rem; }
+.todo-userchip button:hover { color: #c62828; }
+.todo-userpicker-input { position: relative; }
+.todo-userpicker-input input {
+  width: 100%; padding: 0.55rem; border: 1px solid var(--line); border-radius: 8px; font: inherit; box-sizing: border-box; color: var(--ink);
+}
+.todo-userpicker-input input:focus { border-color: var(--teal); outline: none; }
+.todo-userpicker-list {
+  position: absolute; z-index: 10; top: calc(100% + 3px); inset-inline: 0;
+  margin: 0; padding: 0.25rem; list-style: none;
+  background: #fff; border: 1px solid var(--line); border-radius: 8px;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.2); max-height: 240px; overflow-y: auto;
+}
+.todo-userpicker-list li button {
+  display: flex; align-items: center; gap: 0.5rem; width: 100%;
+  border: none; background: transparent; cursor: pointer; padding: 0.4rem 0.5rem; border-radius: 6px; text-align: start; font: inherit; color: var(--ink);
+}
+.todo-userpicker-list li button:hover { background: #eef3f4; }
+.todo-userpicker-name { color: var(--ink); }
+.todo-userpicker-email { color: var(--muted); font-size: 0.75rem; margin-inline-start: auto; }
+
+@media (max-width: 560px) {
+  .todo-notepad .todo-lines { column-count: 1; }
+  .todo-notepad-title, .todo-page-heading, .todo-list-name { font-size: 1.7rem; }
   .todo-text, .todo-add input { font-size: 1.2rem; }
   .todo-chevron-col { flex-basis: 16px; }
 }

@@ -1,6 +1,8 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
+import UserPicker from '@/components/todo/UserPicker';
+import Avatar from '@/components/todo/Avatar';
 import type { TodoList, TodoMember } from '@/types/todo';
 import { getUserDisplayName } from '@/types/workout';
 
@@ -18,7 +20,8 @@ export default function ListSettingsModal({
   onDeleted: () => void;
 }) {
   const [name, setName] = useState(list.name);
-  const [members, setMembers] = useState<string[]>(list.members);
+  // The picker only manages the non-creator members; the creator is always in.
+  const [others, setOthers] = useState<string[]>(list.members.filter((e) => e !== list.createdBy));
   const [directory, setDirectory] = useState<TodoMember[]>([]);
   const [busy, setBusy] = useState(false);
 
@@ -27,10 +30,10 @@ export default function ListSettingsModal({
     fetch('/api/todo/members').then((r) => (r.ok ? r.json() : [])).then(setDirectory).catch(() => setDirectory([]));
   }, [isCreator]);
 
-  const toggle = (email: string) => {
-    if (email === list.createdBy) return; // creator is always a member
-    setMembers((prev) => (prev.includes(email) ? prev.filter((e) => e !== email) : [...prev, email]));
-  };
+  const creator = useMemo(
+    () => directory.find((m) => m.email === list.createdBy),
+    [directory, list.createdBy],
+  );
 
   const save = async () => {
     if (busy) return;
@@ -38,7 +41,7 @@ export default function ListSettingsModal({
     try {
       const body: Record<string, unknown> = {};
       if (name.trim() && name.trim() !== list.name) body.name = name.trim();
-      if (isCreator) body.members = members;
+      if (isCreator) body.members = [list.createdBy, ...others];
       const res = await fetch(`/api/todo/lists/${list.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -73,16 +76,15 @@ export default function ListSettingsModal({
         {isCreator && (
           <div className="todo-field">
             <label>חברים</label>
-            <div className="todo-members">
-              {directory.map((m) => (
-                <button type="button" key={m.email}
-                  className={`todo-member-pill ${members.includes(m.email) ? 'selected' : ''}`}
-                  onClick={() => toggle(m.email)}
-                  disabled={m.email === list.createdBy}>
-                  {m.name || getUserDisplayName(m.email)}
-                </button>
-              ))}
+            <div className="todo-userchip todo-userchip--fixed">
+              <Avatar email={list.createdBy} name={creator?.name ?? getUserDisplayName(list.createdBy)} image={creator?.image} size={18} />
+              <span className="todo-userchip-name">{creator?.name ?? getUserDisplayName(list.createdBy)} (יוצר)</span>
             </div>
+            <UserPicker
+              candidates={directory.filter((m) => m.email !== list.createdBy)}
+              selected={others}
+              onChange={setOthers}
+            />
           </div>
         )}
         <div className="todo-modal-actions">
