@@ -556,8 +556,12 @@ export default function CoffeeOrderPage() {
                     אין עדיין מועדפים — הרכיבו משקה ולחצו על “שמירה כמועדף”.
                   </p>
                 ) : (
-                  <div className="coffee-fav-list">
-                    {favorites.map((f) => (
+                  <>
+                    <p className="coffee-fav-hint">
+                      לחיצה על 📲 פותחת עמוד הזמנה מהיר — שם: שיתוף → הוספה למסך הבית, וקיבלת כפתור קפה בנגיעה אחת.
+                    </p>
+                    <div className="coffee-fav-list">
+                      {favorites.map((f) => (
                       <article key={f.id} className="coffee-fav-card">
                         <button
                           type="button"
@@ -579,6 +583,13 @@ export default function CoffeeOrderPage() {
                           >
                             ⚡ הזמן עכשיו
                           </button>
+                          <Link
+                            href={`/coffee-order/quick/${f.id}`}
+                            className="coffee-fav-homescreen"
+                            title="פתח כפתור מסך בית"
+                          >
+                            📲 מסך בית
+                          </Link>
                           <button
                             type="button"
                             className="coffee-delete"
@@ -590,7 +601,8 @@ export default function CoffeeOrderPage() {
                         </div>
                       </article>
                     ))}
-                  </div>
+                    </div>
+                  </>
                 )}
               </div>
 
