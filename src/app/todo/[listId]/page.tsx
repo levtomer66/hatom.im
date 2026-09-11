@@ -42,6 +42,9 @@ export default function TodoListPage() {
   const modalOpen = !!editing || showHistory || showSettings;
   const modalOpenRef = useRef(modalOpen);
   modalOpenRef.current = modalOpen;
+  // Count of in-flight optimistic task adds — polling is paused while >0 so a
+  // refetch can't briefly drop the not-yet-persisted row.
+  const pendingAddsRef = useRef(0);
 
   const load = useCallback(async () => {
     const res = await fetch(`/api/todo/lists/${listId}`);
@@ -67,7 +70,9 @@ export default function TodoListPage() {
   }, []);
 
   useEffect(() => {
-    const tick = () => { if (!modalOpenRef.current && document.visibilityState === 'visible') load(); };
+    const tick = () => {
+      if (!modalOpenRef.current && pendingAddsRef.current === 0 && document.visibilityState === 'visible') load();
+    };
     const id = window.setInterval(tick, 15000);
     window.addEventListener('focus', tick);
     return () => { window.clearInterval(id); window.removeEventListener('focus', tick); };
@@ -122,13 +127,38 @@ export default function TodoListPage() {
     if (!raw) return;
     const parsed = parseQuickAdd(raw, members, new Date());
     setDraft(column, '');
-    const res = await fetch(`/api/todo/lists/${listId}/tasks`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text: parsed.text || raw, column, assignees: parsed.assignees, dueDate: parsed.dueDate }),
-    });
-    if (res.ok) { const created = await res.json(); setTasks((prev) => [...prev, created]); }
-    else load();
+
+    // Show the task immediately (optimistic), then reconcile with the server.
+    const now = new Date().toISOString();
+    const tempId = `temp-${now}-${Math.random().toString(36).slice(2)}`;
+    const optimistic: TodoTask = {
+      id: tempId, listId, column, text: parsed.text || raw, assignees: parsed.assignees,
+      ...(parsed.dueDate ? { dueDate: parsed.dueDate } : {}),
+      done: false, createdBy: myEmail, createdAt: now, updatedAt: now,
+    };
+    setTasks((prev) => [...prev, optimistic]);
+    pendingAddsRef.current += 1;
+    try {
+      const res = await fetch(`/api/todo/lists/${listId}/tasks`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: optimistic.text, column, assignees: parsed.assignees, dueDate: parsed.dueDate }),
+      });
+      if (!res.ok) throw new Error(`add failed: ${res.status}`);
+      const created: TodoTask = await res.json();
+      // Swap the temp row for the real one (guard against a concurrent refetch
+      // having already inserted it).
+      setTasks((prev) => {
+        const without = prev.filter((t) => t.id !== tempId);
+        return without.some((t) => t.id === created.id) ? without : [...without, created];
+      });
+    } catch {
+      // Roll the optimistic row back and resync.
+      setTasks((prev) => prev.filter((t) => t.id !== tempId));
+      load();
+    } finally {
+      pendingAddsRef.current -= 1;
+    }
   };
 
   const changeSort = async (sortBy: TodoSortBy) => {
