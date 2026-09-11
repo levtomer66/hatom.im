@@ -44,6 +44,17 @@ export async function getCoffeeFavoriteById(
   }
 }
 
+// A favorite by id, but only if it belongs to this user. Used to validate a
+// default-favorite selection and to authorize key-mode coffee orders.
+export async function getCoffeeFavoriteForUser(
+  id: string,
+  userEmail: string
+): Promise<CoffeeFavorite | null> {
+  const fav = await getCoffeeFavoriteById(id);
+  if (!fav || fav.userEmail !== userEmail.toLowerCase()) return null;
+  return fav;
+}
+
 export async function createCoffeeFavorite(
   data: Omit<CoffeeFavorite, 'id' | 'createdAt'>
 ): Promise<CoffeeFavorite> {
