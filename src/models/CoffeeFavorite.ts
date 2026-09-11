@@ -30,6 +30,20 @@ export async function getCoffeeFavoritesForUser(
   return docs.map(docToFavorite);
 }
 
+// Single favorite by id. Returns null for a missing doc or a malformed id
+// (a bad ObjectId must 404, not 500). Ownership is enforced by the caller.
+export async function getCoffeeFavoriteById(
+  id: string
+): Promise<CoffeeFavorite | null> {
+  const collection = await getCoffeeFavoritesCollection();
+  try {
+    const doc = await collection.findOne({ _id: new ObjectId(id) });
+    return doc ? docToFavorite(doc) : null;
+  } catch {
+    return null;
+  }
+}
+
 export async function createCoffeeFavorite(
   data: Omit<CoffeeFavorite, 'id' | 'createdAt'>
 ): Promise<CoffeeFavorite> {
