@@ -70,6 +70,7 @@ const DICT = {
   'workout.complete_button':        { en: '✓ Complete',                                     he: '✓ סיום' },
   'workout.complete_confirm':       { en: 'Mark this workout as complete?',                 he: 'לסמן את האימון כהושלם?' },
   'workout.no_exercises':           { en: 'No exercises yet. Add some to get started!',     he: 'אין תרגילים עדיין. הוסף כדי להתחיל!' },
+  'workout.offline_cannot_start':   { en: 'Couldn’t start the workout — check your connection and try again.', he: 'לא ניתן להתחיל את האימון — בדקו את החיבור ונסו שוב.' },
   'workout.superset':               { en: 'Superset',                                       he: 'סופרסט' },
   'workout.watch_example':          { en: 'Watch example',                                  he: 'צפו בדוגמה' },
   'workout.add_exercise':           { en: '+ Add Exercise',                                 he: '+ הוסף תרגיל' },

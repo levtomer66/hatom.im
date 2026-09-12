@@ -50,6 +50,7 @@ import { getProgression, getProgressionStep, stepIndex } from '@/lib/workout-pro
 import { getLocalizedExercise, getLocalizedStepName } from '@/lib/exercise-translations';
 import { getVolumeBrag } from '@/lib/workout-volume-jokes';
 import { computeWorkoutStats } from '@/lib/workout-stats';
+import { isCreatedWorkout } from '@/lib/workout-offline';
 import { kgToMeters, formatMeters } from '@/lib/workout-car';
 import { v4 as uuidv4 } from 'uuid';
 import { buildSupersetGroups, supersetLabel } from '@/lib/superset';
@@ -246,7 +247,14 @@ export default function WorkoutsPage() {
 
   // Auto-save workout changes
   const saveWorkout = useCallback(async (workout: Workout) => {
-    if (!workout.id) return;
+    // Invariant: an active workout always has a server id — createWorkout now
+    // refuses to start a session when the create couldn't reach the server.
+    // If this ever fires, a phantom (offline-created) session slipped through
+    // and its edits are being dropped; log it instead of failing silently.
+    if (!workout.id) {
+      console.warn('saveWorkout called without a workout id — edit dropped', workout);
+      return;
+    }
 
     setIsSaving(true);
     try {
@@ -293,20 +301,35 @@ export default function WorkoutsPage() {
   // autosaved onto it. userId is derived from the session server-side, so it
   // isn't sent. Returns null on failure.
   const createWorkout = async (fields: { templateId?: string; workoutName: string }): Promise<Workout | null> => {
-    const res = await fetch('/api/workout/workouts', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        ...fields,
-        date: new Date().toISOString().split('T')[0],
-        // Idempotency: a client-minted UUID so a PWA offline-queue replay of
-        // this same POST collapses to the same workout server-side instead
-        // of creating a duplicate.
-        clientRequestId: uuidv4(),
-      }),
-    });
+    let res: Response;
+    try {
+      res = await fetch('/api/workout/workouts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...fields,
+          date: new Date().toISOString().split('T')[0],
+          // Idempotency: a client-minted UUID so a PWA offline-queue replay of
+          // this same POST collapses to the same workout server-side instead
+          // of creating a duplicate.
+          clientRequestId: uuidv4(),
+        }),
+      });
+    } catch {
+      // Truly offline with no service worker to queue the POST (or fetch threw).
+      // Same outcome as a queued create: no server id, so refuse to start.
+      return null;
+    }
     if (!res.ok) return null;
-    const workout: Workout = await res.json();
+    const body = await res.json();
+    // When offline the service worker queues this POST and returns a synthetic
+    // 202 `{ queued: true }` with NO id. We must not start a session against a
+    // workout that doesn't exist server-side yet: every later autosave/complete
+    // PUT needs the real id (saveWorkout bails on `!workout.id`), so they'd be
+    // silently dropped and the whole session — sets and completion — lost.
+    // Refuse instead, so the caller can tell the user to reconnect.
+    if (!isCreatedWorkout(body)) return null;
+    const workout: Workout = body;
     workout.exercises = workout.exercises ?? [];
     return workout;
   };
@@ -363,22 +386,27 @@ export default function WorkoutsPage() {
       });
 
       const workout = await createWorkout({ templateId: template.id, workoutName: template.name });
-      if (workout) {
-        // Add the exercises from the template
-        workout.exercises = exercises;
-        // Carry the template's example link + protocol text to the workout.
-        workout.instagramUrl = template.instagramUrl ?? '';
-        workout.description = template.description ?? '';
-        setActiveWorkout(workout);
-        // Bump editTick so the autosave effect fires once and persists
-        // the template-loaded exercises onto the freshly-created workout
-        // document. Without this the POST creates an empty workout and
-        // the exercises only live in client state — reloading or
-        // navigating away loses them.
-        setEditTick((n) => n + 1);
-        setHasInProgressWorkout(true);
-        setShowTemplateSelector(false);
+      if (!workout) {
+        // createWorkout refuses when the create couldn't reach the server
+        // (offline / error). Tell the user rather than starting a phantom
+        // session whose sets would never be saved.
+        alert(t('workout.offline_cannot_start'));
+        return;
       }
+      // Add the exercises from the template
+      workout.exercises = exercises;
+      // Carry the template's example link + protocol text to the workout.
+      workout.instagramUrl = template.instagramUrl ?? '';
+      workout.description = template.description ?? '';
+      setActiveWorkout(workout);
+      // Bump editTick so the autosave effect fires once and persists
+      // the template-loaded exercises onto the freshly-created workout
+      // document. Without this the POST creates an empty workout and
+      // the exercises only live in client state — reloading or
+      // navigating away loses them.
+      setEditTick((n) => n + 1);
+      setHasInProgressWorkout(true);
+      setShowTemplateSelector(false);
     } catch (error) {
       console.error('Error starting workout:', error);
     }
@@ -392,12 +420,16 @@ export default function WorkoutsPage() {
     if (!currentUser) return;
     try {
       const workout = await createWorkout({ workoutName: FREESTYLE_WORKOUT_NAME });
-      if (workout) {
-        setActiveWorkout(workout);
-        setHasInProgressWorkout(true);
-        setShowTemplateSelector(false);
-        setShowExercisePicker(true);
+      if (!workout) {
+        // Offline / create failed — don't open a phantom session (see
+        // startWorkoutFromTemplate); its sets would never be saved.
+        alert(t('workout.offline_cannot_start'));
+        return;
       }
+      setActiveWorkout(workout);
+      setHasInProgressWorkout(true);
+      setShowTemplateSelector(false);
+      setShowExercisePicker(true);
     } catch (error) {
       console.error('Error starting empty workout:', error);
     }
