@@ -273,7 +273,9 @@ const TOOLS: McpTool[] = [
         giverId: otherSpaUser(receiverId),
         scheduledAt,
         durationMinutes,
-        flags: clampSpicyFlags(coerceFlags(args.flags), happyEnding),
+        // Flags aren't exposed in this tool's schema; default them (the web UI
+        // sets ambiance/spicy flags). happyEnding is honored below.
+        flags: clampSpicyFlags(coerceFlags(undefined), happyEnding),
         preferences: (str(args, 'preferences') ?? '').slice(0, 2000),
         happyEnding,
       });

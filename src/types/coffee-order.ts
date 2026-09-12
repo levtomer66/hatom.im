@@ -143,7 +143,8 @@ export interface CreateCoffeeOrderDto extends CoffeeDrinkConfig {
 
 // A saved favorite → a "place it now" order DTO. Favorites carry no
 // deliveryType, so a one-tap order is always immediate. Pure (import-free)
-// so it stays node:test-able and shared by the from-favorite endpoint.
+// so it stays node:test-able and shared by the coffee API-key order path
+// (POST /api/coffee-order/orders bodyless) and the MCP order_coffee tool.
 export function orderDtoFromFavorite(fav: CoffeeDrinkConfig): CreateCoffeeOrderDto {
   return {
     drink: fav.drink,

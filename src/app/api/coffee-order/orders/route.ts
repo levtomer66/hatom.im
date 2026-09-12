@@ -58,8 +58,7 @@ export async function POST(request: NextRequest) {
     if (
       raw &&
       typeof raw === 'object' &&
-      !Array.isArray(raw) &&
-      Object.keys(raw).length > 0
+      (Array.isArray(raw) ? raw.length > 0 : Object.keys(raw).length > 0)
     ) {
       return NextResponse.json(
         { error: 'API-key orders take no body; pick a default favorite in settings' },
