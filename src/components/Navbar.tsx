@@ -21,9 +21,11 @@ import {
   FaChartLine,
   FaSignOutAlt,
   FaSignInAlt,
+  FaKey,
 } from 'react-icons/fa';
 import { hasPermission } from '@/lib/permissions';
 import type { PermissionKey } from '@/types/permissions';
+import ApiSettingsDialog from '@/components/ApiSettingsDialog';
 
 type Visibility =
   | 'public'
@@ -61,6 +63,7 @@ const Navbar: React.FC = () => {
   const signedIn = !!session?.user;
   const isOwner = session?.user?.isOwner === true;
   const [open, setOpen] = useState(false);
+  const [apiSettingsOpen, setApiSettingsOpen] = useState(false);
 
   const items = allNavItems.filter((item) => {
     if (item.visibility === 'public') return true;
@@ -112,19 +115,26 @@ const Navbar: React.FC = () => {
           <div className="navbar-auth-compact">
             {status !== 'loading' && (
               signedIn ? (
-                session.user?.image ? (
-                  /* eslint-disable-next-line @next/next/no-img-element */
-                  <img
-                    src={session.user.image}
-                    alt={session.user?.name ?? ''}
-                    title={session.user?.email ?? undefined}
-                    className="navbar-avatar"
-                  />
-                ) : (
-                  <span className="navbar-avatar navbar-avatar-fallback" title={session.user?.email ?? undefined}>
-                    {(session.user?.name ?? session.user?.email ?? '?').slice(0, 1).toUpperCase()}
-                  </span>
-                )
+                <button
+                  type="button"
+                  className="navbar-avatar-btn"
+                  aria-label="הגדרות API"
+                  onClick={() => setApiSettingsOpen(true)}
+                >
+                  {session.user?.image ? (
+                    /* eslint-disable-next-line @next/next/no-img-element */
+                    <img
+                      src={session.user.image}
+                      alt={session.user?.name ?? ''}
+                      title={session.user?.email ?? undefined}
+                      className="navbar-avatar"
+                    />
+                  ) : (
+                    <span className="navbar-avatar navbar-avatar-fallback" title={session.user?.email ?? undefined}>
+                      {(session.user?.name ?? session.user?.email ?? '?').slice(0, 1).toUpperCase()}
+                    </span>
+                  )}
+                </button>
               ) : (
                 <button
                   type="button"
@@ -187,6 +197,17 @@ const Navbar: React.FC = () => {
             <button
               type="button"
               className="drawer-signout"
+              onClick={() => {
+                setOpen(false);
+                setApiSettingsOpen(true);
+              }}
+            >
+              <FaKey />
+              <span>הגדרות API</span>
+            </button>
+            <button
+              type="button"
+              className="drawer-signout"
               onClick={() => signOut({ callbackUrl: '/' })}
             >
               <FaSignOutAlt />
@@ -195,6 +216,10 @@ const Navbar: React.FC = () => {
           </div>
         )}
       </aside>
+
+      {signedIn && (
+        <ApiSettingsDialog open={apiSettingsOpen} onClose={() => setApiSettingsOpen(false)} />
+      )}
     </>
   );
 };

@@ -1,0 +1,225 @@
+/* ---- API settings dialog ------------------------------------------------ */
+/* Visual language matches the navbar/drawer (gold accents on navy glass). */
+
+.api-settings-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.api-settings-dialog {
+  width: 100%;
+  max-width: 420px;
+  max-height: min(88vh, 640px);
+  overflow-y: auto;
+  background: linear-gradient(180deg, var(--navy-light) 0%, var(--background-color) 100%);
+  border: 1px solid var(--glass-border);
+  border-radius: 14px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  color: var(--text-color);
+}
+
+.api-settings-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.9rem 1.1rem;
+  border-bottom: 1px solid var(--glass-border);
+  position: sticky;
+  top: 0;
+  background: inherit;
+}
+
+.api-settings-title {
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--gold);
+  letter-spacing: 0.02em;
+}
+
+.api-settings-close {
+  width: 36px;
+  height: 36px;
+  border: 0;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 1.15rem;
+  cursor: pointer;
+  border-radius: 8px;
+  transition: background 0.2s, color 0.2s;
+}
+
+.api-settings-close:hover {
+  color: var(--gold-light);
+  background: rgba(201, 168, 76, 0.08);
+}
+
+.api-settings-body {
+  padding: 1.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+}
+
+.api-settings-section-label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  margin-bottom: 0.5rem;
+}
+
+.api-settings-key-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.api-settings-key-value {
+  flex: 1;
+  min-width: 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.9rem;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--glass-border);
+  border-radius: 8px;
+  padding: 0.5rem 0.7rem;
+  overflow-x: auto;
+  white-space: nowrap;
+  direction: ltr;
+  text-align: left;
+}
+
+.api-settings-key-empty {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.api-settings-icon-btn {
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--text-muted);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: color 0.2s, border-color 0.2s, background 0.2s;
+}
+
+.api-settings-icon-btn:hover:not(:disabled) {
+  color: var(--gold-light);
+  border-color: var(--gold-light);
+  background: rgba(201, 168, 76, 0.08);
+}
+
+.api-settings-icon-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.api-settings-actions {
+  display: flex;
+  gap: 0.6rem;
+  margin-top: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.api-settings-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  border: 1px solid var(--text-muted);
+  border-radius: 999px;
+  padding: 0.45rem 1rem;
+  font: inherit;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  background: transparent;
+  cursor: pointer;
+  transition: color 0.2s, border-color 0.2s, background 0.2s;
+}
+
+.api-settings-btn:hover:not(:disabled) {
+  color: var(--gold-light);
+  border-color: var(--gold-light);
+  background: rgba(201, 168, 76, 0.08);
+}
+
+.api-settings-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.api-settings-btn--primary {
+  color: var(--gold);
+  border-color: var(--gold);
+}
+
+.api-settings-btn--primary:hover:not(:disabled) {
+  background: rgba(201, 168, 76, 0.14);
+}
+
+.api-settings-select {
+  width: 100%;
+  padding: 0.55rem 0.7rem;
+  border-radius: 8px;
+  border: 1px solid var(--glass-border);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-color);
+  font: inherit;
+  font-size: 0.9rem;
+}
+
+.api-settings-select:focus {
+  outline: 2px solid var(--gold);
+  outline-offset: 1px;
+}
+
+.api-settings-warning {
+  font-size: 0.8rem;
+  line-height: 1.5;
+  color: var(--text-muted);
+  background: rgba(201, 168, 76, 0.06);
+  border: 1px solid var(--glass-border);
+  border-radius: 8px;
+  padding: 0.65rem 0.8rem;
+}
+
+.api-settings-feedback {
+  font-size: 0.85rem;
+  border-radius: 8px;
+  padding: 0.5rem 0.7rem;
+}
+
+.api-settings-feedback--success {
+  color: #9be8a6;
+  background: rgba(72, 199, 116, 0.1);
+  border: 1px solid rgba(72, 199, 116, 0.3);
+}
+
+.api-settings-feedback--error {
+  color: #f0a4a4;
+  background: rgba(220, 80, 80, 0.1);
+  border: 1px solid rgba(220, 80, 80, 0.3);
+}
+
+.api-settings-loading {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  padding: 0.5rem 0;
+}
+
+@media (max-width: 420px) {
+  .api-settings-dialog {
+    max-width: 100%;
+  }
+}
