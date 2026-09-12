@@ -46,7 +46,11 @@ const WorkoutSchema = new Schema<WorkoutDocument>({
   userId: {
     type: String,
     required: true,
-    index: true,
+    // No standalone index: userId is the leading field of the compound
+    // indexes below (userId_1_date_-1, userId_1_clientRequestId_1,
+    // userId_1_exercises.exerciseId_1), which serve every userId query via the
+    // index-prefix rule. A separate userId_1 was redundant write overhead —
+    // dropped 2026-09-13.
   },
   templateId: {
     type: String,
@@ -58,10 +62,12 @@ const WorkoutSchema = new Schema<WorkoutDocument>({
     required: true,
     default: 'Workout',
   },
-  date: { 
-    type: String, 
+  date: {
+    type: String,
     required: true,
-    index: true,
+    // No standalone index: every date query is user-scoped and served by the
+    // userId_1_date_-1 compound below. A separate date_1 was unused —
+    // dropped 2026-09-13.
   },
   exercises: { 
     type: [WorkoutExerciseSchema], 
