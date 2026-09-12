@@ -116,6 +116,41 @@
   color: #99e6b3;
 }
 
+/* iPhone-shortcut card: Copy-key button stacked above the Add-shortcut link */
+.paging-shortcut h2 {
+  margin: 0;
+  font-size: 1.15rem;
+  color: #f8f2e8;
+}
+.paging-shortcut-hint {
+  margin: 0;
+  font-size: 0.85rem;
+  line-height: 1.5;
+  color: rgba(248, 242, 232, 0.7);
+}
+.paging-shortcut-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+.paging-shortcut-actions .paging-key-btn {
+  background: transparent;
+  color: #c9a96e;
+  border: 1px solid rgba(201, 169, 110, 0.6);
+}
+.paging-shortcut-download {
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  padding: 0.8rem 1.2rem;
+  color: #111;
+  background: #c9a96e;
+  font-weight: 700;
+  text-decoration: none;
+}
+
 @media (max-width: 600px) {
   .paging-page {
     padding: 1.5rem 0.85rem 2.5rem;

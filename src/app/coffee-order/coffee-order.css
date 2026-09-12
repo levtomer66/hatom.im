@@ -266,6 +266,25 @@
   font-size: 0.85rem;
 }
 
+/* iPhone-shortcut card: Copy-key button stacked above the Add-shortcut link */
+.coffee-shortcut-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  margin-top: 0.75rem;
+}
+.coffee-shortcut-actions .coffee-btn-primary,
+.coffee-shortcut-actions .coffee-btn-secondary {
+  flex: none;
+  width: 100%;
+  min-width: 0;
+}
+.coffee-shortcut-download {
+  display: block;
+  text-align: center;
+  text-decoration: none;
+}
+
 .coffee-result {
   margin-top: 1rem;
   padding: 0.9rem 1rem;

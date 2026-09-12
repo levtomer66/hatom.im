@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import Navbar from '@/components/Navbar';
 import { hasPermission } from '@/lib/permissions';
+import { useCopyApiKey } from '@/lib/useCopyApiKey';
 import {
   CoffeeOrder,
   CoffeeFavorite,
@@ -85,6 +86,10 @@ export default function CoffeeOrderPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [placed, setPlaced] = useState<CoffeeOrder | null>(null);
+
+  // Copy the personal API key (created on first use, never rendered) for the
+  // "Coffee picker" iPhone Shortcut.
+  const { copyState: keyCopyState, copyApiKey } = useCopyApiKey();
 
   // ---- coffee-bean confetti burst on a successful order ----
   const [showBeans, setShowBeans] = useState(false);
@@ -547,6 +552,38 @@ export default function CoffeeOrderPage() {
 
             {/* ---- favorites + history ---- */}
             <aside className="coffee-side">
+              {/* ---- iPhone Shortcut ---- */}
+              <div className="coffee-card">
+                <h2 className="coffee-section-title">📲 קיצור לאייפון</h2>
+                <p className="coffee-empty">
+                  הזמינו קפה מהאייפון בלחיצה אחת: העתיקו את מפתח ה-API, הוסיפו את
+                  הקיצור, והדביקו את המפתח כשמתבקשים בהתקנה.
+                </p>
+                <div className="coffee-shortcut-actions">
+                  <button
+                    type="button"
+                    className="coffee-btn-secondary"
+                    onClick={copyApiKey}
+                    disabled={keyCopyState === 'copying'}
+                  >
+                    {keyCopyState === 'copying'
+                      ? '…מעתיק'
+                      : keyCopyState === 'copied'
+                        ? '✓ הועתק'
+                        : keyCopyState === 'error'
+                          ? '✗ שגיאה — נסו שוב'
+                          : '🔑 העתק מפתח API'}
+                  </button>
+                  <a
+                    className="coffee-btn-primary coffee-shortcut-download"
+                    href="/shortcuts/coffee-picker.shortcut"
+                    download="hatom-coffee-picker.shortcut"
+                  >
+                    ➕ הוסף קיצור דרך
+                  </a>
+                </div>
+              </div>
+
               <div className="coffee-card">
                 <h2 className="coffee-section-title">★ מועדפים</h2>
                 {loading ? (

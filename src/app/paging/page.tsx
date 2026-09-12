@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import Navbar from '@/components/Navbar';
 import { hasPermission } from '@/lib/permissions';
+import { useCopyApiKey } from '@/lib/useCopyApiKey';
 import {
   DEFAULT_PAGE_EMOJI,
   MAX_PAGE_MESSAGE_LENGTH,
@@ -20,6 +21,10 @@ export default function PagingPage() {
   const [message, setMessage] = useState('');
   const [sendState, setSendState] = useState<SendState>('idle');
   const [sendError, setSendError] = useState<string | null>(null);
+
+  // Copy the personal API key (created on first use, never rendered) for the
+  // "Pager" iPhone Shortcut.
+  const { copyState: keyCopyState, copyApiKey } = useCopyApiKey();
 
   useEffect(() => {
     if (status === 'loading') return;
@@ -101,6 +106,33 @@ export default function PagingPage() {
               {sendState === 'sending' ? 'שולח…' : 'שלח פייג׳'}
             </button>
           </form>
+        </section>
+
+        <section className="paging-card paging-shortcut" aria-labelledby="paging-shortcut-heading">
+          <p className="paging-overline">iPhone</p>
+          <h2 id="paging-shortcut-heading">📲 קיצור לאייפון</h2>
+          <p className="paging-shortcut-hint">
+            שליחת פייג׳ בלחיצה אחת מהאייפון: העתיקו את מפתח ה-API, הוסיפו את
+            הקיצור, והדביקו את המפתח כשמתבקשים בהתקנה.
+          </p>
+          <div className="paging-shortcut-actions">
+            <button type="button" className="paging-key-btn" onClick={copyApiKey} disabled={keyCopyState === 'copying'}>
+              {keyCopyState === 'copying'
+                ? '…מעתיק'
+                : keyCopyState === 'copied'
+                  ? '✓ הועתק'
+                  : keyCopyState === 'error'
+                    ? '✗ שגיאה — נסו שוב'
+                    : '🔑 העתק מפתח API'}
+            </button>
+            <a
+              className="paging-shortcut-download"
+              href="/shortcuts/page.shortcut"
+              download="hatom-pager.shortcut"
+            >
+              ➕ הוסף קיצור דרך
+            </a>
+          </div>
         </section>
       </main>
     </div>
