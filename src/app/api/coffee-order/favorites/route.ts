@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requirePagePermission } from '@/lib/auth-helpers';
+import { requireFeatureCaller } from '@/lib/api-caller';
 import {
   getCoffeeFavoritesForUser,
   createCoffeeFavorite,
@@ -15,11 +16,12 @@ import {
   clampPumps,
 } from '@/types/coffee-order';
 
-// GET — the signed-in user's own favorites, newest first.
-export async function GET() {
-  const gate = await requirePagePermission('coffee-order');
+// GET — the caller's own favorites, newest first. Session OR personal key
+// (the coffee picker Shortcut fetches this with the key to build its dropdown).
+export async function GET(request: NextRequest) {
+  const gate = await requireFeatureCaller(request, 'coffee-order');
   if (gate instanceof NextResponse) return gate;
-  const email = gate.session.user.email;
+  const email = gate.userEmail;
 
   try {
     const favorites = await getCoffeeFavoritesForUser(email);
