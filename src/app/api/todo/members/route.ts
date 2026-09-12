@@ -1,5 +1,5 @@
-import { NextResponse } from 'next/server';
-import { requirePagePermission } from '@/lib/auth-helpers';
+import { NextRequest, NextResponse } from 'next/server';
+import { requireFeatureCaller } from '@/lib/api-caller';
 import { getAppUserEmails } from '@/lib/todo-access';
 import { getUserProfiles } from '@/models/UserProfile';
 import { getUserDisplayName } from '@/types/workout';
@@ -9,12 +9,12 @@ import type { TodoMember } from '@/types/todo';
 // /api/admin/allowlist is owner-only; this one is available to any signed-in
 // user who holds the `todo` permission. Each row carries the Google avatar +
 // name when the user has signed in (via the Auth.js `users` collection).
-export async function GET() {
-  const gate = await requirePagePermission('todo');
+export async function GET(request: NextRequest) {
+  const gate = await requireFeatureCaller(request, 'todo');
   if (gate instanceof NextResponse) return gate;
   try {
     const emails = new Set<string>(await getAppUserEmails());
-    emails.add(gate.session.user.email.toLowerCase());
+    emails.add(gate.userEmail.toLowerCase());
 
     const list = [...emails].sort();
     const profiles = await getUserProfiles(list);

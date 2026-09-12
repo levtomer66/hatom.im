@@ -4,7 +4,7 @@ import {
   getAllCoffeeReviews,
   createCoffeeReview
 } from '@/models/CoffeeReview';
-import { requirePagePermission } from '@/lib/auth-helpers';
+import { requireFeatureCaller } from '@/lib/api-caller';
 
 // GET handler to retrieve all coffee reviews
 export async function GET() {
@@ -33,7 +33,7 @@ export async function GET() {
 // `mekafkefim:write` permission so non-owner allowlisted users (Tom)
 // can be granted edit access via /admin/allowlist.
 export async function POST(request: NextRequest) {
-  const gate = await requirePagePermission('mekafkefim:write');
+  const gate = await requireFeatureCaller(request, 'mekafkefim:write');
   if (gate instanceof NextResponse) return gate;
 
   try {

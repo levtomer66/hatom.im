@@ -2,9 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireListMember } from '@/lib/todo-access';
 import { getArchivesForList } from '@/models/Todo';
 
-export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
+export async function GET(request: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   const { id } = await ctx.params;
-  const access = await requireListMember(id);
+  const access = await requireListMember(request, id);
   if (access instanceof NextResponse) return access;
   try {
     const archives = await getArchivesForList(id);

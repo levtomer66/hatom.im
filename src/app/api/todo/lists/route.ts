@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requirePagePermission } from '@/lib/auth-helpers';
+import { requireFeatureCaller } from '@/lib/api-caller';
 import { getListsForMember, createList } from '@/models/Todo';
 import type { CreateListDto } from '@/types/todo';
 
-export async function GET() {
-  const gate = await requirePagePermission('todo');
+export async function GET(request: NextRequest) {
+  const gate = await requireFeatureCaller(request, 'todo');
   if (gate instanceof NextResponse) return gate;
   try {
-    const lists = await getListsForMember(gate.session.user.email);
+    const lists = await getListsForMember(gate.userEmail);
     return NextResponse.json(lists);
   } catch (e) {
     console.error('todo lists GET failed:', e);
@@ -16,7 +16,7 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
-  const gate = await requirePagePermission('todo');
+  const gate = await requireFeatureCaller(request, 'todo');
   if (gate instanceof NextResponse) return gate;
   try {
     const data = (await request.json()) as CreateListDto;
@@ -25,7 +25,7 @@ export async function POST(request: NextRequest) {
     const members = Array.isArray(data.members)
       ? data.members.filter((m): m is string => typeof m === 'string')
       : [];
-    const list = await createList({ name, members, createdBy: gate.session.user.email });
+    const list = await createList({ name, members, createdBy: gate.userEmail });
     return NextResponse.json(list, { status: 201 });
   } catch (e) {
     console.error('todo lists POST failed:', e);

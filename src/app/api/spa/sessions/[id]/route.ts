@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ObjectId } from 'mongodb';
 import { deleteSpaSession } from '@/models/SpaSession';
-import { requireSpaUser } from '@/lib/auth-helpers';
+import { requireSpaCaller } from '@/lib/api-caller';
 
 // DELETE /api/spa/sessions/[id]
 // SPA_USERS only (Tom or Tomer). Independent of site-wide ownership so
@@ -9,10 +9,10 @@ import { requireSpaUser } from '@/lib/auth-helpers';
 // allowlist matrix. Permanent removal — no soft-delete because the spa
 // session list is intentionally tiny and we don't keep an audit log.
 export async function DELETE(
-  _req: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const gate = await requireSpaUser();
+  const gate = await requireSpaCaller(request);
   if (gate instanceof NextResponse) return gate;
 
   const { id } = await params;

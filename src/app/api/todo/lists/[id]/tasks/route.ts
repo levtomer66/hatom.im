@@ -6,7 +6,7 @@ import { isYmd, sanitizeAssignees, normalizeColumn, type CreateTaskDto } from '@
 
 export async function POST(request: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   const { id } = await ctx.params;
-  const access = await requireListMember(id);
+  const access = await requireListMember(request, id);
   if (access instanceof NextResponse) return access;
   try {
     const data = (await request.json()) as CreateTaskDto;

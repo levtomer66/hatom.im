@@ -6,7 +6,7 @@ import { isYmd, sanitizeAssignees, normalizeColumn, type UpdateTaskDto } from '@
 
 export async function PATCH(request: NextRequest, ctx: { params: Promise<{ id: string; taskId: string }> }) {
   const { id, taskId } = await ctx.params;
-  const access = await requireListMember(id);
+  const access = await requireListMember(request, id);
   if (access instanceof NextResponse) return access;
   try {
     const existing = await getTaskById(id, taskId);
@@ -46,9 +46,9 @@ export async function PATCH(request: NextRequest, ctx: { params: Promise<{ id: s
   }
 }
 
-export async function DELETE(_req: NextRequest, ctx: { params: Promise<{ id: string; taskId: string }> }) {
+export async function DELETE(request: NextRequest, ctx: { params: Promise<{ id: string; taskId: string }> }) {
   const { id, taskId } = await ctx.params;
-  const access = await requireListMember(id);
+  const access = await requireListMember(request, id);
   if (access instanceof NextResponse) return access;
   try {
     const ok = await deleteTask(id, taskId);

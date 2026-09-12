@@ -18,6 +18,17 @@ import {
   updateTask,
 } from '@/models/Todo';
 import { normalizeColumn } from '@/types/todo';
+import { getAllCoffeeReviews } from '@/models/CoffeeReview';
+import { scoreReview } from '@/types/coffee';
+import { getAllSpaSessions, createSpaSession } from '@/models/SpaSession';
+import {
+  spaUserIdFromEmail,
+  otherSpaUser,
+  getSpaUser,
+  isValidSpaDuration,
+  clampSpicyFlags,
+  coerceFlags,
+} from '@/types/spa';
 
 // Remote HTTP MCP server for AI clients (Claude etc.). Hand-rolled JSON-RPC 2.0
 // over POST — a stateless tools server, no SSE. Auth is the same personal API
@@ -197,6 +208,76 @@ const TOOLS: McpTool[] = [
       const task = await updateTask(listId, taskId, { done, doneBy: caller.userEmail });
       if (!task) throw new Error('Task not found.');
       return `Task ${task.id} marked ${task.done ? 'done' : 'not done'}.`;
+    },
+  },
+  {
+    name: 'list_coffee_reviews',
+    description: 'List café coffee reviews (place name and combined score), best first.',
+    permission: 'mekafkefim',
+    inputSchema: { type: 'object', properties: {}, additionalProperties: false },
+    handler: async () => {
+      const reviews = await getAllCoffeeReviews();
+      if (reviews.length === 0) return 'No reviews.';
+      return reviews
+        .sort((a, b) => scoreReview(b).combined - scoreReview(a).combined)
+        .map((r) => `- ${r.placeName}: ${scoreReview(r).combined.toFixed(1)}`)
+        .join('\n');
+    },
+  },
+  {
+    name: 'list_spa_sessions',
+    description: 'List scheduled/past spa sessions (giver → receiver, when, duration). SPA users only.',
+    permission: 'spa',
+    inputSchema: { type: 'object', properties: {}, additionalProperties: false },
+    handler: async (_args, caller) => {
+      if (!spaUserIdFromEmail(caller.userEmail)) throw new Error('Not a spa user.');
+      const sessions = await getAllSpaSessions();
+      if (sessions.length === 0) return 'No spa sessions.';
+      return sessions
+        .map(
+          (s) =>
+            `- ${getSpaUser(s.giverId).name} → ${getSpaUser(s.receiverId).name}, ${s.scheduledAt}, ${s.durationMinutes}min`
+        )
+        .join('\n');
+    },
+  },
+  {
+    name: 'book_spa_session',
+    description:
+      'Book a spa session. The caller is the receiver; the other spa user is the giver. SPA users only.',
+    permission: 'spa',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        scheduledAt: { type: 'string', description: 'ISO date-time.' },
+        durationMinutes: { type: 'number', enum: [30, 60, 90] },
+        preferences: { type: 'string' },
+        happyEnding: { type: 'boolean' },
+      },
+      required: ['scheduledAt', 'durationMinutes'],
+      additionalProperties: false,
+    },
+    handler: async (args, caller) => {
+      const receiverId = spaUserIdFromEmail(caller.userEmail);
+      if (!receiverId) throw new Error('Not a spa user.');
+      const durationMinutes = args.durationMinutes;
+      if (!isValidSpaDuration(durationMinutes)) {
+        throw new Error('durationMinutes must be 30, 60, or 90.');
+      }
+      const scheduledAt = str(args, 'scheduledAt');
+      if (!scheduledAt || Number.isNaN(new Date(scheduledAt).getTime())) {
+        throw new Error('scheduledAt must be a valid date-time.');
+      }
+      const happyEnding = args.happyEnding === true;
+      const session = await createSpaSession({
+        giverId: otherSpaUser(receiverId),
+        scheduledAt,
+        durationMinutes,
+        flags: clampSpicyFlags(coerceFlags(args.flags), happyEnding),
+        preferences: (str(args, 'preferences') ?? '').slice(0, 2000),
+        happyEnding,
+      });
+      return `Booked spa: ${getSpaUser(session.giverId).name} → ${getSpaUser(session.receiverId).name}, ${session.scheduledAt}, ${session.durationMinutes}min`;
     },
   },
 ];

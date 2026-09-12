@@ -4,7 +4,7 @@ import {
   updateCoffeeReview,
   deleteCoffeeReview
 } from '@/models/CoffeeReview';
-import { requirePagePermission } from '@/lib/auth-helpers';
+import { requireFeatureCaller } from '@/lib/api-caller';
 import { resolveDisabledCategories } from '@/types/coffee';
 
 // GET handler to retrieve a single coffee review by ID
@@ -39,7 +39,7 @@ export async function PATCH(
   request: NextRequest,
   context: { params: Promise<{ id: string }> }
 ) {
-  const gate = await requirePagePermission('mekafkefim:write');
+  const gate = await requireFeatureCaller(request, 'mekafkefim:write');
   if (gate instanceof NextResponse) return gate;
 
   try {
@@ -109,7 +109,7 @@ export async function DELETE(
   request: NextRequest,
   context: { params: Promise<{ id: string }> }
 ) {
-  const gate = await requirePagePermission('mekafkefim:write');
+  const gate = await requireFeatureCaller(request, 'mekafkefim:write');
   if (gate instanceof NextResponse) return gate;
 
   try {

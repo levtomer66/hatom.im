@@ -3,9 +3,9 @@ import { requireListMember } from '@/lib/todo-access';
 import { getTasksForList, updateList, deleteListCascade, countArchives } from '@/models/Todo';
 import { isTodoSortBy, type TodoListDetail, type TodoSortBy, type UpdateListDto } from '@/types/todo';
 
-export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
+export async function GET(request: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   const { id } = await ctx.params;
-  const access = await requireListMember(id);
+  const access = await requireListMember(request, id);
   if (access instanceof NextResponse) return access;
   try {
     const [tasks, archiveCount] = await Promise.all([getTasksForList(id), countArchives(id)]);
@@ -19,7 +19,7 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string
 
 export async function PATCH(request: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   const { id } = await ctx.params;
-  const access = await requireListMember(id);
+  const access = await requireListMember(request, id);
   if (access instanceof NextResponse) return access;
   try {
     const data = (await request.json()) as UpdateListDto;
@@ -52,9 +52,9 @@ export async function PATCH(request: NextRequest, ctx: { params: Promise<{ id: s
   }
 }
 
-export async function DELETE(_req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
+export async function DELETE(request: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   const { id } = await ctx.params;
-  const access = await requireListMember(id);
+  const access = await requireListMember(request, id);
   if (access instanceof NextResponse) return access;
   if (access.list.createdBy !== access.email) {
     return NextResponse.json({ error: 'Only the creator can delete the list' }, { status: 403 });

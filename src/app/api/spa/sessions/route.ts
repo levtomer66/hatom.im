@@ -10,7 +10,7 @@ import {
   otherSpaUser,
 } from '@/types/spa';
 import { getAllSpaSessions, createSpaSession } from '@/models/SpaSession';
-import { requireSpaUser } from '@/lib/auth-helpers';
+import { requireSpaCaller } from '@/lib/api-caller';
 
 const NTFY_TOPIC = 'hatomim_spa';
 
@@ -47,8 +47,8 @@ function notifySpaSchedule(session: SpaSession): void {
 // GET — spa session history. Visible to any signed-in SPA_USER (Tom or
 // Tomer); the two are the only people who can be a giver/receiver, so
 // they're also the only people who'd find the list meaningful.
-export async function GET() {
-  const gate = await requireSpaUser();
+export async function GET(request: NextRequest) {
+  const gate = await requireSpaCaller(request);
   if (gate instanceof NextResponse) return gate;
 
   try {
@@ -67,7 +67,7 @@ export async function GET() {
 // ownership). The receiver is the signed-in Tom; the giver is the OTHER
 // Tom. Any client-supplied giverId is ignored.
 export async function POST(request: NextRequest) {
-  const gate = await requireSpaUser();
+  const gate = await requireSpaCaller(request);
   if (gate instanceof NextResponse) return gate;
 
   const receiverId = gate.spaUserId;

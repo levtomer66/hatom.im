@@ -3,6 +3,7 @@ import { requirePagePermission } from '@/lib/auth-helpers';
 import { getAuthorizedEmailEntry } from '@/models/AuthorizedEmail';
 import { getApiKeyOwner, isApiKeyFormat } from '@/models/UserApiSettings';
 import { isOwnerEmail } from '@/types/auth';
+import { spaUserIdFromEmail, type SpaUserId } from '@/types/spa';
 import type { PermissionKey } from '@/types/permissions';
 
 // One gate for every feature route that both a browser and a headless caller
@@ -74,5 +75,26 @@ export async function requireFeatureCaller(
     userName: gate.session.user.name?.trim() || email.split('@')[0],
     authMode: 'session',
     defaultCoffeeFavoriteId: null,
+  };
+}
+
+// Spa is restricted to the two SPA_USERS (the giver/receiver pair), independent
+// of site ownership. A spa caller must hold the `spa` permission AND resolve to
+// a SpaUserId — enforced identically for a browser session and a personal key.
+export async function requireSpaCaller(
+  request: NextRequest
+): Promise<
+  | { userEmail: string; userName: string; spaUserId: SpaUserId; authMode: 'session' | 'api-key' }
+  | NextResponse
+> {
+  const caller = await requireFeatureCaller(request, 'spa');
+  if (caller instanceof NextResponse) return caller;
+  const spaUserId = spaUserIdFromEmail(caller.userEmail);
+  if (!spaUserId) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  return {
+    userEmail: caller.userEmail,
+    userName: caller.userName,
+    spaUserId,
+    authMode: caller.authMode,
   };
 }
