@@ -4,7 +4,7 @@ import { requirePagePermission } from '@/lib/auth-helpers';
 import { requireFeatureCaller } from '@/lib/api-caller';
 import { notifyCoffeeOrder } from '@/lib/coffee-notify';
 import { getCoffeeOrdersForUser, createCoffeeOrder } from '@/models/CoffeeOrder';
-import { getCoffeeFavoriteForUser } from '@/models/CoffeeFavorite';
+import { getCoffeeFavoriteForUser, getCoffeeFavoritesForUser } from '@/models/CoffeeFavorite';
 import {
   CreateCoffeeOrderDto,
   isValidDrink,
@@ -38,16 +38,14 @@ export async function GET() {
 
 // POST — place an order. Two callers:
 //   • Session (browser): the full CreateCoffeeOrderDto body, validated + clamped.
-//   • Personal API key (Shortcut / macOS / MCP): NO body — orders the caller's
-//     chosen default favorite (or built-in defaults), always delivered "now".
+//   • Personal API key (Shortcut / macOS / MCP): the ONLY accepted field is an
+//     optional `favoriteName` — order that saved favorite. With no body, order
+//     the caller's chosen default favorite (or built-in defaults). Always "now".
 export async function POST(request: NextRequest) {
   const caller = await requireFeatureCaller(request, 'coffee-order');
   if (caller instanceof NextResponse) return caller;
 
   if (caller.authMode === 'api-key') {
-    // An absent or empty body is expected. A body WITH fields is rejected so a
-    // client never believes per-request overrides were applied — the drink is
-    // configured once, in settings, as the default favorite.
     let raw: unknown;
     try {
       const text = await request.text();
@@ -55,21 +53,38 @@ export async function POST(request: NextRequest) {
     } catch {
       return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
     }
-    if (
-      raw &&
-      typeof raw === 'object' &&
-      (Array.isArray(raw) ? raw.length > 0 : Object.keys(raw).length > 0)
-    ) {
+    // Accept only an optional string `favoriteName` (an empty body parsed to {}
+    // above); reject a non-object or any other field so a client can't believe
+    // arbitrary per-request drink overrides were applied.
+    if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) {
       return NextResponse.json(
-        { error: 'API-key orders take no body; pick a default favorite in settings' },
+        { error: 'API-key orders accept only an optional favoriteName' },
         { status: 400 }
       );
     }
+    const bodyObj = raw as Record<string, unknown>;
+    if (Object.keys(bodyObj).some((k) => k !== 'favoriteName')) {
+      return NextResponse.json(
+        { error: 'API-key orders accept only an optional favoriteName' },
+        { status: 400 }
+      );
+    }
+    const favoriteName =
+      typeof bodyObj.favoriteName === 'string' ? bodyObj.favoriteName.trim() : '';
     try {
-      const fav = caller.defaultCoffeeFavoriteId
-        ? await getCoffeeFavoriteForUser(caller.defaultCoffeeFavoriteId, caller.userEmail)
-        : null;
-      // A deleted/foreign/absent default silently falls back to built-in defaults.
+      let fav = null;
+      if (favoriteName) {
+        // Order a specific saved favorite by name (the caller's own).
+        const favs = await getCoffeeFavoritesForUser(caller.userEmail);
+        fav = favs.find((f) => f.name === favoriteName) ?? null;
+        if (!fav) {
+          return NextResponse.json({ error: 'Favorite not found' }, { status: 404 });
+        }
+      } else if (caller.defaultCoffeeFavoriteId) {
+        // No name → the chosen default; a deleted/foreign default falls back to
+        // built-in defaults below.
+        fav = await getCoffeeFavoriteForUser(caller.defaultCoffeeFavoriteId, caller.userEmail);
+      }
       const dto = fav
         ? orderDtoFromFavorite(fav)
         : { ...defaultDrinkConfig(), deliveryType: 'now' as const };
