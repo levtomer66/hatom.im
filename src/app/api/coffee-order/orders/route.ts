@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { after } from 'next/server';
 import { requirePagePermission } from '@/lib/auth-helpers';
+import { requireFeatureCaller } from '@/lib/api-caller';
 import { notifyCoffeeOrder } from '@/lib/coffee-notify';
 import { getCoffeeOrdersForUser, createCoffeeOrder } from '@/models/CoffeeOrder';
+import { getCoffeeFavoriteForUser } from '@/models/CoffeeFavorite';
 import {
   CreateCoffeeOrderDto,
   isValidDrink,
@@ -12,6 +14,8 @@ import {
   resolveCapsule,
   resolveGlassColor,
   clampPumps,
+  orderDtoFromFavorite,
+  defaultDrinkConfig,
 } from '@/types/coffee-order';
 
 // GET — the signed-in user's own order history, newest first.
@@ -32,13 +36,60 @@ export async function GET() {
   }
 }
 
-// POST — place an order. Identity comes from the session; drink config is
-// validated + clamped before persisting.
+// POST — place an order. Two callers:
+//   • Session (browser): the full CreateCoffeeOrderDto body, validated + clamped.
+//   • Personal API key (Shortcut / macOS / MCP): NO body — orders the caller's
+//     chosen default favorite (or built-in defaults), always delivered "now".
 export async function POST(request: NextRequest) {
-  const gate = await requirePagePermission('coffee-order');
-  if (gate instanceof NextResponse) return gate;
-  const email = gate.session.user.email;
-  const userName = gate.session.user.name ?? email;
+  const caller = await requireFeatureCaller(request, 'coffee-order');
+  if (caller instanceof NextResponse) return caller;
+
+  if (caller.authMode === 'api-key') {
+    // An absent or empty body is expected. A body WITH fields is rejected so a
+    // client never believes per-request overrides were applied — the drink is
+    // configured once, in settings, as the default favorite.
+    let raw: unknown;
+    try {
+      const text = await request.text();
+      raw = text.trim() ? JSON.parse(text) : {};
+    } catch {
+      return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+    }
+    if (
+      raw &&
+      typeof raw === 'object' &&
+      !Array.isArray(raw) &&
+      Object.keys(raw).length > 0
+    ) {
+      return NextResponse.json(
+        { error: 'API-key orders take no body; pick a default favorite in settings' },
+        { status: 400 }
+      );
+    }
+    try {
+      const fav = caller.defaultCoffeeFavoriteId
+        ? await getCoffeeFavoriteForUser(caller.defaultCoffeeFavoriteId, caller.userEmail)
+        : null;
+      // A deleted/foreign/absent default silently falls back to built-in defaults.
+      const dto = fav
+        ? orderDtoFromFavorite(fav)
+        : { ...defaultDrinkConfig(), deliveryType: 'now' as const };
+      const order = await createCoffeeOrder({
+        userEmail: caller.userEmail,
+        userName: caller.userName,
+        ...dto,
+      });
+      after(() => notifyCoffeeOrder(order));
+      return NextResponse.json(order, { status: 201 });
+    } catch (error) {
+      console.error('Error creating coffee order (api-key):', error);
+      return NextResponse.json({ error: 'Failed to create coffee order' }, { status: 500 });
+    }
+  }
+
+  // Session mode — unchanged behavior.
+  const email = caller.userEmail;
+  const userName = caller.userName;
 
   let data: Partial<CreateCoffeeOrderDto>;
   try {
@@ -113,8 +164,6 @@ export async function POST(request: NextRequest) {
       ...(scheduledAt ? { scheduledAt } : {}),
     });
 
-    // after() keeps the function alive past the response until the push is
-    // delivered (waitUntil semantics on Vercel) without delaying the caller.
     after(() => notifyCoffeeOrder(order));
     return NextResponse.json(order, { status: 201 });
   } catch (error) {

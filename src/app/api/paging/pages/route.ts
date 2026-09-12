@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
-import { requirePagingCaller } from '@/lib/paging-auth';
+import { requireFeatureCaller } from '@/lib/api-caller';
 import {
   PagerDutyConfigurationError,
   PagerDutyUpstreamError,
@@ -9,7 +9,9 @@ import {
 import { parsePageRequest } from '@/types/paging';
 
 export async function POST(request: NextRequest) {
-  const caller = await requirePagingCaller(request);
+  // Browser session OR a personal API key (Shortcut / macOS app / MCP). The
+  // key owner must currently hold the `paging` permission.
+  const caller = await requireFeatureCaller(request, 'paging');
   if (caller instanceof NextResponse) return caller;
 
   let body: unknown;
@@ -30,8 +32,8 @@ export async function POST(request: NextRequest) {
     const result = await createPageIncident({
       ...page,
       pageId: randomUUID(),
-      callerEmail: caller.email,
-      source: caller.source,
+      callerEmail: caller.userEmail,
+      source: caller.authMode === 'api-key' ? 'shortcut' : 'web',
     });
     return NextResponse.json(result, { status: 201 });
   } catch (error) {
