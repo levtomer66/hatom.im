@@ -118,3 +118,28 @@ test('resolveDisabledCategories defaults, de-dupes, and rejects', () => {
   assert.equal(resolveDisabledCategories([1]), null);
   assert.equal(resolveDisabledCategories({ food: true }), null);
 });
+
+test('a review with no pastry rating scores exactly as before (pastry unrated)', () => {
+  // RATED has no pastry fields → pastry is 0 = unrated = excluded.
+  const s = scoreReview(RATED);
+  assert.equal(byId(s, 'pastry').tom, 0);
+  assert.equal(byId(s, 'pastry').combined, 0);
+  // Tom's overall is still the mean of his 4 rated categories (8,4,7,9) = 7.0
+  assert.equal(s.tom, 7);
+});
+
+test('a rated pastry participates in the average', () => {
+  const s = scoreReview({ ...RATED, tomPastryRating: 10, tomerPastryRating: 10 });
+  // Tom now averages 8,4,10,7,9 = 7.6
+  assert.equal(Number(s.tom.toFixed(2)), 7.6);
+  assert.equal(byId(s, 'pastry').combined, 10);
+});
+
+test('disabling pastry excludes it even when rated', () => {
+  const s = scoreReview({
+    ...RATED, tomPastryRating: 1, tomerPastryRating: 1,
+    disabledCategories: ['pastry'],
+  });
+  assert.equal(byId(s, 'pastry').disabled, true);
+  assert.equal(s.tom, 7); // back to the 4-category average
+});
