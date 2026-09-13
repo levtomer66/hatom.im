@@ -223,3 +223,21 @@ export function reviewerGap(review: ScorableReview): number {
   if (s.tom <= 0 || s.tomer <= 0) return 0;
   return Math.abs(s.tom - s.tomer);
 }
+
+export function isOpenNow(hours: OpeningHours | undefined, at: Date = new Date()): boolean {
+  if (!Array.isArray(hours) || hours.length !== 7) return false;
+  const fmt = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Asia/Jerusalem',
+    weekday: 'short', hour: '2-digit', minute: '2-digit', hour12: false,
+  });
+  const parts = fmt.formatToParts(at);
+  const wk = parts.find((p) => p.type === 'weekday')?.value ?? '';
+  const hh = parts.find((p) => p.type === 'hour')?.value ?? '00';
+  const mm = parts.find((p) => p.type === 'minute')?.value ?? '00';
+  const dayIndex = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].indexOf(wk);
+  if (dayIndex < 0) return false;
+  const entry = hours[dayIndex];
+  if (!entry) return false;
+  const now = `${hh}:${mm}`;
+  return entry.open <= now && now < entry.close; // zero-padded HH:MM compares lexically
+}

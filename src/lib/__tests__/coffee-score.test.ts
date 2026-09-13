@@ -4,6 +4,7 @@ import {
   COFFEE_AREAS,
   COFFEE_CATEGORIES,
   COFFEE_TAGS,
+  isOpenNow,
   isValidArea,
   priceTier,
   resolveDisabledCategories,
@@ -191,4 +192,26 @@ test('reviewerGap is the absolute overall difference, 0 when one side is unrated
   assert.equal(reviewerGap({ tomCoffeeRating: 9 }), 0);
   // empty → 0
   assert.equal(reviewerGap({}), 0);
+});
+
+// A weekly schedule: closed Sunday(0), open 08:00-17:00 the rest.
+const HOURS = [
+  null,
+  { open: '08:00', close: '17:00' },
+  { open: '08:00', close: '17:00' },
+  { open: '08:00', close: '17:00' },
+  { open: '08:00', close: '17:00' },
+  { open: '08:00', close: '17:00' },
+  { open: '09:00', close: '14:00' },
+];
+
+test('isOpenNow respects the Jerusalem weekday + time', () => {
+  // 2026-09-14 is a Monday. 12:00 Jerusalem (09:00Z in Sep, IDT = UTC+3).
+  assert.equal(isOpenNow(HOURS, new Date('2026-09-14T09:00:00Z')), true);
+  // Monday 18:00 Jerusalem (15:00Z) → closed
+  assert.equal(isOpenNow(HOURS, new Date('2026-09-14T15:00:00Z')), false);
+  // 2026-09-13 is a Sunday → closed all day
+  assert.equal(isOpenNow(HOURS, new Date('2026-09-13T09:00:00Z')), false);
+  // no data → false
+  assert.equal(isOpenNow(undefined, new Date('2026-09-14T09:00:00Z')), false);
 });
