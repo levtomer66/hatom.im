@@ -242,6 +242,67 @@ export function isOpenNow(hours: OpeningHours | undefined, at: Date = new Date()
   return entry.open <= now && now < entry.close; // zero-padded HH:MM compares lexically
 }
 
+// ─── Sort + filter ──────────────────────────────────────────────────────────
+
+export type SortMetric =
+  | 'coffee' | 'overall' | 'food' | 'pastry' | 'atmosphere' | 'value'
+  | 'coffeePrice' | 'date' | 'name';
+export type SortPerspective = 'combined' | 'tom' | 'tomer';
+export interface SortSpec { metric: SortMetric; perspective: SortPerspective; dir: 'asc' | 'desc' }
+export interface CoffeeFilters {
+  q?: string; areas?: string[]; tags?: string[]; tiers?: (1|2|3)[];
+  minCoffee?: number; hasPhoto?: boolean; hideUnrated?: boolean; openNow?: boolean;
+}
+
+function metricValue(r: CoffeeReview, m: SortMetric, p: SortPerspective): number | null {
+  if (m === 'coffeePrice') return typeof r.coffeePriceIls === 'number' && r.coffeePriceIls > 0 ? r.coffeePriceIls : null;
+  if (m === 'date') return new Date(r.createdAt).getTime();
+  if (m === 'name') return null; // handled by caller (string compare)
+  const s = scoreReview(r);
+  const pick = (v: { tom: number; tomer: number; combined: number }) =>
+    p === 'tom' ? v.tom : p === 'tomer' ? v.tomer : v.combined;
+  let v: number;
+  if (m === 'overall') v = pick(s);
+  else {
+    const id = (m === 'value' ? 'price' : m) as CoffeeCategory;
+    const cat = s.categories.find((c) => c.id === id)!;
+    v = pick(cat);
+  }
+  return v > 0 ? v : null;
+}
+
+export function sortReviews<T extends CoffeeReview>(reviews: T[], spec: SortSpec): T[] {
+  const { metric, perspective, dir } = spec;
+  const sign = dir === 'asc' ? 1 : -1;
+  return [...reviews].sort((a, b) => {
+    if (metric === 'name') return a.placeName.localeCompare(b.placeName, 'he') * sign;
+    const av = metricValue(a, metric, perspective);
+    const bv = metricValue(b, metric, perspective);
+    if (av === null && bv === null) return 0;
+    if (av === null) return 1;   // blanks always last
+    if (bv === null) return -1;
+    return (av - bv) * sign;
+  });
+}
+
+export function filterReviews<T extends CoffeeReview>(reviews: T[], f: CoffeeFilters, at: Date = new Date()): T[] {
+  const q = f.q?.trim().toLowerCase();
+  return reviews.filter((r) => {
+    if (q && !r.placeName.toLowerCase().includes(q)) return false;
+    if (f.areas?.length && !(r.area && f.areas.includes(r.area))) return false;
+    if (f.tags?.length && !f.tags.every((t) => r.tags?.includes(t))) return false;
+    if (f.tiers?.length && !f.tiers.includes(priceTier(r.coffeePriceIls) as 1|2|3)) return false;
+    if (typeof f.minCoffee === 'number') {
+      const c = scoreReview(r).categories.find((x) => x.id === 'coffee')!.combined;
+      if (!(c >= f.minCoffee)) return false;
+    }
+    if (f.hasPhoto && !r.photoUrl) return false;
+    if (f.hideUnrated && scoreReview(r).combined <= 0) return false;
+    if (f.openNow && !isOpenNow(r.openingHours, at)) return false;
+    return true;
+  });
+}
+
 export function resolveTriedItems(v: unknown): TriedItem[] | null {
   if (v === undefined || v === null) return [];
   if (!Array.isArray(v) || v.length > 20) return null;

@@ -4,6 +4,7 @@ import {
   COFFEE_AREAS,
   COFFEE_CATEGORIES,
   COFFEE_TAGS,
+  filterReviews,
   isOpenNow,
   isValidArea,
   priceTier,
@@ -13,7 +14,9 @@ import {
   resolveTriedItems,
   reviewerGap,
   scoreReview,
+  sortReviews,
   type CoffeeCategory,
+  type CoffeeReview,
   type ScorableReview,
 } from '../../types/coffee.ts';
 
@@ -241,4 +244,33 @@ test('resolveOpeningHours validates a 7-day grid', () => {
     resolveOpeningHours([{ open: '18:00', close: '09:00' }, null, null, null, null, null, null]),
     null,                                                      // close <= open
   );
+});
+
+const A: CoffeeReview = { id:'a', placeName:'Alfa', createdAt:'2026-01-01T00:00:00Z', updatedAt:'',
+  tomCoffeeRating:9, tomFoodRating:0, tomPastryRating:0, tomAtmosphereRating:0, tomPriceRating:0,
+  tomerCoffeeRating:9, tomerFoodRating:0, tomerPastryRating:0, tomerAtmosphereRating:0, tomerPriceRating:0,
+  coffeePriceIls:18, tags:['work'], area:'פלורנטין', photoUrl:'x' };
+const B: CoffeeReview = { id:'b', placeName:'Bravo', createdAt:'2026-02-01T00:00:00Z', updatedAt:'',
+  tomCoffeeRating:6, tomFoodRating:0, tomPastryRating:0, tomAtmosphereRating:0, tomPriceRating:0,
+  tomerCoffeeRating:6, tomerFoodRating:0, tomerPastryRating:0, tomerAtmosphereRating:0, tomerPriceRating:0,
+  coffeePriceIls:14, tags:[], area:'יפו' };
+const C: CoffeeReview = { id:'c', placeName:'Charlie', createdAt:'2026-03-01T00:00:00Z', updatedAt:'',
+  tomCoffeeRating:0, tomFoodRating:0, tomPastryRating:0, tomAtmosphereRating:0, tomPriceRating:0,
+  tomerCoffeeRating:0, tomerFoodRating:0, tomerPastryRating:0, tomerAtmosphereRating:0, tomerPriceRating:0 };
+
+test('sortReviews by coffee desc puts the unrated place last', () => {
+  const out = sortReviews([C, B, A], { metric:'coffee', perspective:'combined', dir:'desc' });
+  assert.deepEqual(out.map((r) => r.id), ['a', 'b', 'c']);
+});
+test('sortReviews by coffeePrice asc keeps unknown-price places last', () => {
+  const out = sortReviews([A, C, B], { metric:'coffeePrice', perspective:'combined', dir:'asc' });
+  assert.deepEqual(out.map((r) => r.id), ['b', 'a', 'c']); // 14, 18, then no-price
+});
+test('filterReviews stacks predicates', () => {
+  assert.deepEqual(filterReviews([A,B,C], { tags:['work'] }).map(r=>r.id), ['a']);
+  assert.deepEqual(filterReviews([A,B,C], { areas:['יפו'] }).map(r=>r.id), ['b']);
+  assert.deepEqual(filterReviews([A,B,C], { hasPhoto:true }).map(r=>r.id), ['a']);
+  assert.deepEqual(filterReviews([A,B,C], { hideUnrated:true }).map(r=>r.id), ['a','b']);
+  assert.deepEqual(filterReviews([A,B,C], { minCoffee:7 }).map(r=>r.id), ['a']);
+  assert.deepEqual(filterReviews([A,B,C], { q:'brav' }).map(r=>r.id), ['b']);
 });
