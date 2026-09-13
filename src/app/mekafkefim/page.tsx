@@ -7,8 +7,20 @@ import { Playfair_Display, Courier_Prime } from 'next/font/google';
 import Navbar from '@/components/Navbar';
 import CoffeeReviewCard from '@/components/CoffeeReviewCard';
 import AddCoffeeReviewForm from '@/components/AddCoffeeReviewForm';
-import { CoffeeReview, scoreReview } from '@/types/coffee';
+import CoffeeStatsHeader from '@/components/CoffeeStatsHeader';
+import CoffeeControlsBar from '@/components/CoffeeControlsBar';
+import {
+  CoffeeReview,
+  CoffeeControls,
+  DEFAULT_CONTROLS,
+  parseControls,
+  serializeControls,
+  sortReviews,
+  filterReviews,
+} from '@/types/coffee';
 import { hasPermission } from '@/lib/permissions';
+
+const CONTROLS_STORAGE_KEY = 'mekafkefim:controls';
 
 const playfair = Playfair_Display({ subsets: ['latin'], weight: ['400', '600', '700', '900'], style: ['normal', 'italic'] });
 const courier = Courier_Prime({ subsets: ['latin'], weight: ['400', '700'] });
@@ -38,6 +50,46 @@ export default function MekafkefimPage() {
   const [error, setError] = useState<string | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
 
+  // Sort/filter controls (Task 16). Start at the defaults and hydrate from
+  // the URL (wins) or localStorage (fallback) once, on mount — never via
+  // useSearchParams, which forces a Suspense boundary / CSR bailout under
+  // Next 15. `controlsHydrated` gates the sync effect below so it doesn't
+  // fire with the as-yet-unhydrated DEFAULT_CONTROLS and stomp the URL or
+  // localStorage before the mount effect has read them.
+  const [controls, setControls] = useState<CoffeeControls>(DEFAULT_CONTROLS);
+  const [controlsHydrated, setControlsHydrated] = useState(false);
+
+  useEffect(() => {
+    const search = window.location.search.replace(/^\?/, '');
+    if (search) {
+      setControls(parseControls(search));
+    } else {
+      try {
+        const raw = localStorage.getItem(CONTROLS_STORAGE_KEY);
+        if (raw) {
+          const parsed = JSON.parse(raw) as Partial<CoffeeControls> | null;
+          if (parsed && typeof parsed === 'object' && parsed.sort && parsed.filters) {
+            setControls(parsed as CoffeeControls);
+          }
+        }
+      } catch {
+        // Malformed/unavailable localStorage — keep DEFAULT_CONTROLS.
+      }
+    }
+    setControlsHydrated(true);
+  }, []);
+
+  useEffect(() => {
+    if (!controlsHydrated) return;
+    const qs = serializeControls(controls);
+    router.replace(qs ? `?${qs}` : window.location.pathname);
+    try {
+      localStorage.setItem(CONTROLS_STORAGE_KEY, JSON.stringify(controls));
+    } catch {
+      // Storage unavailable/full — the URL still reflects the state.
+    }
+  }, [controls, controlsHydrated, router]);
+
   const fetchReviews = async () => {
     try {
       setIsLoading(true);
@@ -60,9 +112,7 @@ export default function MekafkefimPage() {
     fetchReviews();
   };
 
-  const sortedReviews = [...reviews].sort(
-    (a, b) => scoreReview(b).combined - scoreReview(a).combined
-  );
+  const visible = sortReviews(filterReviews(reviews, controls.filters), controls.sort);
 
   return (
     <>
@@ -179,32 +229,44 @@ export default function MekafkefimPage() {
           </div>
         ) : error ? (
           <p style={{ color: '#8a3020', textAlign: 'center' }}>{error}</p>
-        ) : sortedReviews.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '80px 0' }}>
-            <p className={playfair.className} style={{ fontSize: '1.5rem', color: '#8a7040', fontStyle: 'italic' }}>אין ביקורות עדיין</p>
-          </div>
         ) : (
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
-            gap: '28px',
-          }}>
-            {sortedReviews.map((review, index) => (
-              <div
-                key={review.id}
-                className="card-pop"
-                style={{ animationDelay: `${index * 55}ms` }}
-              >
-                <CoffeeReviewCard
-                  review={review}
-                  onDelete={canWrite ? handleDeleteReview : undefined}
-                  onUpdate={canWrite ? fetchReviews : undefined}
-                  rank={index + 1}
-                  isPriority={index === 0}
-                />
+          <>
+            {/* Leaderboard tiles always reflect ALL reviews, not the
+                filtered/sorted subset below. */}
+            <CoffeeStatsHeader reviews={reviews} />
+            <CoffeeControlsBar controls={controls} onChange={setControls} />
+
+            {visible.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '80px 0' }}>
+                <p className={playfair.className} style={{ fontSize: '1.5rem', color: '#8a7040', fontStyle: 'italic' }}>
+                  {reviews.length === 0 ? 'אין ביקורות עדיין' : 'אין בתי קפה שתואמים את הסינון'}
+                </p>
               </div>
-            ))}
-          </div>
+            ) : (
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
+                gap: '28px',
+              }}>
+                {visible.map((review, index) => (
+                  <div
+                    key={review.id}
+                    className="card-pop"
+                    style={{ animationDelay: `${index * 55}ms` }}
+                  >
+                    <CoffeeReviewCard
+                      review={review}
+                      onDelete={canWrite ? handleDeleteReview : undefined}
+                      onUpdate={canWrite ? fetchReviews : undefined}
+                      rank={index + 1}
+                      isPriority={index === 0}
+                      headlineMetric={controls.sort.metric}
+                    />
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
         )}
 
         {/* Footer note */}
