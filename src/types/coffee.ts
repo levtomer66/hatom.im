@@ -241,3 +241,39 @@ export function isOpenNow(hours: OpeningHours | undefined, at: Date = new Date()
   const now = `${hh}:${mm}`;
   return entry.open <= now && now < entry.close; // zero-padded HH:MM compares lexically
 }
+
+export function resolveTriedItems(v: unknown): TriedItem[] | null {
+  if (v === undefined || v === null) return [];
+  if (!Array.isArray(v) || v.length > 20) return null;
+  const out: TriedItem[] = [];
+  for (const raw of v) {
+    if (typeof raw !== 'object' || raw === null) return null;
+    const obj = raw as Record<string, unknown>;
+    const name = typeof obj.name === 'string' ? obj.name.trim() : null;
+    if (name === null || name.length > 60) return null;
+    if (name === '') continue; // drop blank rows
+    const price = obj.priceIls;
+    if (price !== undefined) {
+      if (typeof price !== 'number' || !(price >= 0)) return null;
+      out.push({ name, priceIls: price });
+    } else {
+      out.push({ name });
+    }
+  }
+  return out;
+}
+
+const HHMM = /^\d{2}:\d{2}$/;
+export function resolveOpeningHours(v: unknown): OpeningHours | null {
+  if (!Array.isArray(v) || v.length !== 7) return null;
+  const out: OpeningHours = [];
+  for (const entry of v) {
+    if (entry === null) { out.push(null); continue; }
+    if (typeof entry !== 'object') return null;
+    const { open, close } = entry as Record<string, unknown>;
+    if (typeof open !== 'string' || typeof close !== 'string') return null;
+    if (!HHMM.test(open) || !HHMM.test(close) || !(close > open)) return null;
+    out.push({ open, close });
+  }
+  return out;
+}

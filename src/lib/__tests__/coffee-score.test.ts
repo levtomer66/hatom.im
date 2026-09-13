@@ -8,7 +8,9 @@ import {
   isValidArea,
   priceTier,
   resolveDisabledCategories,
+  resolveOpeningHours,
   resolveTags,
+  resolveTriedItems,
   reviewerGap,
   scoreReview,
   type CoffeeCategory,
@@ -214,4 +216,29 @@ test('isOpenNow respects the Jerusalem weekday + time', () => {
   assert.equal(isOpenNow(HOURS, new Date('2026-09-13T09:00:00Z')), false);
   // no data → false
   assert.equal(isOpenNow(undefined, new Date('2026-09-14T09:00:00Z')), false);
+});
+
+test('resolveTriedItems normalizes and rejects', () => {
+  assert.deepEqual(resolveTriedItems(undefined), []);
+  assert.deepEqual(
+    resolveTriedItems([{ name: '  שקשוקה ', priceIls: 52 }, { name: 'x' }]),
+    [{ name: 'שקשוקה', priceIls: 52 }, { name: 'x' }],
+  );
+  assert.deepEqual(resolveTriedItems([{ name: '   ' }]), []); // empty names dropped
+  assert.equal(resolveTriedItems([{ name: 'x', priceIls: -1 }]), null);
+  assert.equal(resolveTriedItems('nope'), null);
+});
+
+test('resolveOpeningHours validates a 7-day grid', () => {
+  const ok = [null, { open: '08:00', close: '17:00' }, null, null, null, null, null];
+  assert.deepEqual(resolveOpeningHours(ok), ok);
+  assert.equal(resolveOpeningHours([null]), null);            // wrong length
+  assert.equal(
+    resolveOpeningHours([{ open: '9:00', close: '17:00' }, null, null, null, null, null, null]),
+    null,                                                      // not zero-padded
+  );
+  assert.equal(
+    resolveOpeningHours([{ open: '18:00', close: '09:00' }, null, null, null, null, null, null]),
+    null,                                                      // close <= open
+  );
 });
