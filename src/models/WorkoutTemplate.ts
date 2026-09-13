@@ -33,10 +33,11 @@ const TemplateExerciseSchema = new Schema<TemplateExercise>({
 // Main workout template schema
 const WorkoutTemplateSchema = new Schema<WorkoutTemplateDocument>({
   // userId is the Auth.js session email (post-PR-4 SSO migration).
+  // No standalone index: getOwnTemplates is find({userId}).sort({updatedAt:-1}),
+  // covered by the { userId, updatedAt } compound declared below.
   userId: {
     type: String,
     required: true,
-    index: true,
   },
   name: {
     type: String,
@@ -46,10 +47,11 @@ const WorkoutTemplateSchema = new Schema<WorkoutTemplateDocument>({
     type: [TemplateExerciseSchema],
     default: [],
   },
+  // No standalone index on this low-cardinality boolean — getSharedTemplates
+  // filters it and sorts by updatedAt, covered by the compound below.
   sharedByOwner: {
     type: Boolean,
     default: false,
-    index: true,
   },
   // Optional protocol text + example link (see WorkoutTemplate type).
   description: { type: String, default: '' },
@@ -61,8 +63,11 @@ const WorkoutTemplateSchema = new Schema<WorkoutTemplateDocument>({
   strict: false,
 });
 
-// Compound index for efficient queries
-WorkoutTemplateSchema.index({ userId: 1, name: 1 });
+// Compound indexes matching the read paths (ESR: equality then the sort key).
+// getOwnTemplates: find({userId}).sort({updatedAt:-1}).
+WorkoutTemplateSchema.index({ userId: 1, updatedAt: -1 });
+// getSharedTemplates: find({sharedByOwner:true, userId:{$in:owners}}).sort({updatedAt:-1}).
+WorkoutTemplateSchema.index({ sharedByOwner: 1, updatedAt: -1 });
 
 // Transform _id to id in JSON
 WorkoutTemplateSchema.set('toJSON', {
