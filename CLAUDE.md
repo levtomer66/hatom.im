@@ -13,7 +13,7 @@ several independent features under separate routes:
 |--------------------|------------------------------------------------|
 | `/workout`         | Main feature. Workout tracker, i18n EN/HE + RTL, drag-and-drop reorder, YouTube/IG exercise links, feedback FAB → ntfy.sh. |
 | `/trip.html`       | **Static HTML** (not a Next route). Trip itinerary for USA + Mexico 2026: progress bar, calendar, Leaflet map, and an admin journey flow (photo upload with EXIF auto-routing → Vercel Blob). |
-| `/mekafkefim`      | Coffee reviews with two reviewers (Tom, Tomer) and base64 photos in Mongo. |
+| `/mekafkefim`      | Coffee reviews with two reviewers (Tom, Tomer) and an optional pasted photo URL. |
 | `/instomit`        | Video wall with comments + likes.              |
 | `/family-tree`     | Tree visualisation (react-d3-tree).            |
 | `/greeting`        | Small greeting page.                           |
@@ -197,9 +197,12 @@ Identity = Gmail address. Two roles:
 
 ### Coffee reviews (`/mekafkefim`)
 
-- Photos stored base64 inside the Mongo document (`src/models/CoffeeReview.ts`);
-  served via `/api/coffee-reviews/[id]/image`. This pattern pre-dates the
-  Blob setup and is fine to leave alone.
+- Photos are a single optional `photoUrl` string on the review
+  (`src/types/coffee.ts`) — the Add/Edit forms take a pasted external image
+  URL; nothing is uploaded or stored in Mongo (no base64, no Blob), so the
+  docs stay tiny (~0.5 KB) and there is no image-serving route. If you ever
+  add real photo *upload*, follow the trip-journey Blob pattern (upload to
+  Vercel Blob, store only the ref) — don't put bytes in the document.
 - **Scoring has one source of truth**: `scoreReview()` in `src/types/coffee.ts`,
   used by the API sort, the list page and the card. It replaced three
   implementations that disagreed (two `nonZeroAvg` copies plus a naive `/4`
