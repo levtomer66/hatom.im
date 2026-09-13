@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
-import { Playfair_Display, Courier_Prime } from 'next/font/google';
+import { noaShalev } from '@/lib/noaShalev';
 import Navbar from '@/components/Navbar';
 import CoffeeReviewCard from '@/components/CoffeeReviewCard';
 import AddCoffeeReviewForm from '@/components/AddCoffeeReviewForm';
@@ -22,8 +22,9 @@ import { hasPermission } from '@/lib/permissions';
 
 const CONTROLS_STORAGE_KEY = 'mekafkefim:controls';
 
-const playfair = Playfair_Display({ subsets: ['latin'], weight: ['400', '600', '700', '900'], style: ['normal', 'italic'] });
-const courier = Courier_Prime({ subsets: ['latin'], weight: ['400', '700'] });
+// One hand-lettered voice across the whole page.
+const playfair = noaShalev;
+const courier = noaShalev;
 
 export default function MekafkefimPage() {
   const router = useRouter();
@@ -125,7 +126,7 @@ export default function MekafkefimPage() {
       <link rel="preconnect" href="https://img02.restaurantguru.com" crossOrigin="anonymous" />
       <link rel="preconnect" href="https://eatintlv.com" crossOrigin="anonymous" />
       <link rel="preconnect" href="https://img.haarets.co.il" crossOrigin="anonymous" />
-    <div style={{
+    <div className={noaShalev.className} style={{
       minHeight: '100vh',
       background: '#f2e8d5',
       backgroundImage: `

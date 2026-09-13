@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import Image from 'next/image';
-import { Playfair_Display, Courier_Prime } from 'next/font/google';
+import { noaShalev } from '@/lib/noaShalev';
 import {
   CoffeeReview,
   scoreReview,
@@ -20,8 +20,8 @@ import EditCoffeeReviewForm from './EditCoffeeReviewForm';
 // to the overall combined score for the headline).
 const CATEGORY_HEADLINE_METRICS = new Set<SortMetric>(['coffee', 'food', 'pastry', 'atmosphere', 'value']);
 
-const playfair = Playfair_Display({ subsets: ['latin'], weight: ['400', '600', '700', '900'], style: ['normal', 'italic'] });
-const courier = Courier_Prime({ subsets: ['latin'], weight: ['400', '700'] });
+const playfair = noaShalev;
+const courier = noaShalev;
 
 interface CoffeeReviewCardProps {
   review: CoffeeReview;
@@ -69,7 +69,7 @@ const ScoreRing = ({
         )}
         {!disabled && (
           <text x="50%" y="50%" textAnchor="middle" dominantBaseline="central"
-            style={{ transform: 'rotate(90deg)', transformOrigin: 'center', fontFamily: 'monospace', fontSize: size * 0.22 + 'px', fill: score > 0 ? '#3a2c1a' : '#bba', fontWeight: 700 }}>
+            style={{ transform: 'rotate(90deg)', transformOrigin: 'center', fontFamily: 'inherit', fontSize: size * 0.22 + 'px', fill: score > 0 ? '#3a2c1a' : '#bba', fontWeight: 700 }}>
             {score > 0 ? score.toFixed(1) : '—'}
           </text>
         )}
@@ -78,11 +78,11 @@ const ScoreRing = ({
           category is disabled, so the ring grid never jumps. */}
       <div style={{ minHeight: '26px', textAlign: 'center' }}>
         {disabled && (
-          <span style={{ display: 'block', fontSize: '10px', color: '#a09070', letterSpacing: '0.08em', fontFamily: 'monospace', fontWeight: 700 }}>
+          <span style={{ display: 'block', fontSize: '10px', color: '#a09070', letterSpacing: '0.08em', fontFamily: 'inherit', fontWeight: 700 }}>
             אין
           </span>
         )}
-        <span style={{ display: 'block', fontSize: '10px', color: disabled ? '#b0a488' : '#8a7a60', letterSpacing: '0.08em', textTransform: 'uppercase', fontFamily: 'monospace' }}>
+        <span style={{ display: 'block', fontSize: '10px', color: disabled ? '#b0a488' : '#8a7a60', letterSpacing: '0.08em', textTransform: 'uppercase', fontFamily: 'inherit' }}>
           {label}
         </span>
       </div>

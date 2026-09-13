@@ -1,11 +1,11 @@
 'use client';
 
 import React from 'react';
-import { Playfair_Display, Courier_Prime } from 'next/font/google';
+import { noaShalev } from '@/lib/noaShalev';
 import { CoffeeReview, computeStats } from '@/types/coffee';
 
-const playfair = Playfair_Display({ subsets: ['latin'], weight: ['400', '600', '700', '900'], style: ['normal', 'italic'] });
-const courier = Courier_Prime({ subsets: ['latin'], weight: ['400', '700'] });
+const playfair = noaShalev;
+const courier = noaShalev;
 
 interface CoffeeStatsHeaderProps {
   // Always the full unfiltered list — the leaderboard shouldn't change just

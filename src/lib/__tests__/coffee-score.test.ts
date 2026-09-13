@@ -8,6 +8,7 @@ import {
   DEFAULT_CONTROLS,
   type CoffeeControls,
   filterReviews,
+  fuzzyMatch,
   isOpenNow,
   isValidArea,
   parseControls,
@@ -300,4 +301,14 @@ test('computeStats picks the leaders', () => {
   assert.equal(s.kingOfCoffee?.name, 'Alfa');
   assert.equal(s.cheapest?.name, 'Bravo');
   assert.equal(s.avgPrice, 16); // (18+14)/2, C has no price
+});
+
+test('fuzzyMatch is a case-insensitive, whitespace-agnostic subsequence match', () => {
+  assert.equal(fuzzyMatch('קפה בוקר', 'בוקר'), true);   // substring
+  assert.equal(fuzzyMatch('קפה בוקר', 'קבוקר'), true);  // subsequence across the space
+  assert.equal(fuzzyMatch('Cafe Boker', 'cafeboker'), true); // case + whitespace ignored
+  assert.equal(fuzzyMatch('Origem', 'ogm'), true);      // dropped letters
+  assert.equal(fuzzyMatch('Origem', ''), true);         // empty query matches all
+  assert.equal(fuzzyMatch('Origem', 'xyz'), false);     // no match
+  assert.equal(fuzzyMatch('Origem', 'megi'), false);    // right letters, wrong order
 });

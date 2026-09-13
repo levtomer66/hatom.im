@@ -285,10 +285,25 @@ export function sortReviews<T extends CoffeeReview>(reviews: T[], spec: SortSpec
   });
 }
 
+// A forgiving name match for the search box: the query's characters must appear
+// in order somewhere in the text (a subsequence), so "בוקר" matches "קפה בוקר"
+// and a dropped letter still hits. Case-insensitive; whitespace in the query is
+// ignored so "cafe boker" and "cafeboker" behave the same.
+export function fuzzyMatch(text: string, query: string): boolean {
+  const t = text.toLowerCase();
+  const q = query.toLowerCase().replace(/\s+/g, '');
+  if (!q) return true;
+  let i = 0;
+  for (let k = 0; k < t.length && i < q.length; k++) {
+    if (t[k] === q[i]) i++;
+  }
+  return i === q.length;
+}
+
 export function filterReviews<T extends CoffeeReview>(reviews: T[], f: CoffeeFilters, at: Date = new Date()): T[] {
-  const q = f.q?.trim().toLowerCase();
+  const q = f.q?.trim();
   return reviews.filter((r) => {
-    if (q && !r.placeName.toLowerCase().includes(q)) return false;
+    if (q && !fuzzyMatch(r.placeName, q)) return false;
     if (f.areas?.length && !(r.area && f.areas.includes(r.area))) return false;
     if (f.tags?.length && !f.tags.every((t) => r.tags?.includes(t))) return false;
     if (f.tiers?.length && !f.tiers.includes(priceTier(r.coffeePriceIls) as 1|2|3)) return false;
