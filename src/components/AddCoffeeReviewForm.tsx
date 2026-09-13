@@ -1,51 +1,24 @@
 'use client';
 
 import React, { useState } from 'react';
-import { RatingStars, ScaleBar } from './RatingStars';
-import { COFFEE_CATEGORIES, type CoffeeCategory } from '@/types/coffee';
+import CoffeeReviewFormFields from './CoffeeReviewFormFields';
+import { useCoffeeReviewForm } from '@/lib/useCoffeeReviewForm';
 
 interface AddCoffeeReviewFormProps {
   onSuccess: () => void;
 }
 
 const AddCoffeeReviewForm: React.FC<AddCoffeeReviewFormProps> = ({ onSuccess }) => {
-  const [placeName, setPlaceName] = useState('');
-  // Tom's ratings
-  const [tomCoffeeRating, setTomCoffeeRating] = useState(0);
-  const [tomFoodRating, setTomFoodRating] = useState(0);
-  const [tomPastryRating, setTomPastryRating] = useState(0);
-  const [tomAtmosphereRating, setTomAtmosphereRating] = useState(0);
-  const [tomPriceRating, setTomPriceRating] = useState(0);
-  // Tomer's ratings
-  const [tomerCoffeeRating, setTomerCoffeeRating] = useState(0);
-  const [tomerFoodRating, setTomerFoodRating] = useState(0);
-  const [tomerPastryRating, setTomerPastryRating] = useState(0);
-  const [tomerAtmosphereRating, setTomerAtmosphereRating] = useState(0);
-  const [tomerPriceRating, setTomerPriceRating] = useState(0);
-  const [photoUrl, setPhotoUrl] = useState('');
-  const [mapsUrl, setMapsUrl] = useState('');
-  const [instagramUrl, setInstagramUrl] = useState('');
-  // Per-place, not per-reviewer: a café with no kitchen has no food score for
-  // either of us. Toggling one off removes its slider from BOTH tabs.
-  const [disabledCategories, setDisabledCategories] = useState<CoffeeCategory[]>([]);
-
-  const toggleCategory = (id: CoffeeCategory) => {
-    setDisabledCategories((prev) =>
-      prev.includes(id) ? prev.filter((c) => c !== id) : [...prev, id]
-    );
-  };
-
+  const form = useCoffeeReviewForm();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  // Active tab for the form
-  const [activeTab, setActiveTab] = useState<'tom' | 'tomer'>('tom');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
     // Validate form
-    if (!placeName) {
+    if (!form.placeName) {
       setError('יש להזין שם מקום');
       return;
     }
@@ -60,26 +33,7 @@ const AddCoffeeReviewForm: React.FC<AddCoffeeReviewFormProps> = ({ onSuccess }) 
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          placeName,
-          disabledCategories,
-          // Tom's ratings
-          tomCoffeeRating,
-          tomFoodRating,
-          tomPastryRating,
-          tomAtmosphereRating,
-          tomPriceRating,
-          // Tomer's ratings
-          tomerCoffeeRating,
-          tomerFoodRating,
-          tomerPastryRating,
-          tomerAtmosphereRating,
-          tomerPriceRating,
-          // Links
-          photoUrl: photoUrl || undefined,
-          mapsUrl: mapsUrl || undefined,
-          instagramUrl: instagramUrl || undefined,
-        }),
+        body: JSON.stringify(form.buildBody()),
       });
 
       if (!response.ok) {
@@ -88,24 +42,7 @@ const AddCoffeeReviewForm: React.FC<AddCoffeeReviewFormProps> = ({ onSuccess }) 
       }
 
       // Reset form
-      setPlaceName('');
-      // Reset Tom's ratings
-      setTomCoffeeRating(0);
-      setTomFoodRating(0);
-      setTomPastryRating(0);
-      setTomAtmosphereRating(0);
-      setTomPriceRating(0);
-      // Reset Tomer's ratings
-      setTomerCoffeeRating(0);
-      setTomerFoodRating(0);
-      setTomerPastryRating(0);
-      setTomerAtmosphereRating(0);
-      setTomerPriceRating(0);
-      // Reset link fields
-      setPhotoUrl('');
-      setMapsUrl('');
-      setInstagramUrl('');
-      setDisabledCategories([]);
+      form.reset();
 
       // Notify parent component
       onSuccess();
@@ -115,45 +52,6 @@ const AddCoffeeReviewForm: React.FC<AddCoffeeReviewFormProps> = ({ onSuccess }) 
     } finally {
       setIsSubmitting(false);
     }
-  };
-
-  // Render ratings form for a specific reviewer
-  const renderRatingForm = (reviewer: 'tom' | 'tomer') => {
-    const displayName = reviewer === 'tom' ? 'תום' : 'תומר';
-
-    const ratings: Record<CoffeeCategory, number> = reviewer === 'tom'
-      ? { coffee: tomCoffeeRating, food: tomFoodRating, pastry: tomPastryRating, atmosphere: tomAtmosphereRating, price: tomPriceRating }
-      : { coffee: tomerCoffeeRating, food: tomerFoodRating, pastry: tomerPastryRating, atmosphere: tomerAtmosphereRating, price: tomerPriceRating };
-
-    const setters: Record<CoffeeCategory, (v: number) => void> = reviewer === 'tom'
-      ? { coffee: setTomCoffeeRating, food: setTomFoodRating, pastry: setTomPastryRating, atmosphere: setTomAtmosphereRating, price: setTomPriceRating }
-      : { coffee: setTomerCoffeeRating, food: setTomerFoodRating, pastry: setTomerPastryRating, atmosphere: setTomerAtmosphereRating, price: setTomerPriceRating };
-
-    // A disabled category's stored rating is deliberately left alone — it is
-    // just not shown and not scored, so un-ticking the pill brings it back.
-    const active = COFFEE_CATEGORIES.filter((c) => !disabledCategories.includes(c.id));
-
-    return (
-      <div>
-        <h3 className="text-xl font-bold text-amber-800 mb-4 text-center">הדירוג של {displayName}</h3>
-
-        <div className="space-y-4 mb-6">
-          {active.map((c) => (
-            <div key={c.id}>
-              <ScaleBar label={c.label} rating={ratings[c.id]} onChange={setters[c.id]} />
-              {ratings[c.id] > 0 && (
-                <div className="mt-1 flex justify-end">
-                  <RatingStars rating={ratings[c.id]} size="sm" />
-                </div>
-              )}
-            </div>
-          ))}
-          {active.length === 0 && (
-            <p className="text-amber-600 text-center text-sm">כל הקטגוריות מושבתות במקום הזה</p>
-          )}
-        </div>
-      </div>
-    );
   };
 
   return (
@@ -167,118 +65,7 @@ const AddCoffeeReviewForm: React.FC<AddCoffeeReviewFormProps> = ({ onSuccess }) 
       )}
 
       <form onSubmit={handleSubmit} className="space-y-6">
-        <div>
-          <label htmlFor="placeName" className="block text-amber-800 font-medium mb-2 text-right">
-            שם בית הקפה
-          </label>
-          <input
-            type="text"
-            id="placeName"
-            value={placeName}
-            onChange={(e) => setPlaceName(e.target.value)}
-            className="w-full px-4 py-2 border border-amber-300 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-500 text-right"
-            placeholder="הזן את שם בית הקפה"
-            dir="rtl"
-          />
-        </div>
-
-        <div>
-          <label htmlFor="mapsUrl" className="block text-amber-800 font-medium mb-2 text-right">
-            קישור למפה (אופציונלי)
-          </label>
-          <input
-            type="url"
-            id="mapsUrl"
-            value={mapsUrl}
-            onChange={(e) => setMapsUrl(e.target.value)}
-            className="w-full px-4 py-2 border border-amber-300 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-500 text-left"
-            placeholder="https://maps.google.com/..."
-            dir="ltr"
-          />
-        </div>
-
-        <div>
-          <label htmlFor="instagramUrl" className="block text-amber-800 font-medium mb-2 text-right">
-            קישור לאינסטגרם (אופציונלי)
-          </label>
-          <input
-            type="url"
-            id="instagramUrl"
-            value={instagramUrl}
-            onChange={(e) => setInstagramUrl(e.target.value)}
-            className="w-full px-4 py-2 border border-amber-300 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-500 text-left"
-            placeholder="https://www.instagram.com/..."
-            dir="ltr"
-          />
-        </div>
-
-        <div>
-          <label htmlFor="photoUrl" className="block text-amber-800 font-medium mb-2 text-right">
-            קישור לתמונה (אופציונלי)
-          </label>
-          <input
-            type="url"
-            id="photoUrl"
-            value={photoUrl}
-            onChange={(e) => setPhotoUrl(e.target.value)}
-            className="w-full px-4 py-2 border border-amber-300 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-500 text-left"
-            placeholder="https://..."
-            dir="ltr"
-          />
-        </div>
-
-        {/* Place-level, deliberately above the reviewer tabs: this is a fact
-            about the café, not about either reviewer's visit. */}
-        <div>
-          <label className="block text-amber-800 font-medium mb-2 text-right">
-            מה לא נמדד במקום הזה?
-          </label>
-          <div className="flex flex-wrap gap-2 justify-end" dir="rtl">
-            {COFFEE_CATEGORIES.map((c) => {
-              const off = disabledCategories.includes(c.id);
-              return (
-                <button
-                  key={c.id}
-                  type="button"
-                  onClick={() => toggleCategory(c.id)}
-                  aria-pressed={off}
-                  className={`px-3 py-1 rounded-full border text-sm transition-colors duration-150 ${
-                    off
-                      ? 'bg-amber-700 border-amber-700 text-white'
-                      : 'bg-white border-amber-300 text-amber-700 hover:bg-amber-50'
-                  }`}
-                >
-                  {off ? `✓ ${c.label}` : c.label}
-                </button>
-              );
-            })}
-          </div>
-          <p className="text-xs text-amber-600 mt-1 text-right">
-            מסומן = לא נספר בדירוג הכללי
-          </p>
-        </div>
-
-        {/* Rating tabs */}
-        <div className="flex border-b border-amber-200 mb-4">
-          <button
-            type="button"
-            className={`py-2 px-4 font-medium ${activeTab === 'tom' ? 'text-amber-700 border-b-2 border-amber-500' : 'text-amber-500 hover:text-amber-600'}`}
-            onClick={() => setActiveTab('tom')}
-          >
-            תום
-          </button>
-          <button
-            type="button"
-            className={`py-2 px-4 font-medium ${activeTab === 'tomer' ? 'text-amber-700 border-b-2 border-amber-500' : 'text-amber-500 hover:text-amber-600'}`}
-            onClick={() => setActiveTab('tomer')}
-          >
-            תומר
-          </button>
-        </div>
-
-        {/* Display ratings form based on active tab */}
-        {activeTab === 'tom' && renderRatingForm('tom')}
-        {activeTab === 'tomer' && renderRatingForm('tomer')}
+        <CoffeeReviewFormFields form={form} />
 
         {/* Submit button */}
         <div className="flex justify-center">
