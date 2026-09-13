@@ -1,8 +1,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  COFFEE_AREAS,
   COFFEE_CATEGORIES,
   COFFEE_TAGS,
+  isValidArea,
   resolveDisabledCategories,
   resolveTags,
   scoreReview,
@@ -160,4 +162,12 @@ test('every tag has an id, label and emoji', () => {
     assert.ok(t.id && t.label && t.emoji);
   }
   assert.ok(COFFEE_TAGS.some((t) => t.id === 'bitter'));
+});
+
+test('isValidArea accepts known areas only', () => {
+  assert.equal(isValidArea('פלורנטין'), true);
+  assert.equal(isValidArea('אחר'), true);
+  assert.equal(isValidArea('Paris'), false);
+  assert.equal(isValidArea(3), false);
+  assert.equal(COFFEE_AREAS.length, 11);
 });

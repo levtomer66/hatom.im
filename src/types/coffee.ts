@@ -121,6 +121,16 @@ export function resolveTags(v: unknown): string[] | null {
   return out;
 }
 
+export const COFFEE_AREAS: readonly string[] = [
+  'פלורנטין', 'נווה צדק', 'לב העיר/מרכז', 'הצפון הישן', 'הצפון החדש',
+  'כרם התימנים', 'רוטשילד', 'שפירא', 'באזל', 'יפו', 'אחר',
+];
+
+const AREA_SET = new Set<string>(COFFEE_AREAS);
+export function isValidArea(v: unknown): boolean {
+  return typeof v === 'string' && AREA_SET.has(v);
+}
+
 const CATEGORY_IDS = new Set<string>(COFFEE_CATEGORIES.map((c) => c.id));
 
 // Missing/null → [] (payloads and documents that predate the field); a valid
