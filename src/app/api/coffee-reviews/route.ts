@@ -94,6 +94,7 @@ export async function POST(request: NextRequest) {
     const allRatings = [...tomRatings, ...tomerRatings];
     
     if (allRatings.some(rating =>
+      typeof rating !== 'number' || Number.isNaN(rating) ||
       rating < 0 || rating > 10 || !Number.isInteger(rating * 2)
     )) {
       return NextResponse.json(

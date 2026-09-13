@@ -73,7 +73,10 @@ export async function PATCH(
     // Combine for validation
     const allRatings = [...tomRatings, ...tomerRatings];
     
-    if (allRatings.some(rating => rating < 0 || rating > 10 || !Number.isInteger(rating * 2))) {
+    if (allRatings.some(rating =>
+      typeof rating !== 'number' || Number.isNaN(rating) ||
+      rating < 0 || rating > 10 || !Number.isInteger(rating * 2)
+    )) {
       return NextResponse.json(
         { error: 'Ratings must be between 1 and 10 with 0.5 increments' },
         { status: 400 }
