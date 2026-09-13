@@ -1,4 +1,4 @@
-import { ObjectId } from 'mongodb';
+import { ObjectId, Db } from 'mongodb';
 import { randomUUID } from 'crypto';
 import clientPromise from '@/lib/mongodb';
 import { normalizeColumn } from '@/types/todo';
@@ -12,9 +12,32 @@ interface TodoListDocument extends Omit<TodoList, 'id'> { _id?: ObjectId }
 interface TodoTaskDocument extends Omit<TodoTask, 'id'> { _id?: ObjectId }
 interface TodoArchiveDocument extends Omit<TodoArchive, 'id'> { _id?: ObjectId }
 
-async function listsCol() { const c = await clientPromise; return c.db().collection<TodoListDocument>(LISTS); }
-async function tasksCol() { const c = await clientPromise; return c.db().collection<TodoTaskDocument>(TASKS); }
-async function archivesCol() { const c = await clientPromise; return c.db().collection<TodoArchiveDocument>(ARCHIVES); }
+// Indexes match the read paths: lists by membership (getListsForMember,
+// sorted by updatedAt), tasks by their list (load/delete a board) and by
+// assignee (the cross-list "my tasks" view), archives by list. members and
+// assignees are arrays, so those are multikey. Memoized so the createIndexes
+// run once per process rather than on every collection access.
+let indexesEnsured: Promise<void> | null = null;
+async function ensureIndexes(db: Db) {
+  if (!indexesEnsured) {
+    indexesEnsured = Promise.all([
+      db.collection(LISTS).createIndex({ members: 1, updatedAt: -1 }),
+      db.collection(TASKS).createIndex({ listId: 1 }),
+      db.collection(TASKS).createIndex({ assignees: 1, done: 1 }),
+      db.collection(ARCHIVES).createIndex({ listId: 1, renewedAt: -1 }),
+    ])
+      .then(() => undefined)
+      .catch((e) => {
+        indexesEnsured = null; // allow a later retry
+        throw e;
+      });
+  }
+  return indexesEnsured;
+}
+
+async function listsCol() { const c = await clientPromise; const db = c.db(); await ensureIndexes(db); return db.collection<TodoListDocument>(LISTS); }
+async function tasksCol() { const c = await clientPromise; const db = c.db(); await ensureIndexes(db); return db.collection<TodoTaskDocument>(TASKS); }
+async function archivesCol() { const c = await clientPromise; const db = c.db(); await ensureIndexes(db); return db.collection<TodoArchiveDocument>(ARCHIVES); }
 
 function toList(d: TodoListDocument): TodoList { const { _id, ...r } = d; return { ...r, id: _id!.toString() }; }
 function toTask(d: TodoTaskDocument): TodoTask {

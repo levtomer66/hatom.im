@@ -9,9 +9,27 @@ import {
 
 const COLLECTION_NAME = 'tripJourney';
 
+// One document per calendar day, keyed by `dayDate` (YYYY-MM-DD, plus the
+// reserved __unassigned__ bucket). getJourneyDay looks it up by dayDate on
+// every day view and photo upload, so index it — unique also enforces the
+// one-doc-per-day invariant the findOneAndUpdate upserts rely on. Memoized so
+// the createIndex runs once per process, not on every collection access.
+let indexesEnsured: Promise<void> | null = null;
+
 async function getCollection(): Promise<Collection<TripJourneyDay>> {
   const client = await clientPromise;
-  return client.db().collection<TripJourneyDay>(COLLECTION_NAME);
+  const col = client.db().collection<TripJourneyDay>(COLLECTION_NAME);
+  if (!indexesEnsured) {
+    indexesEnsured = col
+      .createIndex({ dayDate: 1 }, { unique: true })
+      .then(() => undefined)
+      .catch((e) => {
+        indexesEnsured = null; // allow a later retry
+        throw e;
+      });
+  }
+  await indexesEnsured;
+  return col;
 }
 
 // Fetch a single day document. Returns null when no photos have been
