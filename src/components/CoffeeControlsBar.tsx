@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Courier_Prime } from 'next/font/google';
 import {
   CoffeeControls,
@@ -37,8 +37,8 @@ const PERSPECTIVE_OPTIONS: { value: SortPerspective; label: string }[] = [
   { value: 'tomer', label: 'תומר' },
 ];
 
-// These metrics aren't per-reviewer, so the perspective select is meaningless
-// for them — greyed out rather than hidden, so the layout doesn't jump.
+// These metrics aren't per-reviewer, so the perspective control is meaningless
+// for them — greyed rather than hidden, so the layout doesn't jump.
 const NO_PERSPECTIVE_METRICS = new Set<SortMetric>(['coffeePrice', 'date', 'name']);
 
 const PRICE_TIERS: { value: 1 | 2 | 3; label: string }[] = [
@@ -47,45 +47,58 @@ const PRICE_TIERS: { value: 1 | 2 | 3; label: string }[] = [
   { value: 3, label: '₪₪₪' },
 ];
 
-const inputStyle: React.CSSProperties = {
-  background: '#fdf6e3',
-  border: '1px solid #c4a870',
-  color: '#2a1a06',
-  padding: '7px 10px',
-  fontSize: '12px',
-  borderRadius: '2px',
-  width: '100%',
-};
+const INK = '#3a2a10';
+const CREAM = '#fdf6e3';
+const MUTED = '#8a7050';
 
-const labelStyle: React.CSSProperties = {
-  fontSize: '9px',
-  letterSpacing: '0.1em',
-  textTransform: 'uppercase',
-  color: '#a08040',
-  marginBottom: '4px',
-  display: 'block',
-};
-
-function chipStyle(active: boolean): React.CSSProperties {
+// Soft, borderless pill — a filled ink pill when active, a barely-there wash when
+// not. No outline, so a row of chips reads as one scannable group, not a grid of
+// boxes.
+function chip(active: boolean): React.CSSProperties {
   return {
-    fontSize: '11px',
-    padding: '4px 10px',
-    borderRadius: '12px',
-    border: `1px solid ${active ? '#5a3a10' : '#c4a870'}`,
-    background: active ? '#3a2a10' : 'transparent',
-    color: active ? '#fdf6e3' : '#5a3a10',
+    fontSize: '12px',
+    lineHeight: 1.2,
+    padding: '6px 12px',
+    borderRadius: '999px',
+    border: 'none',
+    background: active ? INK : 'rgba(120,80,20,0.08)',
+    color: active ? CREAM : '#6a4e28',
+    fontWeight: active ? 700 : 400,
     cursor: 'pointer',
     transition: 'background 0.15s, color 0.15s',
+    whiteSpace: 'nowrap',
   };
 }
 
-const toggleLabelStyle: React.CSSProperties = {
+const groupLabel: React.CSSProperties = {
+  fontSize: '10px',
+  color: MUTED,
+  marginBottom: '7px',
+  display: 'block',
+};
+
+// One segment of a segmented control (perspective / direction).
+function segment(active: boolean, disabled = false): React.CSSProperties {
+  return {
+    flex: 1,
+    padding: '6px 10px',
+    fontSize: '12px',
+    border: 'none',
+    background: active ? INK : 'transparent',
+    color: active ? CREAM : disabled ? '#bcae90' : '#6a4e28',
+    fontWeight: active ? 700 : 400,
+    cursor: disabled ? 'default' : 'pointer',
+    transition: 'background 0.15s, color 0.15s',
+    whiteSpace: 'nowrap',
+  };
+}
+
+const segmentTrack: React.CSSProperties = {
   display: 'flex',
-  alignItems: 'center',
-  gap: '6px',
-  fontSize: '11px',
-  color: '#5a3a10',
-  cursor: 'pointer',
+  gap: '2px',
+  padding: '2px',
+  borderRadius: '999px',
+  background: 'rgba(120,80,20,0.10)',
 };
 
 // Sort + filter controls for the discovery UI. Fully controlled — every
@@ -95,31 +108,39 @@ const CoffeeControlsBar: React.FC<CoffeeControlsBarProps> = ({ controls, onChang
   const { sort, filters } = controls;
   const perspectiveDisabled = NO_PERSPECTIVE_METRICS.has(sort.metric);
 
-  const patchSort = (patch: Partial<SortSpec>) => {
-    onChange({ sort: { ...sort, ...patch }, filters });
+  const [sortOpen, setSortOpen] = useState(false);
+  const sortRef = useRef<HTMLDivElement>(null);
+
+  // Close the sort popover on an outside click or Escape.
+  useEffect(() => {
+    if (!sortOpen) return;
+    const onDown = (e: MouseEvent) => {
+      if (sortRef.current && !sortRef.current.contains(e.target as Node)) setSortOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setSortOpen(false); };
+    document.addEventListener('mousedown', onDown);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDown);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [sortOpen]);
+
+  const patchSort = (patch: Partial<SortSpec>) => onChange({ sort: { ...sort, ...patch }, filters });
+  const patchFilters = (patch: Partial<CoffeeFilters>) => onChange({ sort, filters: { ...filters, ...patch } });
+
+  const toggleIn = <T,>(list: T[] | undefined, value: T): T[] | undefined => {
+    const arr = list ?? [];
+    const next = arr.includes(value) ? arr.filter((x) => x !== value) : [...arr, value];
+    return next.length ? next : undefined;
   };
 
-  const patchFilters = (patch: Partial<CoffeeFilters>) => {
-    onChange({ sort, filters: { ...filters, ...patch } });
-  };
-
-  const toggleArea = (area: string) => {
-    const areas = filters.areas ?? [];
-    const next = areas.includes(area) ? areas.filter((a) => a !== area) : [...areas, area];
-    patchFilters({ areas: next.length ? next : undefined });
-  };
-
-  const toggleTag = (tag: string) => {
-    const tags = filters.tags ?? [];
-    const next = tags.includes(tag) ? tags.filter((t) => t !== tag) : [...tags, tag];
-    patchFilters({ tags: next.length ? next : undefined });
-  };
-
-  const toggleTier = (tier: 1 | 2 | 3) => {
-    const tiers = filters.tiers ?? [];
-    const next = tiers.includes(tier) ? tiers.filter((t) => t !== tier) : [...tiers, tier];
-    patchFilters({ tiers: next.length ? next : undefined });
-  };
+  const metricLabel = SORT_METRIC_OPTIONS.find((o) => o.value === sort.metric)?.label ?? '';
+  const perspectiveLabel = PERSPECTIVE_OPTIONS.find((o) => o.value === sort.perspective)?.label ?? '';
+  const sortSummary =
+    metricLabel +
+    (!perspectiveDisabled && sort.perspective !== 'combined' ? ` · ${perspectiveLabel}` : '') +
+    (sort.dir === 'asc' ? ' ↑' : ' ↓');
 
   return (
     <details
@@ -133,102 +154,144 @@ const CoffeeControlsBar: React.FC<CoffeeControlsBarProps> = ({ controls, onChang
         marginBottom: '32px',
       }}
     >
-      <summary
-        style={{
-          cursor: 'pointer',
-          fontSize: '11px',
-          letterSpacing: '0.1em',
-          textTransform: 'uppercase',
-          color: '#5a3a10',
-          fontWeight: 700,
-        }}
-      >
+      <summary style={{ cursor: 'pointer', fontSize: '11px', letterSpacing: '0.08em', color: '#5a3a10', fontWeight: 700 }}>
         חיפוש וסינון
       </summary>
 
-      <div style={{ marginTop: '18px', display: 'flex', flexDirection: 'column', gap: '16px', direction: 'rtl' }}>
-        {/* Search */}
-        <div>
-          <label style={labelStyle}>חיפוש לפי שם</label>
+      <div style={{ marginTop: '18px', display: 'flex', flexDirection: 'column', gap: '18px', direction: 'rtl' }}>
+        {/* Sort button (at the RTL start) + search. The button leads so its
+            popover opens into the panel, never off the edge. */}
+        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
+          {/* Sort — behind a funnel button, opens an anchored popover */}
+          <div ref={sortRef} style={{ position: 'relative', flex: '0 0 auto' }}>
+            <button
+              type="button"
+              onClick={() => setSortOpen((o) => !o)}
+              aria-haspopup="true"
+              aria-expanded={sortOpen}
+              className={courier.className}
+              style={{
+                display: 'flex', alignItems: 'center', gap: '7px',
+                background: sortOpen ? INK : CREAM,
+                color: sortOpen ? CREAM : '#3a2a10',
+                border: '1px solid #c4a870',
+                borderRadius: '999px',
+                padding: '9px 14px',
+                fontSize: '12px',
+                fontWeight: 700,
+                cursor: 'pointer',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {/* Funnel / inverted-pyramid glyph */}
+              <svg width="13" height="13" viewBox="0 0 24 24" aria-hidden="true"
+                fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M4 5h16l-6 8v5l-4 2v-7z" />
+              </svg>
+              מיון: {sortSummary}
+            </button>
+
+            {sortOpen && (
+              <div
+                role="dialog"
+                aria-label="אפשרויות מיון"
+                style={{
+                  position: 'absolute', top: 'calc(100% + 8px)', insetInlineStart: 0,
+                  zIndex: 30, width: 'min(300px, 82vw)',
+                  background: 'linear-gradient(160deg, #fdf6e3, #f5e8c8)',
+                  border: '1px solid #c4a870',
+                  borderRadius: '10px',
+                  boxShadow: '0 10px 30px rgba(90,60,20,0.22)',
+                  padding: '14px',
+                  display: 'flex', flexDirection: 'column', gap: '14px',
+                }}
+              >
+                <div>
+                  <span style={groupLabel}>מיין לפי</span>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                    {SORT_METRIC_OPTIONS.map((o) => (
+                      <button key={o.value} type="button" onClick={() => patchSort({ metric: o.value })}
+                        aria-pressed={sort.metric === o.value} style={chip(sort.metric === o.value)}>
+                        {o.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <span style={{ ...groupLabel, opacity: perspectiveDisabled ? 0.5 : 1 }}>נקודת מבט</span>
+                  <div style={{ ...segmentTrack, opacity: perspectiveDisabled ? 0.5 : 1 }}>
+                    {PERSPECTIVE_OPTIONS.map((o) => (
+                      <button key={o.value} type="button"
+                        disabled={perspectiveDisabled}
+                        onClick={() => patchSort({ perspective: o.value })}
+                        aria-pressed={sort.perspective === o.value}
+                        style={segment(sort.perspective === o.value, perspectiveDisabled)}>
+                        {o.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <span style={groupLabel}>סדר</span>
+                  <div style={segmentTrack}>
+                    <button type="button" onClick={() => patchSort({ dir: 'desc' })}
+                      aria-pressed={sort.dir === 'desc'} style={segment(sort.dir === 'desc')}>
+                      ↓ מהגבוה לנמוך
+                    </button>
+                    <button type="button" onClick={() => patchSort({ dir: 'asc' })}
+                      aria-pressed={sort.dir === 'asc'} style={segment(sort.dir === 'asc')}>
+                      ↑ מהנמוך לגבוה
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
           <input
             type="text"
             value={filters.q ?? ''}
             onChange={(e) => patchFilters({ q: e.target.value || undefined })}
             placeholder="חפש בית קפה..."
-            style={inputStyle}
             dir="rtl"
+            style={{
+              flex: '1 1 200px',
+              background: CREAM,
+              border: '1px solid #c4a870',
+              color: '#2a1a06',
+              padding: '9px 12px',
+              fontSize: '13px',
+              borderRadius: '999px',
+            }}
           />
-        </div>
-
-        {/* Sort metric + perspective + direction */}
-        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-          <div style={{ flex: '1 1 130px' }}>
-            <label style={labelStyle}>מיין לפי</label>
-            <select
-              value={sort.metric}
-              onChange={(e) => patchSort({ metric: e.target.value as SortMetric })}
-              style={inputStyle}
-            >
-              {SORT_METRIC_OPTIONS.map((o) => (
-                <option key={o.value} value={o.value}>{o.label}</option>
-              ))}
-            </select>
-          </div>
-          <div style={{ flex: '1 1 110px' }}>
-            <label style={labelStyle}>נקודת מבט</label>
-            <select
-              value={sort.perspective}
-              disabled={perspectiveDisabled}
-              onChange={(e) => patchSort({ perspective: e.target.value as SortPerspective })}
-              style={{ ...inputStyle, opacity: perspectiveDisabled ? 0.5 : 1 }}
-            >
-              {PERSPECTIVE_OPTIONS.map((o) => (
-                <option key={o.value} value={o.value}>{o.label}</option>
-              ))}
-            </select>
-          </div>
-          <div style={{ flex: '0 0 auto', display: 'flex', alignItems: 'flex-end' }}>
-            <button
-              type="button"
-              onClick={() => patchSort({ dir: sort.dir === 'asc' ? 'desc' : 'asc' })}
-              className={courier.className}
-              style={{ ...inputStyle, width: 'auto', cursor: 'pointer', fontWeight: 700, whiteSpace: 'nowrap' }}
-            >
-              {sort.dir === 'asc' ? '↑ עולה' : '↓ יורד'}
-            </button>
-          </div>
         </div>
 
         {/* Areas */}
         <div>
-          <label style={labelStyle}>אזור</label>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+          <span style={groupLabel}>אזור</span>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '7px' }}>
             {COFFEE_AREAS.map((a) => (
-              <button
-                key={a}
-                type="button"
-                onClick={() => toggleArea(a)}
-                aria-pressed={!!filters.areas?.includes(a)}
-                style={chipStyle(!!filters.areas?.includes(a))}
-              >
+              <button key={a} type="button" onClick={() => patchFilters({ areas: toggleIn(filters.areas, a) })}
+                aria-pressed={!!filters.areas?.includes(a)} style={chip(!!filters.areas?.includes(a))}>
                 {a}
               </button>
             ))}
           </div>
         </div>
 
-        {/* Tags */}
+        {/* Tags — led by the "open now" quick filter, then the preference tags */}
         <div>
-          <label style={labelStyle}>תגיות</label>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+          <span style={groupLabel}>תגיות</span>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '7px' }}>
+            <button type="button" onClick={() => patchFilters({ openNow: filters.openNow ? undefined : true })}
+              aria-pressed={!!filters.openNow} style={chip(!!filters.openNow)}>
+              🕐 פתוח עכשיו
+            </button>
             {COFFEE_TAGS.map((t) => (
-              <button
-                key={t.id}
-                type="button"
-                onClick={() => toggleTag(t.id)}
-                aria-pressed={!!filters.tags?.includes(t.id)}
-                style={chipStyle(!!filters.tags?.includes(t.id))}
-              >
+              <button key={t.id} type="button" onClick={() => patchFilters({ tags: toggleIn(filters.tags, t.id) })}
+                aria-pressed={!!filters.tags?.includes(t.id)} style={chip(!!filters.tags?.includes(t.id))}>
                 {t.emoji} {t.label}
               </button>
             ))}
@@ -238,16 +301,11 @@ const CoffeeControlsBar: React.FC<CoffeeControlsBarProps> = ({ controls, onChang
         {/* Price tier + min-coffee slider */}
         <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap' }}>
           <div>
-            <label style={labelStyle}>טווח מחיר</label>
-            <div style={{ display: 'flex', gap: '6px' }}>
+            <span style={groupLabel}>טווח מחיר</span>
+            <div style={{ display: 'flex', gap: '7px' }}>
               {PRICE_TIERS.map((t) => (
-                <button
-                  key={t.value}
-                  type="button"
-                  onClick={() => toggleTier(t.value)}
-                  aria-pressed={!!filters.tiers?.includes(t.value)}
-                  style={chipStyle(!!filters.tiers?.includes(t.value))}
-                >
+                <button key={t.value} type="button" onClick={() => patchFilters({ tiers: toggleIn(filters.tiers, t.value) })}
+                  aria-pressed={!!filters.tiers?.includes(t.value)} style={chip(!!filters.tiers?.includes(t.value))}>
                   {t.label}
                 </button>
               ))}
@@ -255,48 +313,17 @@ const CoffeeControlsBar: React.FC<CoffeeControlsBarProps> = ({ controls, onChang
           </div>
 
           <div style={{ flex: '1 1 180px', minWidth: '160px' }}>
-            <label style={labelStyle}>ציון קפה מינימלי: {(filters.minCoffee ?? 0).toFixed(1)}</label>
+            <span style={groupLabel}>ציון קפה מינימלי: {(filters.minCoffee ?? 0).toFixed(1)}</span>
             <input
-              type="range"
-              min={0}
-              max={10}
-              step={0.5}
+              type="range" min={0} max={10} step={0.5}
               value={filters.minCoffee ?? 0}
               onChange={(e) => {
                 const v = Number(e.target.value);
                 patchFilters({ minCoffee: v > 0 ? v : undefined });
               }}
-              style={{ width: '100%' }}
+              style={{ width: '100%', accentColor: INK }}
             />
           </div>
-        </div>
-
-        {/* Boolean toggles */}
-        <div style={{ display: 'flex', gap: '18px', flexWrap: 'wrap' }}>
-          <label style={toggleLabelStyle}>
-            <input
-              type="checkbox"
-              checked={!!filters.hasPhoto}
-              onChange={(e) => patchFilters({ hasPhoto: e.target.checked || undefined })}
-            />
-            עם תמונה
-          </label>
-          <label style={toggleLabelStyle}>
-            <input
-              type="checkbox"
-              checked={!!filters.hideUnrated}
-              onChange={(e) => patchFilters({ hideUnrated: e.target.checked || undefined })}
-            />
-            הסתר לא מדורגים
-          </label>
-          <label style={toggleLabelStyle}>
-            <input
-              type="checkbox"
-              checked={!!filters.openNow}
-              onChange={(e) => patchFilters({ openNow: e.target.checked || undefined })}
-            />
-            פתוח עכשיו
-          </label>
         </div>
       </div>
     </details>
