@@ -69,7 +69,11 @@ export default function MekafkefimPage() {
         if (raw) {
           const parsed = JSON.parse(raw) as Partial<CoffeeControls> | null;
           if (parsed && typeof parsed === 'object' && parsed.sort && parsed.filters) {
-            setControls(parsed as CoffeeControls);
+            // Route through the same URL (de)serialization the URL branch
+            // uses, so a stale/invalid enum value (e.g. a removed
+            // sort.metric) gets coerced back to DEFAULT_CONTROLS instead of
+            // reaching sortReviews()'s comparator and throwing.
+            setControls(parseControls(serializeControls(parsed as CoffeeControls)));
           }
         }
       } catch {
@@ -273,7 +277,7 @@ export default function MekafkefimPage() {
         {!isLoading && reviews.length > 0 && (
           <div style={{ textAlign: 'center', marginTop: '48px' }}>
             <p className={courier.className} style={{ fontSize: '10px', color: '#a09060', letterSpacing: '0.15em' }}>
-              {reviews.length} בתי קפה · מיוין לפי דירוג ממוצע · 0 = לא דורג · &quot;אין&quot; = לא נמדד במקום
+              {reviews.length} בתי קפה · 0 = לא דורג · &quot;אין&quot; = לא נמדד במקום
             </p>
           </div>
         )}
