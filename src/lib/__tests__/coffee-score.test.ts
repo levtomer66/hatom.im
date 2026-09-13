@@ -5,6 +5,7 @@ import {
   COFFEE_CATEGORIES,
   COFFEE_TAGS,
   isValidArea,
+  priceTier,
   resolveDisabledCategories,
   resolveTags,
   scoreReview,
@@ -170,4 +171,14 @@ test('isValidArea accepts known areas only', () => {
   assert.equal(isValidArea('Paris'), false);
   assert.equal(isValidArea(3), false);
   assert.equal(COFFEE_AREAS.length, 11);
+});
+
+test('priceTier buckets coffee prices', () => {
+  assert.equal(priceTier(undefined), 0);
+  assert.equal(priceTier(0), 0);
+  assert.equal(priceTier(13), 1);
+  assert.equal(priceTier(15), 1);
+  assert.equal(priceTier(18), 2);
+  assert.equal(priceTier(20), 2);
+  assert.equal(priceTier(24), 3);
 });

@@ -131,6 +131,14 @@ export function isValidArea(v: unknown): boolean {
   return typeof v === 'string' && AREA_SET.has(v);
 }
 
+// ₪ thresholds for a standard coffee, tuned to Tel Aviv. Tweak here only.
+export function priceTier(ils?: number): 0 | 1 | 2 | 3 {
+  if (ils === undefined || ils === null || !(ils > 0)) return 0;
+  if (ils <= 15) return 1;
+  if (ils <= 20) return 2;
+  return 3;
+}
+
 const CATEGORY_IDS = new Set<string>(COFFEE_CATEGORIES.map((c) => c.id));
 
 // Missing/null → [] (payloads and documents that predate the field); a valid
