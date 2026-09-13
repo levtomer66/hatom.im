@@ -12,11 +12,27 @@ interface VideoDocument extends Omit<Video, 'id'> {
   order?: number;
 }
 
+// getAllVideos fetches the whole wall sorted by order then createdAt; index
+// that so the sort is served rather than done in memory as the wall grows.
+// Memoized so createIndex runs once per process, not on every access.
+let indexesEnsured: Promise<void> | null = null;
+
 // Get the collection
 export async function getVideosCollection() {
   const client = await clientPromise;
   const db = client.db();
-  return db.collection<VideoDocument>(COLLECTION_NAME);
+  const col = db.collection<VideoDocument>(COLLECTION_NAME);
+  if (!indexesEnsured) {
+    indexesEnsured = col
+      .createIndex({ order: 1, createdAt: -1 })
+      .then(() => undefined)
+      .catch((e) => {
+        indexesEnsured = null; // allow a later retry
+        throw e;
+      });
+  }
+  await indexesEnsured;
+  return col;
 }
 
 // Get all videos sorted by order (then by createdAt as fallback)
