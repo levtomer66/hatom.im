@@ -3,8 +3,22 @@
 import React, { useState } from 'react';
 import Image from 'next/image';
 import { Playfair_Display, Courier_Prime } from 'next/font/google';
-import { CoffeeReview, scoreReview } from '@/types/coffee';
+import {
+  CoffeeReview,
+  scoreReview,
+  priceTier,
+  reviewerGap,
+  isOpenNow,
+  COFFEE_TAGS,
+  CoffeeTagDef,
+  SortMetric,
+} from '@/types/coffee';
 import EditCoffeeReviewForm from './EditCoffeeReviewForm';
+
+// Sort metrics that map to a single category ring (as opposed to 'overall'
+// or a place-level metric like 'coffeePrice'/'date'/'name', which fall back
+// to the overall combined score for the headline).
+const CATEGORY_HEADLINE_METRICS = new Set<SortMetric>(['coffee', 'food', 'pastry', 'atmosphere', 'value']);
 
 const playfair = Playfair_Display({ subsets: ['latin'], weight: ['400', '600', '700', '900'], style: ['normal', 'italic'] });
 const courier = Courier_Prime({ subsets: ['latin'], weight: ['400', '700'] });
@@ -17,6 +31,11 @@ interface CoffeeReviewCardProps {
   onUpdate?: () => void;
   rank?: number;
   isPriority?: boolean;
+  // Drives which category the big headline number tracks (the sort-bar's
+  // active metric in Task 16). Defaults to 'coffee' so the card is useful
+  // before that bar exists. Place-level metrics (coffeePrice/date/name) and
+  // 'overall' fall back to the overall combined score.
+  headlineMetric?: SortMetric;
 }
 
 // SVG ring gauge for a score. Three states: rated (coloured arc + number),
@@ -71,7 +90,7 @@ const ScoreRing = ({
   );
 };
 
-const CoffeeReviewCard: React.FC<CoffeeReviewCardProps> = ({ review, onDelete, onUpdate, rank, isPriority = false }) => {
+const CoffeeReviewCard: React.FC<CoffeeReviewCardProps> = ({ review, onDelete, onUpdate, rank, isPriority = false, headlineMetric = 'coffee' }) => {
   const [imageError, setImageError] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -80,6 +99,21 @@ const CoffeeReviewCard: React.FC<CoffeeReviewCardProps> = ({ review, onDelete, o
   const tomAvg = scores.tom;
   const tomerAvg = scores.tomer;
   const combinedAvg = scores.combined;
+
+  // Headline tracks headlineMetric: a category metric shows that category's
+  // combined score + label; 'overall' and every place-level metric
+  // (coffeePrice/date/name) fall back to the overall combined score.
+  const headlineCategory = CATEGORY_HEADLINE_METRICS.has(headlineMetric)
+    ? scores.categories.find((c) => c.id === (headlineMetric === 'value' ? 'price' : headlineMetric))
+    : undefined;
+  const headlineValue = headlineCategory ? headlineCategory.combined : combinedAvg;
+  const headlineLabel = headlineCategory ? headlineCategory.label : 'כללי';
+
+  const isControversial = reviewerGap(review) >= 2;
+  const isOpen = review.openingHours ? isOpenNow(review.openingHours) : false;
+  const tagChips: CoffeeTagDef[] = (review.tags ?? [])
+    .map((id) => COFFEE_TAGS.find((t) => t.id === id))
+    .filter((t): t is CoffeeTagDef => t !== undefined);
 
   // One list instead of three hand-written literals; the tab picks which
   // number to show and `disabled` rides along unchanged.
@@ -137,6 +171,19 @@ const CoffeeReviewCard: React.FC<CoffeeReviewCardProps> = ({ review, onDelete, o
         </div>
       )}
 
+      {/* Controversy badge — sits beside the rank stamp, shifting clear of it
+          when both are present. */}
+      {isControversial && (
+        <div className={courier.className} style={{
+          position: 'absolute', top: '16px', right: rankBadge ? '56px' : '12px', zIndex: 10,
+          fontSize: '10px', fontWeight: 700, color: '#fdf6e3', background: '#b0402a',
+          padding: '3px 8px', borderRadius: '10px', letterSpacing: '0.02em', whiteSpace: 'nowrap',
+          boxShadow: '0 2px 4px rgba(0,0,0,0.15)',
+        }}>
+          🔥 מחלוקת
+        </div>
+      )}
+
       {/* Action buttons (owners only — hidden when onDelete/onUpdate absent) */}
       {canEdit && (
         <div style={{ position: 'absolute', top: '10px', left: '10px', zIndex: 10, display: 'flex', gap: '4px' }}>
@@ -180,19 +227,77 @@ const CoffeeReviewCard: React.FC<CoffeeReviewCardProps> = ({ review, onDelete, o
         {/* Receipt header line */}
         <div style={{ borderTop: '2px dashed #c4b080', marginBottom: '14px', paddingTop: '14px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-            <h3 className={playfair.className} style={{ fontSize: '1.35rem', fontWeight: 700, color: '#2a1e0a', margin: 0, lineHeight: 1.2, flex: 1, paddingLeft: '8px' }}>
-              {review.placeName}
-            </h3>
-            {combinedAvg > 0 ? (
+            <div style={{ flex: 1, paddingLeft: '8px' }}>
+              <h3 className={playfair.className} style={{ fontSize: '1.35rem', fontWeight: 700, color: '#2a1e0a', margin: 0, lineHeight: 1.2 }}>
+                {review.placeName}
+              </h3>
+              {review.area && (
+                <div className={courier.className} style={{ fontSize: '10px', color: '#8a7050', marginTop: '3px' }}>
+                  {review.area}
+                </div>
+              )}
+            </div>
+            {headlineValue > 0 ? (
               <div style={{ textAlign: 'center', minWidth: '50px' }}>
-                <span className={courier.className} style={{ fontSize: '1.6rem', fontWeight: 700, color: '#5a3a10', lineHeight: 1 }}>{combinedAvg.toFixed(1)}</span>
-                <div className={courier.className} style={{ fontSize: '9px', color: '#a08060', marginTop: '1px' }}>/10</div>
+                <span className={courier.className} style={{ fontSize: '1.6rem', fontWeight: 700, color: '#5a3a10', lineHeight: 1 }}>{headlineValue.toFixed(1)}</span>
+                <div className={courier.className} style={{ fontSize: '9px', color: '#a08060', marginTop: '1px' }}>{headlineLabel}</div>
+                {headlineCategory && combinedAvg > 0 && (
+                  <div className={courier.className} style={{ fontSize: '9px', color: '#b0a080', marginTop: '2px' }}>
+                    כללי {combinedAvg.toFixed(1)}
+                  </div>
+                )}
               </div>
             ) : (
               <span style={{ fontSize: '11px', color: '#b0a080', fontStyle: 'italic' }}>לא דורג</span>
             )}
           </div>
         </div>
+
+        {/* Coffee price + tier badge + tags */}
+        {(!!review.coffeePriceIls || tagChips.length > 0) && (
+          <div style={{ display: 'flex', gap: '6px', marginBottom: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
+            {!!review.coffeePriceIls && (
+              <span className={courier.className} style={{
+                fontSize: '11px', fontWeight: 700, color: '#5a3a10',
+                background: 'rgba(90,58,16,0.08)', border: '1px solid rgba(90,58,16,0.2)',
+                padding: '2px 8px', borderRadius: '2px',
+              }}>
+                ₪{review.coffeePriceIls}
+                {review.coffeeDrinkLabel && ` · ${review.coffeeDrinkLabel}`}
+                {' '}
+                <span style={{ color: '#8a6020' }}>{'₪'.repeat(priceTier(review.coffeePriceIls))}</span>
+              </span>
+            )}
+            {tagChips.map((t) => (
+              <span key={t.id} className={courier.className} style={{
+                fontSize: '10px', color: '#5a4a30', background: 'rgba(120,100,60,0.08)',
+                border: '1px solid rgba(120,100,60,0.2)', padding: '2px 7px', borderRadius: '10px',
+              }}>
+                {t.emoji} {t.label}
+              </span>
+            ))}
+          </div>
+        )}
+
+        {/* Open-now badge + hours link */}
+        {review.openingHours && (
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '14px' }}>
+            <span className={courier.className} style={{
+              fontSize: '10px', fontWeight: 700, padding: '2px 8px', borderRadius: '2px',
+              color: isOpen ? '#2f5a1f' : '#6a5a40',
+              background: isOpen ? 'rgba(90,122,58,0.15)' : 'rgba(120,110,90,0.12)',
+              border: `1px solid ${isOpen ? 'rgba(90,122,58,0.3)' : 'rgba(120,110,90,0.25)'}`,
+            }}>
+              {isOpen ? 'פתוח עכשיו' : 'סגור'}
+            </span>
+            {review.mapsUrl && (
+              <a href={review.mapsUrl} target="_blank" rel="noopener noreferrer" className={courier.className}
+                style={{ fontSize: '10px', color: '#5a7a3a', textDecoration: 'underline' }}>
+                שעות בגוגל ↗
+              </a>
+            )}
+          </div>
+        )}
 
         {/* Links */}
         {(review.mapsUrl || review.instagramUrl) && (
@@ -246,6 +351,33 @@ const CoffeeReviewCard: React.FC<CoffeeReviewCardProps> = ({ review, onDelete, o
                 <div className={courier.className} style={{ fontSize: '1rem', fontWeight: 700, color: avg > 0 ? '#3a2a10' : '#b0a080' }}>
                   {avg > 0 ? avg.toFixed(1) : '—'}
                 </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Per-reviewer notes — shown only inside the matching tab */}
+        {activeTab === 'tom' && !!review.tomNotes?.trim() && (
+          <div style={{ marginTop: '14px', borderTop: '1px dashed #c4b080', paddingTop: '10px' }}>
+            <div className={courier.className} style={{ fontSize: '9px', color: '#8a7050', marginBottom: '4px', letterSpacing: '0.05em' }}>הערות</div>
+            <p className={courier.className} style={{ fontSize: '11px', color: '#3a2a10', margin: 0, whiteSpace: 'pre-wrap' }}>{review.tomNotes}</p>
+          </div>
+        )}
+        {activeTab === 'tomer' && !!review.tomerNotes?.trim() && (
+          <div style={{ marginTop: '14px', borderTop: '1px dashed #c4b080', paddingTop: '10px' }}>
+            <div className={courier.className} style={{ fontSize: '9px', color: '#8a7050', marginBottom: '4px', letterSpacing: '0.05em' }}>הערות</div>
+            <p className={courier.className} style={{ fontSize: '11px', color: '#3a2a10', margin: 0, whiteSpace: 'pre-wrap' }}>{review.tomerNotes}</p>
+          </div>
+        )}
+
+        {/* Tried items */}
+        {review.triedItems && review.triedItems.length > 0 && (
+          <div style={{ marginTop: '14px', borderTop: '1px dashed #c4b080', paddingTop: '10px' }}>
+            <div className={courier.className} style={{ fontSize: '9px', color: '#8a7050', marginBottom: '6px', letterSpacing: '0.05em' }}>מה טעמנו</div>
+            {review.triedItems.map((item, i) => (
+              <div key={`${item.name}-${i}`} className={courier.className} style={{ display: 'flex', justifyContent: 'space-between', gap: '8px', fontSize: '11px', color: '#5a3a10', padding: '2px 0' }}>
+                <span>{item.name}</span>
+                {typeof item.priceIls === 'number' && <span>₪{item.priceIls}</span>}
               </div>
             ))}
           </div>
