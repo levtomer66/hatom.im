@@ -11,10 +11,26 @@ interface CoffeeOrderDocument extends Omit<CoffeeOrder, 'id' | 'status'> {
   status?: OrderStatus;
 }
 
+// getCoffeeOrdersForUser filters by userEmail and sorts newest-first, so index
+// that (equality then sort, ESR). The barista board's find({}).sort().limit(200)
+// stays a bounded in-memory sort. Memoized so createIndex runs once per process.
+let indexesEnsured: Promise<void> | null = null;
+
 export async function getCoffeeOrdersCollection() {
   const client = await clientPromise;
   const db = client.db();
-  return db.collection<CoffeeOrderDocument>(COLLECTION_NAME);
+  const col = db.collection<CoffeeOrderDocument>(COLLECTION_NAME);
+  if (!indexesEnsured) {
+    indexesEnsured = col
+      .createIndex({ userEmail: 1, createdAt: -1 })
+      .then(() => undefined)
+      .catch((e) => {
+        indexesEnsured = null; // allow a later retry
+        throw e;
+      });
+  }
+  await indexesEnsured;
+  return col;
 }
 
 function docToOrder(doc: CoffeeOrderDocument): CoffeeOrder {

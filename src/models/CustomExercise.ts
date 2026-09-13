@@ -25,10 +25,11 @@ export interface CustomExerciseDocument extends Document {
 
 const CustomExerciseSchema = new Schema<CustomExerciseDocument>({
   // userId is the Auth.js session email (post-PR-4 SSO migration).
+  // No standalone index: the only read is listCustomExercises' filter+sort,
+  // covered by the compound { userId, retired, createdAt } declared below.
   userId: {
     type: String,
     required: true,
-    index: true,
   },
   exerciseId: {
     type: String,
@@ -59,16 +60,21 @@ const CustomExerciseSchema = new Schema<CustomExerciseDocument>({
     type: Number,
     default: null,
   },
+  // No standalone index on this low-cardinality boolean — it's never queried
+  // alone; it's the middle key of the compound below (retired-active first).
   retired: {
     type: Boolean,
     default: false,
-    index: true,
   },
 }, {
   timestamps: { createdAt: 'createdAt' },
   // Pin the collection explicitly so it never depends on pluralization rules.
   collection: 'customexercises',
 });
+
+// Serves listCustomExercises: find({ userId }).sort({ retired: 1, createdAt: -1 }).
+// ESR — equality on userId, then the exact sort keys, so no in-memory sort.
+CustomExerciseSchema.index({ userId: 1, retired: 1, createdAt: -1 });
 
 let CustomExerciseModel: Model<CustomExerciseDocument>;
 

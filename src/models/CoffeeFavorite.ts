@@ -8,10 +8,25 @@ interface CoffeeFavoriteDocument extends Omit<CoffeeFavorite, 'id'> {
   _id?: ObjectId;
 }
 
+// getCoffeeFavoritesForUser filters by userEmail. Memoized so createIndex runs
+// once per process, not on every collection access.
+let indexesEnsured: Promise<void> | null = null;
+
 export async function getCoffeeFavoritesCollection() {
   const client = await clientPromise;
   const db = client.db();
-  return db.collection<CoffeeFavoriteDocument>(COLLECTION_NAME);
+  const col = db.collection<CoffeeFavoriteDocument>(COLLECTION_NAME);
+  if (!indexesEnsured) {
+    indexesEnsured = col
+      .createIndex({ userEmail: 1 })
+      .then(() => undefined)
+      .catch((e) => {
+        indexesEnsured = null; // allow a later retry
+        throw e;
+      });
+  }
+  await indexesEnsured;
+  return col;
 }
 
 function docToFavorite(doc: CoffeeFavoriteDocument): CoffeeFavorite {
