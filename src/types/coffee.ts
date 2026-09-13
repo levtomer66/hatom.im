@@ -25,6 +25,15 @@ export interface CoffeeReviewRatings {
   tomerPastryRating: number;
 }
 
+export interface TriedItem {
+  name: string;
+  priceIls?: number;
+}
+
+// Index 0 = Sunday … 6 = Saturday. null = closed that day.
+export type DayHours = { open: string; close: string } | null;
+export type OpeningHours = DayHours[];
+
 export interface CoffeeCategoryDef {
   id: CoffeeCategory;
   label: string; // Hebrew — the page UI is Hebrew/RTL. ids stay English.
@@ -52,6 +61,16 @@ export interface CoffeeReview extends CoffeeReviewRatings {
   photoUrl?: string;
   mapsUrl?: string;
   instagramUrl?: string;
+  coffeePriceIls?: number;
+  coffeeDrinkLabel?: string;
+  triedItems?: TriedItem[];
+  tomNotes?: string;
+  tomerNotes?: string;
+  tags?: string[];
+  area?: string;
+  lat?: number;
+  lng?: number;
+  openingHours?: OpeningHours;
   createdAt: string;
   updatedAt: string;
 }
@@ -62,6 +81,16 @@ export interface CreateCoffeeReviewDto extends CoffeeReviewRatings {
   photoUrl?: string;
   mapsUrl?: string;
   instagramUrl?: string;
+  coffeePriceIls?: number;
+  coffeeDrinkLabel?: string;
+  triedItems?: TriedItem[];
+  tomNotes?: string;
+  tomerNotes?: string;
+  tags?: string[];
+  area?: string;
+  lat?: number;
+  lng?: number;
+  openingHours?: OpeningHours;
 }
 
 const CATEGORY_IDS = new Set<string>(COFFEE_CATEGORIES.map((c) => c.id));
