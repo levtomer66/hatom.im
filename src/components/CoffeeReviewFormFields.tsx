@@ -3,8 +3,11 @@
 import React, { useState } from 'react';
 import Image from 'next/image';
 import { RatingStars, ScaleBar } from './RatingStars';
-import { COFFEE_CATEGORIES, type CoffeeCategory } from '@/types/coffee';
+import { COFFEE_CATEGORIES, COFFEE_TAGS, COFFEE_AREAS, type CoffeeCategory } from '@/types/coffee';
 import type { CoffeeReviewFormState } from '@/lib/useCoffeeReviewForm';
+
+// א = Sunday (index 0) … ש = Saturday (index 6), matching OpeningHours.
+const DAY_LABELS = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש'];
 
 interface CoffeeReviewFormFieldsProps {
   form: CoffeeReviewFormState;
@@ -34,6 +37,14 @@ const CoffeeReviewFormFields: React.FC<CoffeeReviewFormFieldsProps> = ({
     mapsUrl, setMapsUrl,
     instagramUrl, setInstagramUrl,
     disabledCategories, toggleCategory,
+    coffeePriceIls, setCoffeePriceIls,
+    coffeeDrinkLabel, setCoffeeDrinkLabel,
+    triedItems, addTriedItem, removeTriedItem, updateTriedItem,
+    tags, toggleTag,
+    area, setArea,
+    openingHours, setOpeningHoursDay,
+    tomNotes, setTomNotes,
+    tomerNotes, setTomerNotes,
   } = form;
 
   // Active tab for the form
@@ -55,6 +66,9 @@ const CoffeeReviewFormFields: React.FC<CoffeeReviewFormFieldsProps> = ({
     // just not shown and not scored, so un-ticking the pill brings it back.
     const active = COFFEE_CATEGORIES.filter((c) => !disabledCategories.includes(c.id));
 
+    const notes = reviewer === 'tom' ? tomNotes : tomerNotes;
+    const setNotes = reviewer === 'tom' ? setTomNotes : setTomerNotes;
+
     return (
       <div>
         <h3 className="text-xl font-bold text-amber-800 mb-4 text-center">הדירוג של {displayName}</h3>
@@ -73,6 +87,25 @@ const CoffeeReviewFormFields: React.FC<CoffeeReviewFormFieldsProps> = ({
           {active.length === 0 && (
             <p className="text-amber-600 text-center text-sm">כל הקטגוריות מושבתות במקום הזה</p>
           )}
+        </div>
+
+        <div>
+          <label
+            htmlFor={`${reviewer}Notes`}
+            className="block text-amber-800 font-medium mb-2 text-right"
+          >
+            הערות של {displayName}
+          </label>
+          <textarea
+            id={`${reviewer}Notes`}
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            maxLength={500}
+            rows={4}
+            className="w-full px-4 py-2 border border-amber-300 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-500 text-right"
+            placeholder="איך היה הביקור?"
+            dir="rtl"
+          />
         </div>
       </div>
     );
@@ -151,6 +184,172 @@ const CoffeeReviewFormFields: React.FC<CoffeeReviewFormFieldsProps> = ({
           </div>
         )}
       </div>
+
+      {/* Place-level fields (Task 12), deliberately above the reviewer tabs:
+          these are facts about the café, not about either reviewer's visit. */}
+      <div className="flex gap-4" dir="rtl">
+        <div className="flex-1">
+          <label htmlFor="coffeePriceIls" className="block text-amber-800 font-medium mb-2 text-right">
+            מחיר קפה (₪)
+          </label>
+          <input
+            type="number"
+            id="coffeePriceIls"
+            min={0}
+            value={coffeePriceIls}
+            onChange={(e) => setCoffeePriceIls(e.target.value === '' ? '' : Number(e.target.value))}
+            className="w-full px-4 py-2 border border-amber-300 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-500 text-right"
+            placeholder="16"
+          />
+        </div>
+        <div className="flex-1">
+          <label htmlFor="coffeeDrinkLabel" className="block text-amber-800 font-medium mb-2 text-right">
+            סוג המשקה
+          </label>
+          <input
+            type="text"
+            id="coffeeDrinkLabel"
+            value={coffeeDrinkLabel}
+            onChange={(e) => setCoffeeDrinkLabel(e.target.value)}
+            className="w-full px-4 py-2 border border-amber-300 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-500 text-right"
+            placeholder="הפוך גדול"
+            dir="rtl"
+          />
+        </div>
+      </div>
+
+      <div>
+        <label className="block text-amber-800 font-medium mb-2 text-right">
+          תגיות
+        </label>
+        <div className="flex flex-wrap gap-2 justify-end" dir="rtl">
+          {COFFEE_TAGS.map((t) => {
+            const on = tags.includes(t.id);
+            return (
+              <button
+                key={t.id}
+                type="button"
+                onClick={() => toggleTag(t.id)}
+                aria-pressed={on}
+                className={`px-3 py-1 rounded-full border text-sm transition-colors duration-150 ${
+                  on
+                    ? 'bg-amber-700 border-amber-700 text-white'
+                    : 'bg-white border-amber-300 text-amber-700 hover:bg-amber-50'
+                }`}
+              >
+                {t.emoji} {t.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <div>
+        <label htmlFor="area" className="block text-amber-800 font-medium mb-2 text-right">
+          אזור
+        </label>
+        <select
+          id="area"
+          value={area}
+          onChange={(e) => setArea(e.target.value)}
+          className="w-full px-4 py-2 border border-amber-300 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-500 text-right"
+          dir="rtl"
+        >
+          <option value="">בחר אזור</option>
+          {COFFEE_AREAS.map((a) => (
+            <option key={a} value={a}>{a}</option>
+          ))}
+        </select>
+      </div>
+
+      <div>
+        <label className="block text-amber-800 font-medium mb-2 text-right">
+          מה טעמתם?
+        </label>
+        <div className="space-y-2">
+          {triedItems.map((item, i) => (
+            <div key={i} className="flex gap-2 items-center" dir="rtl">
+              <input
+                type="text"
+                value={item.name}
+                onChange={(e) => updateTriedItem(i, { name: e.target.value })}
+                className="flex-1 px-3 py-1.5 border border-amber-300 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-500 text-right"
+                placeholder="שם הפריט"
+                dir="rtl"
+              />
+              <input
+                type="number"
+                min={0}
+                value={item.priceIls ?? ''}
+                onChange={(e) =>
+                  updateTriedItem(i, {
+                    priceIls: e.target.value === '' ? undefined : Number(e.target.value),
+                  })
+                }
+                className="w-20 px-3 py-1.5 border border-amber-300 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-500 text-right"
+                placeholder="₪"
+              />
+              <button
+                type="button"
+                onClick={() => removeTriedItem(i)}
+                aria-label="הסר פריט"
+                className="text-amber-500 hover:text-red-600 px-2"
+              >
+                ✕
+              </button>
+            </div>
+          ))}
+        </div>
+        <button
+          type="button"
+          onClick={addTriedItem}
+          className="mt-2 text-amber-700 hover:text-amber-900 text-sm font-medium"
+        >
+          ＋ הוסף פריט
+        </button>
+      </div>
+
+      <details className="border border-amber-200 rounded-md p-3">
+        <summary className="text-amber-800 font-medium cursor-pointer text-right">
+          שעות פתיחה
+        </summary>
+        <div className="mt-3 space-y-2">
+          {DAY_LABELS.map((label, i) => {
+            const dayHours = openingHours[i];
+            const closed = dayHours === null;
+            return (
+              <div key={i} className="flex items-center gap-2" dir="rtl">
+                <span className="w-4 text-amber-800 font-medium text-center">{label}</span>
+                <label className="flex items-center gap-1 text-sm text-amber-700">
+                  <input
+                    type="checkbox"
+                    checked={closed}
+                    onChange={(e) =>
+                      setOpeningHoursDay(i, e.target.checked ? null : { open: '09:00', close: '18:00' })
+                    }
+                  />
+                  סגור
+                </label>
+                <input
+                  type="time"
+                  value={dayHours?.open ?? ''}
+                  disabled={closed}
+                  onChange={(e) => setOpeningHoursDay(i, { open: e.target.value, close: dayHours?.close ?? '' })}
+                  className="px-2 py-1 border border-amber-300 rounded-md disabled:bg-amber-50 disabled:text-amber-300"
+                />
+                <span className="text-amber-600">–</span>
+                <input
+                  type="time"
+                  value={dayHours?.close ?? ''}
+                  disabled={closed}
+                  onChange={(e) => setOpeningHoursDay(i, { open: dayHours?.open ?? '', close: e.target.value })}
+                  className="px-2 py-1 border border-amber-300 rounded-md disabled:bg-amber-50 disabled:text-amber-300"
+                />
+              </div>
+            );
+          })}
+        </div>
+      </details>
 
       {/* Place-level, deliberately above the reviewer tabs: this is a fact
           about the café, not about either reviewer's visit. */}

@@ -8,7 +8,14 @@ import {
   CoffeeReview,
   CreateCoffeeReviewDto,
   type CoffeeCategory,
+  type TriedItem,
+  type OpeningHours,
+  type DayHours,
 } from '@/types/coffee';
+
+// Index 0 = Sunday … 6 = Saturday, matching OpeningHours. All-null = "no
+// hours entered" and buildBody() collapses that back to `undefined`.
+const EMPTY_OPENING_HOURS: OpeningHours = [null, null, null, null, null, null, null];
 
 export interface CoffeeReviewFormState {
   placeName: string;
@@ -50,6 +57,28 @@ export interface CoffeeReviewFormState {
   disabledCategories: CoffeeCategory[];
   toggleCategory: (id: CoffeeCategory) => void;
 
+  // Place-level fields (Task 12).
+  coffeePriceIls: number | '';
+  setCoffeePriceIls: (v: number | '') => void;
+  coffeeDrinkLabel: string;
+  setCoffeeDrinkLabel: (v: string) => void;
+  triedItems: TriedItem[];
+  addTriedItem: () => void;
+  removeTriedItem: (index: number) => void;
+  updateTriedItem: (index: number, patch: Partial<TriedItem>) => void;
+  tags: string[];
+  toggleTag: (id: string) => void;
+  area: string;
+  setArea: (v: string) => void;
+  openingHours: OpeningHours;
+  setOpeningHoursDay: (index: number, hours: DayHours) => void;
+
+  // Per-reviewer notes (Task 12) — rendered inside each reviewer's tab.
+  tomNotes: string;
+  setTomNotes: (v: string) => void;
+  tomerNotes: string;
+  setTomerNotes: (v: string) => void;
+
   // Exactly today's POST/PATCH body shape.
   buildBody: () => CreateCoffeeReviewDto;
   // Used by Add on successful submit; Edit has no use for it.
@@ -87,6 +116,39 @@ export function useCoffeeReviewForm(initial?: Partial<CoffeeReview>): CoffeeRevi
     );
   };
 
+  // Place-level fields (Task 12).
+  const [coffeePriceIls, setCoffeePriceIls] = useState<number | ''>(
+    initial?.coffeePriceIls ?? ''
+  );
+  const [coffeeDrinkLabel, setCoffeeDrinkLabel] = useState(initial?.coffeeDrinkLabel ?? '');
+  const [triedItems, setTriedItems] = useState<TriedItem[]>(initial?.triedItems ?? []);
+  const [tags, setTags] = useState<string[]>(initial?.tags ?? []);
+  const [area, setArea] = useState(initial?.area ?? '');
+  const [openingHours, setOpeningHours] = useState<OpeningHours>(
+    initial?.openingHours ?? EMPTY_OPENING_HOURS
+  );
+
+  const [tomNotes, setTomNotes] = useState(initial?.tomNotes ?? '');
+  const [tomerNotes, setTomerNotes] = useState(initial?.tomerNotes ?? '');
+
+  const addTriedItem = () => {
+    setTriedItems((prev) => [...prev, { name: '' }]);
+  };
+  const removeTriedItem = (index: number) => {
+    setTriedItems((prev) => prev.filter((_, i) => i !== index));
+  };
+  const updateTriedItem = (index: number, patch: Partial<TriedItem>) => {
+    setTriedItems((prev) => prev.map((item, i) => (i === index ? { ...item, ...patch } : item)));
+  };
+
+  const toggleTag = (id: string) => {
+    setTags((prev) => (prev.includes(id) ? prev.filter((t) => t !== id) : [...prev, id]));
+  };
+
+  const setOpeningHoursDay = (index: number, hours: DayHours) => {
+    setOpeningHours((prev) => prev.map((day, i) => (i === index ? hours : day)));
+  };
+
   const buildBody = (): CreateCoffeeReviewDto => ({
     placeName,
     disabledCategories,
@@ -106,6 +168,16 @@ export function useCoffeeReviewForm(initial?: Partial<CoffeeReview>): CoffeeRevi
     photoUrl: photoUrl || undefined,
     mapsUrl: mapsUrl || undefined,
     instagramUrl: instagramUrl || undefined,
+    // Place-level fields
+    coffeePriceIls: coffeePriceIls === '' ? undefined : coffeePriceIls,
+    coffeeDrinkLabel: coffeeDrinkLabel || undefined,
+    triedItems: triedItems.length > 0 ? triedItems : undefined,
+    tags: tags.length > 0 ? tags : undefined,
+    area: area || undefined,
+    openingHours: openingHours.every((h) => h === null) ? undefined : openingHours,
+    // Per-reviewer notes
+    tomNotes: tomNotes || undefined,
+    tomerNotes: tomerNotes || undefined,
   });
 
   const reset = () => {
@@ -127,6 +199,16 @@ export function useCoffeeReviewForm(initial?: Partial<CoffeeReview>): CoffeeRevi
     setMapsUrl('');
     setInstagramUrl('');
     setDisabledCategories([]);
+    // Reset place-level fields
+    setCoffeePriceIls('');
+    setCoffeeDrinkLabel('');
+    setTriedItems([]);
+    setTags([]);
+    setArea('');
+    setOpeningHours(EMPTY_OPENING_HOURS);
+    // Reset per-reviewer notes
+    setTomNotes('');
+    setTomerNotes('');
   };
 
   return {
@@ -145,6 +227,14 @@ export function useCoffeeReviewForm(initial?: Partial<CoffeeReview>): CoffeeRevi
     mapsUrl, setMapsUrl,
     instagramUrl, setInstagramUrl,
     disabledCategories, toggleCategory,
+    coffeePriceIls, setCoffeePriceIls,
+    coffeeDrinkLabel, setCoffeeDrinkLabel,
+    triedItems, addTriedItem, removeTriedItem, updateTriedItem,
+    tags, toggleTag,
+    area, setArea,
+    openingHours, setOpeningHoursDay,
+    tomNotes, setTomNotes,
+    tomerNotes, setTomerNotes,
     buildBody,
     reset,
   };
