@@ -8,6 +8,7 @@ import {
   priceTier,
   resolveDisabledCategories,
   resolveTags,
+  reviewerGap,
   scoreReview,
   type CoffeeCategory,
   type ScorableReview,
@@ -181,4 +182,13 @@ test('priceTier buckets coffee prices', () => {
   assert.equal(priceTier(18), 2);
   assert.equal(priceTier(20), 2);
   assert.equal(priceTier(24), 3);
+});
+
+test('reviewerGap is the absolute overall difference, 0 when one side is unrated', () => {
+  // RATED: tom overall 7.0, tomer overall 6.5 → gap 0.5
+  assert.equal(Number(reviewerGap(RATED).toFixed(2)), 0.5);
+  // only Tom rated → gap 0 (not controversial)
+  assert.equal(reviewerGap({ tomCoffeeRating: 9 }), 0);
+  // empty → 0
+  assert.equal(reviewerGap({}), 0);
 });

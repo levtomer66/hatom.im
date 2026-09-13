@@ -217,3 +217,9 @@ export function scoreReview(review: ScorableReview): ReviewScores {
   // and no existing score shifts.
   return { categories, tom, tomer, combined: meanOfRated([tom, tomer]) };
 }
+
+export function reviewerGap(review: ScorableReview): number {
+  const s = scoreReview(review);
+  if (s.tom <= 0 || s.tomer <= 0) return 0;
+  return Math.abs(s.tom - s.tomer);
+}
