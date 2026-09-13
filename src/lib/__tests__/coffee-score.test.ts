@@ -4,9 +4,13 @@ import {
   COFFEE_AREAS,
   COFFEE_CATEGORIES,
   COFFEE_TAGS,
+  computeStats,
+  DEFAULT_CONTROLS,
+  type CoffeeControls,
   filterReviews,
   isOpenNow,
   isValidArea,
+  parseControls,
   priceTier,
   resolveDisabledCategories,
   resolveOpeningHours,
@@ -14,6 +18,7 @@ import {
   resolveTriedItems,
   reviewerGap,
   scoreReview,
+  serializeControls,
   sortReviews,
   type CoffeeCategory,
   type CoffeeReview,
@@ -273,4 +278,26 @@ test('filterReviews stacks predicates', () => {
   assert.deepEqual(filterReviews([A,B,C], { hideUnrated:true }).map(r=>r.id), ['a','b']);
   assert.deepEqual(filterReviews([A,B,C], { minCoffee:7 }).map(r=>r.id), ['a']);
   assert.deepEqual(filterReviews([A,B,C], { q:'brav' }).map(r=>r.id), ['b']);
+});
+
+test('controls round-trip through the URL, dropping defaults', () => {
+  assert.equal(serializeControls(DEFAULT_CONTROLS), '');
+  const c: CoffeeControls = { sort:{metric:'coffeePrice',perspective:'combined',dir:'asc'}, filters:{ tags:['work'], q:'x' } };
+  const round = parseControls(serializeControls(c));
+  assert.equal(round.sort.metric, 'coffeePrice');
+  assert.equal(round.sort.dir, 'asc');
+  assert.deepEqual(round.filters.tags, ['work']);
+  assert.equal(round.filters.q, 'x');
+});
+test('parseControls ignores garbage and falls back to defaults', () => {
+  const c = parseControls('sort=bogus&dir=sideways');
+  assert.equal(c.sort.metric, 'coffee');
+  assert.equal(c.sort.dir, 'desc');
+});
+test('computeStats picks the leaders', () => {
+  const s = computeStats([A, B, C]); // from Task 14 fixtures
+  assert.equal(s.count, 3);
+  assert.equal(s.kingOfCoffee?.name, 'Alfa');
+  assert.equal(s.cheapest?.name, 'Bravo');
+  assert.equal(s.avgPrice, 16); // (18+14)/2, C has no price
 });

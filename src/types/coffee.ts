@@ -303,6 +303,141 @@ export function filterReviews<T extends CoffeeReview>(reviews: T[], f: CoffeeFil
   });
 }
 
+// ─── Controls (URL/localStorage (de)serialization) + stats ─────────────────
+
+export interface CoffeeControls {
+  sort: SortSpec;
+  filters: CoffeeFilters;
+}
+
+export const DEFAULT_CONTROLS: CoffeeControls = {
+  sort: { metric: 'coffee', perspective: 'combined', dir: 'desc' },
+  filters: {},
+};
+
+const SORT_METRICS = new Set<string>([
+  'coffee', 'overall', 'food', 'pastry', 'atmosphere', 'value',
+  'coffeePrice', 'date', 'name',
+]);
+const SORT_PERSPECTIVES = new Set<string>(['combined', 'tom', 'tomer']);
+
+export function serializeControls(c: CoffeeControls): string {
+  const params = new URLSearchParams();
+  const { sort, filters } = c;
+
+  if (sort.metric !== DEFAULT_CONTROLS.sort.metric) params.set('sort', sort.metric);
+  if (sort.perspective !== DEFAULT_CONTROLS.sort.perspective) params.set('persp', sort.perspective);
+  if (sort.dir !== DEFAULT_CONTROLS.sort.dir) params.set('dir', sort.dir);
+
+  if (filters.q) params.set('q', filters.q);
+  if (filters.areas?.length) params.set('areas', filters.areas.join(','));
+  if (filters.tags?.length) params.set('tags', filters.tags.join(','));
+  if (filters.tiers?.length) params.set('tiers', filters.tiers.join(','));
+  if (typeof filters.minCoffee === 'number') params.set('minCoffee', String(filters.minCoffee));
+  if (filters.hasPhoto) params.set('photo', '1');
+  if (filters.hideUnrated) params.set('hideUnrated', '1');
+  if (filters.openNow) params.set('open', '1');
+
+  return params.toString();
+}
+
+export function parseControls(query: string): CoffeeControls {
+  const params = new URLSearchParams(query);
+
+  const metric = params.get('sort');
+  const perspective = params.get('persp');
+  const dir = params.get('dir');
+
+  const sort: SortSpec = {
+    metric: metric && SORT_METRICS.has(metric) ? (metric as SortMetric) : DEFAULT_CONTROLS.sort.metric,
+    perspective: perspective && SORT_PERSPECTIVES.has(perspective)
+      ? (perspective as SortPerspective)
+      : DEFAULT_CONTROLS.sort.perspective,
+    dir: dir === 'asc' || dir === 'desc' ? dir : DEFAULT_CONTROLS.sort.dir,
+  };
+
+  const filters: CoffeeFilters = {};
+  const q = params.get('q');
+  if (q) filters.q = q;
+
+  const areas = params.get('areas');
+  if (areas) filters.areas = areas.split(',').filter(Boolean);
+
+  const tags = params.get('tags');
+  if (tags) filters.tags = tags.split(',').filter(Boolean);
+
+  const tiers = params.get('tiers');
+  if (tiers) {
+    const parsed = tiers.split(',')
+      .map((s) => Number(s))
+      .filter((n): n is 1 | 2 | 3 => n === 1 || n === 2 || n === 3);
+    if (parsed.length) filters.tiers = parsed;
+  }
+
+  const minCoffee = params.get('minCoffee');
+  if (minCoffee !== null && minCoffee !== '' && !Number.isNaN(Number(minCoffee))) {
+    filters.minCoffee = Number(minCoffee);
+  }
+
+  if (params.get('photo') === '1') filters.hasPhoto = true;
+  if (params.get('hideUnrated') === '1') filters.hideUnrated = true;
+  if (params.get('open') === '1') filters.openNow = true;
+
+  return { sort, filters };
+}
+
+export function computeStats(reviews: CoffeeReview[]): {
+  count: number;
+  kingOfCoffee?: { name: string; score: number };
+  bestValue?: { name: string; score: number };
+  cheapest?: { name: string; price: number };
+  mostControversial?: { name: string; gap: number };
+  avgPrice?: number;
+} {
+  let kingOfCoffee: { name: string; score: number } | undefined;
+  let bestValue: { name: string; score: number } | undefined;
+  let cheapest: { name: string; price: number } | undefined;
+  let mostControversial: { name: string; gap: number } | undefined;
+  let priceSum = 0;
+  let priceCount = 0;
+
+  for (const r of reviews) {
+    const s = scoreReview(r);
+
+    const coffee = s.categories.find((c) => c.id === 'coffee')!.combined;
+    if (coffee > 0 && (!kingOfCoffee || coffee > kingOfCoffee.score)) {
+      kingOfCoffee = { name: r.placeName, score: coffee };
+    }
+
+    const value = s.categories.find((c) => c.id === 'price')!.combined;
+    if (value > 0 && (!bestValue || value > bestValue.score)) {
+      bestValue = { name: r.placeName, score: value };
+    }
+
+    if (typeof r.coffeePriceIls === 'number' && r.coffeePriceIls > 0) {
+      priceSum += r.coffeePriceIls;
+      priceCount += 1;
+      if (!cheapest || r.coffeePriceIls < cheapest.price) {
+        cheapest = { name: r.placeName, price: r.coffeePriceIls };
+      }
+    }
+
+    const gap = reviewerGap(r);
+    if (gap > 0 && (!mostControversial || gap > mostControversial.gap)) {
+      mostControversial = { name: r.placeName, gap };
+    }
+  }
+
+  return {
+    count: reviews.length,
+    kingOfCoffee,
+    bestValue,
+    cheapest,
+    mostControversial,
+    avgPrice: priceCount ? Math.round(priceSum / priceCount) : undefined,
+  };
+}
+
 export function resolveTriedItems(v: unknown): TriedItem[] | null {
   if (v === undefined || v === null) return [];
   if (!Array.isArray(v) || v.length > 20) return null;
