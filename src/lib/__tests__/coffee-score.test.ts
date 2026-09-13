@@ -2,7 +2,9 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   COFFEE_CATEGORIES,
+  COFFEE_TAGS,
   resolveDisabledCategories,
+  resolveTags,
   scoreReview,
   type CoffeeCategory,
   type ScorableReview,
@@ -142,4 +144,20 @@ test('disabling pastry excludes it even when rated', () => {
   });
   assert.equal(byId(s, 'pastry').disabled, true);
   assert.equal(s.tom, 7); // back to the 4-category average
+});
+
+test('resolveTags defaults, de-dupes, and rejects', () => {
+  assert.deepEqual(resolveTags(undefined), []);
+  assert.deepEqual(resolveTags(null), []);
+  assert.deepEqual(resolveTags(['work', 'work', 'vegan']), ['work', 'vegan']);
+  assert.equal(resolveTags(['nope']), null);
+  assert.equal(resolveTags('work'), null);
+  assert.equal(resolveTags([1]), null);
+});
+
+test('every tag has an id, label and emoji', () => {
+  for (const t of COFFEE_TAGS) {
+    assert.ok(t.id && t.label && t.emoji);
+  }
+  assert.ok(COFFEE_TAGS.some((t) => t.id === 'bitter'));
 });

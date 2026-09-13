@@ -93,6 +93,34 @@ export interface CreateCoffeeReviewDto extends CoffeeReviewRatings {
   openingHours?: OpeningHours;
 }
 
+export interface CoffeeTagDef { id: string; label: string; emoji: string }
+
+export const COFFEE_TAGS: readonly CoffeeTagDef[] = [
+  { id: 'work',     label: 'ידידותי לעבודה',   emoji: '💻' },
+  { id: 'outdoor',  label: 'ישיבה בחוץ',        emoji: '🌳' },
+  { id: 'dogs',     label: 'ידידותי לכלבים',    emoji: '🐕' },
+  { id: 'brunch',   label: 'בראנץ׳',            emoji: '🥑' },
+  { id: 'vegan',    label: 'אופציות טבעוניות',  emoji: '🌱' },
+  { id: 'takeaway', label: 'טייק-אווי',         emoji: '🥡' },
+  { id: 'quiet',    label: 'שקט/רגוע',          emoji: '🤫' },
+  { id: 'groups',   label: 'מתאים לקבוצות',     emoji: '👥' },
+  { id: 'ac',       label: 'מיזוג',             emoji: '❄️' },
+  { id: 'bitter',   label: 'קפה מר',            emoji: '😖' },
+];
+
+const TAG_IDS = new Set<string>(COFFEE_TAGS.map((t) => t.id));
+
+export function resolveTags(v: unknown): string[] | null {
+  if (v === undefined || v === null) return [];
+  if (!Array.isArray(v)) return null;
+  const out: string[] = [];
+  for (const item of v) {
+    if (typeof item !== 'string' || !TAG_IDS.has(item)) return null;
+    if (!out.includes(item)) out.push(item);
+  }
+  return out;
+}
+
 const CATEGORY_IDS = new Set<string>(COFFEE_CATEGORIES.map((c) => c.id));
 
 // Missing/null → [] (payloads and documents that predate the field); a valid
