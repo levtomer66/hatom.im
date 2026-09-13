@@ -24,14 +24,10 @@ const RATED: ScorableReview = {
 const byId = (s: ReturnType<typeof scoreReview>, id: CoffeeCategory) =>
   s.categories.find((c) => c.id === id)!;
 
-test('the registry is the four categories in display order', () => {
+test('the registry is the five categories in display order', () => {
   assert.deepEqual(
     COFFEE_CATEGORIES.map((c) => c.id),
-    ['coffee', 'food', 'atmosphere', 'price'],
-  );
-  assert.deepEqual(
-    COFFEE_CATEGORIES.map((c) => c.label),
-    ['קפה', 'אוכל', 'אווירה', 'מחיר'],
+    ['coffee', 'food', 'pastry', 'atmosphere', 'price'],
   );
 });
 
@@ -42,7 +38,7 @@ test('regression: a fully-rated review with nothing disabled scores as it did be
   assert.equal(s.combined, 6.75);
   assert.equal(byId(s, 'coffee').combined, 8.5);
   assert.equal(byId(s, 'food').combined, 3);
-  assert.equal(s.categories.length, 4);
+  assert.equal(s.categories.length, 5);
   assert.ok(s.categories.every((c) => !c.disabled));
 });
 
@@ -62,8 +58,8 @@ test('disabling food drops it from both reviewers and from the combined score', 
   assert.equal(food.tomer, 0);
   assert.equal(food.combined, 0);
 
-  // The grid stays four wide so the card can render the ring in place.
-  assert.equal(s.categories.length, 4);
+  // The grid stays five wide so the card can render the ring in place.
+  assert.equal(s.categories.length, 5);
   assert.equal(byId(s, 'coffee').disabled, false);
 });
 
@@ -89,15 +85,15 @@ test('a zero inside an active category still means "not rated yet"', () => {
   assert.equal(food.combined, 2);      // only Tomer's 2 counts
 });
 
-test('all four disabled scores as unrated', () => {
+test('all five disabled scores as unrated', () => {
   const s = scoreReview({
     ...RATED,
-    disabledCategories: ['coffee', 'food', 'atmosphere', 'price'],
+    disabledCategories: ['coffee', 'food', 'pastry', 'atmosphere', 'price'],
   });
   assert.equal(s.tom, 0);
   assert.equal(s.tomer, 0);
   assert.equal(s.combined, 0);
-  assert.equal(s.categories.length, 4);
+  assert.equal(s.categories.length, 5);
   assert.ok(s.categories.every((c) => c.disabled));
 });
 

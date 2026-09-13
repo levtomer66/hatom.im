@@ -7,7 +7,8 @@
 // imports it relatively for `node --test`, whose type-stripping can't resolve
 // the `@/…` path alias.
 
-export type CoffeeCategory = 'coffee' | 'food' | 'atmosphere' | 'price';
+export type CoffeeCategory =
+  | 'coffee' | 'food' | 'pastry' | 'atmosphere' | 'price';
 
 // The eight numeric rating fields, split out of CoffeeReview so the category
 // registry can type its field pointers as `keyof` rather than `string`.
@@ -20,6 +21,8 @@ export interface CoffeeReviewRatings {
   tomerFoodRating: number;
   tomerAtmosphereRating: number;
   tomerPriceRating: number;
+  tomPastryRating: number;
+  tomerPastryRating: number;
 }
 
 export interface CoffeeCategoryDef {
@@ -34,8 +37,9 @@ export interface CoffeeCategoryDef {
 export const COFFEE_CATEGORIES: readonly CoffeeCategoryDef[] = [
   { id: 'coffee',     label: 'קפה',    tomField: 'tomCoffeeRating',     tomerField: 'tomerCoffeeRating'     },
   { id: 'food',       label: 'אוכל',   tomField: 'tomFoodRating',       tomerField: 'tomerFoodRating'       },
+  { id: 'pastry',     label: 'מאפים',  tomField: 'tomPastryRating',     tomerField: 'tomerPastryRating'     },
   { id: 'atmosphere', label: 'אווירה', tomField: 'tomAtmosphereRating', tomerField: 'tomerAtmosphereRating' },
-  { id: 'price',      label: 'מחיר',   tomField: 'tomPriceRating',      tomerField: 'tomerPriceRating'      },
+  { id: 'price',      label: 'שווי',   tomField: 'tomPriceRating',      tomerField: 'tomerPriceRating'      },
 ];
 
 export interface CoffeeReview extends CoffeeReviewRatings {

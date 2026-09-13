@@ -13,11 +13,13 @@ const AddCoffeeReviewForm: React.FC<AddCoffeeReviewFormProps> = ({ onSuccess }) 
   // Tom's ratings
   const [tomCoffeeRating, setTomCoffeeRating] = useState(0);
   const [tomFoodRating, setTomFoodRating] = useState(0);
+  const [tomPastryRating, setTomPastryRating] = useState(0);
   const [tomAtmosphereRating, setTomAtmosphereRating] = useState(0);
   const [tomPriceRating, setTomPriceRating] = useState(0);
   // Tomer's ratings
   const [tomerCoffeeRating, setTomerCoffeeRating] = useState(0);
   const [tomerFoodRating, setTomerFoodRating] = useState(0);
+  const [tomerPastryRating, setTomerPastryRating] = useState(0);
   const [tomerAtmosphereRating, setTomerAtmosphereRating] = useState(0);
   const [tomerPriceRating, setTomerPriceRating] = useState(0);
   const [photoUrl, setPhotoUrl] = useState('');
@@ -64,11 +66,13 @@ const AddCoffeeReviewForm: React.FC<AddCoffeeReviewFormProps> = ({ onSuccess }) 
           // Tom's ratings
           tomCoffeeRating,
           tomFoodRating,
+          tomPastryRating,
           tomAtmosphereRating,
           tomPriceRating,
           // Tomer's ratings
           tomerCoffeeRating,
           tomerFoodRating,
+          tomerPastryRating,
           tomerAtmosphereRating,
           tomerPriceRating,
           // Links
@@ -88,11 +92,13 @@ const AddCoffeeReviewForm: React.FC<AddCoffeeReviewFormProps> = ({ onSuccess }) 
       // Reset Tom's ratings
       setTomCoffeeRating(0);
       setTomFoodRating(0);
+      setTomPastryRating(0);
       setTomAtmosphereRating(0);
       setTomPriceRating(0);
       // Reset Tomer's ratings
       setTomerCoffeeRating(0);
       setTomerFoodRating(0);
+      setTomerPastryRating(0);
       setTomerAtmosphereRating(0);
       setTomerPriceRating(0);
       // Reset link fields
@@ -116,12 +122,12 @@ const AddCoffeeReviewForm: React.FC<AddCoffeeReviewFormProps> = ({ onSuccess }) 
     const displayName = reviewer === 'tom' ? 'תום' : 'תומר';
 
     const ratings: Record<CoffeeCategory, number> = reviewer === 'tom'
-      ? { coffee: tomCoffeeRating, food: tomFoodRating, atmosphere: tomAtmosphereRating, price: tomPriceRating }
-      : { coffee: tomerCoffeeRating, food: tomerFoodRating, atmosphere: tomerAtmosphereRating, price: tomerPriceRating };
+      ? { coffee: tomCoffeeRating, food: tomFoodRating, pastry: tomPastryRating, atmosphere: tomAtmosphereRating, price: tomPriceRating }
+      : { coffee: tomerCoffeeRating, food: tomerFoodRating, pastry: tomerPastryRating, atmosphere: tomerAtmosphereRating, price: tomerPriceRating };
 
     const setters: Record<CoffeeCategory, (v: number) => void> = reviewer === 'tom'
-      ? { coffee: setTomCoffeeRating, food: setTomFoodRating, atmosphere: setTomAtmosphereRating, price: setTomPriceRating }
-      : { coffee: setTomerCoffeeRating, food: setTomerFoodRating, atmosphere: setTomerAtmosphereRating, price: setTomerPriceRating };
+      ? { coffee: setTomCoffeeRating, food: setTomFoodRating, pastry: setTomPastryRating, atmosphere: setTomAtmosphereRating, price: setTomPriceRating }
+      : { coffee: setTomerCoffeeRating, food: setTomerFoodRating, pastry: setTomerPastryRating, atmosphere: setTomerAtmosphereRating, price: setTomerPriceRating };
 
     // A disabled category's stored rating is deliberately left alone — it is
     // just not shown and not scored, so un-ticking the pill brings it back.

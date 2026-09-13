@@ -20,11 +20,13 @@ const EditCoffeeReviewForm: React.FC<EditCoffeeReviewFormProps> = ({
   // Tom's ratings
   const [tomCoffeeRating, setTomCoffeeRating] = useState(review.tomCoffeeRating);
   const [tomFoodRating, setTomFoodRating] = useState(review.tomFoodRating);
+  const [tomPastryRating, setTomPastryRating] = useState(review.tomPastryRating ?? 0);
   const [tomAtmosphereRating, setTomAtmosphereRating] = useState(review.tomAtmosphereRating);
   const [tomPriceRating, setTomPriceRating] = useState(review.tomPriceRating);
   // Tomer's ratings
   const [tomerCoffeeRating, setTomerCoffeeRating] = useState(review.tomerCoffeeRating);
   const [tomerFoodRating, setTomerFoodRating] = useState(review.tomerFoodRating);
+  const [tomerPastryRating, setTomerPastryRating] = useState(review.tomerPastryRating ?? 0);
   const [tomerAtmosphereRating, setTomerAtmosphereRating] = useState(review.tomerAtmosphereRating);
   const [tomerPriceRating, setTomerPriceRating] = useState(review.tomerPriceRating);
   const [photoUrl, setPhotoUrl] = useState(review.photoUrl || '');
@@ -73,11 +75,13 @@ const EditCoffeeReviewForm: React.FC<EditCoffeeReviewFormProps> = ({
           // Tom's ratings
           tomCoffeeRating,
           tomFoodRating,
+          tomPastryRating,
           tomAtmosphereRating,
           tomPriceRating,
           // Tomer's ratings
           tomerCoffeeRating,
           tomerFoodRating,
+          tomerPastryRating,
           tomerAtmosphereRating,
           tomerPriceRating,
           // Links
@@ -107,12 +111,12 @@ const EditCoffeeReviewForm: React.FC<EditCoffeeReviewFormProps> = ({
     const displayName = reviewer === 'tom' ? 'תום' : 'תומר';
 
     const ratings: Record<CoffeeCategory, number> = reviewer === 'tom'
-      ? { coffee: tomCoffeeRating, food: tomFoodRating, atmosphere: tomAtmosphereRating, price: tomPriceRating }
-      : { coffee: tomerCoffeeRating, food: tomerFoodRating, atmosphere: tomerAtmosphereRating, price: tomerPriceRating };
+      ? { coffee: tomCoffeeRating, food: tomFoodRating, pastry: tomPastryRating, atmosphere: tomAtmosphereRating, price: tomPriceRating }
+      : { coffee: tomerCoffeeRating, food: tomerFoodRating, pastry: tomerPastryRating, atmosphere: tomerAtmosphereRating, price: tomerPriceRating };
 
     const setters: Record<CoffeeCategory, (v: number) => void> = reviewer === 'tom'
-      ? { coffee: setTomCoffeeRating, food: setTomFoodRating, atmosphere: setTomAtmosphereRating, price: setTomPriceRating }
-      : { coffee: setTomerCoffeeRating, food: setTomerFoodRating, atmosphere: setTomerAtmosphereRating, price: setTomerPriceRating };
+      ? { coffee: setTomCoffeeRating, food: setTomFoodRating, pastry: setTomPastryRating, atmosphere: setTomAtmosphereRating, price: setTomPriceRating }
+      : { coffee: setTomerCoffeeRating, food: setTomerFoodRating, pastry: setTomerPastryRating, atmosphere: setTomerAtmosphereRating, price: setTomerPriceRating };
 
     // A disabled category's stored rating is deliberately left alone — it is
     // just not shown and not scored, so un-ticking the pill brings it back.
