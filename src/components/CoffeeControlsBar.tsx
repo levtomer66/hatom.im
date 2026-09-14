@@ -51,18 +51,20 @@ const INK = '#3a2a10';
 const CREAM = '#fdf6e3';
 const MUTED = '#8a7050';
 
-// Soft, borderless pill — a filled ink pill when active, a barely-there wash when
-// not. No outline, so a row of chips reads as one scannable rail, not boxes.
+// Pill with the same quiet definition as the search field: a translucent cream
+// fill + hairline border + dark ink text when idle, a filled ink pill when
+// active. The fill/border give it enough contrast to read on the light popover
+// (a near-invisible wash read as "too bright / can't see the text").
 function chip(active: boolean): React.CSSProperties {
   return {
     fontSize: '12px',
     lineHeight: 1.2,
     padding: '6px 12px',
     borderRadius: '999px',
-    border: 'none',
-    background: active ? INK : 'rgba(120,80,20,0.08)',
-    color: active ? CREAM : '#6a4e28',
-    fontWeight: active ? 700 : 400,
+    border: active ? '1px solid #3a2a10' : '1px solid rgba(150,110,40,0.30)',
+    background: active ? INK : 'rgba(255,250,235,0.5)',
+    color: active ? CREAM : '#3a2a10',
+    fontWeight: active ? 700 : 500,
     cursor: 'pointer',
     transition: 'background 0.15s, color 0.15s',
     whiteSpace: 'nowrap',
@@ -71,8 +73,8 @@ function chip(active: boolean): React.CSSProperties {
 }
 
 const groupLabel: React.CSSProperties = {
-  fontSize: '10px',
-  color: MUTED,
+  fontSize: '11px',
+  color: '#6a5030',
   marginBottom: '7px',
   display: 'block',
 };
@@ -102,8 +104,8 @@ function segment(active: boolean, disabled = false): React.CSSProperties {
     fontSize: '12px',
     border: 'none',
     background: active ? INK : 'transparent',
-    color: active ? CREAM : disabled ? '#bcae90' : '#6a4e28',
-    fontWeight: active ? 700 : 400,
+    color: active ? CREAM : disabled ? '#a99a7a' : '#3a2a10',
+    fontWeight: active ? 700 : 500,
     cursor: disabled ? 'default' : 'pointer',
     transition: 'background 0.15s, color 0.15s',
     whiteSpace: 'nowrap',
@@ -116,7 +118,8 @@ const segmentTrack: React.CSSProperties = {
   gap: '2px',
   padding: '2px',
   borderRadius: '999px',
-  background: 'rgba(120,80,20,0.10)',
+  background: 'rgba(255,250,235,0.5)',
+  border: '1px solid rgba(150,110,40,0.30)',
 };
 
 // Sort + filter controls for the discovery UI. Fully controlled — every

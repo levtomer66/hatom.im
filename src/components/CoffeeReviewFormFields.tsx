@@ -211,6 +211,7 @@ const CoffeeReviewFormFields: React.FC<CoffeeReviewFormFieldsProps> = ({
             id="coffeeDrinkLabel"
             value={coffeeDrinkLabel}
             onChange={(e) => setCoffeeDrinkLabel(e.target.value)}
+            maxLength={40}
             className="w-full px-4 py-2 border border-amber-300 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-500 text-right"
             placeholder="הפוך גדול"
             dir="rtl"
