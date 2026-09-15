@@ -8,6 +8,7 @@ import {
   CoffeeReview,
   CreateCoffeeReviewDto,
   type CoffeeCategory,
+  type PriceLevel,
   type TriedItem,
   type OpeningHours,
   type DayHours,
@@ -30,8 +31,6 @@ export interface CoffeeReviewFormState {
   setTomPastryRating: (v: number) => void;
   tomAtmosphereRating: number;
   setTomAtmosphereRating: (v: number) => void;
-  tomPriceRating: number;
-  setTomPriceRating: (v: number) => void;
 
   // Tomer's ratings
   tomerCoffeeRating: number;
@@ -42,8 +41,10 @@ export interface CoffeeReviewFormState {
   setTomerPastryRating: (v: number) => void;
   tomerAtmosphereRating: number;
   setTomerAtmosphereRating: (v: number) => void;
-  tomerPriceRating: number;
-  setTomerPriceRating: (v: number) => void;
+
+  // Descriptive place-level price rating (replaced the scored `price` category).
+  priceLevel: PriceLevel | undefined;
+  setPriceLevel: (v: PriceLevel | undefined) => void;
 
   photoUrl: string;
   setPhotoUrl: (v: string) => void;
@@ -93,14 +94,15 @@ export function useCoffeeReviewForm(initial?: Partial<CoffeeReview>): CoffeeRevi
   const [tomFoodRating, setTomFoodRating] = useState(initial?.tomFoodRating ?? 0);
   const [tomPastryRating, setTomPastryRating] = useState(initial?.tomPastryRating ?? 0);
   const [tomAtmosphereRating, setTomAtmosphereRating] = useState(initial?.tomAtmosphereRating ?? 0);
-  const [tomPriceRating, setTomPriceRating] = useState(initial?.tomPriceRating ?? 0);
 
   // Tomer's ratings
   const [tomerCoffeeRating, setTomerCoffeeRating] = useState(initial?.tomerCoffeeRating ?? 0);
   const [tomerFoodRating, setTomerFoodRating] = useState(initial?.tomerFoodRating ?? 0);
   const [tomerPastryRating, setTomerPastryRating] = useState(initial?.tomerPastryRating ?? 0);
   const [tomerAtmosphereRating, setTomerAtmosphereRating] = useState(initial?.tomerAtmosphereRating ?? 0);
-  const [tomerPriceRating, setTomerPriceRating] = useState(initial?.tomerPriceRating ?? 0);
+
+  // Descriptive place-level price rating.
+  const [priceLevel, setPriceLevel] = useState<PriceLevel | undefined>(initial?.priceLevel);
 
   const [photoUrl, setPhotoUrl] = useState(initial?.photoUrl ?? '');
   const [mapsUrl, setMapsUrl] = useState(initial?.mapsUrl ?? '');
@@ -157,13 +159,14 @@ export function useCoffeeReviewForm(initial?: Partial<CoffeeReview>): CoffeeRevi
     tomFoodRating,
     tomPastryRating,
     tomAtmosphereRating,
-    tomPriceRating,
     // Tomer's ratings
     tomerCoffeeRating,
     tomerFoodRating,
     tomerPastryRating,
     tomerAtmosphereRating,
-    tomerPriceRating,
+    // Descriptive place-level price. Send null (not undefined) when unset so the
+    // key survives JSON.stringify and the PATCH route can clear a prior value.
+    priceLevel: priceLevel ?? null,
     // Links
     photoUrl: photoUrl || undefined,
     mapsUrl: mapsUrl || undefined,
@@ -187,13 +190,12 @@ export function useCoffeeReviewForm(initial?: Partial<CoffeeReview>): CoffeeRevi
     setTomFoodRating(0);
     setTomPastryRating(0);
     setTomAtmosphereRating(0);
-    setTomPriceRating(0);
     // Reset Tomer's ratings
     setTomerCoffeeRating(0);
     setTomerFoodRating(0);
     setTomerPastryRating(0);
     setTomerAtmosphereRating(0);
-    setTomerPriceRating(0);
+    setPriceLevel(undefined);
     // Reset link fields
     setPhotoUrl('');
     setMapsUrl('');
@@ -217,12 +219,11 @@ export function useCoffeeReviewForm(initial?: Partial<CoffeeReview>): CoffeeRevi
     tomFoodRating, setTomFoodRating,
     tomPastryRating, setTomPastryRating,
     tomAtmosphereRating, setTomAtmosphereRating,
-    tomPriceRating, setTomPriceRating,
     tomerCoffeeRating, setTomerCoffeeRating,
     tomerFoodRating, setTomerFoodRating,
     tomerPastryRating, setTomerPastryRating,
     tomerAtmosphereRating, setTomerAtmosphereRating,
-    tomerPriceRating, setTomerPriceRating,
+    priceLevel, setPriceLevel,
     photoUrl, setPhotoUrl,
     mapsUrl, setMapsUrl,
     instagramUrl, setInstagramUrl,

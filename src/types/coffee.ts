@@ -8,19 +8,19 @@
 // the `@/…` path alias.
 
 export type CoffeeCategory =
-  | 'coffee' | 'food' | 'pastry' | 'atmosphere' | 'price';
+  | 'coffee' | 'food' | 'pastry' | 'atmosphere';
 
-// The eight numeric rating fields, split out of CoffeeReview so the category
-// registry can type its field pointers as `keyof` rather than `string`.
+// The scored numeric rating fields, split out of CoffeeReview so the category
+// registry can type its field pointers as `keyof` rather than `string`. Price
+// used to be a scored category too (tom/tomerPriceRating); it's now a single
+// descriptive place-level `priceLevel` on CoffeeReview, out of the score.
 export interface CoffeeReviewRatings {
   tomCoffeeRating: number;
   tomFoodRating: number;
   tomAtmosphereRating: number;
-  tomPriceRating: number;
   tomerCoffeeRating: number;
   tomerFoodRating: number;
   tomerAtmosphereRating: number;
-  tomerPriceRating: number;
   tomPastryRating: number;
   tomerPastryRating: number;
 }
@@ -48,8 +48,50 @@ export const COFFEE_CATEGORIES: readonly CoffeeCategoryDef[] = [
   { id: 'food',       label: 'אוכל',   tomField: 'tomFoodRating',       tomerField: 'tomerFoodRating'       },
   { id: 'pastry',     label: 'מאפים',  tomField: 'tomPastryRating',     tomerField: 'tomerPastryRating'     },
   { id: 'atmosphere', label: 'אווירה', tomField: 'tomAtmosphereRating', tomerField: 'tomerAtmosphereRating' },
-  { id: 'price',      label: 'שווי',   tomField: 'tomPriceRating',      tomerField: 'tomerPriceRating'      },
 ];
+
+// Descriptive place-level price rating (not scored, not per-reviewer). A
+// non-numeric slider maps over PRICE_LEVELS, so the array order IS the slider
+// order — most-expensive → cheapest, matching how the labels read. Same
+// registry+resolver shape as COFFEE_TAGS/COFFEE_AREAS.
+export type PriceLevel =
+  | 'very-expensive' | 'expensive' | 'standard' | 'cheap' | 'very-cheap';
+
+export interface PriceLevelDef { id: PriceLevel; label: string }
+
+export const PRICE_LEVELS: readonly PriceLevelDef[] = [
+  { id: 'very-expensive', label: 'יקר ממש' },
+  { id: 'expensive',      label: 'יקר' },
+  { id: 'standard',       label: 'סטנדרטי' },
+  { id: 'cheap',          label: 'זול' },
+  { id: 'very-cheap',     label: 'זול ממש' },
+];
+
+const PRICE_LEVEL_ID_SET = new Set<string>(PRICE_LEVELS.map((l) => l.id));
+
+// undefined/null/'' → undefined ("not specified"); a valid id → itself;
+// anything else → null, which the API turns into a 400. The tri-state lets the
+// route tell "field omitted" from "field present but invalid".
+export function resolvePriceLevel(v: unknown): PriceLevel | null | undefined {
+  if (v === undefined || v === null || v === '') return undefined;
+  if (typeof v === 'string' && PRICE_LEVEL_ID_SET.has(v)) return v as PriceLevel;
+  return null;
+}
+
+// Cheapness rank for sorting: cheaper → smaller, so ascending = cheapest first.
+// unset → null (blanks sort last, like every other metric). very-cheap → 1 …
+// very-expensive → 5.
+export function priceLevelRank(id: PriceLevel | undefined): number | null {
+  if (!id) return null;
+  const idx = PRICE_LEVELS.findIndex((l) => l.id === id); // 0 = most expensive
+  if (idx < 0) return null;
+  return PRICE_LEVELS.length - idx;
+}
+
+export function priceLevelLabel(id: PriceLevel | undefined): string | null {
+  if (!id) return null;
+  return PRICE_LEVELS.find((l) => l.id === id)?.label ?? null;
+}
 
 export interface CoffeeReview extends CoffeeReviewRatings {
   id: string;
@@ -58,6 +100,9 @@ export interface CoffeeReview extends CoffeeReviewRatings {
   // Absent on every document written before this field existed, and absent
   // reads as [] — nothing disabled, i.e. the historic behaviour.
   disabledCategories?: CoffeeCategory[];
+  // Descriptive place-level price rating; absent = not specified. Replaced the
+  // old per-reviewer, scored `price` category.
+  priceLevel?: PriceLevel;
   photoUrl?: string;
   mapsUrl?: string;
   instagramUrl?: string;
@@ -78,6 +123,9 @@ export interface CoffeeReview extends CoffeeReviewRatings {
 export interface CreateCoffeeReviewDto extends CoffeeReviewRatings {
   placeName: string;
   disabledCategories?: CoffeeCategory[];
+  // null = the edit form explicitly cleared it (JSON keeps the key, so the
+  // PATCH route can $unset). undefined/absent = leave unset / untouched.
+  priceLevel?: PriceLevel | null;
   photoUrl?: string;
   mapsUrl?: string;
   instagramUrl?: string;
@@ -256,6 +304,9 @@ export interface CoffeeFilters {
 
 function metricValue(r: CoffeeReview, m: SortMetric, p: SortPerspective): number | null {
   if (m === 'coffeePrice') return typeof r.coffeePriceIls === 'number' && r.coffeePriceIls > 0 ? r.coffeePriceIls : null;
+  // 'value' now sorts by the descriptive price level (cheapest first when asc),
+  // not a scored category. Place-level, so perspective doesn't apply.
+  if (m === 'value') return priceLevelRank(r.priceLevel);
   if (m === 'date') return new Date(r.createdAt).getTime();
   if (m === 'name') return null; // handled by caller (string compare)
   const s = scoreReview(r);
@@ -264,8 +315,7 @@ function metricValue(r: CoffeeReview, m: SortMetric, p: SortPerspective): number
   let v: number;
   if (m === 'overall') v = pick(s);
   else {
-    const id = (m === 'value' ? 'price' : m) as CoffeeCategory;
-    const cat = s.categories.find((c) => c.id === id)!;
+    const cat = s.categories.find((c) => c.id === (m as CoffeeCategory))!;
     v = pick(cat);
   }
   return v > 0 ? v : null;
@@ -404,13 +454,11 @@ export function parseControls(query: string): CoffeeControls {
 export function computeStats(reviews: CoffeeReview[]): {
   count: number;
   kingOfCoffee?: { name: string; score: number };
-  bestValue?: { name: string; score: number };
   cheapest?: { name: string; price: number };
   mostControversial?: { name: string; gap: number };
   avgPrice?: number;
 } {
   let kingOfCoffee: { name: string; score: number } | undefined;
-  let bestValue: { name: string; score: number } | undefined;
   let cheapest: { name: string; price: number } | undefined;
   let mostControversial: { name: string; gap: number } | undefined;
   let priceSum = 0;
@@ -422,11 +470,6 @@ export function computeStats(reviews: CoffeeReview[]): {
     const coffee = s.categories.find((c) => c.id === 'coffee')!.combined;
     if (coffee > 0 && (!kingOfCoffee || coffee > kingOfCoffee.score)) {
       kingOfCoffee = { name: r.placeName, score: coffee };
-    }
-
-    const value = s.categories.find((c) => c.id === 'price')!.combined;
-    if (value > 0 && (!bestValue || value > bestValue.score)) {
-      bestValue = { name: r.placeName, score: value };
     }
 
     if (typeof r.coffeePriceIls === 'number' && r.coffeePriceIls > 0) {
@@ -446,7 +489,6 @@ export function computeStats(reviews: CoffeeReview[]): {
   return {
     count: reviews.length,
     kingOfCoffee,
-    bestValue,
     cheapest,
     mostControversial,
     avgPrice: priceCount ? Math.round(priceSum / priceCount) : undefined,

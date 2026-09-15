@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import {
   CreateCoffeeReviewDto,
   resolveDisabledCategories,
+  resolvePriceLevel,
   resolveTags,
   isValidArea,
   resolveTriedItems,
@@ -48,28 +49,26 @@ export async function POST(request: NextRequest) {
     const data: CreateCoffeeReviewDto = await request.json();
     
     // Validate required fields for Tom
-    if (!data.placeName || 
-        typeof data.tomCoffeeRating !== 'number' || 
-        typeof data.tomFoodRating !== 'number' || 
-        typeof data.tomAtmosphereRating !== 'number' || 
-        typeof data.tomPriceRating !== 'number') {
+    if (!data.placeName ||
+        typeof data.tomCoffeeRating !== 'number' ||
+        typeof data.tomFoodRating !== 'number' ||
+        typeof data.tomAtmosphereRating !== 'number') {
       return NextResponse.json(
         { error: 'Missing required Tom rating fields' },
         { status: 400 }
       );
     }
-    
+
     // Validate required fields for Tomer
-    if (typeof data.tomerCoffeeRating !== 'number' || 
-        typeof data.tomerFoodRating !== 'number' || 
-        typeof data.tomerAtmosphereRating !== 'number' || 
-        typeof data.tomerPriceRating !== 'number') {
+    if (typeof data.tomerCoffeeRating !== 'number' ||
+        typeof data.tomerFoodRating !== 'number' ||
+        typeof data.tomerAtmosphereRating !== 'number') {
       return NextResponse.json(
         { error: 'Missing required Tomer rating fields' },
         { status: 400 }
       );
     }
-    
+
     // Validate rating ranges (1-10 with 0.5 increments) for Tom
     // Pastry is treated as 0 ("not rated") when absent so older clients that
     // predate the pastry category don't get a 400 on every POST.
@@ -77,7 +76,6 @@ export async function POST(request: NextRequest) {
       data.tomCoffeeRating,
       data.tomFoodRating,
       data.tomAtmosphereRating,
-      data.tomPriceRating,
       data.tomPastryRating ?? 0
     ];
 
@@ -86,7 +84,6 @@ export async function POST(request: NextRequest) {
       data.tomerCoffeeRating,
       data.tomerFoodRating,
       data.tomerAtmosphereRating,
-      data.tomerPriceRating,
       data.tomerPastryRating ?? 0
     ];
     
@@ -109,6 +106,13 @@ export async function POST(request: NextRequest) {
         { error: 'Invalid disabledCategories' },
         { status: 400 }
       );
+    }
+
+    // Validate the descriptive place-level price level; null = invalid input.
+    // createCoffeeReview drops an unset (null/undefined) priceLevel, so a valid
+    // one flows through unchanged and an empty one is simply not persisted.
+    if (resolvePriceLevel(data.priceLevel) === null) {
+      return NextResponse.json({ error: 'Invalid priceLevel' }, { status: 400 });
     }
 
     // --- new place-level fields ---

@@ -12,9 +12,13 @@ import {
   isOpenNow,
   isValidArea,
   parseControls,
+  priceLevelLabel,
+  priceLevelRank,
+  PRICE_LEVELS,
   priceTier,
   resolveDisabledCategories,
   resolveOpeningHours,
+  resolvePriceLevel,
   resolveTags,
   resolveTriedItems,
   reviewerGap,
@@ -26,37 +30,36 @@ import {
   type ScorableReview,
 } from '../../types/coffee.ts';
 
-// tom:   8, 4, 7, 9  → all four 7.0    · without food 8.0
-// tomer: 9, 2, 6, 9  → all four 6.5    · without food 8.0
+// Four scored categories now (price became a descriptive place-level field).
+// tom:   coffee 8, food 4, atmosphere 9 → mean 7.0   (pastry unrated)
+// tomer: coffee 9, food 2, atmosphere 8.5 → mean 6.5  (pastry unrated)
 const RATED: ScorableReview = {
   tomCoffeeRating: 8,
   tomFoodRating: 4,
-  tomAtmosphereRating: 7,
-  tomPriceRating: 9,
+  tomAtmosphereRating: 9,
   tomerCoffeeRating: 9,
   tomerFoodRating: 2,
-  tomerAtmosphereRating: 6,
-  tomerPriceRating: 9,
+  tomerAtmosphereRating: 8.5,
 };
 
 const byId = (s: ReturnType<typeof scoreReview>, id: CoffeeCategory) =>
   s.categories.find((c) => c.id === id)!;
 
-test('the registry is the five categories in display order', () => {
+test('the registry is the four scored categories in display order', () => {
   assert.deepEqual(
     COFFEE_CATEGORIES.map((c) => c.id),
-    ['coffee', 'food', 'pastry', 'atmosphere', 'price'],
+    ['coffee', 'food', 'pastry', 'atmosphere'],
   );
 });
 
-test('regression: a fully-rated review with nothing disabled scores as it did before', () => {
+test('a fully-rated review (no pastry) averages its rated categories', () => {
   const s = scoreReview(RATED);
   assert.equal(s.tom, 7);
   assert.equal(s.tomer, 6.5);
   assert.equal(s.combined, 6.75);
   assert.equal(byId(s, 'coffee').combined, 8.5);
   assert.equal(byId(s, 'food').combined, 3);
-  assert.equal(s.categories.length, 5);
+  assert.equal(s.categories.length, 4);
   assert.ok(s.categories.every((c) => !c.disabled));
 });
 
@@ -66,9 +69,10 @@ test('a legacy document with no disabledCategories field is identical to an empt
 
 test('disabling food drops it from both reviewers and from the combined score', () => {
   const s = scoreReview({ ...RATED, disabledCategories: ['food'] });
-  assert.equal(s.tom, 8);
-  assert.equal(s.tomer, 8);
-  assert.equal(s.combined, 8);
+  // tom: mean(coffee 8, atmosphere 9) = 8.5 · tomer: mean(9, 8.5) = 8.75
+  assert.equal(s.tom, 8.5);
+  assert.equal(s.tomer, 8.75);
+  assert.equal(s.combined, 8.625);
 
   const food = byId(s, 'food');
   assert.equal(food.disabled, true);
@@ -76,8 +80,8 @@ test('disabling food drops it from both reviewers and from the combined score', 
   assert.equal(food.tomer, 0);
   assert.equal(food.combined, 0);
 
-  // The grid stays five wide so the card can render the ring in place.
-  assert.equal(s.categories.length, 5);
+  // The grid stays four wide so the card can render the ring in place.
+  assert.equal(s.categories.length, 4);
   assert.equal(byId(s, 'coffee').disabled, false);
 });
 
@@ -94,24 +98,24 @@ test('disabling ignores stored ratings rather than depending on them being zeroe
 
 test('a zero inside an active category still means "not rated yet"', () => {
   const s = scoreReview({ ...RATED, tomFoodRating: 0 });
-  assert.equal(s.tom, 8);      // 8, 7, 9 — the 0 is skipped
+  assert.equal(s.tom, 8.5);    // mean(8, 9) — the 0 is skipped
   assert.equal(s.tomer, 6.5);  // unchanged
-  assert.equal(s.combined, 7.25);
+  assert.equal(s.combined, 7.5);
 
   const food = byId(s, 'food');
   assert.equal(food.disabled, false);  // NOT the same state as disabled
   assert.equal(food.combined, 2);      // only Tomer's 2 counts
 });
 
-test('all five disabled scores as unrated', () => {
+test('all four disabled scores as unrated', () => {
   const s = scoreReview({
     ...RATED,
-    disabledCategories: ['coffee', 'food', 'pastry', 'atmosphere', 'price'],
+    disabledCategories: ['coffee', 'food', 'pastry', 'atmosphere'],
   });
   assert.equal(s.tom, 0);
   assert.equal(s.tomer, 0);
   assert.equal(s.combined, 0);
-  assert.equal(s.categories.length, 5);
+  assert.equal(s.categories.length, 4);
   assert.ok(s.categories.every((c) => c.disabled));
 });
 
@@ -128,8 +132,10 @@ test('resolveDisabledCategories defaults, de-dupes, and rejects', () => {
   assert.deepEqual(resolveDisabledCategories([]), []);
   assert.deepEqual(resolveDisabledCategories(['food']), ['food']);
   assert.deepEqual(resolveDisabledCategories(['food', 'food']), ['food']);
-  assert.deepEqual(resolveDisabledCategories(['price', 'coffee']), ['price', 'coffee']);
+  assert.deepEqual(resolveDisabledCategories(['atmosphere', 'coffee']), ['atmosphere', 'coffee']);
 
+  // 'price' is no longer a category — a stale client sending it is rejected.
+  assert.equal(resolveDisabledCategories(['price']), null);
   assert.equal(resolveDisabledCategories(['nope']), null);
   assert.equal(resolveDisabledCategories('food'), null);
   assert.equal(resolveDisabledCategories(42), null);
@@ -142,14 +148,14 @@ test('a review with no pastry rating scores exactly as before (pastry unrated)',
   const s = scoreReview(RATED);
   assert.equal(byId(s, 'pastry').tom, 0);
   assert.equal(byId(s, 'pastry').combined, 0);
-  // Tom's overall is still the mean of his 4 rated categories (8,4,7,9) = 7.0
+  // Tom's overall is still the mean of his 3 rated categories (8,4,9) = 7.0
   assert.equal(s.tom, 7);
 });
 
 test('a rated pastry participates in the average', () => {
   const s = scoreReview({ ...RATED, tomPastryRating: 10, tomerPastryRating: 10 });
-  // Tom now averages 8,4,10,7,9 = 7.6
-  assert.equal(Number(s.tom.toFixed(2)), 7.6);
+  // Tom now averages 8,4,10,9 = 7.75
+  assert.equal(Number(s.tom.toFixed(2)), 7.75);
   assert.equal(byId(s, 'pastry').combined, 10);
 });
 
@@ -159,7 +165,37 @@ test('disabling pastry excludes it even when rated', () => {
     disabledCategories: ['pastry'],
   });
   assert.equal(byId(s, 'pastry').disabled, true);
-  assert.equal(s.tom, 7); // back to the 4-category average
+  assert.equal(s.tom, 7); // back to the 3-category average
+});
+
+// ─── Price level (descriptive, place-level) ─────────────────────────────────
+
+test('PRICE_LEVELS is the five labels, most-expensive → cheapest', () => {
+  assert.deepEqual(
+    PRICE_LEVELS.map((l) => l.id),
+    ['very-expensive', 'expensive', 'standard', 'cheap', 'very-cheap'],
+  );
+  for (const l of PRICE_LEVELS) assert.ok(l.id && l.label);
+  assert.equal(priceLevelLabel('cheap'), 'זול');
+  assert.equal(priceLevelLabel(undefined), null);
+});
+
+test('resolvePriceLevel: absent → undefined, valid → itself, junk → null', () => {
+  assert.equal(resolvePriceLevel(undefined), undefined);
+  assert.equal(resolvePriceLevel(null), undefined);
+  assert.equal(resolvePriceLevel(''), undefined);
+  assert.equal(resolvePriceLevel('cheap'), 'cheap');
+  assert.equal(resolvePriceLevel('very-expensive'), 'very-expensive');
+  assert.equal(resolvePriceLevel('nope'), null);
+  assert.equal(resolvePriceLevel(3), null);
+  assert.equal(resolvePriceLevel(['cheap']), null);
+});
+
+test('priceLevelRank: cheaper is smaller, unset is null', () => {
+  assert.equal(priceLevelRank(undefined), null);
+  assert.equal(priceLevelRank('very-cheap'), 1);
+  assert.equal(priceLevelRank('very-expensive'), 5);
+  assert.ok((priceLevelRank('cheap') ?? 99) < (priceLevelRank('expensive') ?? 0));
 });
 
 test('resolveTags defaults, de-dupes, and rejects', () => {
@@ -253,16 +289,16 @@ test('resolveOpeningHours validates a 7-day grid', () => {
 });
 
 const A: CoffeeReview = { id:'a', placeName:'Alfa', createdAt:'2026-01-01T00:00:00Z', updatedAt:'',
-  tomCoffeeRating:9, tomFoodRating:0, tomPastryRating:0, tomAtmosphereRating:0, tomPriceRating:0,
-  tomerCoffeeRating:9, tomerFoodRating:0, tomerPastryRating:0, tomerAtmosphereRating:0, tomerPriceRating:0,
-  coffeePriceIls:18, tags:['work'], area:'פלורנטין', photoUrl:'x' };
+  tomCoffeeRating:9, tomFoodRating:0, tomPastryRating:0, tomAtmosphereRating:0,
+  tomerCoffeeRating:9, tomerFoodRating:0, tomerPastryRating:0, tomerAtmosphereRating:0,
+  coffeePriceIls:18, priceLevel:'expensive', tags:['work'], area:'פלורנטין', photoUrl:'x' };
 const B: CoffeeReview = { id:'b', placeName:'Bravo', createdAt:'2026-02-01T00:00:00Z', updatedAt:'',
-  tomCoffeeRating:6, tomFoodRating:0, tomPastryRating:0, tomAtmosphereRating:0, tomPriceRating:0,
-  tomerCoffeeRating:6, tomerFoodRating:0, tomerPastryRating:0, tomerAtmosphereRating:0, tomerPriceRating:0,
-  coffeePriceIls:14, tags:[], area:'יפו' };
+  tomCoffeeRating:6, tomFoodRating:0, tomPastryRating:0, tomAtmosphereRating:0,
+  tomerCoffeeRating:6, tomerFoodRating:0, tomerPastryRating:0, tomerAtmosphereRating:0,
+  coffeePriceIls:14, priceLevel:'cheap', tags:[], area:'יפו' };
 const C: CoffeeReview = { id:'c', placeName:'Charlie', createdAt:'2026-03-01T00:00:00Z', updatedAt:'',
-  tomCoffeeRating:0, tomFoodRating:0, tomPastryRating:0, tomAtmosphereRating:0, tomPriceRating:0,
-  tomerCoffeeRating:0, tomerFoodRating:0, tomerPastryRating:0, tomerAtmosphereRating:0, tomerPriceRating:0 };
+  tomCoffeeRating:0, tomFoodRating:0, tomPastryRating:0, tomAtmosphereRating:0,
+  tomerCoffeeRating:0, tomerFoodRating:0, tomerPastryRating:0, tomerAtmosphereRating:0 };
 
 test('sortReviews by coffee desc puts the unrated place last', () => {
   const out = sortReviews([C, B, A], { metric:'coffee', perspective:'combined', dir:'desc' });
@@ -271,6 +307,13 @@ test('sortReviews by coffee desc puts the unrated place last', () => {
 test('sortReviews by coffeePrice asc keeps unknown-price places last', () => {
   const out = sortReviews([A, C, B], { metric:'coffeePrice', perspective:'combined', dir:'asc' });
   assert.deepEqual(out.map((r) => r.id), ['b', 'a', 'c']); // 14, 18, then no-price
+});
+test('sortReviews by value (price level) asc is cheapest-first, unset last', () => {
+  // B cheap, A expensive, C unset
+  const asc = sortReviews([A, C, B], { metric:'value', perspective:'combined', dir:'asc' });
+  assert.deepEqual(asc.map((r) => r.id), ['b', 'a', 'c']);
+  const desc = sortReviews([C, B, A], { metric:'value', perspective:'combined', dir:'desc' });
+  assert.deepEqual(desc.map((r) => r.id), ['a', 'b', 'c']); // priciest first, unset last
 });
 test('filterReviews stacks predicates', () => {
   assert.deepEqual(filterReviews([A,B,C], { tags:['work'] }).map(r=>r.id), ['a']);
@@ -296,7 +339,7 @@ test('parseControls ignores garbage and falls back to defaults', () => {
   assert.equal(c.sort.dir, 'desc');
 });
 test('computeStats picks the leaders', () => {
-  const s = computeStats([A, B, C]); // from Task 14 fixtures
+  const s = computeStats([A, B, C]);
   assert.equal(s.count, 3);
   assert.equal(s.kingOfCoffee?.name, 'Alfa');
   assert.equal(s.cheapest?.name, 'Bravo');

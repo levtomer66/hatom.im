@@ -45,16 +45,6 @@ const CoffeeStatsHeader: React.FC<CoffeeStatsHeaderProps> = ({ reviews }) => {
     });
   }
 
-  if (stats.bestValue) {
-    tiles.push({
-      key: 'value',
-      emoji: '💰',
-      title: 'הכי משתלם',
-      value: stats.bestValue.name,
-      sub: stats.bestValue.score.toFixed(1),
-    });
-  }
-
   if (stats.cheapest) {
     tiles.push({
       key: 'cheapest',

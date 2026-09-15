@@ -7,6 +7,7 @@ import {
   CoffeeReview,
   scoreReview,
   priceTier,
+  priceLevelLabel,
   reviewerGap,
   isOpenNow,
   COFFEE_TAGS,
@@ -18,7 +19,7 @@ import EditCoffeeReviewForm from './EditCoffeeReviewForm';
 // Sort metrics that map to a single category ring (as opposed to 'overall'
 // or a place-level metric like 'coffeePrice'/'date'/'name', which fall back
 // to the overall combined score for the headline).
-const CATEGORY_HEADLINE_METRICS = new Set<SortMetric>(['coffee', 'food', 'pastry', 'atmosphere', 'value']);
+const CATEGORY_HEADLINE_METRICS = new Set<SortMetric>(['coffee', 'food', 'pastry', 'atmosphere']);
 
 const playfair = noaShalev;
 const courier = noaShalev;
@@ -104,7 +105,7 @@ const CoffeeReviewCard: React.FC<CoffeeReviewCardProps> = ({ review, onDelete, o
   // combined score + label; 'overall' and every place-level metric
   // (coffeePrice/date/name) fall back to the overall combined score.
   const headlineCategory = CATEGORY_HEADLINE_METRICS.has(headlineMetric)
-    ? scores.categories.find((c) => c.id === (headlineMetric === 'value' ? 'price' : headlineMetric))
+    ? scores.categories.find((c) => c.id === headlineMetric)
     : undefined;
   const headlineValue = headlineCategory ? headlineCategory.combined : combinedAvg;
   const headlineLabel = headlineCategory ? headlineCategory.label : 'כללי';
@@ -253,9 +254,18 @@ const CoffeeReviewCard: React.FC<CoffeeReviewCardProps> = ({ review, onDelete, o
           </div>
         </div>
 
-        {/* Coffee price + tier badge + tags */}
-        {(!!review.coffeePriceIls || tagChips.length > 0) && (
+        {/* Price level + coffee price + tier badge + tags */}
+        {(!!review.priceLevel || !!review.coffeePriceIls || tagChips.length > 0) && (
           <div style={{ display: 'flex', gap: '6px', marginBottom: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
+            {!!review.priceLevel && (
+              <span className={courier.className} style={{
+                fontSize: '11px', fontWeight: 700, color: '#7a4a10',
+                background: 'rgba(140,96,32,0.12)', border: '1px solid rgba(140,96,32,0.3)',
+                padding: '2px 8px', borderRadius: '2px',
+              }}>
+                {priceLevelLabel(review.priceLevel)}
+              </span>
+            )}
             {!!review.coffeePriceIls && (
               <span className={courier.className} style={{
                 fontSize: '11px', fontWeight: 700, color: '#5a3a10',

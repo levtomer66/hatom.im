@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import Image from 'next/image';
-import { RatingStars, ScaleBar } from './RatingStars';
+import { RatingStars, ScaleBar, PriceLevelSlider } from './RatingStars';
 import { COFFEE_CATEGORIES, COFFEE_TAGS, COFFEE_AREAS, type CoffeeCategory } from '@/types/coffee';
 import type { CoffeeReviewFormState } from '@/lib/useCoffeeReviewForm';
 
@@ -27,12 +27,11 @@ const CoffeeReviewFormFields: React.FC<CoffeeReviewFormFieldsProps> = ({
     tomFoodRating, setTomFoodRating,
     tomPastryRating, setTomPastryRating,
     tomAtmosphereRating, setTomAtmosphereRating,
-    tomPriceRating, setTomPriceRating,
     tomerCoffeeRating, setTomerCoffeeRating,
     tomerFoodRating, setTomerFoodRating,
     tomerPastryRating, setTomerPastryRating,
     tomerAtmosphereRating, setTomerAtmosphereRating,
-    tomerPriceRating, setTomerPriceRating,
+    priceLevel, setPriceLevel,
     photoUrl, setPhotoUrl,
     mapsUrl, setMapsUrl,
     instagramUrl, setInstagramUrl,
@@ -55,12 +54,12 @@ const CoffeeReviewFormFields: React.FC<CoffeeReviewFormFieldsProps> = ({
     const displayName = reviewer === 'tom' ? 'תום' : 'תומר';
 
     const ratings: Record<CoffeeCategory, number> = reviewer === 'tom'
-      ? { coffee: tomCoffeeRating, food: tomFoodRating, pastry: tomPastryRating, atmosphere: tomAtmosphereRating, price: tomPriceRating }
-      : { coffee: tomerCoffeeRating, food: tomerFoodRating, pastry: tomerPastryRating, atmosphere: tomerAtmosphereRating, price: tomerPriceRating };
+      ? { coffee: tomCoffeeRating, food: tomFoodRating, pastry: tomPastryRating, atmosphere: tomAtmosphereRating }
+      : { coffee: tomerCoffeeRating, food: tomerFoodRating, pastry: tomerPastryRating, atmosphere: tomerAtmosphereRating };
 
     const setters: Record<CoffeeCategory, (v: number) => void> = reviewer === 'tom'
-      ? { coffee: setTomCoffeeRating, food: setTomFoodRating, pastry: setTomPastryRating, atmosphere: setTomAtmosphereRating, price: setTomPriceRating }
-      : { coffee: setTomerCoffeeRating, food: setTomerFoodRating, pastry: setTomerPastryRating, atmosphere: setTomerAtmosphereRating, price: setTomerPriceRating };
+      ? { coffee: setTomCoffeeRating, food: setTomFoodRating, pastry: setTomPastryRating, atmosphere: setTomAtmosphereRating }
+      : { coffee: setTomerCoffeeRating, food: setTomerFoodRating, pastry: setTomerPastryRating, atmosphere: setTomerAtmosphereRating };
 
     // A disabled category's stored rating is deliberately left alone — it is
     // just not shown and not scored, so un-ticking the pill brings it back.
@@ -217,6 +216,15 @@ const CoffeeReviewFormFields: React.FC<CoffeeReviewFormFieldsProps> = ({
             dir="rtl"
           />
         </div>
+      </div>
+
+      {/* Place-level descriptive price rating (replaced the scored 'שווי'
+          category). One value for the café, not per-reviewer, not scored. */}
+      <div dir="rtl">
+        <label className="block text-amber-800 font-medium mb-2 text-right">
+          רמת מחירים
+        </label>
+        <PriceLevelSlider value={priceLevel} onChange={setPriceLevel} />
       </div>
 
       <div>

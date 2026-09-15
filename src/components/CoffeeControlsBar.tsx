@@ -25,7 +25,7 @@ const SORT_METRIC_OPTIONS: { value: SortMetric; label: string }[] = [
   { value: 'food', label: 'אוכל' },
   { value: 'pastry', label: 'מאפים' },
   { value: 'atmosphere', label: 'אווירה' },
-  { value: 'value', label: 'שווי' },
+  { value: 'value', label: 'רמת מחיר' },
   { value: 'coffeePrice', label: 'מחיר קפה' },
   { value: 'date', label: 'תאריך' },
   { value: 'name', label: 'שם' },
@@ -39,7 +39,7 @@ const PERSPECTIVE_OPTIONS: { value: SortPerspective; label: string }[] = [
 
 // These metrics aren't per-reviewer, so the perspective control is meaningless
 // for them — greyed rather than hidden, so the layout doesn't jump.
-const NO_PERSPECTIVE_METRICS = new Set<SortMetric>(['coffeePrice', 'date', 'name']);
+const NO_PERSPECTIVE_METRICS = new Set<SortMetric>(['coffeePrice', 'date', 'name', 'value']);
 
 const PRICE_TIERS: { value: 1 | 2 | 3; label: string }[] = [
   { value: 1, label: '₪' },

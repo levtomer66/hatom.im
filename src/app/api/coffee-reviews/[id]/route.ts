@@ -7,6 +7,7 @@ import {
 import { requireFeatureCaller } from '@/lib/api-caller';
 import {
   resolveDisabledCategories,
+  resolvePriceLevel,
   resolveTags,
   isValidArea,
   resolveTriedItems,
@@ -57,7 +58,6 @@ export async function PATCH(
       data.tomCoffeeRating,
       data.tomFoodRating,
       data.tomAtmosphereRating,
-      data.tomPriceRating,
       data.tomPastryRating
     ].filter(rating => rating !== undefined);
 
@@ -66,7 +66,6 @@ export async function PATCH(
       data.tomerCoffeeRating,
       data.tomerFoodRating,
       data.tomerAtmosphereRating,
-      data.tomerPriceRating,
       data.tomerPastryRating
     ].filter(rating => rating !== undefined);
     
@@ -94,6 +93,16 @@ export async function PATCH(
         );
       }
       data.disabledCategories = resolved;
+    }
+
+    // Only touch priceLevel when the client sent it. undefined (e.g. an empty
+    // value) clears it via $unset in the model; null = invalid input.
+    if ('priceLevel' in data) {
+      const priceLevel = resolvePriceLevel(data.priceLevel);
+      if (priceLevel === null) {
+        return NextResponse.json({ error: 'Invalid priceLevel' }, { status: 400 });
+      }
+      data.priceLevel = priceLevel;
     }
 
     // --- new place-level fields ---

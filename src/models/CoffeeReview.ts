@@ -29,19 +29,18 @@ function ensureRatingFormat(review: CoffeeReviewDocument): CoffeeReviewDocument 
     return review;
   }
   
-  // Otherwise, create new fields based on legacy fields
+  // Otherwise, create new fields based on legacy fields. (Price is no longer a
+  // scored category — legacy priceRating is intentionally not carried over.)
   return {
     ...review,
     // Tom's ratings
     tomCoffeeRating: review.coffeeRating || 0,
     tomFoodRating: review.foodRating || 0,
     tomAtmosphereRating: review.atmosphereRating || 0,
-    tomPriceRating: review.priceRating || 0,
     // Tomer's ratings
     tomerCoffeeRating: review.coffeeRating || 0,
     tomerFoodRating: review.foodRating || 0,
     tomerAtmosphereRating: review.atmosphereRating || 0,
-    tomerPriceRating: review.priceRating || 0,
   };
 }
 
@@ -73,8 +72,12 @@ export async function createCoffeeReview(data: CreateCoffeeReviewDto): Promise<C
   const collection = await getCoffeeReviewsCollection();
   
   const now = new Date().toISOString();
+  // priceLevel arrives as PriceLevel | null | undefined (null = "not set" from
+  // the shared form body). Only persist a real level; drop null/undefined.
+  const { priceLevel, ...rest } = data;
   const newReview: Omit<CoffeeReviewDocument, '_id'> = {
-    ...data,
+    ...rest,
+    ...(priceLevel ? { priceLevel } : {}),
     createdAt: now,
     updatedAt: now
   };
@@ -119,14 +122,21 @@ export async function updateCoffeeReview(id: string, data: Partial<CreateCoffeeR
   const collection = await getCoffeeReviewsCollection();
   
   try {
+    // Split the patch so a field the caller explicitly set to `undefined`
+    // (e.g. clearing priceLevel) is $unset rather than ignored. JSON parsing
+    // never yields undefined, so these only come from the route's validators.
+    const set: Record<string, unknown> = { updatedAt: new Date().toISOString() };
+    const unset: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(data)) {
+      if (v === undefined) unset[k] = '';
+      else set[k] = v;
+    }
+    const update: Record<string, unknown> = { $set: set };
+    if (Object.keys(unset).length) update.$unset = unset;
+
     const result = await collection.findOneAndUpdate(
       { _id: new ObjectId(id) },
-      { 
-        $set: {
-          ...data,
-          updatedAt: new Date().toISOString()
-        } 
-      },
+      update,
       { returnDocument: 'after' }
     );
     
