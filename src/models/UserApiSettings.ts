@@ -192,3 +192,14 @@ export async function getApiKeyOwner(apiKey: string): Promise<ApiKeyOwner | null
     defaultCoffeeFavoriteId: doc.defaultCoffeeFavoriteId ?? null,
   };
 }
+
+// Read-only lookup for OAuth-authenticated MCP calls, which know the user's
+// email but never touch this row's key. Missing row → built-in defaults.
+export async function getDefaultCoffeeFavoriteId(userEmail: string): Promise<string | null> {
+  const collection = await getCollection();
+  const doc = await collection.findOne(
+    { userEmail: normalizeEmail(userEmail) },
+    { projection: { defaultCoffeeFavoriteId: 1 } }
+  );
+  return doc?.defaultCoffeeFavoriteId ?? null;
+}
