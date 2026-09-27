@@ -14,7 +14,16 @@ export async function POST(request: NextRequest) {
   try {
     const params = await readParams(request);
     const client = await authenticateClient(request, params);
-    if (!client) return oauthError('invalid_client', 'Client authentication failed', 401);
+    if (!client) {
+      return oauthError(
+        'invalid_client',
+        'Client authentication failed',
+        401,
+        request.headers.get('authorization')
+          ? { 'WWW-Authenticate': 'Basic realm="hatom.im"' }
+          : undefined
+      );
+    }
     if (params.token) await revokeTokenForClient(params.token, client.clientId);
     return new NextResponse(null, { status: 200, headers: CORS_HEADERS });
   } catch (error) {

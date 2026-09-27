@@ -19,15 +19,24 @@ export function requestOrigin(request: NextRequest): string {
   return originFromHeaders((name) => request.headers.get(name), request.nextUrl.origin);
 }
 
-export function oauthJson(body: unknown, status = 200): NextResponse {
+export function oauthJson(
+  body: unknown,
+  status = 200,
+  headers?: Record<string, string>
+): NextResponse {
   return NextResponse.json(body, {
     status,
-    headers: { ...CORS_HEADERS, 'Cache-Control': 'no-store' },
+    headers: { ...CORS_HEADERS, 'Cache-Control': 'no-store', ...headers },
   });
 }
 
-export function oauthError(error: string, description: string, status = 400): NextResponse {
-  return oauthJson({ error, error_description: description }, status);
+export function oauthError(
+  error: string,
+  description: string,
+  status = 400,
+  headers?: Record<string, string>
+): NextResponse {
+  return oauthJson({ error, error_description: description }, status, headers);
 }
 
 export function corsPreflight(): NextResponse {
