@@ -15,7 +15,8 @@ import { createAuthorizationCode } from '@/models/OAuthCode';
 
 // The consent form round-trips the original query as hidden fields; both
 // actions re-run the page's full validation on them (never trust the form)
-// and re-read the session before issuing anything. Next's server-action
+// and re-read the session before any redirect can happen, protocol-error or
+// otherwise (see the ordering note in revalidate). Next's server-action
 // origin check covers CSRF.
 async function revalidate(formData: FormData) {
   const params: Record<string, string | undefined> = {};
@@ -28,6 +29,14 @@ async function revalidate(formData: FormData) {
   const client = params.client_id ? await getOAuthClient(params.client_id) : null;
   const validation = validateAuthorizeParams(params, client, mcpResourceUrl(origin));
   if (validation.kind === 'render-error') throw new Error(validation.message);
+
+  // Authenticate before any redirect — RFC 9700 §4.11.2 — so a
+  // DCR-registered redirect_uri can't be used as an anonymous open redirector
+  // via a protocol-error bounce. Same ordering as the page.
+  const session = await auth();
+  const email = session?.user?.email?.toLowerCase();
+  if (!email) redirect('/login');
+
   if (validation.kind === 'redirect-error') {
     redirect(
       buildRedirectUrl(validation.redirectUri, {
@@ -38,20 +47,22 @@ async function revalidate(formData: FormData) {
       })
     );
   }
-  return { origin, request: validation.request };
+  return {
+    origin,
+    request: validation.request,
+    email,
+    userName: session?.user?.name?.trim() || email.split('@')[0],
+  };
 }
 
 export async function approveAuthorization(formData: FormData): Promise<void> {
-  const { origin, request } = await revalidate(formData);
-  const session = await auth();
-  const email = session?.user?.email?.toLowerCase();
-  if (!email) redirect('/login');
+  const { origin, request, email, userName } = await revalidate(formData);
   const code = await createAuthorizationCode({
     clientId: request.clientId,
     redirectUri: request.redirectUri,
     codeChallenge: request.codeChallenge,
     userEmail: email,
-    userName: session?.user?.name?.trim() || email.split('@')[0],
+    userName,
     resource: request.resource,
   });
   redirect(buildRedirectUrl(request.redirectUri, { code, state: request.state, iss: origin }));

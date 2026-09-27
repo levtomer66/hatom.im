@@ -52,9 +52,15 @@ function ErrorCard({ message }: { message: string }) {
   );
 }
 
-// OAuth consent for MCP clients. Order matters (RFC 6749 §4.1.2.1): an
-// untrusted client_id / redirect_uri renders an error here and never
-// redirects; later protocol errors go back to the client.
+// OAuth consent for MCP clients. Order matters:
+//   1. render-error (untrusted client_id / redirect_uri) renders here and
+//      never redirects (RFC 6749 §4.1.2.1).
+//   2. the user must be authenticated before ANY redirect — RFC 9700
+//      §4.11.2 requires authenticating the user before redirecting the
+//      user agent. Registration is open (DCR), so without this gate an
+//      attacker-registered redirect_uri could bounce an anonymous visitor
+//      off hatom.im via a protocol-error redirect (an open redirect).
+//   3. only once signed in do protocol errors redirect back to the client.
 export default async function AuthorizePage({ searchParams }: AuthorizePageProps) {
   const params = pickParams(await searchParams);
   const h = await headers();
@@ -63,6 +69,13 @@ export default async function AuthorizePage({ searchParams }: AuthorizePageProps
   const validation = validateAuthorizeParams(params, client, mcpResourceUrl(origin));
 
   if (validation.kind === 'render-error') return <ErrorCard message={validation.message} />;
+
+  const session = await auth();
+  if (!session?.user?.email) {
+    const query = new URLSearchParams(params as Record<string, string>).toString();
+    redirect(`/login?from=${encodeURIComponent(`/oauth/authorize?${query}`)}`);
+  }
+
   if (validation.kind === 'redirect-error') {
     redirect(
       buildRedirectUrl(validation.redirectUri, {
@@ -72,12 +85,6 @@ export default async function AuthorizePage({ searchParams }: AuthorizePageProps
         iss: origin,
       })
     );
-  }
-
-  const session = await auth();
-  if (!session?.user?.email) {
-    const query = new URLSearchParams(params as Record<string, string>).toString();
-    redirect(`/login?from=${encodeURIComponent(`/oauth/authorize?${query}`)}`);
   }
 
   const clientName = client!.clientName;
