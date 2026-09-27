@@ -1,6 +1,17 @@
 import { randomUUID } from 'node:crypto';
 import { NextRequest, NextResponse, after } from 'next/server';
-import { getApiKeyOwner, isApiKeyFormat, type ApiKeyOwner } from '@/models/UserApiSettings';
+import {
+  getApiKeyOwner,
+  getDefaultCoffeeFavoriteId,
+  isApiKeyFormat,
+} from '@/models/UserApiSettings';
+import { resolveAccessToken, touchGrant } from '@/models/OAuthGrant';
+import {
+  isTokenOfKind,
+  negotiateProtocolVersion,
+  wwwAuthenticateHeader,
+} from '@/lib/oauth-core';
+import { requestOrigin } from '@/lib/oauth-http';
 import { getAuthorizedEmailEntry } from '@/models/AuthorizedEmail';
 import { isOwnerEmail } from '@/types/auth';
 import type { PermissionKey } from '@/types/permissions';
@@ -30,14 +41,16 @@ import {
   coerceFlags,
 } from '@/types/spa';
 
-// Remote HTTP MCP server for AI clients (Claude etc.). Hand-rolled JSON-RPC 2.0
-// over POST — a stateless tools server, no SSE. Auth is the same personal API
-// key as the Shortcuts/API (`Authorization: Bearer htm_…`); every tool checks
-// the key owner's LIVE page permission, so a key never does more than the
-// person can on the web.
+// Remote HTTP MCP server for AI clients (claude.ai, ChatGPT, Copilot…).
+// Hand-rolled JSON-RPC 2.0 over POST — a stateless tools server, no SSE.
+// Two Bearer credentials resolve to the same caller shape:
+//   • `htm_…` — the personal API key (Shortcuts / manual MCP config), and
+//   • `hto_…` — an OAuth access token from /api/oauth/token (connectors).
+// A 401 carries WWW-Authenticate → /.well-known/oauth-protected-resource so
+// connectors can discover the OAuth flow. Every tool checks the caller's LIVE
+// page permission, so neither credential does more than the person can on the
+// web.
 export const runtime = 'nodejs';
-
-const PROTOCOL_VERSION = '2024-11-05';
 const SERVER_INFO = { name: 'hatom.im', version: '1.0.0' };
 
 async function hasPermission(email: string, permission: PermissionKey): Promise<boolean> {
@@ -53,7 +66,14 @@ interface McpTool {
   description: string;
   permission: PermissionKey;
   inputSchema: Record<string, unknown>;
-  handler: (args: Record<string, unknown>, caller: ApiKeyOwner) => Promise<string>;
+  handler: (args: Record<string, unknown>, caller: McpCaller) => Promise<string>;
+}
+
+// Whoever the Bearer credential resolved to — key owner or OAuth grant user.
+interface McpCaller {
+  userEmail: string;
+  userName: string;
+  defaultCoffeeFavoriteId: string | null;
 }
 
 function str(args: Record<string, unknown>, key: string): string | undefined {
@@ -300,24 +320,60 @@ function rpcError(id: JsonRpcRequest['id'], code: number, message: string) {
   return NextResponse.json({ jsonrpc: '2.0', id: id ?? null, error: { code, message } });
 }
 
-async function resolveCaller(request: NextRequest): Promise<ApiKeyOwner | null> {
+type CallerResolution =
+  | { kind: 'ok'; caller: McpCaller; grantId: string | null }
+  | { kind: 'missing' }
+  | { kind: 'invalid' };
+
+// `missing` = no Bearer credential at all (a connector's first probe);
+// `invalid` = a credential was presented but is unknown/expired/revoked, which
+// adds error="invalid_token" so the client refreshes or re-authorizes.
+async function resolveCaller(request: NextRequest): Promise<CallerResolution> {
   const authorization = request.headers.get('authorization') ?? '';
   const spaceIndex = authorization.indexOf(' ');
-  if (spaceIndex === -1 || authorization.slice(0, spaceIndex).toLowerCase() !== 'bearer') return null;
-  const key = authorization.slice(spaceIndex + 1).trim();
-  if (!isApiKeyFormat(key)) return null;
-  const owner = await getApiKeyOwner(key);
-  return owner?.apiKey ? owner : null;
+  if (spaceIndex === -1 || authorization.slice(0, spaceIndex).toLowerCase() !== 'bearer') {
+    return { kind: 'missing' };
+  }
+  const token = authorization.slice(spaceIndex + 1).trim();
+
+  if (isApiKeyFormat(token)) {
+    const owner = await getApiKeyOwner(token);
+    return owner?.apiKey ? { kind: 'ok', caller: owner, grantId: null } : { kind: 'invalid' };
+  }
+  if (isTokenOfKind(token, 'access')) {
+    const grant = await resolveAccessToken(token);
+    if (!grant) return { kind: 'invalid' };
+    return {
+      kind: 'ok',
+      grantId: grant.grantId,
+      caller: {
+        userEmail: grant.userEmail,
+        userName: grant.userName,
+        defaultCoffeeFavoriteId: await getDefaultCoffeeFavoriteId(grant.userEmail),
+      },
+    };
+  }
+  return { kind: 'invalid' };
 }
 
 export async function POST(request: NextRequest) {
-  const caller = await resolveCaller(request);
-  if (!caller) {
+  const resolution = await resolveCaller(request);
+  if (resolution.kind !== 'ok') {
     return NextResponse.json(
       { jsonrpc: '2.0', id: null, error: { code: -32001, message: 'Unauthorized' } },
-      { status: 401 }
+      {
+        status: 401,
+        headers: {
+          'WWW-Authenticate': wwwAuthenticateHeader(
+            requestOrigin(request),
+            resolution.kind === 'invalid' ? 'invalid_token' : null
+          ),
+        },
+      }
     );
   }
+  const { caller, grantId } = resolution;
+  if (grantId) after(() => touchGrant(grantId));
 
   let body: JsonRpcRequest;
   try {
@@ -336,7 +392,7 @@ export async function POST(request: NextRequest) {
   switch (method) {
     case 'initialize':
       return result(id, {
-        protocolVersion: PROTOCOL_VERSION,
+        protocolVersion: negotiateProtocolVersion(body.params?.protocolVersion),
         capabilities: { tools: {} },
         serverInfo: SERVER_INFO,
       });
