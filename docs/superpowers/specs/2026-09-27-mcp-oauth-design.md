@@ -118,8 +118,12 @@ then redirects to `redirect_uri?code=…&state=…` (plus `iss=<origin>`).
 
 `application/x-www-form-urlencoded` (JSON also accepted). Client auth: `none`
 (public client, `client_id` in body), `client_secret_post`, or
-`client_secret_basic`; a client must authenticate with the method it
-registered.
+`client_secret_basic`. A public client (`none`) authenticates by `client_id` alone.
+A confidential client must prove its secret, but may do so by either secret
+method regardless of which it registered (clients are inconsistent about this;
+both prove possession equally). The consent page is also served with
+`X-Frame-Options: DENY`, since the site-wide CSP has no `frame-ancestors`, so
+the Allow button can't be clickjacked.
 
 - `grant_type=authorization_code`: atomically `findOneAndDelete` the code by
   hash (single use, whether it passes or fails), then check it's not expired,
