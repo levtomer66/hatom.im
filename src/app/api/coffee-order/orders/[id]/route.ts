@@ -1,17 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requirePagePermission } from '@/lib/auth-helpers';
+import { requireFeatureCaller } from '@/lib/api-caller';
 import { isOwnerEmail } from '@/types/auth';
 import { deleteCoffeeOrder, setCoffeeOrderStatus } from '@/models/CoffeeOrder';
 import { isBaristaEmail } from '@/types/coffee-order';
 
-// PATCH — flip an order's status (open ⇄ done). Barista only.
+// PATCH — flip an order's status (open ⇄ done). Barista only. Session OR
+// personal key (the Hatom Pager menu-bar app marks orders done with the key).
 export async function PATCH(
   request: NextRequest,
   context: { params: Promise<{ id: string }> }
 ) {
-  const gate = await requirePagePermission('coffee-order');
+  const gate = await requireFeatureCaller(request, 'coffee-order');
   if (gate instanceof NextResponse) return gate;
-  if (!isBaristaEmail(gate.session.user.email)) {
+  if (!isBaristaEmail(gate.userEmail)) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
