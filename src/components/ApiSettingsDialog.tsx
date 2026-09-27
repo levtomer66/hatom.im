@@ -168,6 +168,19 @@ export default function ApiSettingsDialog({
     }
   };
 
+  // The dialog only ever renders (past the `if (!open) return null` above)
+  // once mounted client-side after the user opens it, so `window` is defined.
+  const connectorUrl = `${window.location.origin}/api/mcp`;
+
+  const copyConnectorUrl = async () => {
+    try {
+      await navigator.clipboard.writeText(connectorUrl);
+      setFeedback({ kind: 'success', text: 'הכתובת הועתקה ללוח.' });
+    } catch {
+      setFeedback({ kind: 'error', text: 'ההעתקה נכשלה — נסו להעתיק ידנית.' });
+    }
+  };
+
   const changeDefaultFavorite = async (value: string) => {
     if (busyFavorite || !settings) return;
     const favoriteId = value === '' ? null : value;
@@ -317,6 +330,20 @@ export default function ApiSettingsDialog({
 
               <section>
                 <div className="api-settings-section-label">אפליקציות מחוברות</div>
+
+                <div className="api-settings-section-label">כתובת לחיבור (MCP)</div>
+                <div className="api-settings-key-row">
+                  <span className="api-settings-key-value">{connectorUrl}</span>
+                  <button
+                    type="button"
+                    className="api-settings-icon-btn"
+                    aria-label="העתקת כתובת החיבור"
+                    onClick={copyConnectorUrl}
+                  >
+                    <FaCopy />
+                  </button>
+                </div>
+
                 {apps.length === 0 ? (
                   <span className="api-settings-key-empty">אין אפליקציות מחוברות</span>
                 ) : (
