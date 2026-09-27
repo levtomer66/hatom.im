@@ -1,14 +1,15 @@
-import { NextResponse } from 'next/server';
-import { requirePagePermission } from '@/lib/auth-helpers';
+import { NextRequest, NextResponse } from 'next/server';
+import { requireFeatureCaller } from '@/lib/api-caller';
 import { getAllCoffeeOrders } from '@/models/CoffeeOrder';
 import { isBaristaEmail } from '@/types/coffee-order';
 
 // GET — every user's orders for the barista board. Gated twice: the regular
-// coffee-order permission, then the barista allowlist on top.
-export async function GET() {
-  const gate = await requirePagePermission('coffee-order');
+// coffee-order permission, then the barista allowlist on top. Session OR
+// personal key (the Hatom Pager menu-bar app polls this with the key).
+export async function GET(request: NextRequest) {
+  const gate = await requireFeatureCaller(request, 'coffee-order');
   if (gate instanceof NextResponse) return gate;
-  if (!isBaristaEmail(gate.session.user.email)) {
+  if (!isBaristaEmail(gate.userEmail)) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
