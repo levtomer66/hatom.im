@@ -240,8 +240,10 @@ Identity = Gmail address. Two roles:
 - One `oauthGrants` doc per (user, client) = one "connected app"; revoking
   deletes it. Tokens/codes/secrets are stored only as SHA-256 hashes. Refresh
   tokens rotate strictly (atomic `findOneAndUpdate`).
-- `/oauth/authorize` must never redirect before `client_id` + `redirect_uri`
-  are validated AND the user is signed in (open-redirect via dynamic registration — RFC 9700 §4.11.2).
+- `/oauth/authorize` never auto-redirects to a redirect_uri except on
+  Allow/Deny; protocol errors render a click-through link instead (open
+  redirect via dynamic registration otherwise — RFC 9700 §4.11.2). The user
+  must also be signed in before any of that renders.
   It's served with `X-Frame-Options: DENY` (`next.config.js`) because the site
   CSP has no `frame-ancestors`.
 

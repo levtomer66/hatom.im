@@ -15,9 +15,8 @@ import { createAuthorizationCode } from '@/models/OAuthCode';
 
 // The consent form round-trips the original query as hidden fields; both
 // actions re-run the page's full validation on them (never trust the form)
-// and re-read the session before any redirect can happen, protocol-error or
-// otherwise (see the ordering note in revalidate). Next's server-action
-// origin check covers CSRF.
+// and re-read the session before any redirect can happen (see the ordering
+// note in revalidate). Next's server-action origin check covers CSRF.
 async function revalidate(formData: FormData) {
   const params: Record<string, string | undefined> = {};
   for (const name of AUTHORIZE_PARAM_NAMES) {
@@ -35,17 +34,17 @@ async function revalidate(formData: FormData) {
   // via a protocol-error bounce. Same ordering as the page.
   const session = await auth();
   const email = session?.user?.email?.toLowerCase();
-  if (!email) redirect('/login');
+  if (!email) {
+    const query = new URLSearchParams(params as Record<string, string>).toString();
+    redirect(`/login?from=${encodeURIComponent(`/oauth/authorize?${query}`)}`);
+  }
 
+  // Only reachable by tampering with the hidden fields — the page never
+  // renders a form whose params fail this check. Never redirect here: that
+  // would recreate, in the server action, the exact open-redirect this gate
+  // exists to close on the page (RFC 9700 §4.11.2).
   if (validation.kind === 'redirect-error') {
-    redirect(
-      buildRedirectUrl(validation.redirectUri, {
-        error: validation.error,
-        error_description: validation.description,
-        state: validation.state,
-        iss: origin,
-      })
-    );
+    throw new Error(`OAuth protocol error: ${validation.error} — ${validation.description}`);
   }
   return {
     origin,

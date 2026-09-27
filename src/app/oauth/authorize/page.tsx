@@ -37,7 +37,15 @@ function pickParams(
   return out;
 }
 
-function ErrorCard({ message }: { message: string }) {
+function ErrorCard({
+  message,
+  returnUrl,
+  returnHost,
+}: {
+  message: string;
+  returnUrl?: string;
+  returnHost?: string;
+}) {
   return (
     <>
       <Navbar />
@@ -45,7 +53,13 @@ function ErrorCard({ message }: { message: string }) {
         <div className="oauth-card">
           <h1 className="oauth-title">Can&apos;t connect this app</h1>
           <p className="oauth-sub">{message}</p>
-          <p className="oauth-fine">Go back to the app and try adding hatom.im again.</p>
+          {returnUrl ? (
+            <p className="oauth-fine">
+              <a href={returnUrl}>Return to {returnHost}</a>
+            </p>
+          ) : (
+            <p className="oauth-fine">Go back to the app and try adding hatom.im again.</p>
+          )}
         </div>
       </main>
     </>
@@ -55,12 +69,15 @@ function ErrorCard({ message }: { message: string }) {
 // OAuth consent for MCP clients. Order matters:
 //   1. render-error (untrusted client_id / redirect_uri) renders here and
 //      never redirects (RFC 6749 §4.1.2.1).
-//   2. the user must be authenticated before ANY redirect — RFC 9700
-//      §4.11.2 requires authenticating the user before redirecting the
-//      user agent. Registration is open (DCR), so without this gate an
-//      attacker-registered redirect_uri could bounce an anonymous visitor
-//      off hatom.im via a protocol-error redirect (an open redirect).
-//   3. only once signed in do protocol errors redirect back to the client.
+//   2. the user must be authenticated before rendering anything derived
+//      from an untrusted redirect_uri — RFC 9700 §4.11.2 requires
+//      authenticating the user before redirecting the user agent, and
+//      registration is open (DCR) so the redirect_uri itself is
+//      attacker-controlled.
+//   3. never auto-redirect to a redirect_uri except on Allow/Deny; protocol
+//      errors render a click-through link back to the client instead
+//      (RFC 9700 §4.11.2) — a signed-in user clicking a crafted link (e.g.
+//      response_type=token) must not be silently bounced to evil.example.
 export default async function AuthorizePage({ searchParams }: AuthorizePageProps) {
   const params = pickParams(await searchParams);
   const h = await headers();
@@ -77,13 +94,19 @@ export default async function AuthorizePage({ searchParams }: AuthorizePageProps
   }
 
   if (validation.kind === 'redirect-error') {
-    redirect(
-      buildRedirectUrl(validation.redirectUri, {
-        error: validation.error,
-        error_description: validation.description,
-        state: validation.state,
-        iss: origin,
-      })
+    const returnHost = new URL(validation.redirectUri).host;
+    const returnUrl = buildRedirectUrl(validation.redirectUri, {
+      error: validation.error,
+      error_description: validation.description,
+      state: validation.state,
+      iss: origin,
+    });
+    return (
+      <ErrorCard
+        message={`${validation.error}: ${validation.description}`}
+        returnUrl={returnUrl}
+        returnHost={returnHost}
+      />
     );
   }
 
