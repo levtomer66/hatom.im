@@ -3,6 +3,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { FaEye, FaEyeSlash, FaCopy } from 'react-icons/fa';
 import type { CoffeeFavorite } from '@/types/coffee-order';
+import type { ConnectedApp } from '@/types/oauth';
 import './ApiSettingsDialog.css';
 
 interface ApiSettings {
@@ -41,6 +42,8 @@ export default function ApiSettingsDialog({
   const [busyFavorite, setBusyFavorite] = useState(false);
   const [feedback, setFeedback] = useState<Feedback>(null);
   const [loadError, setLoadError] = useState(false);
+  const [apps, setApps] = useState<ConnectedApp[]>([]);
+  const [revokingId, setRevokingId] = useState<string | null>(null);
 
   const dialogRef = useRef<HTMLDivElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
@@ -59,18 +62,21 @@ export default function ApiSettingsDialog({
 
     (async () => {
       try {
-        const [settingsRes, favoritesRes] = await Promise.all([
+        const [settingsRes, favoritesRes, appsRes] = await Promise.all([
           fetch('/api/user/api-settings'),
           fetch('/api/coffee-order/favorites'),
+          fetch('/api/user/oauth-grants'),
         ]);
         if (!settingsRes.ok) throw new Error('settings');
         const settingsData = (await settingsRes.json()) as ApiSettings;
         const favoritesData: CoffeeFavorite[] = favoritesRes.ok
           ? await favoritesRes.json()
           : [];
+        const appsData: ConnectedApp[] = appsRes.ok ? await appsRes.json() : [];
         if (cancelled) return;
         setSettings(settingsData);
         setFavorites(favoritesData);
+        setApps(appsData);
       } catch {
         if (!cancelled) setLoadError(true);
       } finally {
@@ -186,6 +192,28 @@ export default function ApiSettingsDialog({
     }
   };
 
+  const revokeApp = async (app: ConnectedApp) => {
+    if (revokingId) return;
+    const confirmed = window.confirm(
+      `לנתק את ${app.clientName}? הוא יפסיק לגשת לחשבון עד שתחברו אותו מחדש.`
+    );
+    if (!confirmed) return;
+    setRevokingId(app.id);
+    setFeedback(null);
+    try {
+      const res = await fetch(`/api/user/oauth-grants?id=${encodeURIComponent(app.id)}`, {
+        method: 'DELETE',
+      });
+      if (!res.ok && res.status !== 404) throw new Error('revoke');
+      setApps((list) => list.filter((a) => a.id !== app.id));
+      setFeedback({ kind: 'success', text: `${app.clientName} נותק.` });
+    } catch {
+      setFeedback({ kind: 'error', text: 'הניתוק נכשל. נסו שוב.' });
+    } finally {
+      setRevokingId(null);
+    }
+  };
+
   return (
     <div
       className="api-settings-backdrop"
@@ -285,6 +313,39 @@ export default function ApiSettingsDialog({
                     </option>
                   ))}
                 </select>
+              </section>
+
+              <section>
+                <div className="api-settings-section-label">אפליקציות מחוברות</div>
+                {apps.length === 0 ? (
+                  <span className="api-settings-key-empty">אין אפליקציות מחוברות</span>
+                ) : (
+                  <ul className="api-settings-apps">
+                    {apps.map((app) => (
+                      <li key={app.id} className="api-settings-app">
+                        <div className="api-settings-app-info">
+                          <span className="api-settings-app-name">{app.clientName}</span>
+                          <span className="api-settings-app-meta" dir="ltr">
+                            {app.redirectHost}
+                          </span>
+                          <span className="api-settings-app-meta">
+                            {app.lastUsedAt
+                              ? `שימוש אחרון: ${new Date(app.lastUsedAt).toLocaleDateString('he-IL')}`
+                              : 'טרם נעשה שימוש'}
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          className="api-settings-btn"
+                          onClick={() => revokeApp(app)}
+                          disabled={revokingId === app.id}
+                        >
+                          {revokingId === app.id ? 'רגע…' : 'ניתוק'}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </section>
 
               {feedback && (
