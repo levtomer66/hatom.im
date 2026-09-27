@@ -7,6 +7,7 @@ import {
   hashToken,
   isTokenOfKind,
   isAllowedRedirectUri,
+  MAX_REDIRECT_URI_LENGTH,
   mcpResourceUrl,
   negotiateProtocolVersion,
   originFromHeaders,
@@ -103,6 +104,28 @@ test('parseClientRegistration rejects bad input', () => {
   assert.equal(bad({ redirect_uris: ['https://a.example/cb'], token_endpoint_auth_method: 'private_key_jwt' }), 'invalid_client_metadata');
   assert.equal(bad({ redirect_uris: ['https://a.example/cb'], grant_types: ['implicit'] }), 'invalid_client_metadata');
   assert.equal(bad({ redirect_uris: ['https://a.example/cb'], response_types: ['token'] }), 'invalid_client_metadata');
+  assert.equal(
+    bad({
+      redirect_uris: [`https://a.example/${'x'.repeat(MAX_REDIRECT_URI_LENGTH)}`],
+    }),
+    'invalid_redirect_uri'
+  );
+});
+
+test('parseClientRegistration strips control and bidi-override characters from client_name', () => {
+  const withBidi = parseClientRegistration({
+    redirect_uris: ['https://a.example/cb'],
+    client_name: 'Evil‮elgoog',
+  });
+  assert.equal(withBidi.ok, true);
+  if (withBidi.ok) assert.equal(withBidi.registration.clientName, 'Evilelgoog');
+
+  const onlyControl = parseClientRegistration({
+    redirect_uris: ['https://a.example/cb'],
+    client_name: '‮‎‏',
+  });
+  assert.equal(onlyControl.ok, true);
+  if (onlyControl.ok) assert.equal(onlyControl.registration.clientName, 'MCP client');
 });
 
 test('parseBasicAuth decodes form-encoded credentials', () => {
@@ -212,6 +235,7 @@ test('metadata documents derive every URL from the origin', () => {
   assert.equal(as.registration_endpoint, 'http://localhost:3000/api/oauth/register');
   assert.equal(as.revocation_endpoint, 'http://localhost:3000/api/oauth/revoke');
   assert.deepEqual(as.code_challenge_methods_supported, ['S256']);
+  assert.equal(as.authorization_response_iss_parameter_supported, true);
   assert.equal(mcpResourceUrl(ORIGIN), RESOURCE);
 });
 

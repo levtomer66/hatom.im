@@ -81,6 +81,20 @@ const MAX_REDIRECT_URIS = 10;
 const MAX_CLIENT_NAME = 100;
 const DEFAULT_CLIENT_NAME = 'MCP client';
 
+// DCR is open registration with no auth — these caps bound how much one
+// anonymous POST can make us store (registration doc + logs) on the shared
+// 512 MB Atlas M0. Enforced in oauth-core so both the field-level check
+// below and the route's raw-body check (register/route.ts) share one source
+// of truth for the redirect-URI limit.
+export const MAX_REGISTRATION_BODY_BYTES = 16 * 1024;
+export const MAX_REDIRECT_URI_LENGTH = 2000;
+
+// Strips bidi-override/mark characters (LRM/RLM, LRE/RLE/PDF/LRO/RLO,
+// LRI/RLI/FSI/PDI) and all C0/C1 control characters so a registered
+// client_name can't reorder or hide its own text when rendered on the
+// consent page or in the connected-apps list.
+const BIDI_AND_CONTROL_CHARS = /[\p{Cc}‎‏‪-‮⁦-⁩]/gu;
+
 export interface ClientRegistration {
   clientName: string;
   redirectUris: string[];
@@ -123,11 +137,18 @@ export function parseClientRegistration(body: unknown): RegistrationResult {
     };
   }
   for (const uri of uris) {
-    if (typeof uri !== 'string' || !isAllowedRedirectUri(uri)) {
+    if (typeof uri !== 'string' || uri.length > MAX_REDIRECT_URI_LENGTH) {
       return {
         ok: false,
         error: 'invalid_redirect_uri',
-        description: `Unsupported redirect URI: ${String(uri)}`,
+        description: `Redirect URI must be a string of at most ${MAX_REDIRECT_URI_LENGTH} characters`,
+      };
+    }
+    if (!isAllowedRedirectUri(uri)) {
+      return {
+        ok: false,
+        error: 'invalid_redirect_uri',
+        description: `Unsupported redirect URI: ${uri}`,
       };
     }
   }
@@ -135,7 +156,11 @@ export function parseClientRegistration(body: unknown): RegistrationResult {
   if (b.client_name !== undefined && typeof b.client_name !== 'string') {
     return metadataError('client_name must be a string');
   }
-  const clientName = (b.client_name as string | undefined)?.trim() || DEFAULT_CLIENT_NAME;
+  const sanitizedClientName = (b.client_name as string | undefined)?.replace(
+    BIDI_AND_CONTROL_CHARS,
+    ''
+  );
+  const clientName = sanitizedClientName?.trim() || DEFAULT_CLIENT_NAME;
   if (clientName.length > MAX_CLIENT_NAME) {
     return metadataError(`client_name must be at most ${MAX_CLIENT_NAME} characters`);
   }
@@ -334,6 +359,9 @@ export function authorizationServerMetadata(origin: string) {
     token_endpoint_auth_methods_supported: [...CLIENT_AUTH_METHODS],
     revocation_endpoint_auth_methods_supported: [...CLIENT_AUTH_METHODS],
     scopes_supported: [MCP_SCOPE],
+    // RFC 9207 — lets clients bind an authorization response to the request
+    // that started it, using the `iss` param we already emit on redirects.
+    authorization_response_iss_parameter_supported: true,
   };
 }
 

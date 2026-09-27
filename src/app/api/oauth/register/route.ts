@@ -1,15 +1,21 @@
 import { NextRequest } from 'next/server';
-import { GRANT_TYPES, parseClientRegistration } from '@/lib/oauth-core';
+import { GRANT_TYPES, MAX_REGISTRATION_BODY_BYTES, parseClientRegistration } from '@/lib/oauth-core';
 import { corsPreflight, oauthError, oauthJson } from '@/lib/oauth-http';
 import { registerOAuthClient } from '@/models/OAuthClient';
 
 // RFC 7591 dynamic client registration — open, as the MCP auth spec expects.
 // Registering grants nothing: every connection still needs a signed-in user
-// to click Allow on /oauth/authorize.
+// to click Allow on /oauth/authorize. Registration is anonymous, so cap the
+// raw body before parsing — otherwise one POST can store megabytes in the
+// shared 512 MB Atlas M0.
 export async function POST(request: NextRequest) {
+  const text = await request.text();
+  if (Buffer.byteLength(text) > MAX_REGISTRATION_BODY_BYTES) {
+    return oauthError('invalid_client_metadata', 'Body too large');
+  }
   let body: unknown;
   try {
-    body = await request.json();
+    body = JSON.parse(text);
   } catch {
     return oauthError('invalid_client_metadata', 'Body must be JSON');
   }
