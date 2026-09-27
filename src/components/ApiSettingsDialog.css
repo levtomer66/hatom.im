@@ -168,22 +168,6 @@
   background: rgba(201, 168, 76, 0.14);
 }
 
-.api-settings-select {
-  width: 100%;
-  padding: 0.55rem 0.7rem;
-  border-radius: 8px;
-  border: 1px solid var(--glass-border);
-  background: rgba(255, 255, 255, 0.04);
-  color: var(--text-color);
-  font: inherit;
-  font-size: 0.9rem;
-}
-
-.api-settings-select:focus {
-  outline: 2px solid var(--gold);
-  outline-offset: 1px;
-}
-
 .api-settings-warning {
   font-size: 0.8rem;
   line-height: 1.5;

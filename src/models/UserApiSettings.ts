@@ -29,7 +29,6 @@ function generateApiKey(): string {
 
 export interface PublicUserApiSettings {
   apiKey: string | null;
-  defaultCoffeeFavoriteId: string | null;
 }
 
 export interface ApiKeyOwner extends PublicUserApiSettings {
@@ -80,7 +79,6 @@ function normalizeName(email: string, name: string | null | undefined): string {
 function toPublicSettings(doc: UserApiSettingsDocument): PublicUserApiSettings {
   return {
     apiKey: doc.apiKey ?? null,
-    defaultCoffeeFavoriteId: doc.defaultCoffeeFavoriteId ?? null,
   };
 }
 
@@ -104,7 +102,6 @@ async function upsertIdentity(
       $setOnInsert: {
         userEmail: email,
         apiKey: null,
-        defaultCoffeeFavoriteId: null,
       },
     },
     { upsert: true, returnDocument: 'after' }
@@ -156,29 +153,6 @@ export async function regenerateUserApiKey(
   throw new Error('Unable to allocate a unique API key');
 }
 
-export async function setDefaultCoffeeFavorite(
-  userEmail: string,
-  userName: string | null | undefined,
-  defaultCoffeeFavoriteId: string | null
-): Promise<PublicUserApiSettings> {
-  await upsertIdentity(userEmail, userName);
-  const collection = await getCollection();
-  const email = normalizeEmail(userEmail);
-  const doc = await collection.findOneAndUpdate(
-    { userEmail: email },
-    {
-      $set: {
-        defaultCoffeeFavoriteId,
-        userName: normalizeName(email, userName),
-        updatedAt: new Date().toISOString(),
-      },
-    },
-    { returnDocument: 'after' }
-  );
-  if (!doc) throw new Error('Failed to update API settings');
-  return toPublicSettings(doc);
-}
-
 // Resolve a presented key to its owner. Authorization (page permission) is the
 // caller's responsibility — this only answers "whose key is this?".
 export async function getApiKeyOwner(apiKey: string): Promise<ApiKeyOwner | null> {
@@ -189,17 +163,5 @@ export async function getApiKeyOwner(apiKey: string): Promise<ApiKeyOwner | null
     userEmail: doc.userEmail,
     userName: doc.userName,
     apiKey: doc.apiKey,
-    defaultCoffeeFavoriteId: doc.defaultCoffeeFavoriteId ?? null,
   };
-}
-
-// Read-only lookup for OAuth-authenticated MCP calls, which know the user's
-// email but never touch this row's key. Missing row → built-in defaults.
-export async function getDefaultCoffeeFavoriteId(userEmail: string): Promise<string | null> {
-  const collection = await getCollection();
-  const doc = await collection.findOne(
-    { userEmail: normalizeEmail(userEmail) },
-    { projection: { defaultCoffeeFavoriteId: 1 } }
-  );
-  return doc?.defaultCoffeeFavoriteId ?? null;
 }

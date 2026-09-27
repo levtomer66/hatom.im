@@ -10,8 +10,6 @@ setting — it's your own shortcut.
 1. Sign in at **https://www.hatom.im**.
 2. Tap your **avatar** (top of the navbar) → **API settings**.
 3. **Generate** a key, then **Copy** it. It looks like `htm_xxxxxxxx…`.
-4. (Coffee only) pick a **default coffee favorite** in the same dialog — the
-   coffee shortcut orders that.
 
 The key authenticates as you and can do anything you can on the site (order
 coffee, page, edit to-dos…). Keep it private; **rotate** it in the same dialog
@@ -22,7 +20,8 @@ if it leaks — that instantly kills the old key.
 
 ## 2. Coffee — "Order my usual" (simplest; one tap)
 
-A body-less POST orders your **default favorite** (or built-in defaults).
+The POST orders the saved favorite named in `favoriteName` (exact name, as on the
+coffee page). Leave the body empty to order the built-in default drink instead.
 
 New Shortcut → add these actions:
 
@@ -30,7 +29,8 @@ New Shortcut → add these actions:
    - URL: `https://www.hatom.im/api/coffee-order/orders`
    - (tap ▸ to expand) **Method:** `POST`
    - **Headers:** add one — key `Authorization`, value `Bearer htm_…` (paste your key)
-   - **Request Body:** leave empty (no fields)
+   - **Request Body:** `JSON` — add a Text field `favoriteName` = your favorite's
+     name (or leave the body empty for the built-in default)
 2. **Show Notification** → text: the *Contents of URL* variable (so you see the confirmation), or just "☕ Ordered".
 
 Name it "Order coffee". Then **Share → Add to Home Screen** (one-tap button), or

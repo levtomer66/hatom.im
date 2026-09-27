@@ -46,7 +46,8 @@ export async function PATCH(
   }
 }
 
-// DELETE — cancel an order. A user can delete their own; owners can delete any.
+// DELETE — cancel an order. A user can delete their own; owners and the
+// barista can delete any (the barista clears the board's history).
 export async function DELETE(
   request: NextRequest,
   context: { params: Promise<{ id: string }> }
@@ -57,7 +58,11 @@ export async function DELETE(
 
   try {
     const { id } = await context.params;
-    const ok = await deleteCoffeeOrder(id, email, isOwnerEmail(email));
+    const ok = await deleteCoffeeOrder(
+      id,
+      email,
+      isOwnerEmail(email) || isBaristaEmail(email)
+    );
     if (!ok) {
       return NextResponse.json({ error: 'Not found' }, { status: 404 });
     }

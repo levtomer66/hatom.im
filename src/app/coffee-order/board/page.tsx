@@ -65,7 +65,7 @@ export default function CoffeeBoardPage() {
   const [orders, setOrders] = useState<CoffeeOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  // Order id with an in-flight status PATCH; disables that card's button.
+  // Order id with an in-flight PATCH/DELETE; disables that card's buttons.
   const [busyId, setBusyId] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
@@ -111,6 +111,24 @@ export default function CoffeeBoardPage() {
     } catch (err) {
       console.error(err);
       setError('עדכון ההזמנה נכשל.');
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  // Remove a completed order from the board's history for good.
+  async function deleteOrder(id: string) {
+    if (!window.confirm('למחוק את ההזמנה מההיסטוריה? אי אפשר לשחזר.')) return;
+    setBusyId(id);
+    try {
+      const res = await fetch(`/api/coffee-order/orders/${id}`, {
+        method: 'DELETE',
+      });
+      if (!res.ok && res.status !== 404) throw new Error(`Failed (${res.status})`);
+      setOrders((prev) => prev.filter((o) => o.id !== id));
+    } catch (err) {
+      console.error(err);
+      setError('מחיקת ההזמנה נכשלה.');
     } finally {
       setBusyId(null);
     }
@@ -226,6 +244,15 @@ export default function CoffeeBoardPage() {
                         disabled={busyId === o.id}
                       >
                         ↩ החזר לתור
+                      </button>
+                      <button
+                        type="button"
+                        className="coffee-delete"
+                        onClick={() => deleteOrder(o.id)}
+                        disabled={busyId === o.id}
+                        aria-label="מחק מההיסטוריה"
+                      >
+                        ✕
                       </button>
                     </div>
                   </article>

@@ -1,10 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { NextRequest, NextResponse, after } from 'next/server';
-import {
-  getApiKeyOwner,
-  getDefaultCoffeeFavoriteId,
-  isApiKeyFormat,
-} from '@/models/UserApiSettings';
+import { getApiKeyOwner, isApiKeyFormat } from '@/models/UserApiSettings';
 import { resolveAccessToken, touchGrant } from '@/models/OAuthGrant';
 import {
   isTokenOfKind,
@@ -16,7 +12,7 @@ import { getAuthorizedEmailEntry } from '@/models/AuthorizedEmail';
 import { isOwnerEmail } from '@/types/auth';
 import type { PermissionKey } from '@/types/permissions';
 import { createCoffeeOrder } from '@/models/CoffeeOrder';
-import { getCoffeeFavoritesForUser, getCoffeeFavoriteForUser } from '@/models/CoffeeFavorite';
+import { getCoffeeFavoritesForUser, getCoffeeFavoriteByName } from '@/models/CoffeeFavorite';
 import { orderDtoFromFavorite, defaultDrinkConfig, drinkSummary } from '@/types/coffee-order';
 import { notifyCoffeeOrder } from '@/lib/coffee-notify';
 import { createPageIncident } from '@/lib/pagerduty';
@@ -73,7 +69,6 @@ interface McpTool {
 interface McpCaller {
   userEmail: string;
   userName: string;
-  defaultCoffeeFavoriteId: string | null;
 }
 
 function str(args: Record<string, unknown>, key: string): string | undefined {
@@ -91,13 +86,25 @@ const TOOLS: McpTool[] = [
   {
     name: 'order_coffee',
     description:
-      "Order the caller's default coffee favorite now (or built-in defaults if none is set). Lands on the barista board and pushes a notification.",
+      "Order coffee now: the caller's saved favorite named favoriteName, or the built-in default drink if omitted. Lands on the barista board and pushes a notification.",
     permission: 'coffee-order',
-    inputSchema: { type: 'object', properties: {}, additionalProperties: false },
-    handler: async (_args, caller) => {
-      const fav = caller.defaultCoffeeFavoriteId
-        ? await getCoffeeFavoriteForUser(caller.defaultCoffeeFavoriteId, caller.userEmail)
-        : null;
+    inputSchema: {
+      type: 'object',
+      properties: {
+        favoriteName: {
+          type: 'string',
+          description: 'Exact name of a saved favorite (see list_coffee_favorites). Optional.',
+        },
+      },
+      additionalProperties: false,
+    },
+    handler: async (args, caller) => {
+      const favoriteName = str(args, 'favoriteName')?.trim();
+      let fav = null;
+      if (favoriteName) {
+        fav = await getCoffeeFavoriteByName(caller.userEmail, favoriteName);
+        if (!fav) throw new Error(`No saved favorite named "${favoriteName}".`);
+      }
       const dto = fav
         ? orderDtoFromFavorite(fav)
         : { ...defaultDrinkConfig(), deliveryType: 'now' as const };
@@ -349,7 +356,6 @@ async function resolveCaller(request: NextRequest): Promise<CallerResolution> {
       caller: {
         userEmail: grant.userEmail,
         userName: grant.userName,
-        defaultCoffeeFavoriteId: await getDefaultCoffeeFavoriteId(grant.userEmail),
       },
     };
   }

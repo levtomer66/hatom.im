@@ -100,17 +100,18 @@ export async function setCoffeeOrderStatus(
   }
 }
 
-// Delete one order. A non-owner may only delete their own (the userEmail
-// filter scopes it); owners may delete any. Returns true when a doc was removed.
+// Delete one order. Without canDeleteAny a caller may only delete their own
+// (the userEmail filter scopes it); owners and the barista may delete any.
+// Returns true when a doc was removed.
 export async function deleteCoffeeOrder(
   id: string,
   userEmail: string,
-  isOwner: boolean
+  canDeleteAny: boolean
 ): Promise<boolean> {
   const collection = await getCoffeeOrdersCollection();
   try {
     const filter: Record<string, unknown> = { _id: new ObjectId(id) };
-    if (!isOwner) filter.userEmail = userEmail.toLowerCase();
+    if (!canDeleteAny) filter.userEmail = userEmail.toLowerCase();
     const result = await collection.deleteOne(filter);
     return result.deletedCount > 0;
   } catch (error) {

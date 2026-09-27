@@ -45,6 +45,17 @@ export async function getCoffeeFavoritesForUser(
   return docs.map(docToFavorite);
 }
 
+// The caller's own favorite with this exact name — how key-mode and MCP orders
+// pick a favorite. Null when there is none.
+export async function getCoffeeFavoriteByName(
+  userEmail: string,
+  name: string
+): Promise<CoffeeFavorite | null> {
+  const collection = await getCoffeeFavoritesCollection();
+  const doc = await collection.findOne({ userEmail: userEmail.toLowerCase(), name });
+  return doc ? docToFavorite(doc) : null;
+}
+
 // Single favorite by id. Returns null for a missing doc or a malformed id
 // (a bad ObjectId must 404, not 500). Ownership is enforced by the caller.
 export async function getCoffeeFavoriteById(
@@ -57,17 +68,6 @@ export async function getCoffeeFavoriteById(
   } catch {
     return null;
   }
-}
-
-// A favorite by id, but only if it belongs to this user. Used to validate a
-// default-favorite selection and to authorize key-mode coffee orders.
-export async function getCoffeeFavoriteForUser(
-  id: string,
-  userEmail: string
-): Promise<CoffeeFavorite | null> {
-  const fav = await getCoffeeFavoriteById(id);
-  if (!fav || fav.userEmail !== userEmail.toLowerCase()) return null;
-  return fav;
 }
 
 export async function createCoffeeFavorite(

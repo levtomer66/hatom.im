@@ -4,7 +4,7 @@ import { requirePagePermission } from '@/lib/auth-helpers';
 import { requireFeatureCaller } from '@/lib/api-caller';
 import { notifyCoffeeOrder } from '@/lib/coffee-notify';
 import { getCoffeeOrdersForUser, createCoffeeOrder } from '@/models/CoffeeOrder';
-import { getCoffeeFavoriteForUser, getCoffeeFavoritesForUser } from '@/models/CoffeeFavorite';
+import { getCoffeeFavoriteByName } from '@/models/CoffeeFavorite';
 import {
   CreateCoffeeOrderDto,
   isValidDrink,
@@ -40,7 +40,7 @@ export async function GET() {
 //   • Session (browser): the full CreateCoffeeOrderDto body, validated + clamped.
 //   • Personal API key (Shortcut / macOS / MCP): the ONLY accepted field is an
 //     optional `favoriteName` — order that saved favorite. With no body, order
-//     the caller's chosen default favorite (or built-in defaults). Always "now".
+//     the built-in defaults. Always "now".
 export async function POST(request: NextRequest) {
   const caller = await requireFeatureCaller(request, 'coffee-order');
   if (caller instanceof NextResponse) return caller;
@@ -75,15 +75,10 @@ export async function POST(request: NextRequest) {
       let fav = null;
       if (favoriteName) {
         // Order a specific saved favorite by name (the caller's own).
-        const favs = await getCoffeeFavoritesForUser(caller.userEmail);
-        fav = favs.find((f) => f.name === favoriteName) ?? null;
+        fav = await getCoffeeFavoriteByName(caller.userEmail, favoriteName);
         if (!fav) {
           return NextResponse.json({ error: 'Favorite not found' }, { status: 404 });
         }
-      } else if (caller.defaultCoffeeFavoriteId) {
-        // No name → the chosen default; a deleted/foreign default falls back to
-        // built-in defaults below.
-        fav = await getCoffeeFavoriteForUser(caller.defaultCoffeeFavoriteId, caller.userEmail);
       }
       const dto = fav
         ? orderDtoFromFavorite(fav)

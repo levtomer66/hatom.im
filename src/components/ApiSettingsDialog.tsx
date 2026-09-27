@@ -2,13 +2,11 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import { FaEye, FaEyeSlash, FaCopy } from 'react-icons/fa';
-import type { CoffeeFavorite } from '@/types/coffee-order';
 import type { ConnectedApp } from '@/types/oauth';
 import './ApiSettingsDialog.css';
 
 interface ApiSettings {
   apiKey: string | null;
-  defaultCoffeeFavoriteId: string | null;
 }
 
 type Feedback = { kind: 'success' | 'error'; text: string } | null;
@@ -23,9 +21,9 @@ function maskKey(key: string): string {
   return `${key.slice(0, 8)}${'•'.repeat(Math.min(key.length - 8, 16))}`;
 }
 
-// Session-gated key + default-favorite manager, opened from the navbar
+// Session-gated key + connected-apps manager, opened from the navbar
 // avatar (desktop) and the drawer footer (mobile). Owns its own fetch of
-// GET/POST/PATCH /api/user/api-settings — the caller only controls
+// GET/POST /api/user/api-settings — the caller only controls
 // open/close.
 export default function ApiSettingsDialog({
   open,
@@ -36,10 +34,8 @@ export default function ApiSettingsDialog({
 }) {
   const [loading, setLoading] = useState(true);
   const [settings, setSettings] = useState<ApiSettings | null>(null);
-  const [favorites, setFavorites] = useState<CoffeeFavorite[]>([]);
   const [revealed, setRevealed] = useState(false);
   const [busyKey, setBusyKey] = useState(false);
-  const [busyFavorite, setBusyFavorite] = useState(false);
   const [feedback, setFeedback] = useState<Feedback>(null);
   const [loadError, setLoadError] = useState(false);
   const [apps, setApps] = useState<ConnectedApp[]>([]);
@@ -49,7 +45,7 @@ export default function ApiSettingsDialog({
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const previouslyFocused = useRef<HTMLElement | null>(null);
 
-  // Load settings + favorites whenever the dialog opens. Reset transient UI
+  // Load settings + connected apps whenever the dialog opens. Reset transient UI
   // state (reveal, feedback) so a stale reveal/toast from a previous open
   // doesn't leak into a fresh session.
   useEffect(() => {
@@ -62,20 +58,15 @@ export default function ApiSettingsDialog({
 
     (async () => {
       try {
-        const [settingsRes, favoritesRes, appsRes] = await Promise.all([
+        const [settingsRes, appsRes] = await Promise.all([
           fetch('/api/user/api-settings'),
-          fetch('/api/coffee-order/favorites'),
           fetch('/api/user/oauth-grants'),
         ]);
         if (!settingsRes.ok) throw new Error('settings');
         const settingsData = (await settingsRes.json()) as ApiSettings;
-        const favoritesData: CoffeeFavorite[] = favoritesRes.ok
-          ? await favoritesRes.json()
-          : [];
         const appsData: ConnectedApp[] = appsRes.ok ? await appsRes.json() : [];
         if (cancelled) return;
         setSettings(settingsData);
-        setFavorites(favoritesData);
         setApps(appsData);
       } catch {
         if (!cancelled) setLoadError(true);
@@ -181,30 +172,6 @@ export default function ApiSettingsDialog({
     }
   };
 
-  const changeDefaultFavorite = async (value: string) => {
-    if (busyFavorite || !settings) return;
-    const favoriteId = value === '' ? null : value;
-    const previous = settings.defaultCoffeeFavoriteId;
-    setSettings({ ...settings, defaultCoffeeFavoriteId: favoriteId });
-    setBusyFavorite(true);
-    setFeedback(null);
-    try {
-      const res = await fetch('/api/user/api-settings', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ defaultCoffeeFavoriteId: favoriteId }),
-      });
-      if (!res.ok) throw new Error('patch');
-      const data = (await res.json()) as ApiSettings;
-      setSettings(data);
-    } catch {
-      setSettings((s) => (s ? { ...s, defaultCoffeeFavoriteId: previous } : s));
-      setFeedback({ kind: 'error', text: 'עדכון ברירת המחדל נכשל. נסו שוב.' });
-    } finally {
-      setBusyFavorite(false);
-    }
-  };
-
   const revokeApp = async (app: ConnectedApp) => {
     if (revokingId) return;
     const confirmed = window.confirm(
@@ -306,26 +273,6 @@ export default function ApiSettingsDialog({
                     {busyKey ? 'רגע…' : settings?.apiKey ? 'החלף מפתח' : 'צור מפתח'}
                   </button>
                 </div>
-              </section>
-
-              <section>
-                <label className="api-settings-section-label" htmlFor="api-settings-default-favorite">
-                  ברירת מחדל לקפה
-                </label>
-                <select
-                  id="api-settings-default-favorite"
-                  className="api-settings-select"
-                  value={settings?.defaultCoffeeFavoriteId ?? ''}
-                  onChange={(e) => changeDefaultFavorite(e.target.value)}
-                  disabled={busyFavorite}
-                >
-                  <option value="">ברירת מחדל מובנית</option>
-                  {favorites.map((fav) => (
-                    <option key={fav.id} value={fav.id}>
-                      {fav.name}
-                    </option>
-                  ))}
-                </select>
               </section>
 
               <section>

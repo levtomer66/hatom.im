@@ -16,7 +16,6 @@ export interface FeatureCaller {
   userEmail: string;
   userName: string;
   authMode: 'session' | 'api-key';
-  defaultCoffeeFavoriteId: string | null;
 }
 
 function unauthorized(): NextResponse {
@@ -63,7 +62,6 @@ export async function requireFeatureCaller(
       userEmail: owner.userEmail,
       userName: owner.userName,
       authMode: 'api-key',
-      defaultCoffeeFavoriteId: owner.defaultCoffeeFavoriteId,
     };
   }
 
@@ -74,7 +72,6 @@ export async function requireFeatureCaller(
     userEmail: email,
     userName: gate.session.user.name?.trim() || email.split('@')[0],
     authMode: 'session',
-    defaultCoffeeFavoriteId: null,
   };
 }
 
