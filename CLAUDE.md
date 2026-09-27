@@ -223,6 +223,28 @@ Identity = Gmail address. Two roles:
   rating can't be un-set by dragging; per-place disabling is the intended way
   to take a category out of the score.
 
+### MCP server + OAuth (`/api/mcp`)
+
+- Hand-rolled JSON-RPC tools server. Two Bearer credentials: the `htm_`
+  personal API key (Shortcuts / manual MCP config) and `hto_` OAuth access
+  tokens (claude.ai / ChatGPT / Copilot connectors). Both resolve to the same
+  caller; every tool re-checks the user's live page permission.
+- OAuth 2.1 authorization server is in-app, no library: pure logic in
+  `src/lib/oauth-core.ts` (import-free, unit-tested), HTTP glue in
+  `src/lib/oauth-http.ts`, models `OAuthClient` / `OAuthCode` / `OAuthGrant`.
+  Discovery under `src/app/.well-known/`, consent at `/oauth/authorize`,
+  endpoints under `/api/oauth/{register,token,revoke}`.
+- Issuer = request origin, so prod/previews/localhost each advertise their
+  own. Don't hardcode `https://www.hatom.im` in metadata — ChatGPT rejects an
+  issuer that differs from the URL it fetched.
+- One `oauthGrants` doc per (user, client) = one "connected app"; revoking
+  deletes it. Tokens/codes/secrets are stored only as SHA-256 hashes. Refresh
+  tokens rotate strictly (atomic `findOneAndUpdate`).
+- `/oauth/authorize` must never redirect before `client_id` + `redirect_uri`
+  are validated AND the user is signed in (open-redirect via dynamic registration — RFC 9700 §4.11.2).
+  It's served with `X-Frame-Options: DENY` (`next.config.js`) because the site
+  CSP has no `frame-ancestors`.
+
 ## Quick sanity checks before making changes
 
 - `cat .vercel/project.json` — is this repo linked to the right Vercel project?
