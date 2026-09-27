@@ -30,6 +30,12 @@ const nextConfig = {
           },
         ],
       },
+      {
+        // The site-wide CSP has no frame-ancestors; without this the OAuth
+        // consent page could be framed and its Allow button clickjacked.
+        source: '/oauth/:path*',
+        headers: [{ key: 'X-Frame-Options', value: 'DENY' }],
+      },
     ];
   },
 };

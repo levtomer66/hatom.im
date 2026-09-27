@@ -1,0 +1,63 @@
+/* Consent card for /oauth/authorize — same visual weight as the login card. */
+.oauth-page {
+  min-height: calc(100vh - 64px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 16px;
+}
+
+.oauth-card {
+  width: 100%;
+  max-width: 420px;
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.08);
+  padding: 28px 24px;
+  text-align: start;
+}
+
+.oauth-title {
+  font-size: 1.4rem;
+  margin: 0 0 12px;
+}
+
+.oauth-sub {
+  margin: 0 0 12px;
+  line-height: 1.5;
+}
+
+.oauth-host {
+  color: #666;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.9em;
+}
+
+.oauth-fine {
+  color: #666;
+  font-size: 0.85rem;
+  line-height: 1.5;
+  margin: 12px 0 0;
+}
+
+.oauth-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.oauth-btn {
+  flex: 1;
+  padding: 10px 16px;
+  border-radius: 10px;
+  border: 1px solid #ccc;
+  background: #fff;
+  font-size: 1rem;
+  cursor: pointer;
+}
+
+.oauth-btn--primary {
+  background: #111;
+  border-color: #111;
+  color: #fff;
+}
