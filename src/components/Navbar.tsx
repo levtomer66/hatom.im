@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation';
 import { signIn, signOut, useSession } from 'next-auth/react';
 import {
   FaDog,
+  FaBirthdayCake,
   FaCoffee,
   FaMugHot,
   FaVideo,
@@ -53,6 +54,7 @@ const allNavItems: NavItem[] = [
   { href: '/sex',                      label: 'ולנטיין',       icon: FaHeart,      visibility: { permission: 'valentine'   } },
   { href: '/paging',                   label: 'פייג׳ר',        icon: FaBell,       visibility: { permission: 'paging'      } },
   { href: '/todo',                     label: 'משימות',        icon: FaTasks,      visibility: { permission: 'todo'        } },
+  { href: '/birthday-quiz',            label: 'חידון',         icon: FaBirthdayCake, visibility: { permission: 'birthday-quiz' } },
   { href: '/admin/allowlist',          label: 'הרשאות',        icon: FaUserShield, visibility: 'owner' },
   { href: '/admin/workout-activity',    label: 'פעילות אימונים', icon: FaChartLine,  visibility: 'owner' },
 ];

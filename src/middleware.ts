@@ -33,6 +33,7 @@ const GATES: readonly Gate[] = [
   { pattern: /^\/instomit(?:\/|$)/,          permission: 'instomit'    },
   { pattern: /^\/paging(?:\/|$)/,            permission: 'paging'      },
   { pattern: /^\/todo(?:\/|$)/,              permission: 'todo'        },
+  { pattern: /^\/birthday-quiz(?:\/|$)/,     permission: 'birthday-quiz' },
 ];
 
 export default auth((req) => {
@@ -89,6 +90,7 @@ export const config = {
     '/instomit/:path*',
     '/paging/:path*',
     '/todo/:path*',
+    '/birthday-quiz/:path*',
     '/trip.html',
     '/vegas-wedding-guide.html',
   ],
