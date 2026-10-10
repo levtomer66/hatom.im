@@ -17,6 +17,7 @@ several independent features under separate routes:
 | `/instomit`        | Video wall with comments + likes.              |
 | `/family-tree`     | Tree visualisation (react-d3-tree).            |
 | `/greeting`        | Small greeting page.                           |
+| `/birthday-quiz`   | Public (ungated) host-driven Hebrew family quiz. Questions + pure reducer in `src/lib/birthday-quiz.ts`. |
 
 Default branch is `main`. Pushes to `main` auto-deploy to Production via
 Vercel's GitHub integration. There is no separate `master` branch.
