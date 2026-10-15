@@ -34,6 +34,7 @@ const GATES: readonly Gate[] = [
   { pattern: /^\/paging(?:\/|$)/,            permission: 'paging'      },
   { pattern: /^\/todo(?:\/|$)/,              permission: 'todo'        },
   { pattern: /^\/birthday-quiz(?:\/|$)/,     permission: 'birthday-quiz' },
+  { pattern: /^\/laundry(?:\/|$)/,           permission: 'laundry'     },
 ];
 
 export default auth((req) => {
@@ -91,6 +92,7 @@ export const config = {
     '/paging/:path*',
     '/todo/:path*',
     '/birthday-quiz/:path*',
+    '/laundry/:path*',
     '/trip.html',
     '/vegas-wedding-guide.html',
   ],

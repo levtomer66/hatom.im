@@ -18,6 +18,7 @@ several independent features under separate routes:
 | `/family-tree`     | Tree visualisation (react-d3-tree).            |
 | `/greeting`        | Small greeting page.                           |
 | `/birthday-quiz`   | Host-driven Hebrew family quiz (permission `birthday-quiz`). Questions + pure reducer in `src/lib/birthday-quiz.ts`. |
+| `/laundry`         | Step-by-step laundry guide for our LG washer (permission `laundry`). Loads, doses + step builder in `src/lib/laundry.ts`; photos in `public/laundry/`. |
 
 Default branch is `main`. Pushes to `main` auto-deploy to Production via
 Vercel's GitHub integration. There is no separate `master` branch.
@@ -223,6 +224,19 @@ Identity = Gmail address. Two roles:
 - `ScaleBar` is `min="1"` on purpose (`src/components/RatingStars.tsx`). A
   rating can't be un-set by dragging; per-place disabling is the intended way
   to take a category out of the score.
+
+### Laundry (`/laundry`)
+
+- Doses, temps and spins are transcribed from the handwritten notes on the
+  laundry-room door. Keep the measures verbatim (פקק ורוד – 80 מ״ל, פקק קטן,
+  חצי כוס שקופה) — they are the real cups on the shelf. The notes don't name a
+  program; Cotton vs Mixed Fabric per load was the owner's call.
+- Step photos are just two shots (`drawer.jpg`, `panel.jpg`). Each step zooms
+  onto a point via `focusFrame()` and draws a spotlight marker; points live in
+  `SPOTS` as fractions of the photo, so re-shooting a photo = re-measuring
+  those fractions and the aspect in `PHOTOS`.
+- Photos are plain `<img>` under the gated `/laundry` prefix — the Next image
+  optimizer fetches without the session cookie and would get the login redirect.
 
 ### MCP server + OAuth (`/api/mcp`)
 
