@@ -19,6 +19,7 @@ import {
   FaBell,
   FaTasks,
   FaTshirt,
+  FaCalendarAlt,
   FaUserShield,
   FaChartLine,
   FaSignOutAlt,
@@ -57,6 +58,7 @@ const allNavItems: NavItem[] = [
   { href: '/todo',                     label: 'משימות',        icon: FaTasks,      visibility: { permission: 'todo'        } },
   { href: '/birthday-quiz',            label: 'חידון',         icon: FaBirthdayCake, visibility: { permission: 'birthday-quiz' } },
   { href: '/laundry',                  label: 'כביסה',         icon: FaTshirt,     visibility: { permission: 'laundry'     } },
+  { href: '/calendar',                 label: 'לוח שנה',       icon: FaCalendarAlt, visibility: { permission: 'calendar'    } },
   { href: '/admin/allowlist',          label: 'הרשאות',        icon: FaUserShield, visibility: 'owner' },
   { href: '/admin/workout-activity',    label: 'פעילות אימונים', icon: FaChartLine,  visibility: 'owner' },
 ];

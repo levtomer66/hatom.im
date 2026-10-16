@@ -19,6 +19,7 @@ several independent features under separate routes:
 | `/greeting`        | Small greeting page.                           |
 | `/birthday-quiz`   | Host-driven Hebrew family quiz (permission `birthday-quiz`). Questions + pure reducer in `src/lib/birthday-quiz.ts`. |
 | `/laundry`         | Step-by-step laundry guide for our LG washer (permission `laundry`). Loads, doses + step builder in `src/lib/laundry.ts`; photos in `public/laundry/`. |
+| `/calendar`        | Milestones calendar: birthdays, anniversaries, one-off events (permission `calendar`). Mongo `calendarEvents`; date math in `src/lib/calendar.ts`. |
 
 Default branch is `main`. Pushes to `main` auto-deploy to Production via
 Vercel's GitHub integration. There is no separate `master` branch.
@@ -237,6 +238,18 @@ Identity = Gmail address. Two roles:
   those fractions and the aspect in `PHOTOS`.
 - Photos are plain `<img>` under the gated `/laundry` prefix — the Next image
   optimizer fetches without the session cookie and would get the login redirect.
+
+### Calendar (`/calendar`)
+
+- Events are bare `YYYY-MM-DD` days in Mongo `calendarEvents`. Birthdays and
+  anniversaries recur yearly (Feb 29 → Feb 28 in common years); `event` is
+  one-off. All date math is in `src/lib/calendar.ts` on UTC midnights —
+  "today" is the viewer's local day, computed client-side after mount.
+- `SEED_EVENTS` (first date, wedding, both birthdays) is inserted exactly once,
+  guarded by an atomic marker doc in `calendarMeta`. Deleting a seeded event
+  keeps it deleted; to re-seed, bump `SEED_MARKER_ID` in the model.
+- Anyone with the `calendar` permission can add, edit and delete — there's no
+  per-event owner (`createdBy` is informational).
 
 ### MCP server + OAuth (`/api/mcp`)
 
