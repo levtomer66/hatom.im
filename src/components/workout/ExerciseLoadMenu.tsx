@@ -35,10 +35,7 @@ export default function ExerciseLoadMenu({
   const key = resolveExerciseId(exerciseId);
   const pref = exerciseLoad[key];
   const unilateral = pref?.unilateral === true;
-  // Single-side sets are always one implement's weight → entered as total
-  // (per-dumbbell / per-side ×2 math would double-count a single arm).
-  const entry: LoadEntry = unilateral ? 'total' : (pref?.entry ?? 'total');
-  const showWeightEntry = showLoadOptions && !unilateral;
+  const entry: LoadEntry = pref?.entry ?? 'total';
   const barKg = pref?.barWeightKg ?? DEFAULT_BAR_WEIGHT_KG;
 
   const [open, setOpen] = useState(false);
@@ -54,7 +51,7 @@ export default function ExerciseLoadMenu({
 
   // Build + save the whole pref. Total + two-sided is the default → clear it.
   const save = (nextEntry: LoadEntry, nextUnilateral: boolean, barWeightKg?: number) => {
-    const p: ExerciseLoadPref = { entry: nextUnilateral ? 'total' : nextEntry };
+    const p: ExerciseLoadPref = { entry: nextEntry };
     if (p.entry === 'per-side') p.barWeightKg = barWeightKg ?? pref?.barWeightKg ?? DEFAULT_BAR_WEIGHT_KG;
     if (nextUnilateral) p.unilateral = true;
     setExerciseLoadPref(key, p.entry === 'total' && !nextUnilateral ? null : p);
@@ -96,8 +93,8 @@ export default function ExerciseLoadMenu({
               <span className="exercise-load-unilateral-hint">{t('load.unilateral_hint')}</span>
             </span>
           </label>
-          {showWeightEntry && <div className="exercise-load-title">{t('load.title')}</div>}
-          {showWeightEntry && (['total', 'per-side', 'per-dumbbell'] as LoadEntry[]).map((opt) => (
+          {showLoadOptions && <div className="exercise-load-title">{t('load.title')}</div>}
+          {showLoadOptions && (['total', 'per-side', 'per-dumbbell'] as LoadEntry[]).map((opt) => (
             <button
               key={opt}
               type="button"
@@ -112,7 +109,7 @@ export default function ExerciseLoadMenu({
               {entry === opt && <span aria-hidden="true"> ✓</span>}
             </button>
           ))}
-          {showWeightEntry && entry === 'per-side' && (
+          {showLoadOptions && entry === 'per-side' && (
             <div className="exercise-load-bar-row">
               <label htmlFor="exercise-load-bar">{t('load.bar_weight')}</label>
               <input

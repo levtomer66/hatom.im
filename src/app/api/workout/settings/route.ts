@@ -71,12 +71,7 @@ export async function PATCH(request: NextRequest) {
             ? bar
             : DEFAULT_BAR_WEIGHT_KG;
       }
-      if (pref.unilateral === true) {
-        // Single-side sets are entered as one implement's total weight.
-        clean.entry = 'total';
-        delete clean.barWeightKg;
-        clean.unilateral = true;
-      }
+      if (pref.unilateral === true) clean.unilateral = true;
       const settings = await setExerciseLoadPref(userId, exerciseId, clean);
       return NextResponse.json(settings);
     }
