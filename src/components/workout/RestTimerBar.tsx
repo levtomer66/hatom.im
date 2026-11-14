@@ -12,9 +12,9 @@ export default function RestTimerBar() {
   const showFinished = state.startedAt === null && state.justFinishedAt !== null;
   const visible = isRunning || showFinished;
 
-  // Tag the body while the pill is on-screen so `.workout-page` can
-  // reserve extra padding-bottom and the last card doesn't get hidden
-  // behind the pill (M-6). Doing it on body instead of via a parent
+  // Tag the body while the pill is on-screen so the feed's pinned record
+  // board + car (`.feed-top`) can stick below it instead of behind it — the
+  // pill sits fixed under the sticky header. Doing it on body instead of via a parent
   // wrapper avoids re-rendering the entire workout shell on every tick.
   useEffect(() => {
     if (typeof document === 'undefined') return;

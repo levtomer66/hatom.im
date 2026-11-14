@@ -1,6 +1,7 @@
 import { ObjectId } from 'mongodb';
 import clientPromise from '@/lib/mongodb';
 import { WorkoutStats } from '@/lib/workout-stats';
+import type { VolumeRecordRow } from '@/lib/workout-records';
 
 // Motivation feed: one shared, completed workout. A post is a server-computed
 // SNAPSHOT taken at share time — the feed never joins the workouts collection,
@@ -108,6 +109,28 @@ export async function getFeedTotals(): Promise<FeedTotals> {
     return { userId: r._id, kg, posts: r.posts };
   });
   return { totalKg, postCount, byUser };
+}
+
+// Each sharer's heaviest single post (by snapshot volume) — the raw input to
+// computeVolumeRecords() in src/lib/workout-records.ts. Ties keep the earlier
+// workout. One row per user, so the payload stays tiny.
+export async function getBestPostPerUser(): Promise<VolumeRecordRow[]> {
+  const col = await getCollection();
+  const rows = await col
+    .aggregate<{ _id: string; kg: number; workoutId: string; workoutDate: string }>([
+      { $match: { 'stats.totalVolumeKg': { $gt: 0 } } },
+      { $sort: { 'stats.totalVolumeKg': -1, workoutDate: 1, workoutStartedAt: 1 } },
+      {
+        $group: {
+          _id: '$userId',
+          kg: { $first: '$stats.totalVolumeKg' },
+          workoutId: { $first: '$workoutId' },
+          workoutDate: { $first: '$workoutDate' },
+        },
+      },
+    ])
+    .toArray();
+  return rows.map((r) => ({ userId: r._id, kg: r.kg, workoutId: r.workoutId, workoutDate: r.workoutDate }));
 }
 
 // Lookup by workoutId — powers the share-state check on completion/history.

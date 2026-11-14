@@ -51,6 +51,9 @@ import { getProgression, getProgressionStep, stepIndex } from '@/lib/workout-pro
 import { getLocalizedExercise, getLocalizedStepName } from '@/lib/exercise-translations';
 import { getVolumeBrag } from '@/lib/workout-volume-jokes';
 import { computeWorkoutStats } from '@/lib/workout-stats';
+import { formatVolume } from '@/lib/weight';
+import { useVolumeRecords } from '@/lib/useVolumeRecords';
+import VolumeRecordBar from '@/components/workout/VolumeRecordBar';
 import { isCreatedWorkout } from '@/lib/workout-offline';
 import { kgToMeters, formatMeters } from '@/lib/workout-car';
 import { v4 as uuidv4 } from 'uuid';
@@ -690,6 +693,14 @@ export default function WorkoutsPage() {
     moveExercise(String(active.id), String(over.id));
   };
 
+  // Live volume so far (same load-aware math as the completion summary) vs
+  // the user's and the group's volume records.
+  const records = useVolumeRecords(!!activeWorkout);
+  const liveVolumeKg = useMemo(
+    () => (activeWorkout ? computeWorkoutStats(stampWorkoutLoad(activeWorkout)).totalVolumeKg : 0),
+    [activeWorkout, stampWorkoutLoad],
+  );
+
   // Progress: how many exercises have at least one set with usable data?
   // Used by both the loading-screen header presence and the in-workout
   // progress bar so the user can see "3/8 done" at a glance.
@@ -814,6 +825,15 @@ export default function WorkoutsPage() {
                 {t('workout.complete_button')}
               </button>
             </div>
+
+            {currentUser && (
+              <VolumeRecordBar
+                currentKg={liveVolumeKg}
+                records={records}
+                userId={currentUser.id}
+                workoutId={activeWorkout.id}
+              />
+            )}
 
             {/* Progress bar — exercises with at least one logged set out of
                 the total. Updates live as the user fills sets. */}
@@ -1088,9 +1108,7 @@ function CompletionSummary({
 
   const stats = useMemo(() => computeWorkoutStats(workout), [workout]);
 
-  const volumeDisplay = unit === 'lb'
-    ? `${Math.round(stats.totalVolumeKg * 2.20462).toLocaleString()} lb`
-    : `${Math.round(stats.totalVolumeKg).toLocaleString()} kg`;
+  const volumeDisplay = formatVolume(stats.totalVolumeKg, unit);
 
   // Funny "you basically lifted 4 hippos" line. Deterministic per workout
   // so re-opening the same summary shows the same brag.

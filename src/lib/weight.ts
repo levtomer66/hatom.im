@@ -35,6 +35,12 @@ export function formatWeight(kg: number | null, unit: WeightUnit): string {
   return Number.isInteger(v) ? String(v) : v.toFixed(1);
 }
 
+// A whole-workout volume total ("12,340 kg" / "27,205 lb") — feed posts, the
+// completion summary, records.
+export function formatVolume(kg: number, unit: WeightUnit): string {
+  return `${Math.round(kgToDisplay(kg, unit)).toLocaleString()} ${unit}`;
+}
+
 // Unit abbreviation shown in labels and suffixes. Hebrew has a clean
 // abbreviation for kg ("ק"ג") but not for lb, so we fall back to the
 // Latin "lb" in Hebrew — readable and universally understood.

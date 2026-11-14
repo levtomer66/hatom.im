@@ -63,6 +63,7 @@
   /* Spacing */
   --bottom-nav-height: 64px;
   --header-height: 56px;
+  --rest-timer-height: 60px;
 }
 
 /* Base styles */
@@ -135,19 +136,26 @@
 
 /* Rest timer bar — sits above BottomNav while a countdown is active. */
 .rest-timer-bar {
+  /* Pinned just under the sticky header and overlaying the page — always in
+     view while scrolling sets. It deliberately doesn't reserve layout space:
+     padding that toggles with every rest would jump the set list after each
+     set. The feed's pinned board moves below it (see .feed-top). */
   position: fixed;
   left: 0;
   right: 0;
-  bottom: calc(var(--bottom-nav-height) + env(safe-area-inset-bottom, 0px));
+  top: var(--header-height);
+  box-sizing: border-box;
+  min-height: var(--rest-timer-height);
   background: var(--workout-bg-card);
-  border-top: 1px solid var(--workout-border);
+  border-bottom: 1px solid var(--workout-border);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
   z-index: 99;
   overflow: hidden;
   animation: rest-timer-slide-in 180ms ease-out;
 }
 .rest-timer-bar[data-finished] {
   background: linear-gradient(135deg, var(--workout-blue-strong), #6366f1);
-  border-top-color: transparent;
+  border-bottom-color: transparent;
 }
 .rest-timer-fill {
   position: absolute;
@@ -209,7 +217,7 @@
   color: var(--workout-red);
 }
 @keyframes rest-timer-slide-in {
-  from { transform: translateY(100%); opacity: 0; }
+  from { transform: translateY(-100%); opacity: 0; }
   to   { transform: translateY(0);    opacity: 1; }
 }
 
@@ -463,17 +471,10 @@
 .workout-page {
   padding: 16px;
   /* M-6 — reserve room under the bottom-nav so the last card isn't
-     hidden behind it. Bumped further when the rest-timer pill is
-     showing via the body[data-rest-active] selector below. */
+     hidden behind it. */
   padding-bottom: calc(var(--bottom-nav-height) + env(safe-area-inset-bottom, 0px) + 16px);
 }
 
-/* When the rest timer pill is on screen it occupies its own ~56 px row
-   above the bottom-nav. Push the page's bottom padding so the last
-   exercise card isn't tucked behind it. */
-body[data-rest-active] .workout-page {
-  padding-bottom: calc(var(--bottom-nav-height) + env(safe-area-inset-bottom, 0px) + 72px);
-}
 
 /* Drag handle on the exercise cards — bumped contrast + a faint outline
    so the hamburger glyph is actually discoverable on dark cards (M-3). */
@@ -1120,10 +1121,17 @@ body[data-rest-active] .workout-page {
 .feed-post-like-static .feed-post-like-emoji { filter: none; opacity: 1; }
 
 /* ── The Moving Car — group goal pinned under the header on the feed ── */
-.car-strip {
+.feed-top {
   position: sticky;
   top: var(--header-height);
   z-index: 90;
+}
+/* While the rest timer is showing (fixed under the header), the feed's
+   pinned record board + car stick just below it instead of under it. */
+body[data-rest-active] .feed-top {
+  top: calc(var(--header-height) + var(--rest-timer-height));
+}
+.car-strip {
   padding: 10px 16px 10px;
   background: var(--workout-bg);
   border-bottom: 1px solid var(--workout-border);
@@ -2307,4 +2315,125 @@ body[data-rest-active] .workout-page {
   .workout-confetti {
     display: none;
   }
+}
+
+/* ── Volume records ─────────────────────────────────────────────────────
+   Feed record board (above the car), post badges, and the live bars on the
+   active workout. Records = heaviest single shared workout by volume. */
+.feed-records {
+  padding: 10px 16px;
+  background: var(--workout-bg-card);
+  border-bottom: 1px solid var(--workout-border);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.feed-records-holder {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.feed-records-crown { font-size: 26px; line-height: 1; }
+.feed-records-holder-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.feed-records-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--workout-text-muted);
+}
+.feed-records-main { font-size: 15px; color: var(--workout-text); }
+.feed-records-main strong { color: var(--workout-gold); }
+.feed-records-date { color: var(--workout-text-muted); font-size: 12px; }
+.feed-records-personal {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.feed-records-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.feed-records-chip {
+  font-size: 12px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: var(--workout-bg-secondary);
+  color: var(--workout-text-secondary);
+}
+.feed-records-chip strong { color: var(--workout-text); }
+.feed-records-chip.mine {
+  background: color-mix(in srgb, var(--workout-gold) 16%, transparent);
+}
+.feed-post-record {
+  display: inline-block;
+  margin-top: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 999px;
+}
+.feed-post-record-group {
+  background: color-mix(in srgb, var(--workout-gold) 20%, transparent);
+  color: var(--workout-gold);
+}
+.feed-post-record-personal {
+  background: color-mix(in srgb, var(--workout-blue) 18%, transparent);
+  color: var(--workout-blue);
+}
+
+.volume-records {
+  margin-bottom: 12px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: var(--workout-bg-card);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.volume-records-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: 13px;
+  color: var(--workout-text-secondary);
+}
+.volume-records-head strong {
+  font-size: 18px;
+  color: var(--workout-text);
+  font-variant-numeric: tabular-nums;
+}
+.volume-records-row-label {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: var(--workout-text-muted);
+  margin-bottom: 4px;
+}
+.volume-records-track {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--workout-bg-secondary);
+  overflow: hidden;
+}
+.volume-records-fill {
+  height: 100%;
+  border-radius: 999px;
+  transition: width 0.3s ease;
+}
+.volume-records-fill-personal { background: var(--workout-blue); }
+.volume-records-fill-group { background: var(--workout-gold); }
+.volume-records-fill.done { background: var(--workout-green); }
+.volume-records-note {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--workout-green);
+}
+.volume-records-note.muted {
+  font-weight: 400;
+  color: var(--workout-text-muted);
 }

@@ -10,6 +10,10 @@ import { getVolumeBrag } from '@/lib/workout-volume-jokes';
 import Header from '@/components/workout/Header';
 import BottomNav from '@/components/workout/BottomNav';
 import MovingCar from '@/components/workout/MovingCar';
+import FeedRecords from '@/components/workout/FeedRecords';
+import { formatVolume } from '@/lib/weight';
+import { useVolumeRecords } from '@/lib/useVolumeRecords';
+import { RECORD_ICON, recordBadgeFor } from '@/lib/workout-records';
 
 // Shape of one GET /api/workout/feed item (server attaches displayName).
 // Declared locally so this client page never imports the server-only model.
@@ -56,6 +60,7 @@ export default function FeedPage() {
   const [togglingId, setTogglingId] = useState<string | null>(null);
   // Bumped when this viewer unshares a post so the car strip re-totals.
   const [carRefresh, setCarRefresh] = useState(0);
+  const records = useVolumeRecords(!!currentUser, carRefresh);
   const nextSkipRef = useRef(0);
   const inFlightRef = useRef(false);
 
@@ -148,10 +153,7 @@ export default function FeedPage() {
     }
   };
 
-  const volumeText = (kg: number) =>
-    unit === 'lb'
-      ? `${Math.round(kg * 2.20462).toLocaleString()} lb`
-      : `${Math.round(kg).toLocaleString()} kg`;
+  const volumeText = (kg: number) => formatVolume(kg, unit);
 
   if (isLoading || !currentUser) {
     return (
@@ -168,9 +170,12 @@ export default function FeedPage() {
   return (
     <main className="workout-main">
       <Header title={t('feed.title')} />
-      {/* Sits between the sticky header and the page so it stays pinned
-          under the header while the posts scroll beneath it. */}
-      <MovingCar refreshKey={carRefresh} />
+      {/* Record board + car sit between the sticky header and the page and
+          stay pinned under the header together while posts scroll beneath. */}
+      <div className="feed-top">
+        <FeedRecords records={records} currentUserId={currentUser.id} />
+        <MovingCar refreshKey={carRefresh} />
+      </div>
       <div className="workout-page">
         {loading ? (
           <div className="loading-spinner" />
@@ -184,6 +189,7 @@ export default function FeedPage() {
             {posts.map((post) => {
               const mine = post.userId === currentUser.id;
               const brag = getVolumeBrag(post.stats.totalVolumeKg, language, post.workoutId);
+              const badge = recordBadgeFor(records, post);
               return (
                 <div key={post.id} className="feed-post">
                   <div className="feed-post-head">
@@ -222,6 +228,11 @@ export default function FeedPage() {
                     <span>·</span>
                     <span><strong>{volumeText(post.stats.totalVolumeKg)}</strong></span>
                   </div>
+                  {badge && (
+                    <div className={`feed-post-record feed-post-record-${badge}`}>
+                      {RECORD_ICON[badge]} {badge === 'group' ? t('records.group_badge') : t('records.personal_badge')}
+                    </div>
+                  )}
                   <div className="feed-post-brag">{brag}</div>
                   <div className="feed-post-foot">
                     {mine ? (
