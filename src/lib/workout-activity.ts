@@ -99,7 +99,22 @@ export async function getWorkoutActivity(now: Date = new Date()): Promise<Workou
               $reduce: {
                 input: { $ifNull: ['$exercises', []] },
                 initialValue: 0,
-                in: { $add: ['$$value', { $size: { $ifNull: ['$$this.sets', []] } }] },
+                // A unilateral L/R pair is one set: skip the right-side rows
+                // (same rule as computeWorkoutStats / logicalSetCount).
+                in: {
+                  $add: [
+                    '$$value',
+                    {
+                      $size: {
+                        $filter: {
+                          input: { $ifNull: ['$$this.sets', []] },
+                          as: 's',
+                          cond: { $ne: ['$$s.side', 'right'] },
+                        },
+                      },
+                    },
+                  ],
+                },
               },
             },
           },
