@@ -737,6 +737,45 @@ body[data-rest-active] .workout-page {
   flex-direction: column;
   gap: 6px;
 }
+.exercise-load-unilateral {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--workout-border);
+  background: var(--workout-bg-secondary);
+  color: var(--workout-text);
+  cursor: pointer;
+  margin-bottom: 6px;
+}
+.exercise-load-unilateral input {
+  margin-top: 2px;
+  accent-color: var(--workout-gold);
+}
+.exercise-load-unilateral-title {
+  display: block;
+  font-size: 14px;
+}
+.exercise-load-unilateral-hint {
+  display: block;
+  font-size: 11px;
+  color: var(--workout-text-muted);
+}
+/* L / R tag on a unilateral set row */
+.set-side-tag {
+  display: inline-block;
+  margin-inline-start: 4px;
+  padding: 0 5px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  background: color-mix(in srgb, var(--workout-gold) 16%, transparent);
+  color: var(--workout-gold);
+}
+.exercise-set-row-edit.set-side-right {
+  margin-top: -4px;
+}
 .exercise-load-title {
   font-size: 12px;
   color: var(--workout-text-muted);

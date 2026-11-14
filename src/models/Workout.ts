@@ -12,6 +12,8 @@ const WorkoutSetSchema = new Schema<WorkoutSet>({
   // Calisthenics progression rung (a ProgressionStep.id on the exercise's
   // ladder). Sanitized against the ladder in the PUT handler before save.
   stepId: { type: String, default: null },
+  // Unilateral side ('left' | 'right'); null = a normal two-sided set.
+  side: { type: String, enum: ['left', 'right', null], default: null },
 }, { _id: false });
 
 // Frozen per-exercise load context (see SetLoadContext). Stamped by the client

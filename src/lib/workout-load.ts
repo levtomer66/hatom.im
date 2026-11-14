@@ -68,7 +68,8 @@ export function resolveLoadContext(
     return { mode: 'bodyweight', factor: def.bodyweightFactor ?? 1 };
   }
 
-  const entry = pref?.entry ?? 'total';
+  // Single-side (unilateral) sets are one implement's weight — never ×2.
+  const entry = pref?.unilateral ? 'total' : (pref?.entry ?? 'total');
   if (entry === 'per-side') {
     return {
       mode: 'barbell',

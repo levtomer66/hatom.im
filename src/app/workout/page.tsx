@@ -25,6 +25,7 @@ import { useWorkoutUnit } from '@/context/WorkoutUnitContext';
 import { useCustomExercises } from '@/context/WorkoutCustomExercisesContext';
 import { useWorkoutSettings } from '@/context/WorkoutSettingsContext';
 import { resolveLoadContext, isTrivialLoad } from '@/lib/workout-load';
+import { shapePriorSets, toUnilateral } from '@/lib/workout-unilateral';
 import { useT, formatDate, getLocalizedTemplateName } from '@/lib/workout-i18n';
 import Header from '@/components/workout/Header';
 import BottomNav from '@/components/workout/BottomNav';
@@ -353,13 +354,13 @@ export default function WorkoutsPage() {
       const exercises: WorkoutExercise[] = templateExercises.map((te, index) => {
         const prior = personalBests[te.exerciseId]?.lastSets;
         const numSets = te.numSets;
+        // Single-arm / single-leg (gear toggle) → each set becomes an L/R pair.
+        const unilateral = exerciseLoad[resolveExerciseId(te.exerciseId)]?.unilateral === true;
         let sets: WorkoutSet[];
         if (prior && prior.length > 0) {
           // Fill the first min(numSets, prior.length) from history, pad
           // any extra slots with blanks so the template's numSets wins.
-          sets = Array.from({ length: numSets }, (_, i) => {
-            const p = prior[Math.min(i, prior.length - 1)];
-            if (!p) return { kg: null, reps: null, seconds: null };
+          sets = shapePriorSets(prior, numSets, unilateral).map((p) => {
             // A carried progression step dictates the row's mode by its own
             // measure; otherwise fall back to the prior set's discriminator.
             const step = p.stepId ? getProgressionStep(te.exerciseId, p.stepId) : undefined;
@@ -369,10 +370,12 @@ export default function WorkoutsPage() {
               reps: null,                          // leave for the user — prior reps render as placeholder
               seconds: wasTime ? 0 : null,         // preserve time-mode discriminator
               stepId: p.stepId ?? null,            // carry the progression rung (skill exercises)
+              side: p.side ?? null,                // L/R when unilateral
             };
           });
         } else {
           sets = createDefaultSets(numSets);
+          if (unilateral) sets = toUnilateral(sets);
         }
         return {
           id: uuidv4(),
@@ -582,14 +585,22 @@ export default function WorkoutsPage() {
       // truncating — same shape rule the template start path uses, so
       // the user gets consistent slot counts regardless of how an
       // exercise lands in the workout. (Codex P2)
+      const unilateral = exerciseLoad[resolveExerciseId(def.id)]?.unilateral === true;
       const sets: WorkoutSet[] = prior && prior.length > 0
-        ? Array.from({ length: DEFAULT_NUM_SETS }, (_, i) => {
-            const p = prior[Math.min(i, prior.length - 1)];
+        ? shapePriorSets(prior, DEFAULT_NUM_SETS, unilateral).map((p) => {
             const step = p.stepId ? getProgressionStep(def.id, p.stepId) : undefined;
             const wasTime = step ? step.measure === 'seconds' : p.seconds != null;
-            return { kg: p.kg ?? null, reps: null, seconds: wasTime ? 0 : null, stepId: p.stepId ?? null };
+            return {
+              kg: p.kg ?? null,
+              reps: null,
+              seconds: wasTime ? 0 : null,
+              stepId: p.stepId ?? null,
+              side: p.side ?? null,
+            };
           })
-        : createDefaultSets();
+        : unilateral
+          ? toUnilateral(createDefaultSets())
+          : createDefaultSets();
       return {
         id: uuidv4(),
         exerciseId: def.id,

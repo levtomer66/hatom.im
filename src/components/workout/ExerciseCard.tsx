@@ -7,6 +7,17 @@ import { getLocalizedExercise, getLocalizedStepName } from '@/lib/exercise-trans
 import { useWorkoutSettings } from '@/context/WorkoutSettingsContext';
 import { resolveLoadContext, effectiveSetKg } from '@/lib/workout-load';
 import ExerciseLoadMenu from './ExerciseLoadMenu';
+import SetSideTag from './SetSideTag';
+import {
+  hasLoggedRightSide,
+  isUnilateralSets,
+  logicalSetCount,
+  resizeSets,
+  setNumber,
+  shapePriorSets,
+  toBilateral,
+  toUnilateral,
+} from '@/lib/workout-unilateral';
 import { getProgressionStep } from '@/lib/workout-progression';
 import { ProgressionStep } from '@/types/workout';
 import { useWorkoutUser } from '@/context/WorkoutUserContext';
@@ -96,9 +107,11 @@ export default function ExerciseCard({
   const { exerciseLoad, bodyweightKg } = useWorkoutSettings();
   const loadPref = exerciseLoad[resolveExerciseId(exercise.exerciseId)] ?? null;
   const loadCtx = resolveLoadContext(exerciseDef, loadPref);
-  // The ⚙️ gear (per-side/per-dumbbell entry) only applies to non-bodyweight
-  // exercises — a bodyweight movement's load isn't entered per-side.
-  const showLoadGear = isEditable && exerciseDef?.loadMode !== 'bodyweight';
+  // The ⚙️ gear always offers the single-side (L/R) toggle; the per-side /
+  // per-dumbbell entry options only apply to non-bodyweight exercises — a
+  // bodyweight movement's load isn't entered per-side.
+  const showLoadGear = isEditable;
+  const showLoadOptions = exerciseDef?.loadMode !== 'bodyweight';
   // The badge suffix keyed off the resolved entry mode.
   const loadBadgeSuffix =
     loadCtx.mode === 'barbell'
@@ -249,26 +262,33 @@ export default function ExerciseCard({
   // Get recommended scale from PB
   const recommendedScale = pb?.recommendedKg ?? null;
 
-  // Handle set count change (2-5 sets)
+  // Unilateral (single-arm / single-leg): sets are stored as L,R pairs.
+  // The tuner counts logical sets, so +/− adds or trims a whole pair.
+  const unilateral = isUnilateralSets(exercise.sets);
+  const setCount = logicalSetCount(exercise.sets);
+  // Last session's sets, aligned to today's rows (pairs or not) — drives the
+  // reps placeholder.
+  const priorForRows = pb?.lastSets?.length
+    ? shapePriorSets(pb.lastSets, setCount, unilateral)
+    : null;
+
+  // Handle set count change (MIN_SETS..MAX_SETS logical sets)
   const handleSetCountChange = (newCount: number) => {
     if (!onUpdate) return;
     if (newCount < MIN_SETS || newCount > MAX_SETS) return;
-    
-    const currentSets = [...exercise.sets];
-    let newSets: WorkoutSet[];
-    
-    if (newCount > currentSets.length) {
-      // Add new sets
-      newSets = [
-        ...currentSets,
-        ...Array.from({ length: newCount - currentSets.length }, () => ({ kg: null, reps: null, seconds: null }))
-      ];
-    } else {
-      // Remove sets from the end
-      newSets = currentSets.slice(0, newCount);
+    onUpdate({ ...exercise, sets: resizeSets(exercise.sets, newCount) });
+  };
+
+  // Gear toggle → reshape what's on screen now. Splitting keeps every logged
+  // set as the left side; merging keeps one row per pair, so it asks first
+  // when right-side data would be dropped. Returns false to cancel the toggle.
+  const handleUnilateralChange = (next: boolean): boolean => {
+    if (!onUpdate) return true;
+    if (!next && hasLoggedRightSide(exercise.sets) && !confirm(t('card.merge_sides_confirm'))) {
+      return false;
     }
-    
-    onUpdate({ ...exercise, sets: newSets });
+    onUpdate({ ...exercise, sets: next ? toUnilateral(exercise.sets) : toBilateral(exercise.sets) });
+    return true;
   };
 
   const handleKgChange = (setIndex: number, value: string) => {
@@ -509,7 +529,13 @@ export default function ExerciseCard({
         {isEditable && (
           <div className="exercise-card-actions">
             {dragHandle}
-            {showLoadGear && <ExerciseLoadMenu exerciseId={exercise.exerciseId} />}
+            {showLoadGear && (
+              <ExerciseLoadMenu
+                exerciseId={exercise.exerciseId}
+                showLoadOptions={showLoadOptions}
+                onUnilateralChange={handleUnilateralChange}
+              />
+            )}
             {onReplace && (
               <button
                 className="exercise-card-action"
@@ -545,16 +571,16 @@ export default function ExerciseCard({
             <div className="set-count-controls">
               <button
                 className="set-count-btn"
-                onClick={() => handleSetCountChange(exercise.sets.length - 1)}
-                disabled={exercise.sets.length <= MIN_SETS}
+                onClick={() => handleSetCountChange(setCount - 1)}
+                disabled={setCount <= MIN_SETS}
               >
                 −
               </button>
-              <span className="set-count-value">{exercise.sets.length}</span>
+              <span className="set-count-value">{setCount}</span>
               <button
                 className="set-count-btn"
-                onClick={() => handleSetCountChange(exercise.sets.length + 1)}
-                disabled={exercise.sets.length >= MAX_SETS}
+                onClick={() => handleSetCountChange(setCount + 1)}
+                disabled={setCount >= MAX_SETS}
               >
                 +
               </button>
@@ -577,7 +603,10 @@ export default function ExerciseCard({
                 ? (set.seconds ?? 0) > 0
                 : set.reps !== null && set.reps > 0;
               return (
-                <div key={setIndex} className="exercise-set-row-edit">
+                <div
+                  key={setIndex}
+                  className={`exercise-set-row-edit${set.side === 'right' ? ' set-side-right' : ''}`}
+                >
                   {isSkill && (
                     <button
                       type="button"
@@ -591,7 +620,10 @@ export default function ExerciseCard({
                       <span className="exercise-set-step-caret" aria-hidden="true">▾</span>
                     </button>
                   )}
-                  <div className="set-number">{t('card.set_n')} {setIndex + 1}</div>
+                  <div className="set-number">
+                    {t('card.set_n')} {setNumber(exercise.sets, setIndex)}
+                    <SetSideTag set={set} />
+                  </div>
                   <button
                     type="button"
                     className="exercise-set-mode-toggle"
@@ -649,8 +681,8 @@ export default function ExerciseCard({
                         // to the generic 'reps' label when the user has no
                         // prior occurrence or the prior set was time-mode.
                         placeholder={
-                          pb?.lastSets?.[setIndex]?.reps != null
-                            ? String(pb.lastSets[setIndex].reps)
+                          priorForRows?.[setIndex]?.reps != null
+                            ? String(priorForRows[setIndex].reps)
                             : t('card.reps_placeholder')
                         }
                         min="0"
@@ -699,7 +731,10 @@ export default function ExerciseCard({
             const stepLbl = stepLabelFor(set);
             return (
               <div key={i} className="exercise-set-row">
-                <span className="exercise-set-label">{t('card.set_n')} {i + 1}</span>
+                <span className="exercise-set-label">
+                  {t('card.set_n')} {setNumber(exercise.sets, i)}
+                  <SetSideTag set={set} />
+                </span>
                 <span>
                   {stepLbl && <span className="exercise-set-step-tag">{stepLbl}</span>}
                   {chip}
@@ -877,7 +912,10 @@ export default function ExerciseCard({
                               fontSize: '13px',
                             }}
                           >
-                            <span style={{ color: 'var(--workout-text-secondary)' }}>{t('card.set_short')}{setIndex + 1}: </span>
+                            <span style={{ color: 'var(--workout-text-secondary)' }}>
+                              {t('card.set_short')}{setNumber(entry.sets, setIndex)}
+                              <SetSideTag set={set} />:{' '}
+                            </span>
                             {stepLabelFor(set) && (
                               <span className="exercise-set-step-tag">{stepLabelFor(set)}</span>
                             )}

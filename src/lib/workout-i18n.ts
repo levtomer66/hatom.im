@@ -51,6 +51,11 @@ const DICT = {
   'load.bar_weight':     { en: 'Bar weight',                      he: 'משקל המוט' },
   'load.badge_side':     { en: '/side',                           he: 'לצד' },
   'load.badge_dumbbell': { en: '/dumbbell',                       he: 'למשקולת' },
+  'load.unilateral':     { en: 'Single side',                     he: 'צד אחד בכל פעם' },
+  'load.unilateral_hint':{ en: 'Log each set per arm / leg (L / R)', he: 'רישום כל סט לכל יד / רגל (שמאל / ימין)' },
+  'card.side_left':      { en: 'L',                               he: 'שמ׳' },
+  'card.side_right':     { en: 'R',                               he: 'ימ׳' },
+  'card.merge_sides_confirm': { en: 'Back to two-sided sets? Right-side entries will be dropped.', he: 'לחזור לסטים רגילים? הנתונים של הצד הימני יימחקו.' },
 
   // Login
   'login.title':         { en: '💪 Workout Tracker',              he: '💪 יומן אימונים' },

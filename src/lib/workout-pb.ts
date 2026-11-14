@@ -205,6 +205,7 @@ async function computePersonalBests(userId: string): Promise<PBMap> {
           reps: s.reps ?? null,
           seconds: s.seconds ?? null,
           stepId: s.stepId ?? null,
+          side: s.side ?? null,
         }));
         candidate.lastSetsDate = workout.date;
       }

@@ -166,6 +166,9 @@ export interface SetLoadContext {
 export interface ExerciseLoadPref {
   entry: LoadEntry;
   barWeightKg?: number | null;
+  // Single-arm / single-leg: new sets are logged as L/R pairs (see
+  // src/lib/workout-unilateral.ts). Independent of `entry`.
+  unilateral?: boolean;
 }
 
 // Per-user workout settings (server-persisted, keyed by session email).
@@ -237,7 +240,12 @@ export interface WorkoutSet {
   // save — an id not on the ladder is stripped to null. On a laddered set
   // `kg` means ADDED weight (e.g. weighted straddle planche).
   stepId?: string | null;
+  // Unilateral exercises log each set once per side, stored as L,R,L,R…
+  // rows (see src/lib/workout-unilateral.ts). Absent/null = a normal set.
+  side?: SetSide | null;
 }
+
+export type SetSide = 'left' | 'right';
 
 // A set is in time-mode when it has a `seconds` field. Loose `!= null`
 // covers both null and undefined — legacy workouts saved before the
@@ -520,14 +528,20 @@ export function createDefaultSets(count: number = DEFAULT_NUM_SETS): WorkoutSet[
 export function templateExercisesFromWorkout(exercises: WorkoutExercise[]): TemplateExercise[] {
   return [...exercises]
     .sort((a, b) => a.order - b.order)
-    .map((ex) => ({
-      exerciseId: ex.exerciseId,
-      numSets: ex.sets.length > 0
-        ? Math.min(MAX_SETS, Math.max(MIN_SETS, ex.sets.length))
-        : DEFAULT_NUM_SETS,
-      notes: ex.notes ?? '',
-      supersetGroup: ex.supersetGroup ?? null,
-    }));
+    .map((ex) => {
+      // A unilateral L/R pair is one logical set. Same rule as
+      // logicalSetCount() in src/lib/workout-unilateral.ts, inlined because
+      // this file is imported by node:test and must stay import-free.
+      const lefts = ex.sets.filter((s) => s.side === 'left').length;
+      const rights = ex.sets.filter((s) => s.side === 'right').length;
+      const n = lefts + rights > 0 ? Math.max(lefts, rights) : ex.sets.length;
+      return {
+        exerciseId: ex.exerciseId,
+        numSets: n > 0 ? Math.min(MAX_SETS, Math.max(MIN_SETS, n)) : DEFAULT_NUM_SETS,
+        notes: ex.notes ?? '',
+        supersetGroup: ex.supersetGroup ?? null,
+      };
+    });
 }
 
 // Workout type to exercise categories mapping for filtering

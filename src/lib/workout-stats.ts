@@ -5,7 +5,9 @@ import { effectiveSetKg } from '@/lib/workout-load';
 // workout. Shared by the completion summary and the feed-share endpoint so
 // the numbers a user sees on completion match the snapshot stored in a post.
 // A set counts when it has real data: rep-mode needs reps > 0 (weight is
-// optional); time-mode needs seconds > 0 (no volume).
+// optional); time-mode needs seconds > 0 (no volume). A unilateral L/R pair
+// counts as ONE set (the right row adds volume but not a set), matching the
+// set tuner; both sides' volume counts.
 //
 // Volume per rep-set = effectiveSetKg(...) × reps, where effectiveSetKg maps
 // the entered weight to the ACTUAL load moved using the exercise's frozen
@@ -30,12 +32,13 @@ export function computeWorkoutStats(
   for (const ex of workout.exercises) {
     let anySet = false;
     for (const s of ex.sets) {
+      const countsAsSet = s.side !== 'right';
       if (!isTimeSet(s) && s.reps !== null && s.reps > 0) {
-        setsLogged += 1;
+        if (countsAsSet) setsLogged += 1;
         totalVolumeKg += effectiveSetKg(s.kg, ex.load, bodyweightKg) * s.reps;
         anySet = true;
       } else if (isTimeSet(s) && (s.seconds ?? 0) > 0) {
-        setsLogged += 1;
+        if (countsAsSet) setsLogged += 1;
         anySet = true;
       }
     }

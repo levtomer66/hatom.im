@@ -18,6 +18,8 @@ import ExerciseProgressChart from '@/components/workout/ExerciseProgressChart';
 import ExercisePhoto from '@/components/workout/ExercisePhoto';
 import { ExerciseHistoryEntry, PersonalBest, ExerciseDefinition } from '@/types/workout';
 import { getExerciseById, EXERCISE_LIBRARY } from '@/data/exercise-library';
+import { setNumber } from '@/lib/workout-unilateral';
+import SetSideTag from '@/components/workout/SetSideTag';
 
 export default function ExerciseDetailPage() {
   const params = useParams();
@@ -526,7 +528,10 @@ export default function ExerciseDetailPage() {
                         fontSize: '13px',
                       }}
                     >
-                      <span style={{ color: 'var(--workout-text-secondary)' }}>{t('card.set_short')}{setIndex + 1}: </span>
+                      <span style={{ color: 'var(--workout-text-secondary)' }}>
+                        {t('card.set_short')}{setNumber(entry.sets, setIndex)}
+                        <SetSideTag set={set} />:{' '}
+                      </span>
                       <span style={{ fontWeight: 600 }}>
                         {formatHistorySet(set, unit, unitSuffix, t('card.bw_label'))}
                       </span>
