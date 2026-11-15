@@ -251,6 +251,40 @@ Identity = Gmail address. Two roles:
 - Anyone with the `calendar` permission can add, edit and delete — there's no
   per-event owner (`createdBy` is informational).
 
+### Shopping price comparison (ingest; UI to come)
+
+- Sources per chain, access methods and verification notes: `docs/sources.md`.
+  Only the official price-transparency files — never comparison sites.
+- **Ingest is a local, manually-run job**, not a Vercel function (Hobby cron
+  is daily-only and a full run is ~190 MB of downloads + GBs of XML):
+  `npm run shopping:ingest -- [--dry-run] [--offline] [--chains yohananof,shufersal] [--max-stores N] [--full]`.
+  `--offline` rebuilds the docs from saved state without fetching. Test locally
+  against Docker Mongo with a *copy* of the cache (`SHOPPING_CACHE_DIR`), or
+  its `written.json` will make the next Atlas run skip docs.
+  Needs a write-capable `MONGODB_URI` in `.env.shopping` (gitignored).
+  Cache in `~/.cache/hatom-shopping` (raw files pruned after 7 days and never
+  re-downloaded; per-store parsed state; `written.json` hashes). Not in the
+  repo: writes under the repo root trigger the `next dev` recompile loop.
+- **Mongo M0 budget drives the schema** (512 MB incl. indexes, ~100 ops/s):
+  `shoppingItems` is one doc per item with a `p: {storeKey: agorot}` map
+  (barcode `_id`; chain-internal codes are `<chainId>:<code>` and never
+  cross-match); `shoppingPromos` is one doc per `(chain, PromotionID, terms)` with a
+  `stores` list and a multikey `items` index — the same PromotionID differs per
+  store (item lists, per-store percent prices); see `buildPromoDocs` for why
+  item lists are unioned and rate-derived prices dropped. The job writes only docs whose
+  content hash changed. Don't switch to a doc per (store, item) — that's ~3M
+  docs and hours of writes.
+- `src/lib/shopping/*.ts` (xml, normalize, cities, snapshot, chains) are
+  import-free for `node --test`; fixtures from 2026-11-15 in
+  `src/lib/__tests__/fixtures/shopping/` hold the Yochananof regression case.
+- Promo semantics: `DiscountedPrice` is the **total for `MinQty` units**;
+  `RewardType` codes differ per chain; `MinNoOfItemOffered` is kept as
+  `minItems` but is 10 on ~99% of promos, so don't treat it as a quantity.
+  Only the daily *Full* files are ingested — the hourly `Price`/`Promo`
+  deltas are ignored (fine for a once-a-day manual run). Online stores
+  (`StoreType` 2) are ingested whatever their city, with `city: null`. City = CBS code first, store name only when City is 0 —
+  never the address (see docs/sources.md § City matching).
+
 ### MCP server + OAuth (`/api/mcp`)
 
 - Hand-rolled JSON-RPC tools server. Two Bearer credentials: the `htm_`

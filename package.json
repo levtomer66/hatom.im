@@ -15,7 +15,8 @@
     "start": "next start",
     "lint": "next lint",
     "test": "node --test \"src/**/*.test.ts\"",
-    "prepare": "husky"
+    "prepare": "husky",
+    "shopping:ingest": "node --env-file-if-exists=.env.shopping src/lib/shopping/ingest/cli.ts"
   },
   "dependencies": {
     "@auth/mongodb-adapter": "^3.11.2",
