@@ -284,6 +284,13 @@ Identity = Gmail address. Two roles:
   deltas are ignored (fine for a once-a-day manual run). Online stores
   (`StoreType` 2) are ingested whatever their city, with `city: null`. City = CBS code first, store name only when City is 0 —
   never the address (see docs/sources.md § City matching).
+- **Basket pricing** is `src/lib/shopping/pricing.ts` (pure; the header
+  comment says how each promo shape is read). `price` = total for `min`
+  units and wins over `rate`; weighted min 0.01 = per kg; a gift part (price 0
+  / rate 100) makes the promo buy-X-get-Y. Promos are applied greedily, the
+  biggest saving first, and a unit counts toward one promo only. Club, coupon
+  and unmet basket-minimum promos are returned as `offers`, not applied.
+  Description-only deals are not parsed.
 
 ### MCP server + OAuth (`/api/mcp`)
 
