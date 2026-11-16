@@ -26,10 +26,11 @@
  */
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { FaMinus, FaPlus, FaTrash, FaSearch, FaChevronDown, FaTimes, FaCheck, FaPen, FaShoppingBasket, FaEye, FaBarcode } from 'react-icons/fa';
+import { FaMinus, FaPlus, FaTrash, FaSearch, FaChevronDown, FaTimes, FaCheck, FaPen, FaShoppingBasket, FaEye, FaBarcode, FaMapMarkerAlt, FaLocationArrow } from 'react-icons/fa';
 import dynamic from 'next/dynamic';
 import Navbar from '@/components/Navbar';
 import { CITIES } from '@/lib/shopping/cities';
+import { distanceM } from '@/lib/shopping/places';
 import { SHOPPING_API_PATH } from '@/lib/shopping/config';
 import { normalizeQty, type ShoppingList, type ShoppingListItem } from '@/lib/shopping/lists';
 import type { CompareResponse, ItemBest, ItemPrice, ItemResponse, ManualPriceResponse, PriceSource, SearchHit, StoreInfo } from '@/lib/shopping/api-types';
@@ -62,6 +63,31 @@ const OLD_DAYS = 2;
 
 const LS_LIST = 'shopping:list';
 const LS_CITY = 'shopping:city';
+/** 'manual' once someone picks a city by hand; then we stop detecting. */
+const LS_CITY_MODE = 'shopping:city-mode';
+
+/** City centres (public coordinates) for picking the nearest city to the viewer. */
+const CITY_CENTRES: Record<string, { lat: number; lng: number }> = {
+  'tel-aviv': { lat: 32.0853, lng: 34.7818 },
+  'ramat-gan': { lat: 32.0684, lng: 34.8248 },
+  'beer-sheva': { lat: 31.2518, lng: 34.7913 },
+};
+/** Farther than this from every centre: we have no prices for where you are. */
+const NEAR_CITY_M = 25_000;
+
+type LocState = 'idle' | 'locating' | 'found' | 'far' | 'denied' | 'unavailable';
+
+/** The city nearest to a point, or null when it's farther than NEAR_CITY_M. */
+function nearestCity(p: { lat: number; lng: number }): string | null {
+  let best: { id: string; d: number } | null = null;
+  for (const c of CITIES) {
+    const centre = CITY_CENTRES[c.id];
+    if (!centre) continue;
+    const d = distanceM(p, centre);
+    if (!best || d < best.d) best = { id: c.id, d };
+  }
+  return best && best.d <= NEAR_CITY_M ? best.id : null;
+}
 const lsGet = (k: string) => {
   try {
     return localStorage.getItem(k);
@@ -101,6 +127,9 @@ export default function ShoppingPage() {
   const [lists, setLists] = useState<ShoppingList[] | null>(null);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [city, setCity] = useState<string>(CITIES[0].id);
+  const [cityMode, setCityMode] = useState<'auto' | 'manual'>('auto');
+  const [loc, setLoc] = useState<LocState>('idle');
+  const [pickingCity, setPickingCity] = useState(false);
   const [loadError, setLoadError] = useState(false);
   const [saveError, setSaveError] = useState(false);
 
@@ -148,9 +177,41 @@ export default function ShoppingPage() {
     if (result) rememberImgs(Object.entries(result.items).map(([k, v]) => [k, v.img]));
   }, [result, rememberImgs]);
 
+  // ── city: detected from the device location unless picked by hand ──
+  function detectCity() {
+    if (!navigator.geolocation) return setLoc('unavailable');
+    setLoc('locating');
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const id = nearestCity({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+        if (id) {
+          setCity(id);
+          setLoc('found');
+        } else {
+          setLoc('far');
+        }
+      },
+      (err) => setLoc(err.code === err.PERMISSION_DENIED ? 'denied' : 'unavailable'),
+      { enableHighAccuracy: false, timeout: 10_000, maximumAge: 60 * 60 * 1000 },
+    );
+  }
+  const pickCity = (id: string) => {
+    setCity(id);
+    setCityMode('manual');
+    setPickingCity(false);
+  };
+  const useMyLocation = () => {
+    setCityMode('auto');
+    setPickingCity(false);
+    detectCity();
+  };
+
   // ── load lists (creating the first one) ──
   useEffect(() => {
     const savedCity = lsGet(LS_CITY);
+    const manual = lsGet(LS_CITY_MODE) === 'manual';
+    if (manual) setCityMode('manual');
+    else detectCity();
     if (savedCity && CITIES.some((c) => c.id === savedCity)) setCity(savedCity);
     (async () => {
       try {
@@ -169,6 +230,7 @@ export default function ShoppingPage() {
     if (activeId) lsSet(LS_LIST, activeId);
   }, [activeId]);
   useEffect(() => lsSet(LS_CITY, city), [city]);
+  useEffect(() => lsSet(LS_CITY_MODE, cityMode), [cityMode]);
 
   useEffect(() => {
     if (!toast) return;
@@ -372,14 +434,31 @@ export default function ShoppingPage() {
               <button type="button" className="sh-chip sh-chip--add" onClick={newList} aria-label="רשימה חדשה" title="רשימה חדשה"><FaPlus aria-hidden /></button>
             </nav>
 
-            <div className="sh-seg" role="radiogroup" aria-label="עיר">
-              {CITIES.map((c) => (
-                <button key={c.id} type="button" role="radio" aria-checked={city === c.id}
-                  className={city === c.id ? 'is-on' : ''} onClick={() => setCity(c.id)}>
-                  {c.name}
-                </button>
-              ))}
+            <div className="sh-loc">
+              <FaMapMarkerAlt aria-hidden />
+              <span>
+                <b>{CITIES.find((c) => c.id === city)?.name}</b>
+                <small>{LOC_NOTE[cityMode === 'manual' ? 'manual' : loc]}</small>
+              </span>
+              <button type="button" className="sh-link sh-loc-change" onClick={() => setPickingCity(!pickingCity)}
+                aria-expanded={pickingCity} aria-controls="sh-loc-pick">
+                {pickingCity ? 'סגירה' : 'שינוי'}
+              </button>
             </div>
+            {pickingCity && (
+              <div className="sh-loc-pick" id="sh-loc-pick" role="radiogroup" aria-label="עיר">
+                <button type="button" className={`sh-chip ${cityMode === 'auto' ? 'is-on' : ''}`} onClick={useMyLocation}
+                  role="radio" aria-checked={cityMode === 'auto'}>
+                  <FaLocationArrow aria-hidden /> לפי המיקום
+                </button>
+                {CITIES.map((c) => (
+                  <button key={c.id} type="button" role="radio" aria-checked={cityMode === 'manual' && city === c.id}
+                    className={`sh-chip ${cityMode === 'manual' && city === c.id ? 'is-on' : ''}`} onClick={() => pickCity(c.id)}>
+                    {c.name}
+                  </button>
+                ))}
+              </div>
+            )}
 
             <section className="sh-search">
               <label className="sh-search-box">
@@ -680,6 +759,17 @@ const storeName = (s: StoreInfo | undefined) => (s ? `${s.chainName} ${s.name}` 
  * parenthesis.
  */
 const cleanAddress = (a: string | null | undefined) => (a ?? '').split(/[,(]/)[0].replace(/[()]/g, '').trim();
+
+/** The small line next to the city name. */
+const LOC_NOTE: Record<LocState | 'manual', string> = {
+  idle: '',
+  locating: 'מאתר מיקום…',
+  found: 'לפי המיקום שלך',
+  far: 'אין לנו מחירים באזור שלך',
+  denied: 'בלי גישה למיקום',
+  unavailable: 'המיקום לא זמין',
+  manual: 'נבחר ידנית',
+};
 
 /** A two-store split is offered only when it saves at least this (agorot). */
 const SPLIT_WORTH = 500;

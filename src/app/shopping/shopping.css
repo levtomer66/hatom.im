@@ -165,7 +165,25 @@ body:has(.sh-page) { background: #ffffff; }
 .sh-chip--edit { color: var(--sh-muted); }
 .sh-chip--edit.is-on { border-color: var(--sh-accent); background: var(--sh-accent); color: #fff; }
 
-/* city: segmented */
+/* city: one quiet line, detected from location; "שינוי" overrides it */
+.sh-loc {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 36px;
+  margin: -0.25rem 0 0.75rem;
+  font-size: 0.875rem;
+  color: var(--sh-muted);
+}
+.sh-loc > svg { flex: none; }
+.sh-loc > span { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 0.5rem; min-width: 0; }
+.sh-loc b { font-weight: 600; color: var(--sh-ink); }
+.sh-loc small { font-size: 0.8125rem; }
+.sh-loc-change { min-height: 36px; margin-inline-start: auto; font-size: 0.875rem; }
+.sh-loc-pick { display: flex; flex-wrap: wrap; gap: 0.5rem; margin: -0.25rem 0 0.75rem; }
+.sh-loc-pick .sh-chip { min-height: 40px; font-size: 0.875rem; }
+
+/* segmented (the result tabs build on it) */
 .sh-seg {
   display: flex;
   gap: 2px;
