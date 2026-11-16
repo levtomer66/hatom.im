@@ -4,7 +4,11 @@
 
 export type ChainSource =
   | { kind: 'cerberus'; username: string }
-  | { kind: 'shufersal' };
+  | { kind: 'shufersal' }
+  /** Not a price-transparency chain: Wolt delivery prices for shops that publish none (ingest/wolt.ts). */
+  | { kind: 'wolt' }
+  /** Shops with no price source at all, listed so users can type prices (ingest/manual.ts). */
+  | { kind: 'manual' };
 
 export interface ChainConfig {
   slug: string;
@@ -22,6 +26,10 @@ export const CHAINS: ChainConfig[] = [
   { slug: 'fresh-market', chainId: '7290876100000', name: 'פרש מרקט', source: { kind: 'cerberus', username: 'freshmarket' } },
   { slug: 'keshet', chainId: '7290785400000', name: 'קשת טעמים', source: { kind: 'cerberus', username: 'Keshet' } },
   { slug: 'osher-ad', chainId: '7290103152017', name: 'אושר עד', source: { kind: 'cerberus', username: 'osherad' } },
+  // The venues come from places/wolt.json in the cache dir (personal, never in the repo).
+  { slug: 'wolt', chainId: 'wolt', name: 'וולט', source: { kind: 'wolt' } },
+  // Discovered shops marked "include" with no Wolt venue (places/decisions.json in the cache dir).
+  { slug: 'manual', chainId: 'manual', name: 'חנות שכונתית', source: { kind: 'manual' } },
 ];
 
 export const chainBySlug = (slug: string) => CHAINS.find((c) => c.slug === slug);

@@ -33,6 +33,7 @@ export async function GET(request: NextRequest) {
         minPrice: prices.length ? Math.min(...prices) : null,
         maxPrice: prices.length ? Math.max(...prices) : null,
         stores: prices.length,
+        img: d.img ?? null,
       };
     });
     hits.sort((a, b) => b.stores - a.stores || a.name.length - b.name.length);

@@ -11,7 +11,7 @@
 
 import { createHash } from 'node:crypto';
 import { parseFileName, type CanonItem, type CanonPromo, type CanonPromoGroup, type CanonStore } from './normalize.ts';
-import { storeId, type StoreId } from './collections.ts';
+import { priceSourceOf, storeId, type PriceSource, type StoreId } from './collections.ts';
 
 export interface StoreState {
   /** Short numeric store key used inside the price maps. */
@@ -32,6 +32,7 @@ export interface ItemDoc {
   w: boolean; // sold by weight
   bc: boolean; // real barcode (cross-chain)
   p: Record<string, number>; // storeKey → price in agorot
+  img?: string; // product photo link (omitted when no source has one)
 }
 
 export interface PromoGroupDoc {
@@ -76,12 +77,14 @@ function mostCommon(values: string[]): string {
 }
 
 export function buildItemDocs(stores: StoreState[]): Map<string, ItemDoc> {
-  const acc = new Map<string, { names: string[]; first: CanonItem; p: Record<string, number> }>();
+  const acc = new Map<string, { names: string[]; first: CanonItem; p: Record<string, number>; img?: string }>();
   for (const s of stores) {
     for (const it of s.items) {
       let a = acc.get(it.key);
       if (!a) acc.set(it.key, (a = { names: [], first: it, p: {} }));
       a.names.push(it.name);
+      // The smallest link wins, so the choice doesn't flip between runs (and rewrite the doc).
+      if (it.img && (!a.img || it.img < a.img)) a.img = it.img;
       a.p[String(s.k)] = it.priceAgorot;
     }
   }
@@ -97,6 +100,7 @@ export function buildItemDocs(stores: StoreState[]): Map<string, ItemDoc> {
       w: a.first.weighted,
       bc: a.first.barcode,
       p: a.p,
+      ...(a.img ? { img: a.img } : {}),
     });
   }
   return out;
@@ -255,6 +259,7 @@ export interface StoreDoc {
   /** When the prices / promos were published (Israel local "YYYY-MM-DDTHH:mm", from the file name). */
   pricesAt: string | null;
   promosAt: string | null;
+  source: PriceSource;
 }
 
 export interface StoreInput extends CanonStore {
@@ -267,7 +272,8 @@ export interface StoreInput extends CanonStore {
 
 /** "202611150040" → "2026-11-15T00:40". */
 function stampToLocal(file: string | null): string | null {
-  const stamp = file ? parseFileName(file)?.stamp : undefined;
+  // Price files carry the stamp in their name; other sources use "<source>-…-YYYYMMDDHHmm".
+  const stamp = file ? (parseFileName(file)?.stamp ?? /-(20\d{10})$/.exec(file)?.[1]) : undefined;
   if (!stamp || stamp.length < 12) return null;
   return `${stamp.slice(0, 4)}-${stamp.slice(4, 6)}-${stamp.slice(6, 8)}T${stamp.slice(8, 10)}:${stamp.slice(10, 12)}`;
 }
@@ -280,6 +286,7 @@ export function buildStoreDocs(stores: StoreInput[], keys: Record<string, number
         _id: id, k: keys[id], chainId: s.chainId, chainSlug: s.chainSlug, chainName: s.chainName,
         storeId: s.storeId, name: s.name, address: s.address, city: s.cityId, cityRaw: s.city, kind: s.kind,
         priceFile: s.priceFile, promoFile: s.promoFile, pricesAt: stampToLocal(s.priceFile), promosAt: stampToLocal(s.promoFile),
+        source: priceSourceOf(s.chainId),
       }];
     }),
   );

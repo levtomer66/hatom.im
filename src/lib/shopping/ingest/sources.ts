@@ -216,5 +216,8 @@ export function clientFor(chain: ChainConfig, throttle: Throttle): SourceClient 
       return cerberusClient(chain.source.username, throttle);
     case 'shufersal':
       return shufersalClient(throttle);
+    case 'wolt':
+    case 'manual':
+      throw new Error(`${chain.source.kind} has no price files — the ingest builds it separately`);
   }
 }

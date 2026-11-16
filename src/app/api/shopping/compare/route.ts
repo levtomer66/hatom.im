@@ -6,7 +6,9 @@ import { MAX_LIST_ITEMS, MAX_QTY } from '@/lib/shopping/lists';
 import { bestSplits, rankStores, type BasketLine, type PricingOptions } from '@/lib/shopping/pricing';
 import { israelLocalNow } from '@/lib/shopping/snapshot';
 import type { CompareResponse, StoreInfo } from '@/lib/shopping/api-types';
+import { withManualPrices } from '@/lib/shopping/manual';
 import { getItems, getPromosFor, getStoresFor } from '@/models/ShoppingCatalog';
+import { getManualPrices } from '@/models/ShoppingManualPrice';
 
 function parseBody(body: unknown): { city: string; lines: BasketLine[]; clubs: boolean; coupons: boolean } | string {
   if (!body || typeof body !== 'object') return 'body must be an object';
@@ -24,7 +26,10 @@ function parseBody(body: unknown): { city: string; lines: BasketLine[]; clubs: b
 
 // POST { city, lines, clubs?, coupons? } — the basket priced at every store
 // serving the city: physical stores and online stores ranked separately,
-// plus the best two-store splits among the physical ones.
+// plus the best two-store splits among the physical ones. Manual stores
+// (prices typed by users) are always returned in `manual`, with what is
+// still unpriced in `missing`; once one prices every line it also competes
+// in `physical` and the splits.
 export async function POST(request: NextRequest) {
   const caller = await requireFeatureCaller(request, 'shopping');
   if (caller instanceof NextResponse) return caller;
@@ -40,14 +45,20 @@ export async function POST(request: NextRequest) {
   try {
     const keys = [...new Set(req.lines.map((l) => l.key))];
     const [stores, itemDocs, promos] = await Promise.all([getStoresFor(req.city), getItems(keys), getPromosFor(keys)]);
-    const items = new Map(itemDocs.map((d) => [d._id, d]));
+    const manualKeys = stores.filter((s) => s.source === 'manual').map((s) => s.k);
+    const typed = await getManualPrices(manualKeys, keys);
+    const items = withManualPrices(new Map(itemDocs.map((d) => [d._id, d])), typed);
     const now = israelLocalNow();
     const opts: PricingOptions = {
       now,
       clubs: req.clubs ? [...new Set(promos.map((p) => p.club).filter((c) => c !== 0))] : [],
       coupons: req.coupons,
     };
-    const physicalKeys = stores.filter((s) => s.kind === 'physical').map((s) => s.k);
+    const manual = rankStores(manualKeys, req.lines, items, promos, opts);
+    const complete = new Set(manual.filter((b) => !b.missing.length).map((b) => b.store));
+    const physicalKeys = stores
+      .filter((s) => s.kind === 'physical' && (s.source !== 'manual' || complete.has(s.k)))
+      .map((s) => s.k);
     const onlineKeys = stores.filter((s) => s.kind === 'online').map((s) => s.k);
     const physical = rankStores(physicalKeys, req.lines, items, promos, opts);
     const online = rankStores(onlineKeys, req.lines, items, promos, opts);
@@ -61,13 +72,14 @@ export async function POST(request: NextRequest) {
           s.k,
           {
             k: s.k, chainId: s.chainId, chainName: s.chainName, name: s.name, address: s.address,
-            city: s.city, kind: s.kind, pricesAt: s.pricesAt,
+            city: s.city, kind: s.kind, pricesAt: s.pricesAt, source: s.source ?? 'official',
           },
         ]),
       ),
-      items: Object.fromEntries(itemDocs.map((d) => [d._id, { name: d.n, manufacturer: d.m, w: d.w }])),
+      items: Object.fromEntries(itemDocs.map((d) => [d._id, { name: d.n, manufacturer: d.m, w: d.w, img: d.img ?? null }])),
       physical: physical.slice(0, RESULTS_PER_SECTION),
       online: online.slice(0, RESULTS_PER_SECTION),
+      manual,
       splits,
     };
     return NextResponse.json(res);

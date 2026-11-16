@@ -28,6 +28,8 @@ export interface CanonItem {
   unitOfMeasure: string; // e.g. "100 גרם"
   weighted: boolean;
   priceAgorot: number;
+  /** Product photo link, when a source has one (Wolt does; price files never). */
+  img?: string;
 }
 
 export interface CanonPromoGroup {
