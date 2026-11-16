@@ -305,6 +305,14 @@ Identity = Gmail address. Two roles:
   ranked separately; stores whose `pricesAt` is null are never shown.
   The read model is `src/models/ShoppingCatalog.ts`; the app never writes the
   ingest collections.
+- **Result views**: per item (`perItem`, each item's cheapest stores), per
+  list (best single store), per stores (every item at its cheapest, grouped
+  by store, plus the exact two-store splits), and online. Every price carries
+  its source (`priceSourceOf(chainId)` in `api-types.ts`: official / wolt /
+  manual), rendered only by `<SourceBadge>`. Search ranking (name-match
+  position first, store count second) is `src/lib/shopping/search-rank.ts`.
+  Manual prices have a UI but no backend yet; the expected API is in the
+  header comment of `src/app/shopping/page.tsx`.
 
 ### MCP server + OAuth (`/api/mcp`)
 
