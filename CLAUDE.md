@@ -57,6 +57,11 @@ Vercel's GitHub integration. There is no separate `master` branch.
 # dev server (picks next available port; usually :3000)
 npm run dev
 
+# local mode: no Google sign-in — gated pages sign you in as an owner.
+# Uses LOCAL_MONGODB_URI (default: the Docker test Mongo on :27018), never
+# .env.local's MONGODB_URI. Guarded by NODE_ENV=development + localhost.
+npm run dev:local -- -p 3100
+
 # verify before commit
 npx tsc --noEmit --incremental false --pretty false
 npm run lint
