@@ -61,8 +61,8 @@ const OFFER_LABEL: Record<Offer['reason'], string> = {
 
 /** Label, explanation and how its date reads, per price source. */
 const SOURCE: Record<PriceSource, { label: string; hint: string; dated: string }> = {
-  official: { label: 'מחיר רשמי', hint: 'מקובץ שקיפות המחירים של הרשת — מחיר המדף בסניף', dated: 'קובץ מ־' },
-  wolt: { label: 'וולט', hint: 'מחיר המשלוח בוולט — בדרך כלל גבוה ממחיר המדף', dated: 'נבדק ב־' },
+  official: { label: 'מחיר רשמי', hint: 'מקובץ שקיפות המחירים של הרשת, כלומר מחיר המדף בסניף', dated: 'קובץ מ־' },
+  wolt: { label: 'וולט', hint: 'מחיר המשלוח בוולט, בדרך כלל גבוה ממחיר המדף', dated: 'נבדק ב־' },
   manual: { label: 'הוזן ידנית', hint: 'מחיר שהקלדנו בעצמנו', dated: 'עודכן ב־' },
 };
 /** A price file older than this many days is flagged. */
@@ -319,8 +319,8 @@ export default function ShoppingPage() {
       <Navbar />
       <main className="sh-page">
         <header className="sh-header">
-          <h1 className="sh-title">🛒 השוואת מחירים</h1>
-          <p className="sh-subtitle">בונים רשימה ורואים איפה היא הכי זולה. ליד כל מחיר כתוב מאיפה הוא.</p>
+          <h1 className="sh-title">השוואת מחירים</h1>
+          <p className="sh-subtitle">בונים רשימת קניות ורואים באיזו חנות היא הכי זולה. ליד כל מחיר כתוב מאיפה הוא ומאיזה יום.</p>
         </header>
 
         {loadError && <p className="sh-error">לא הצלחנו לטעון את הרשימות. נסו לרענן.</p>}
@@ -369,7 +369,7 @@ export default function ShoppingPage() {
                     return (
                       <li key={h.key}>
                         <button type="button" className={`sh-hit ${inList ? 'is-in' : ''}`} onClick={() => addItem(h)}>
-                          <span className="sh-hit-name">{h.name}{h.w && <small> · לפי משקל</small>}</span>
+                          <span className="sh-hit-name">{h.name}{h.w && <small className="sh-weighed">לפי משקל</small>}</span>
                           <span className="sh-hit-meta">
                             {h.minPrice !== null ? (
                               <>
@@ -393,7 +393,7 @@ export default function ShoppingPage() {
 
             <section className="sh-card">
               <div className="sh-list-head">
-                <h2 className="sh-h2">{list.name} <small className="sh-muted">· {itemCount} מוצרים</small></h2>
+                <h2 className="sh-h2">{list.name} <small>{itemCount} מוצרים</small></h2>
                 <button type="button" className="sh-icon-btn" onClick={renameList} aria-label="שינוי שם הרשימה"><FaPen /></button>
                 <button type="button" className="sh-icon-btn" onClick={deleteList} aria-label="מחיקת הרשימה"><FaTrash /></button>
               </div>
@@ -416,7 +416,7 @@ export default function ShoppingPage() {
                   );
                 })}
               </ul>
-              {saveError && <p className="sh-error">השמירה נכשלה — ננסה שוב בשינוי הבא.</p>}
+              {saveError && <p className="sh-error">השינויים לא נשמרו. הם יישמרו בשינוי הבא.</p>}
               {itemCount > 0 && (
                 <div className="sh-options">
                   <label className="sh-toggle"><input type="checkbox" checked={clubs} onChange={(e) => setClubs(e.target.checked)} /> לחשב מבצעי מועדון</label>
@@ -460,7 +460,7 @@ function SourceBadge({ store, now }: { store: StoreInfo; now: string }) {
       <SourceTag source={store.source} />
       {store.pricesAt && (
         <span className={old ? 'sh-old' : ''} title={old ? 'המחירים לא עודכנו כמה ימים' : undefined}>
-          {s.dated}{stamp(store.pricesAt)}{old && ' · ישן'}
+          {s.dated}{stamp(store.pricesAt)}{old && <b> ישן</b>}
         </span>
       )}
     </span>
@@ -504,7 +504,7 @@ const Results = React.forwardRef<HTMLElement, {
             {worst && worst !== best && <span>חוסכים {ils(worst.total - best.total)} מול היקרה ברשימה</span>}
             {splitSaving > 0 && (
               <button type="button" className="sh-link" onClick={() => setTab('stores')}>
-                בשתי חנויות: עוד {ils(splitSaving)} פחות ←
+                לחסוך עוד {ils(splitSaving)} בשתי חנויות
               </button>
             )}
           </span>
@@ -516,12 +516,12 @@ const Results = React.forwardRef<HTMLElement, {
           {closest && (
             <>
               <span className="sh-hero-store">הכי קרוב: {storeName(result.stores[closest.store])}</span>
-              <span className="sh-hero-total">{ils(closest.total)} <small>· חסרים {closest.missing.length}</small></span>
+              <span className="sh-hero-total">{ils(closest.total)} <small>חסרים {closest.missing.length}</small></span>
             </>
           )}
           <span className="sh-hero-meta">
             הסניפים מסודרים לפי כמה מוצרים חסרים, ואז לפי מחיר.
-            <button type="button" className="sh-link" onClick={() => setTab('item')}>מה הכי זול בכל מוצר ←</button>
+            <button type="button" className="sh-link" onClick={() => setTab('item')}>להשוות לפי מוצר</button>
           </span>
           {updating && <span className="sh-updating">מעדכן…</span>}
         </div>
@@ -558,7 +558,7 @@ const Results = React.forwardRef<HTMLElement, {
             const saving = best ? best.total - s.total : 0;
             return (
               <article key={id} className={`sh-card sh-store ${i === 0 ? 'is-best' : ''}`}>
-                {i === 0 && <h3 className="sh-section-title">שתי חנויות — מחיר מדויק</h3>}
+                {i === 0 && <h3 className="sh-section-title">חלוקה לשתי חנויות</h3>}
                 <button type="button" className="sh-store-head" onClick={() => toggle(id)} aria-expanded={open === id}>
                   <span className="sh-store-title">
                     {s.stores.map((b) => storeName(result.stores[b.store])).join(' + ')}
@@ -568,13 +568,13 @@ const Results = React.forwardRef<HTMLElement, {
                   <span className="sh-store-meta">
                     {saving > 0 && <span className="sh-save">{ils(saving)} פחות מחנות אחת</span>}
                     {s.missing.length > 0 && <span className="sh-missing">חסרים {s.missing.length}</span>}
-                    <span>{s.stores.map((b) => `${b.lines.filter((l) => l.available).length} ב${result.stores[b.store]?.chainName ?? '?'}`).join(' · ')}</span>
+                    <span>{s.stores.map((b) => `${b.lines.filter((l) => l.available).length} ב${result.stores[b.store]?.chainName ?? '?'}`).join(', ')}</span>
                   </span>
                 </button>
                 {open === id && s.stores.map((b) => (
                   <div key={b.store} className="sh-split-part">
                     <h3 className="sh-h3">
-                      {storeName(result.stores[b.store])} · {ils(b.total)}
+                      <span>{storeName(result.stores[b.store])}</span> <span>{ils(b.total)}</span>
                     </h3>
                     {result.stores[b.store] && <SourceBadge store={result.stores[b.store]} now={result.now} />}
                     <Breakdown basket={b} result={result} onlyAvailable />
@@ -683,12 +683,12 @@ function Line({ line, result }: { line: LineResult; result: CompareResponse }) {
         <span className="sh-promos">
           {line.applied.map((p) => (
             <span key={p.id} className="sh-promo">
-              <b>−{ils(p.savings)}</b> {p.description} · עד {dayMonth(p.end)}
+              <b>−{ils(p.savings)}</b> {p.description} <small>עד {dayMonth(p.end)}</small>
             </span>
           ))}
           {line.offers.map((o) => (
             <span key={o.id} className="sh-promo is-offer">
-              {OFFER_LABEL[o.reason]}{o.clubName ? ` (${o.clubName})` : ''}: {o.description} · עד {dayMonth(o.end)}
+              {OFFER_LABEL[o.reason]}{o.clubName ? ` (${o.clubName})` : ''}: {o.description} <small>עד {dayMonth(o.end)}</small>
             </span>
           ))}
         </span>
@@ -708,7 +708,7 @@ function PerItem({ result }: { result: CompareResponse }) {
     <>
       <p className="sh-view-note">
         המחיר הכי זול לכל מוצר בנפרד. יחד: <b>{ils(total)}</b> ב־{storeCount} {storeCount === 1 ? 'חנות' : 'חנויות'}
-        {sold.length < result.perItem.length && <> · {result.perItem.length - sold.length} לא נמכרים בעיר</>}.
+        {sold.length < result.perItem.length && <>, ו־{result.perItem.length - sold.length} לא נמכרים בעיר</>}.
       </p>
       <ul className="sh-card sh-peritem">
         {result.perItem.map((x) => <PerItemRow key={x.key} row={x} result={result} />)}
@@ -738,7 +738,7 @@ function PerItemRow({ row, result }: { row: ItemBest; result: CompareResponse })
           {rest.length > 0 && (
             <span className="sh-peritem-alt">
               {rest.map((o) => (
-                <span key={o.store}>{result.stores[o.store]?.chainName ?? '?'} {result.stores[o.store]?.name} · {ils(o.cost)}</span>
+                <span key={o.store}>{result.stores[o.store]?.chainName ?? '?'} {result.stores[o.store]?.name} <b>{ils(o.cost)}</b></span>
               ))}
             </span>
           )}
@@ -770,8 +770,8 @@ function CheapestEach({ result, single }: { result: CompareResponse; single: Sto
       <h3 className="sh-section-title">כל מוצר במקום הכי זול</h3>
       <p className="sh-group-sum">
         <b>{ils(total)}</b> ב־{groups.size} חנויות
-        {single && !missing && single.total > total && <span className="sh-save"> · {ils(single.total - total)} פחות מחנות אחת</span>}
-        {missing > 0 && <span className="sh-missing"> · חסרים {missing}</span>}
+        {single && !missing && single.total > total && <span className="sh-save">, {ils(single.total - total)} פחות מחנות אחת</span>}
+        {missing > 0 && <span className="sh-missing">, חסרים {missing}</span>}
       </p>
       {sorted.map(([store, xs]) => (
         <div key={store} className="sh-group-store">
@@ -779,7 +779,7 @@ function CheapestEach({ result, single }: { result: CompareResponse; single: Sto
             <span>{storeName(result.stores[store])}</span>
             <span>{ils(xs.reduce((s, x) => s + x.cost, 0))}</span>
           </h4>
-          <p>{xs.map((x) => result.items[x.key]?.name ?? x.key).join(' · ')}</p>
+          <p>{xs.map((x) => result.items[x.key]?.name ?? x.key).join(', ')}</p>
         </div>
       ))}
       <p className="sh-footnote">משוער: מבצע ״קנה כמה״ עשוי לא לחול כשקונים רק חלק מהרשימה בחנות.</p>
@@ -834,14 +834,14 @@ function ManualPrices({ list }: { list: ShoppingList }) {
       <p className="sh-manual-note"><SourceTag source="manual" /> המחירים יסומנו כ״הוזן ידנית״ עם התאריך ומי הקליד.</p>
       {list.items.map((i) => (
         <label key={i.key} className="sh-manual-row">
-          <span>{i.name}{i.w && <small> · לק״ג</small>}</span>
+          <span>{i.name}{i.w && <small className="sh-weighed">לק״ג</small>}</span>
           <span className="sh-money-input">
             <input type="text" inputMode="decimal" placeholder="0.00" aria-label={`מחיר ${i.name}`} disabled />
             <span aria-hidden>₪</span>
           </span>
         </label>
       ))}
-      <button type="submit" className="sh-btn sh-btn--primary" disabled>שמירה — בקרוב</button>
+      <button type="submit" className="sh-btn sh-btn--primary" disabled>שמירת המחירים עוד לא זמינה</button>
     </form>
   );
 }
