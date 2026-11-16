@@ -246,7 +246,8 @@ body:has(.sh-page) { background: #ffffff; }
 .sh-hits-empty { padding: 1rem; }
 .sh-hit {
   display: grid;
-  grid-template-columns: 1fr auto;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
   gap: 0.125rem 0.75rem;
   width: 100%;
   padding: 0.75rem 1rem;
@@ -258,11 +259,12 @@ body:has(.sh-page) { background: #ffffff; }
   cursor: pointer;
 }
 .sh-hit:hover, .sh-hit:focus-visible { background: var(--sh-surface); }
-.sh-hit-name { grid-column: 1; line-height: 1.4; }
-.sh-hit-meta { grid-column: 1; display: flex; flex-wrap: wrap; align-items: center; gap: 0.125rem 0.75rem; font-size: 0.875rem; color: var(--sh-muted); }
+.sh-hit > .sh-thumb { grid-column: 1; grid-row: 1 / span 2; }
+.sh-hit-name { grid-column: 2; line-height: 1.4; }
+.sh-hit-meta { grid-column: 2; display: flex; flex-wrap: wrap; align-items: center; gap: 0.125rem 0.75rem; font-size: 0.875rem; color: var(--sh-muted); }
 .sh-hit-meta b { font-weight: 600; color: var(--sh-ink); }
 .sh-hit-add {
-  grid-column: 2;
+  grid-column: 3;
   grid-row: 1 / span 2;
   align-self: center;
   display: inline-flex;
@@ -488,7 +490,7 @@ body:has(.sh-page) { background: #ffffff; }
 }
 .sh-line + .sh-line { border-top: 1px solid var(--sh-line); }
 .sh-line.is-missing { color: var(--sh-miss); }
-.sh-line-name { line-height: 1.4; }
+.sh-line-name { display: flex; align-items: flex-start; gap: 0.75rem; line-height: 1.4; }
 .sh-line-name small { margin-inline-start: 0.25rem; color: var(--sh-muted); }
 .sh-line-price { display: flex; flex-direction: column; align-items: flex-end; white-space: nowrap; }
 .sh-line-price b { font-weight: 600; }
@@ -546,6 +548,7 @@ body:has(.sh-page) { background: #ffffff; }
   text-align: start;
   cursor: pointer;
 }
+.sh-unpriced-head.is-static { cursor: default; }
 .sh-unpriced-head > span { display: flex; flex-direction: column; gap: 0.125rem; }
 .sh-unpriced-head b { font-weight: 600; }
 .sh-unpriced-head small { font-size: 0.875rem; color: var(--sh-muted); }
@@ -586,6 +589,32 @@ body:has(.sh-page) { background: #ffffff; }
 .sh-legend > div { display: flex; align-items: baseline; gap: 0.5rem; }
 .sh-legend dt, .sh-legend dd { margin: 0; }
 .sh-footnote { margin: 0.5rem 0 0; font-size: 0.875rem; color: var(--sh-muted); }
+
+/* product photos: Wolt shots are wide (16:9) on white with the product in
+   the middle, so the square frame crops to the centre, white in both themes */
+.sh-thumb {
+  flex: none;
+  display: block;
+  box-sizing: border-box;
+  border: 1px solid var(--sh-line);
+  border-radius: 8px;
+  background: #ffffff;
+  object-fit: cover;
+  object-position: center;
+}
+.sh-thumb.is-empty {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-color: transparent;
+  background: var(--sh-surface);
+  color: var(--sh-line);
+  font-size: 0.875rem;
+}
+.sh-card .sh-thumb.is-empty, .sh-lines .sh-thumb.is-empty { background: var(--sh-bg); }
+.sh-save-state { display: block; font-size: 0.8125rem; color: var(--sh-muted); }
+.sh-save-state.is-saved { color: var(--sh-accent); }
+.sh-save-state.is-error, .sh-save-state.is-invalid { color: var(--sh-miss); }
 
 @media (prefers-reduced-motion: reduce) {
   .sh-spinner, .sh-toast { animation: none; }

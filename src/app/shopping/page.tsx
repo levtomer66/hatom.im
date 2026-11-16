@@ -8,39 +8,33 @@
  * Wolt listing (delivery prices, usually above shelf), or — later — a price
  * one of us typed in. <SourceBadge> is the one place that renders it.
  *
- * ── Manual prices: what this page expects from the API (not built yet) ──
+ * ── Manual prices ──
  *
- * The compare response already lists the city's stores that have no prices
- * (`CompareResponse.unpriced`), and <ManualPrices> is the editor for them;
- * its save button stays disabled until this exists:
+ * Neighbourhood shops have no price file; we type their prices in.
+ * `CompareResponse.manual` lists the city's manual stores (fewest missing
+ * first; `missing` = items nobody priced there yet), and <ManualPrices> saves
+ * one price at a time:
  *
- *   PUT /api/shopping/stores/:k/prices
- *     body  { prices: { key: string; agorot: number | null }[] }   // null = clear
- *     200   { store: StoreInfo }        // source 'manual', pricesAt = latest edit
- *     Writes a separate collection (say `shoppingManualPrices`, one doc per
- *     (store, item): { k, key, agorot, setBy, setAt }) — never the ingest
- *     collections, which the app doesn't write.
+ *   PUT /api/shopping/manual-prices  { store: k, item: key, price: agorot | null }
+ *     price: whole agorot 1..100000, per kg for weighted items; null clears.
+ *     200 { store, item, price, by, at } · 400 bad input · 404 unknown store
+ *     or item · 409 the store isn't a manual one.
  *
- *   GET /api/shopping/stores/:k/prices?keys=a,b  (to prefill the editor)
- *     200   { prices: { key; agorot; setBy; setAt }[] }
- *
- *   POST /api/shopping/compare then prices manual stores like any other:
- *     - the store appears in `physical` with `source: 'manual'` and
- *       `pricesAt` = its most recent edit, and leaves `unpriced`;
- *     - items nobody priced there are `missing`, as usual;
- *     - optional `LineResult.setAt?/setBy?` per line, so a line can say
- *       "הוזן ע״י תומר · 12.11" (the store-level badge covers it until then).
- *   A store could later mix sources (official file + manual fixes); then the
- *   per-line `source?: PriceSource` would override the store's for that line.
+ * A manual store with nothing missing is also ranked in `physical` (and can
+ * be in a split), labelled "הוזן ידנית". Prices are shared by everyone with
+ * the `shopping` permission. `manual` and `img` are optional in the types
+ * until that backend is merged; without them the section and photos stay
+ * hidden. Stores with no price file that *aren't* manual (a chain whose file
+ * failed) are listed read-only under `unpriced`.
  */
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { FaMinus, FaPlus, FaTrash, FaSearch, FaChevronDown, FaTimes, FaCheck, FaPen } from 'react-icons/fa';
+import { FaMinus, FaPlus, FaTrash, FaSearch, FaChevronDown, FaTimes, FaCheck, FaPen, FaShoppingBasket } from 'react-icons/fa';
 import Navbar from '@/components/Navbar';
 import { CITIES } from '@/lib/shopping/cities';
 import { SHOPPING_API_PATH } from '@/lib/shopping/config';
 import { normalizeQty, type ShoppingList, type ShoppingListItem } from '@/lib/shopping/lists';
-import type { CompareResponse, ItemBest, PriceSource, SearchHit, StoreInfo } from '@/lib/shopping/api-types';
+import type { CompareResponse, ItemBest, ManualPriceResponse, PriceSource, SearchHit, StoreInfo } from '@/lib/shopping/api-types';
 import type { LineResult, Offer, StoreBasket } from '@/lib/shopping/pricing';
 
 const money = new Intl.NumberFormat('he-IL', { style: 'currency', currency: 'ILS', minimumFractionDigits: 2 });
@@ -126,6 +120,27 @@ export default function ShoppingPage() {
   const resultsRef = useRef<HTMLElement>(null);
 
   const list = lists?.find((l) => l.id === activeId) ?? null;
+
+  // Product photos seen so far (search hits and compare results), by item key.
+  const [imgs, setImgs] = useState<Record<string, string>>({});
+  const rememberImgs = useCallback((pairs: [string, string | null | undefined][]) => {
+    setImgs((m) => {
+      let next = m;
+      for (const [k, v] of pairs) {
+        if (v && next[k] !== v) {
+          if (next === m) next = { ...m };
+          next[k] = v;
+        }
+      }
+      return next;
+    });
+  }, []);
+  useEffect(() => {
+    if (hits) rememberImgs(hits.map((h) => [h.key, h.img]));
+  }, [hits, rememberImgs]);
+  useEffect(() => {
+    if (result) rememberImgs(Object.entries(result.items).map(([k, v]) => [k, v.img]));
+  }, [result, rememberImgs]);
 
   // ── load lists (creating the first one) ──
   useEffect(() => {
@@ -369,6 +384,7 @@ export default function ShoppingPage() {
                     return (
                       <li key={h.key}>
                         <button type="button" className={`sh-hit ${inList ? 'is-in' : ''}`} onClick={() => addItem(h)}>
+                          <Thumb src={h.img} size={44} />
                           <span className="sh-hit-name">{h.name}{h.w && <small className="sh-weighed">לפי משקל</small>}</span>
                           <span className="sh-hit-meta">
                             {h.minPrice !== null ? (
@@ -403,6 +419,7 @@ export default function ShoppingPage() {
                   const atMin = normalizeQty(i.qty - step(i.w), i.w) === null;
                   return (
                     <li key={i.key} className="sh-item">
+                      <Thumb src={imgs[i.key]} size={40} />
                       <span className="sh-item-name">{i.name}</span>
                       <span className="sh-stepper">
                         <button type="button" onClick={() => stepQty(i.key, 1)} aria-label={`עוד ${i.name}`}><FaPlus /></button>
@@ -426,7 +443,8 @@ export default function ShoppingPage() {
             </section>
 
             {result && (
-              <Results ref={resultsRef} result={result} list={list} updating={stale || comparing} tab={tab} setTab={setTab} open={open} setOpen={setOpen} />
+              <Results ref={resultsRef} result={result} list={list} updating={stale || comparing} tab={tab} setTab={setTab} open={open} setOpen={setOpen}
+                onPricesSaved={() => compare(false)} />
             )}
 
             {itemCount > 0 && (!result || compareError) && (
@@ -477,7 +495,9 @@ const Results = React.forwardRef<HTMLElement, {
   setTab: (t: Tab) => void;
   open: string | null;
   setOpen: (k: string | null) => void;
-}>(function Results({ result, list, updating, tab, setTab, open, setOpen }, ref) {
+  /** A manual price was saved: re-price the list. */
+  onPricesSaved: () => void;
+}>(function Results({ result, list, updating, tab, setTab, open, setOpen, onPricesSaved }, ref) {
   const complete = result.physical.filter((b) => !b.missing.length);
   const best = complete[0];
   const closest = result.physical[0];
@@ -546,7 +566,8 @@ const Results = React.forwardRef<HTMLElement, {
                 open={open === `s${b.store}`} toggle={() => toggle(`s${b.store}`)} />
             ))
             : <p className="sh-empty">אין בעיר חנויות עם מחירים.</p>}
-          {result.unpriced.length > 0 && <Unpriced stores={result.unpriced} list={list} />}
+          {!!result.manual?.length && <ManualStores baskets={result.manual} result={result} list={list} onSaved={onPricesSaved} />}
+          <Unpriced result={result} />
         </>
       )}
 
@@ -666,7 +687,7 @@ function Line({ line, result }: { line: LineResult; result: CompareResponse }) {
   if (!line.available) {
     return (
       <li className="sh-line is-missing">
-        <span className="sh-line-name">{it?.name ?? line.key}</span>
+        <span className="sh-line-name"><Thumb src={it?.img} size={36} /><span>{it?.name ?? line.key}</span></span>
         <span className="sh-line-price">לא נמכר כאן</span>
       </li>
     );
@@ -674,7 +695,7 @@ function Line({ line, result }: { line: LineResult; result: CompareResponse }) {
   const discounted = line.cost < line.regularCost;
   return (
     <li className="sh-line">
-      <span className="sh-line-name">{it?.name ?? line.key} <small>{qtyLabel(line.qty, w)}</small></span>
+      <span className="sh-line-name"><Thumb src={it?.img} size={36} /><span>{it?.name ?? line.key} <small>{qtyLabel(line.qty, w)}</small></span></span>
       <span className="sh-line-price">
         {discounted && <s>{ils(line.regularCost)}</s>} <b>{ils(line.cost)}</b>
         {(line.qty !== 1 || discounted) && <small>{ils(line.effectiveUnit)} ל{w ? 'ק״ג' : 'יח׳'}</small>}
@@ -723,7 +744,7 @@ function PerItemRow({ row, result }: { row: ItemBest; result: CompareResponse })
   const [first, ...rest] = row.options;
   return (
     <li className="sh-peritem-row">
-      <span className="sh-line-name">{it?.name ?? row.key} <small>{qtyLabel(row.qty, w)}</small></span>
+      <span className="sh-line-name"><Thumb src={it?.img} size={44} /><span>{it?.name ?? row.key} <small>{qtyLabel(row.qty, w)}</small></span></span>
       {first ? (
         <>
           <span className="sh-line-price">
@@ -787,17 +808,158 @@ function CheapestEach({ result, single }: { result: CompareResponse; single: Sto
   );
 }
 
-// ── stores with no prices yet ──
+// ── product photos ──
 
-function Unpriced({ stores, list }: { stores: StoreInfo[]; list: ShoppingList }) {
+/** Wolt's image proxy resizes on `?w=`; the menu-image CDN has no resize, so it's shown small. */
+const sized = (src: string, px: number) =>
+  src.startsWith('https://imageproxy.wolt.com/') ? `${src}${src.includes('?') ? '&' : '?'}w=${px * 2}` : src;
+
+/** A product photo, or a quiet basket mark when there's none (most items) or it fails to load. */
+function Thumb({ src, size }: { src: string | null | undefined; size: number }) {
+  const [failed, setFailed] = useState(false);
+  const box = { width: size, height: size };
+  if (!src || failed) {
+    return <span className="sh-thumb is-empty" style={box} aria-hidden><FaShoppingBasket /></span>;
+  }
+  return (
+    // eslint-disable-next-line @next/next/no-img-element -- plain <img>: external photos, no optimizer
+    <img className="sh-thumb" src={sized(src, size)} width={size} height={size} style={box}
+      alt="" loading="lazy" decoding="async" onError={() => setFailed(true)} />
+  );
+}
+
+// ── stores priced by hand ──
+
+function ManualStores({ baskets, result, list, onSaved }: {
+  baskets: StoreBasket[];
+  result: CompareResponse;
+  list: ShoppingList;
+  onSaved: () => void;
+}) {
+  return (
+    <section className="sh-card sh-unpriced">
+      <div className="sh-unpriced-head is-static">
+        <span>
+          <b>חנויות שכונתיות</b>
+          <small>אין להן קובץ מחירים, אז אנחנו מקלידים את המחירים. כל מה שמוקלד כאן משותף לכולנו.</small>
+        </span>
+      </div>
+      <ul className="sh-unpriced-list">
+        {baskets.map((b) => (
+          <ManualStore key={b.store} basket={b} store={result.stores[b.store]} list={list} onSaved={onSaved} />
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+function ManualStore({ basket, store, list, onSaved }: {
+  basket: StoreBasket;
+  store: StoreInfo | undefined;
+  list: ShoppingList;
+  onSaved: () => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const priced = basket.lines.filter((l) => l.available).length;
+  return (
+    <li>
+      <div className="sh-unpriced-row">
+        <span>
+          {store ? <>{store.name} {store.address && <small>{store.address}</small>}</> : basket.store}
+          <small>
+            {priced
+              ? `${priced} מתוך ${basket.lines.length} מוצרים מתומחרים, ${ils(basket.total)}`
+              : 'עוד לא הוקלדו מחירים לרשימה הזאת'}
+          </small>
+        </span>
+        <button type="button" className="sh-btn sh-btn--ghost" onClick={() => setEditing(!editing)} aria-expanded={editing}>
+          {editing ? 'סיום' : 'הקלדת מחירים'}
+        </button>
+      </div>
+      {editing && <ManualPrices store={basket.store} basket={basket} list={list} onSaved={onSaved} />}
+    </li>
+  );
+}
+
+type SaveState = 'saving' | 'saved' | 'error' | 'invalid';
+const SAVE_LABEL: Record<SaveState, string> = { saving: 'שומר…', saved: 'נשמר', error: 'לא נשמר, נסו שוב', invalid: 'מחיר לא תקין' };
+
+/** Parse "12.90" / "12,9" / "₪ 7" to whole agorot; '' → null (clear); undefined when it isn't a price. */
+function parseAgorot(raw: string): number | null | undefined {
+  const t = raw.replace(/[₪\s]/g, '').replace(',', '.');
+  if (!t) return null;
+  if (!/^\d+(\.\d{0,2})?$/.test(t)) return undefined;
+  const a = Math.round(Number(t) * 100);
+  return a >= 1 && a <= 100_000 ? a : undefined;
+}
+
+/** One price field per list item; each saves on blur or Enter. */
+function ManualPrices({ store, basket, list, onSaved }: {
+  store: number;
+  basket: StoreBasket;
+  list: ShoppingList;
+  onSaved: () => void;
+}) {
+  const current = new Map(basket.lines.filter((l) => l.available).map((l) => [l.key, l.regularUnit]));
+  const [state, setState] = useState<Record<string, SaveState>>({});
+  const mark = (key: string, st: SaveState) => setState((m) => ({ ...m, [key]: st }));
+
+  const save = async (key: string, raw: string) => {
+    const price = parseAgorot(raw);
+    if (price === undefined) return mark(key, 'invalid');
+    if (price === (current.get(key) ?? null)) return;
+    mark(key, 'saving');
+    try {
+      await api<ManualPriceResponse>('/manual-prices', { method: 'PUT', body: JSON.stringify({ store, item: key, price }) });
+      mark(key, 'saved');
+      onSaved();
+    } catch {
+      mark(key, 'error');
+    }
+  };
+
+  return (
+    <div className="sh-manual">
+      <p className="sh-manual-note">
+        <SourceTag source="manual" /> כל מחיר נשמר כשיוצאים מהשדה. מוצר במשקל: מחיר לק״ג. שדה ריק מוחק את המחיר.
+      </p>
+      {list.items.map((i) => {
+        const cur = current.get(i.key);
+        const st = state[i.key];
+        return (
+          <label key={i.key} className="sh-manual-row">
+            <span>
+              {i.name}{i.w && <small className="sh-weighed">לק״ג</small>}
+              {st && <small className={`sh-save-state is-${st}`}>{SAVE_LABEL[st]}</small>}
+            </span>
+            <span className="sh-money-input">
+              <input key={`${i.key}:${cur ?? ''}`} type="text" inputMode="decimal" placeholder="0.00"
+                defaultValue={cur !== undefined ? (cur / 100).toFixed(2) : ''} aria-label={`מחיר ${i.name}`}
+                onBlur={(e) => save(i.key, e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }} />
+              <span aria-hidden>₪</span>
+            </span>
+          </label>
+        );
+      })}
+    </div>
+  );
+}
+
+// ── stores with no price file ──
+
+/** Chain stores whose price file is missing right now (not manual shops): listed so they aren't silently dropped. */
+function Unpriced({ result }: { result: CompareResponse }) {
   const [expanded, setExpanded] = useState(false);
-  const [editing, setEditing] = useState<number | null>(null);
+  const manual = new Set((result.manual ?? []).map((b) => b.store));
+  const stores = result.unpriced.filter((s) => s.source !== 'manual' && !manual.has(s.k));
+  if (!stores.length) return null;
   return (
     <section className="sh-card sh-unpriced">
       <button type="button" className="sh-unpriced-head" onClick={() => setExpanded(!expanded)} aria-expanded={expanded}>
         <span>
-          <b>עוד {stores.length} חנויות בעיר בלי מחירים</b>
-          <small>אפשר יהיה להקליד מחירים בעצמנו ולהשוות גם אותן</small>
+          <b>{stores.length} סניפים בעיר בלי קובץ מחירים כרגע</b>
+          <small>הרשת לא פרסמה להם מחירים, אז הם לא בהשוואה</small>
         </span>
         <FaChevronDown className={`sh-caret ${expanded ? 'is-open' : ''}`} aria-hidden />
       </button>
@@ -810,38 +972,11 @@ function Unpriced({ stores, list }: { stores: StoreInfo[]; list: ShoppingList })
                   {s.chainName} <span className="sh-branch">{s.name}</span>
                   {s.address && <small>{s.address}</small>}
                 </span>
-                <button type="button" className="sh-btn sh-btn--ghost" onClick={() => setEditing(editing === s.k ? null : s.k)}>
-                  {editing === s.k ? 'סגירה' : 'הוספת מחירים'}
-                </button>
               </div>
-              {editing === s.k && <ManualPrices list={list} />}
             </li>
           ))}
         </ul>
       )}
     </section>
-  );
-}
-
-/**
- * Per-item price entry for a store without prices. The save endpoint doesn't
- * exist yet (contract at the top of this file), so the button is disabled and
- * nothing typed here is kept.
- */
-function ManualPrices({ list }: { list: ShoppingList }) {
-  return (
-    <form className="sh-manual" onSubmit={(e) => e.preventDefault()}>
-      <p className="sh-manual-note"><SourceTag source="manual" /> המחירים יסומנו כ״הוזן ידנית״ עם התאריך ומי הקליד.</p>
-      {list.items.map((i) => (
-        <label key={i.key} className="sh-manual-row">
-          <span>{i.name}{i.w && <small className="sh-weighed">לק״ג</small>}</span>
-          <span className="sh-money-input">
-            <input type="text" inputMode="decimal" placeholder="0.00" aria-label={`מחיר ${i.name}`} disabled />
-            <span aria-hidden>₪</span>
-          </span>
-        </label>
-      ))}
-      <button type="submit" className="sh-btn sh-btn--primary" disabled>שמירת המחירים עוד לא זמינה</button>
-    </form>
   );
 }

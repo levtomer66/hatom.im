@@ -38,6 +38,8 @@ export interface SearchHit {
   stores: number;
   /** Sources the price range above comes from (empty when not sold in the city). */
   sources: PriceSource[];
+  /** Product photo URL (Wolt, matched by barcode), or null. Optional until the photo backend lands. */
+  img?: string | null;
 }
 
 export interface StoreInfo {
@@ -51,6 +53,22 @@ export interface StoreInfo {
   source: PriceSource;
   /** Israel local "YYYY-MM-DDTHH:mm" of the price file, or null. */
   pricesAt: string | null;
+}
+
+/** PUT /api/shopping/manual-prices — set (or, with null, clear) one price at a manual store. */
+export interface ManualPriceRequest {
+  store: number;
+  item: string;
+  /** Whole agorot, 1..100000, per kg for weighted items; null clears it. */
+  price: number | null;
+}
+
+export interface ManualPriceResponse {
+  store: number;
+  item: string;
+  price: number | null;
+  by: string;
+  at: string;
 }
 
 export interface CompareRequest {
@@ -84,7 +102,7 @@ export interface CompareResponse {
   now: string;
   city: string;
   stores: Record<number, StoreInfo>;
-  items: Record<string, { name: string; manufacturer: string; w: boolean }>;
+  items: Record<string, { name: string; manufacturer: string; w: boolean; img?: string | null }>;
   /** Physical stores in the city, cheapest first. */
   physical: StoreBasket[];
   /** Online stores, cheapest first. */
@@ -93,6 +111,12 @@ export interface CompareResponse {
   splits: Split[];
   /** Per list item, its cheapest physical stores. */
   perItem: ItemBest[];
+  /**
+   * The city's manual stores (neighbourhood shops priced by hand), fewest
+   * missing first; `missing` = items still unpriced there. Optional until the
+   * manual-prices backend lands; then it replaces `unpriced` for those shops.
+   */
+  manual?: StoreBasket[];
   /** The city's physical stores that have no prices yet (listed so prices can be added). */
   unpriced: StoreInfo[];
 }
