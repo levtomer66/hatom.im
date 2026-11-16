@@ -114,6 +114,8 @@ export default function ShoppingPage() {
   const [compareError, setCompareError] = useState(false);
   const [tab, setTab] = useState<Tab>('list');
   const [open, setOpen] = useState<string | null>(null);
+  /** The list's items are folded away until "עריכה" is tapped. */
+  const [editing, setEditing] = useState(false);
   const resultsRef = useRef<HTMLElement>(null);
 
   const list = lists?.find((l) => l.id === activeId) ?? null;
@@ -289,7 +291,11 @@ export default function ShoppingPage() {
     () => JSON.stringify([city, clubs, coupons, list?.items.map((i) => [i.key, i.qty]) ?? []]),
     [city, clubs, coupons, list],
   );
-  const compare = useCallback(async (scroll: boolean) => {
+  const hadResult = useRef(false);
+  useEffect(() => {
+    hadResult.current = !!result;
+  }, [result]);
+  const compare = useCallback(async () => {
     if (!list?.items.length) return;
     setComparing(true);
     setCompareError(false);
@@ -300,10 +306,9 @@ export default function ShoppingPage() {
       });
       setResult(res);
       setComparedSig(sig);
-      if (scroll) {
+      if (!hadResult.current) {
         setOpen(null);
         setTab(res.physical.length ? 'list' : 'online');
-        requestAnimationFrame(() => resultsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
       }
     } catch {
       setCompareError(true);
@@ -312,17 +317,19 @@ export default function ShoppingPage() {
     }
   }, [city, clubs, coupons, list, sig]);
 
-  // Once there are results, keep them in step with the list (debounced).
+  // There's no compare button: the results follow the list, the city and the
+  // club/coupon options, debounced like the autosave (and on first load).
   const stale = !!result && comparedSig !== sig;
+  const hasItems = !!list?.items.length;
   useEffect(() => {
-    if (!stale || comparing || compareError) return;
-    if (!list?.items.length) {
+    if (!hasItems) {
       setResult(null);
       return;
     }
-    const t = setTimeout(() => compare(false), 700);
+    if (comparedSig === sig || comparing || compareError) return;
+    const t = setTimeout(() => compare(), 600);
     return () => clearTimeout(t);
-  }, [stale, comparing, compareError, compare, list]);
+  }, [hasItems, sig, comparedSig, comparing, compareError, compare]);
 
   const itemCount = list?.items.length ?? 0;
 
@@ -407,10 +414,23 @@ export default function ShoppingPage() {
             <section className="sh-card">
               <div className="sh-list-head">
                 <h2 className="sh-h2">{list.name} <small>{itemCount} מוצרים</small></h2>
-                <button type="button" className="sh-icon-btn" onClick={renameList} aria-label="שינוי שם הרשימה"><FaPen /></button>
-                <button type="button" className="sh-icon-btn" onClick={deleteList} aria-label="מחיקת הרשימה"><FaTrash /></button>
+                {editing && (
+                  <>
+                    <button type="button" className="sh-icon-btn" onClick={renameList} aria-label="שינוי שם הרשימה"><FaPen /></button>
+                    <button type="button" className="sh-icon-btn" onClick={deleteList} aria-label="מחיקת הרשימה"><FaTrash /></button>
+                  </>
+                )}
+                {itemCount > 0 && (
+                  <button type="button" className={`sh-btn sh-btn--ghost sh-edit ${editing ? 'is-on' : ''}`}
+                    onClick={() => setEditing(!editing)} aria-expanded={editing} aria-controls="sh-list-body">
+                    {editing ? 'סיום' : 'עריכה'}
+                  </button>
+                )}
               </div>
               {!itemCount && <p className="sh-empty">הרשימה ריקה. חפשו מוצר למעלה ולחצו עליו כדי להוסיף.</p>}
+              {saveError && <p className="sh-error">השינויים לא נשמרו. הם יישמרו בשינוי הבא.</p>}
+              {editing && itemCount > 0 && (
+              <div id="sh-list-body">
               <ul className="sh-items">
                 {list.items.map((i) => {
                   const atMin = normalizeQty(i.qty - step(i.w), i.w) === null;
@@ -430,27 +450,24 @@ export default function ShoppingPage() {
                   );
                 })}
               </ul>
-              {saveError && <p className="sh-error">השינויים לא נשמרו. הם יישמרו בשינוי הבא.</p>}
-              {itemCount > 0 && (
-                <div className="sh-options">
-                  <label className="sh-toggle"><input type="checkbox" checked={clubs} onChange={(e) => setClubs(e.target.checked)} /> לחשב מבצעי מועדון</label>
-                  <label className="sh-toggle"><input type="checkbox" checked={coupons} onChange={(e) => setCoupons(e.target.checked)} /> לחשב קופונים</label>
-                </div>
+              <div className="sh-options">
+                <label className="sh-toggle"><input type="checkbox" checked={clubs} onChange={(e) => setClubs(e.target.checked)} /> לחשב מבצעי מועדון</label>
+                <label className="sh-toggle"><input type="checkbox" checked={coupons} onChange={(e) => setCoupons(e.target.checked)} /> לחשב קופונים</label>
+              </div>
+              </div>
               )}
             </section>
 
             {result && (
               <Results ref={resultsRef} result={result} list={list} updating={stale || comparing} tab={tab} setTab={setTab} open={open} setOpen={setOpen}
-                onPricesSaved={() => compare(false)} />
+                onPricesSaved={() => compare()} />
             )}
-
-            {itemCount > 0 && (!result || compareError) && (
-              <div className="sh-cta-bar">
-                {compareError && <p className="sh-error">ההשוואה נכשלה. נסו שוב.</p>}
-                <button type="button" className="sh-btn sh-btn--primary" disabled={comparing} onClick={() => compare(true)}>
-                  {comparing ? 'משווה…' : <>איפה הכי זול? <small>{itemCount} מוצרים</small></>}
-                </button>
-              </div>
+            {!result && hasItems && !compareError && <div className="sh-skeleton" aria-label="משווה מחירים" />}
+            {compareError && (
+              <p className="sh-error sh-retry">
+                לא הצלחנו להשוות את המחירים.{' '}
+                <button type="button" className="sh-link" onClick={() => setCompareError(false)}>לנסות שוב</button>
+              </p>
             )}
           </>
         )}

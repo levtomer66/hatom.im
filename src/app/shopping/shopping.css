@@ -28,7 +28,7 @@
   min-height: 100dvh;
   max-width: 600px;
   margin: 0 auto;
-  padding: 1rem 1rem calc(6rem + env(safe-area-inset-bottom));
+  padding: 1rem 1rem calc(2rem + env(safe-area-inset-bottom));
   color: var(--sh-ink);
   background: var(--sh-bg);
   direction: rtl;
@@ -67,10 +67,10 @@ body:has(.sh-page) { background: #ffffff; }
 .sh-title { margin: 0; font-size: 1.75rem; font-weight: 600; line-height: 1.2; }
 .sh-subtitle { margin: 0.35rem 0 0; color: var(--sh-muted); max-width: 34em; }
 .sh-h2 { margin: 0; flex: 1; min-width: 0; font-size: 1.125rem; font-weight: 600; }
-.sh-h2 small { margin-inline-start: 0.5rem; font-size: 0.875rem; font-weight: 400; color: var(--sh-muted); }
+.sh-h2 small { white-space: nowrap; margin-inline-start: 0.5rem; font-size: 0.875rem; font-weight: 400; color: var(--sh-muted); }
 .sh-h3 { display: flex; justify-content: space-between; gap: 0.75rem; margin: 1rem 0 0.25rem; font-size: 1rem; font-weight: 600; }
 .sh-muted { color: var(--sh-muted); }
-.sh-empty { margin: 0.5rem 0; color: var(--sh-muted); }
+.sh-empty { margin: 0.5rem 0 0.75rem; color: var(--sh-muted); }
 .sh-error { margin: 0.5rem 0 0; color: var(--sh-miss); }
 .sh-weighed { margin-inline-start: 0.4rem; font-size: 0.8125rem; color: var(--sh-muted); }
 
@@ -286,11 +286,15 @@ body:has(.sh-page) { background: #ffffff; }
 /* ── the list ── */
 .sh-card {
   margin-bottom: 1.25rem;
-  padding: 0.25rem 1rem 1rem;
+  padding: 0.25rem 1rem;
   border-radius: var(--sh-r-group);
   background: var(--sh-surface);
 }
-.sh-list-head { display: flex; align-items: center; margin: 0 -0.5rem 0.25rem 0; }
+.sh-list-head { display: flex; align-items: center; gap: 0.25rem; min-height: 56px; margin: 0 -0.5rem 0 0; }
+.sh-edit { margin-inline-start: 0.25rem; }
+.sh-edit.is-on { border-color: var(--sh-ink); background: var(--sh-ink); color: var(--sh-bg); }
+.sh-card:has(#sh-list-body) .sh-list-head { margin-bottom: 0.25rem; }
+.sh-retry { margin: 0 0 1rem; }
 .sh-items { margin: 0; padding: 0; list-style: none; }
 .sh-item {
   display: flex;
@@ -331,7 +335,7 @@ body:has(.sh-page) { background: #ffffff; }
   flex-wrap: wrap;
   gap: 0 1.25rem;
   margin-top: 0.25rem;
-  padding-top: 0.5rem;
+  padding: 0.5rem 0;
   border-top: 1px solid var(--sh-line);
   font-size: 0.9375rem;
   color: var(--sh-muted);
@@ -339,21 +343,10 @@ body:has(.sh-page) { background: #ffffff; }
 .sh-toggle { display: inline-flex; align-items: center; gap: 0.5rem; min-height: var(--sh-tap); cursor: pointer; }
 .sh-toggle input { width: 1.125rem; height: 1.125rem; accent-color: var(--sh-accent); }
 
-.sh-cta-bar {
-  position: sticky;
-  bottom: 0;
-  z-index: 10;
-  margin: 0 -1rem;
-  padding: 0.75rem 1rem calc(0.75rem + env(safe-area-inset-bottom));
-  border-top: 1px solid var(--sh-line);
-  background: var(--sh-bg);
-}
-.sh-cta-bar .sh-error { margin: 0 0 0.5rem; }
-
 .sh-toast {
   position: fixed;
   inset-inline: 1rem;
-  bottom: calc(6rem + env(safe-area-inset-bottom));
+  bottom: calc(1.5rem + env(safe-area-inset-bottom));
   z-index: 30;
   max-width: 28rem;
   margin: 0 auto;
