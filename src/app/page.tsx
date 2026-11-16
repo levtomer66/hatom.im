@@ -5,7 +5,7 @@ import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import { motion } from 'framer-motion';
 import { signIn, useSession } from 'next-auth/react';
-import { FaDog, FaCoffee, FaMugHot, FaVideo, FaDumbbell, FaRing, FaPlane, FaSpa, FaHeart, FaBell, FaSignInAlt, FaTasks, FaBirthdayCake, FaTshirt, FaCalendarAlt } from 'react-icons/fa';
+import { FaDog, FaCoffee, FaMugHot, FaVideo, FaDumbbell, FaRing, FaPlane, FaSpa, FaHeart, FaBell, FaSignInAlt, FaTasks, FaBirthdayCake, FaTshirt, FaCalendarAlt, FaShoppingCart } from 'react-icons/fa';
 import type { IconType } from 'react-icons';
 import Navbar from '@/components/Navbar';
 import { hasPermission } from '@/lib/permissions';
@@ -39,6 +39,7 @@ const allFeatures: Feature[] = [
   { icon: FaBirthdayCake, title: 'חידון יום הולדת', description: 'חידון משפחתי — כמה טוב אתם מכירים את המשפחה?', href: '/birthday-quiz', linkText: 'לחידון', permission: 'birthday-quiz' },
   { icon: FaTshirt,   title: 'כביסה',             description: 'הוראות כביסה צעד אחר צעד למכונה',          href: '/laundry',                  linkText: 'להוראות',            permission: 'laundry'     },
   { icon: FaCalendarAlt, title: 'לוח שנה',        description: 'ימי הולדת, ימי שנה ואירועים שבדרך',        href: '/calendar',                 linkText: 'ללוח',               permission: 'calendar'    },
+  { icon: FaShoppingCart, title: 'השוואת מחירים', description: 'רשימת קניות ואיפה הכי זול לקנות אותה',   href: '/shopping',                 linkText: 'לרשימה',             permission: 'shopping'    },
 ];
 
 const containerVariants = {

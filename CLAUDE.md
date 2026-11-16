@@ -20,6 +20,7 @@ several independent features under separate routes:
 | `/birthday-quiz`   | Host-driven Hebrew family quiz (permission `birthday-quiz`). Questions + pure reducer in `src/lib/birthday-quiz.ts`. |
 | `/laundry`         | Step-by-step laundry guide for our LG washer (permission `laundry`). Loads, doses + step builder in `src/lib/laundry.ts`; photos in `public/laundry/`. |
 | `/calendar`        | Milestones calendar: birthdays, anniversaries, one-off events (permission `calendar`). Mongo `calendarEvents`; date math in `src/lib/calendar.ts`. |
+| `/shopping`        | Grocery price comparison across chains (permission `shopping`). Shared lists in Mongo `shoppingLists`; price data written by a local ingest job. |
 
 Default branch is `main`. Pushes to `main` auto-deploy to Production via
 Vercel's GitHub integration. There is no separate `master` branch.
@@ -251,7 +252,7 @@ Identity = Gmail address. Two roles:
 - Anyone with the `calendar` permission can add, edit and delete — there's no
   per-event owner (`createdBy` is informational).
 
-### Shopping price comparison (ingest; UI to come)
+### Shopping price comparison (`/shopping`)
 
 - Sources per chain, access methods and verification notes: `docs/sources.md`.
   Only the official price-transparency files — never comparison sites.
@@ -291,6 +292,14 @@ Identity = Gmail address. Two roles:
   biggest saving first, and a unit counts toward one promo only. Club, coupon
   and unmet basket-minimum promos are returned as `offers`, not applied.
   Description-only deals are not parsed.
+- **UI** at `SHOPPING_BASE_PATH` (`src/lib/shopping/config.ts`; the middleware
+  `matcher` literal must move with it). Lists are shared by everyone holding
+  `shopping`, like calendar events. `/api/shopping/compare` loads only the
+  basket items, their promos (`items` index) and the city's stores, then runs
+  `rankStores`/`bestSplits` in the request. Physical and online stores are
+  ranked separately; stores whose `pricesAt` is null are never shown.
+  The read model is `src/models/ShoppingCatalog.ts`; the app never writes the
+  ingest collections.
 
 ### MCP server + OAuth (`/api/mcp`)
 

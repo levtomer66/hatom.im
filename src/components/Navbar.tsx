@@ -20,6 +20,7 @@ import {
   FaTasks,
   FaTshirt,
   FaCalendarAlt,
+  FaShoppingCart,
   FaUserShield,
   FaChartLine,
   FaSignOutAlt,
@@ -59,6 +60,7 @@ const allNavItems: NavItem[] = [
   { href: '/birthday-quiz',            label: 'חידון',         icon: FaBirthdayCake, visibility: { permission: 'birthday-quiz' } },
   { href: '/laundry',                  label: 'כביסה',         icon: FaTshirt,     visibility: { permission: 'laundry'     } },
   { href: '/calendar',                 label: 'לוח שנה',       icon: FaCalendarAlt, visibility: { permission: 'calendar'    } },
+  { href: '/shopping',                 label: 'השוואת מחירים', icon: FaShoppingCart, visibility: { permission: 'shopping'    } },
   { href: '/admin/allowlist',          label: 'הרשאות',        icon: FaUserShield, visibility: 'owner' },
   { href: '/admin/workout-activity',    label: 'פעילות אימונים', icon: FaChartLine,  visibility: 'owner' },
 ];
