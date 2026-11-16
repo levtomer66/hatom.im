@@ -369,7 +369,7 @@ export default function ShoppingPage() {
                   )}
                 </React.Fragment>
               ))}
-              <button type="button" className="sh-chip sh-chip--add" onClick={newList}><FaPlus aria-hidden /> רשימה חדשה</button>
+              <button type="button" className="sh-chip sh-chip--add" onClick={newList} aria-label="רשימה חדשה" title="רשימה חדשה"><FaPlus aria-hidden /></button>
             </nav>
 
             <div className="sh-seg" role="radiogroup" aria-label="עיר">
@@ -539,6 +539,8 @@ const Results = React.forwardRef<HTMLElement, {
   const worst = complete[complete.length - 1];
   const bestSplit = result.splits[0];
   const splitSaving = best && bestSplit && !bestSplit.missing.length ? best.total - bestSplit.total : 0;
+  const full = result.physical.filter((b) => !b.missing.length);
+  const partial = result.physical.filter((b) => b.missing.length);
   const sources = [...new Set(Object.values(result.stores).map((s) => s.source))];
   const toggle = (id: string) => setOpen(open === id ? null : id);
   const tabs: [Tab, string][] = [
@@ -555,15 +557,19 @@ const Results = React.forwardRef<HTMLElement, {
           <span className="sh-hero-kicker">הכי זול לקנות הכול</span>
           <span className="sh-hero-store">{storeName(result.stores[best.store])}</span>
           <span className="sh-hero-total">{ils(best.total)}</span>
-          <span className="sh-hero-meta">
-            {worst && worst !== best && <span>חוסכים {ils(worst.total - best.total)} מול היקרה ברשימה</span>}
-            {splitSaving > 0 && (
-              <button type="button" className="sh-link" onClick={() => setTab('stores')}>
-                לחסוך עוד {ils(splitSaving)} בשתי חנויות
-              </button>
-            )}
-          </span>
+          {worst && worst !== best && (
+            <span className="sh-hero-meta">{ils(worst.total - best.total)} פחות מהסניף היקר ברשימה</span>
+          )}
           {updating && <span className="sh-updating">מעדכן…</span>}
+          {splitSaving >= SPLIT_WORTH && (
+            <button type="button" className="sh-hero-split" onClick={() => setTab('stores')}>
+              <span>
+                <b>בשתי חנויות: {ils(splitSaving)} פחות</b>
+                <small>{bestSplit.stores.map((b) => result.stores[b.store]?.chainName ?? '?').join(' ו־')}, {ils(bestSplit.total)} ביחד</small>
+              </span>
+              <FaChevronDown className="sh-hero-split-go" aria-hidden />
+            </button>
+          )}
         </div>
       ) : (
         <div className="sh-hero is-partial">
@@ -575,8 +581,7 @@ const Results = React.forwardRef<HTMLElement, {
             </>
           )}
           <span className="sh-hero-meta">
-            הסניפים מסודרים לפי כמה מוצרים חסרים, ואז לפי מחיר.
-            <button type="button" className="sh-link" onClick={() => setTab('item')}>להשוות לפי מוצר</button>
+            <button type="button" className="sh-link" onClick={() => setTab('item')}>לראות איפה כל מוצר הכי זול</button>
           </span>
           {updating && <span className="sh-updating">מעדכן…</span>}
         </div>
@@ -595,12 +600,17 @@ const Results = React.forwardRef<HTMLElement, {
 
       {tab === 'list' && (
         <>
-          {result.physical.length
-            ? result.physical.map((b, i) => (
-              <StoreCard key={b.store} basket={b} result={result} rank={i} best={best}
-                open={open === `s${b.store}`} toggle={() => toggle(`s${b.store}`)} />
-            ))
-            : <p className="sh-empty">אין בעיר חנויות עם מחירים.</p>}
+          {!result.physical.length && <p className="sh-empty">אין בעיר חנויות עם מחירים.</p>}
+          {full.length > 0 && partial.length > 0 && <h3 className="sh-group-title">יש בהן את כל המוצרים</h3>}
+          {full.map((b, i) => (
+            <StoreCard key={b.store} basket={b} result={result} rank={i} best={best}
+              open={open === `s${b.store}`} toggle={() => toggle(`s${b.store}`)} />
+          ))}
+          {partial.length > 0 && <h3 className="sh-group-title">חסרים בהן מוצרים</h3>}
+          {partial.map((b, i) => (
+            <StoreCard key={b.store} basket={b} result={result} rank={full.length + i} best={best}
+              open={open === `s${b.store}`} toggle={() => toggle(`s${b.store}`)} />
+          ))}
           {result.manual.length > 0 && <ManualStores baskets={result.manual} result={result} list={list} onSaved={onPricesSaved} />}
         </>
       )}
@@ -614,7 +624,7 @@ const Results = React.forwardRef<HTMLElement, {
             return (
               <article key={id} className={`sh-card sh-store ${i === 0 ? 'is-best' : ''}`}>
                 {i === 0 && <h3 className="sh-section-title">חלוקה לשתי חנויות</h3>}
-                <button type="button" className="sh-store-head" onClick={() => toggle(id)} aria-expanded={open === id}>
+                <button type="button" className="sh-store-head sh-store-head--split" onClick={() => toggle(id)} aria-expanded={open === id}>
                   <span className="sh-store-title">
                     {s.stores.map((b) => storeName(result.stores[b.store])).join(' + ')}
                   </span>
@@ -664,6 +674,16 @@ const Results = React.forwardRef<HTMLElement, {
 
 const storeName = (s: StoreInfo | undefined) => (s ? `${s.chainName} ${s.name}` : '?');
 
+/**
+ * The street part of an official address. Some files append notes
+ * ("הרצל 91,עובר להרצל 114)"), so keep the text before the first comma or
+ * parenthesis.
+ */
+const cleanAddress = (a: string | null | undefined) => (a ?? '').split(/[,(]/)[0].replace(/[()]/g, '').trim();
+
+/** A two-store split is offered only when it saves at least this (agorot). */
+const SPLIT_WORTH = 500;
+
 function StoreCard({ basket, result, rank, best, open, toggle }: {
   basket: StoreBasket;
   result: CompareResponse;
@@ -676,29 +696,21 @@ function StoreCard({ basket, result, rank, best, open, toggle }: {
   const saved = basket.regularTotal - basket.total;
   const isBest = basket === best;
   const more = best && !isBest && !basket.missing.length ? basket.total - best.total : 0;
-  const missingNames = basket.missing.map((k) => result.items[k]?.name ?? k);
+  const address = cleanAddress(store.address);
   return (
     <article className={`sh-card sh-store ${isBest ? 'is-best' : ''}`}>
       <button type="button" className="sh-store-head" onClick={toggle} aria-expanded={open}>
-        <span className="sh-store-title">
-          <span className="sh-rank">{rank + 1}</span>
-          {store.chainName} <span className="sh-branch">{store.name}</span>
-        </span>
-        <span className="sh-store-total">
-          {ils(basket.total)}
-          {more > 0 && <small className="sh-more">+{ils(more)}</small>}
-        </span>
+        <span className="sh-rank">{rank + 1}</span>
+        <span className="sh-store-name">{store.chainName} <span className="sh-branch">{store.name}</span></span>
+        <span className="sh-store-total">{ils(basket.total)}</span>
         <FaChevronDown className={`sh-caret ${open ? 'is-open' : ''}`} aria-hidden />
         <span className="sh-store-meta">
+          {basket.missing.length > 0 && <span className="sh-badge-miss">חסרים {basket.missing.length}</span>}
+          {more > 0 && <span className="sh-more">+{ils(more)}</span>}
           <SourceBadge store={store} now={result.now} />
-          {store.address && <span>{store.address}</span>}
-          {saved > 0 && <span className="sh-save">מבצעים חוסכים {ils(saved)}</span>}
-          {basket.missing.length > 0 && (
-            <span className="sh-missing" title={missingNames.join(', ')}>
-              חסרים {basket.missing.length}: {missingNames.slice(0, 2).join(', ')}{missingNames.length > 2 ? '…' : ''}
-            </span>
-          )}
+          {address && <span className="sh-addr">{address}</span>}
         </span>
+        {saved > 0 && <span className="sh-store-save">מבצעים חוסכים {ils(saved)}</span>}
       </button>
       {open && <Breakdown basket={basket} result={result} />}
     </article>
@@ -873,56 +885,51 @@ function ManualStores({ baskets, result, list, onSaved }: {
   list: ShoppingList;
   onSaved: () => void;
 }) {
+  const [expanded, setExpanded] = useState(false);
   // A city can have dozens; the API puts the best-priced first, so show those.
   const [all, setAll] = useState(false);
+  const [editing, setEditing] = useState<number | null>(null);
   const shown = all ? baskets : baskets.slice(0, MANUAL_SHOWN);
+  const priced = baskets.filter((b) => b.lines.some((l) => l.available)).length;
   return (
     <section className="sh-card sh-unpriced">
-      <div className="sh-unpriced-head is-static">
+      <button type="button" className="sh-unpriced-head" onClick={() => setExpanded(!expanded)} aria-expanded={expanded}>
         <span>
           <b>{baskets.length} חנויות שכונתיות</b>
-          <small>אין להן קובץ מחירים, אז אנחנו מקלידים את המחירים. כל מה שמוקלד כאן משותף לכולנו.</small>
+          <small>{priced ? `ב־${priced} מהן כבר יש מחירים. אפשר להקליד עוד.` : 'אין להן קובץ מחירים. אפשר להקליד מחירים בעצמנו.'}</small>
         </span>
-      </div>
-      <ul className="sh-unpriced-list">
-        {shown.map((b) => (
-          <ManualStore key={b.store} basket={b} store={result.stores[b.store]} list={list} onSaved={onSaved} />
-        ))}
-      </ul>
-      {baskets.length > shown.length && (
-        <button type="button" className="sh-btn sh-more-btn" onClick={() => setAll(true)}>
-          להציג את כל {baskets.length} החנויות
-        </button>
+        <FaChevronDown className={`sh-caret ${expanded ? 'is-open' : ''}`} aria-hidden />
+      </button>
+      {expanded && (
+        <>
+          <ul className="sh-unpriced-list">
+            {shown.map((b) => {
+              const st = result.stores[b.store];
+              const n = b.lines.filter((l) => l.available).length;
+              const open = editing === b.store;
+              return (
+                <li key={b.store}>
+                  <button type="button" className="sh-shop-row" onClick={() => setEditing(open ? null : b.store)} aria-expanded={open}>
+                    <span className="sh-shop-name">
+                      {st?.name ?? b.store}
+                      {st?.address && <small>{cleanAddress(st.address)}</small>}
+                    </span>
+                    <span className="sh-shop-state">{n ? `${n}/${b.lines.length}, ${ils(b.total)}` : 'הקלדה'}</span>
+                    <FaChevronDown className={`sh-caret ${open ? 'is-open' : ''}`} aria-hidden />
+                  </button>
+                  {open && <ManualPrices store={b.store} basket={b} list={list} onSaved={onSaved} />}
+                </li>
+              );
+            })}
+          </ul>
+          {baskets.length > shown.length && (
+            <button type="button" className="sh-btn sh-more-btn" onClick={() => setAll(true)}>
+              עוד {baskets.length - shown.length} חנויות
+            </button>
+          )}
+        </>
       )}
     </section>
-  );
-}
-
-function ManualStore({ basket, store, list, onSaved }: {
-  basket: StoreBasket;
-  store: StoreInfo | undefined;
-  list: ShoppingList;
-  onSaved: () => void;
-}) {
-  const [editing, setEditing] = useState(false);
-  const priced = basket.lines.filter((l) => l.available).length;
-  return (
-    <li>
-      <div className="sh-unpriced-row">
-        <span>
-          {store ? <>{store.name} {store.address && <small>{store.address}</small>}</> : basket.store}
-          <small>
-            {priced
-              ? `${priced} מתוך ${basket.lines.length} מוצרים מתומחרים, ${ils(basket.total)}`
-              : 'עוד לא הוקלדו מחירים לרשימה הזאת'}
-          </small>
-        </span>
-        <button type="button" className="sh-btn sh-btn--ghost" onClick={() => setEditing(!editing)} aria-expanded={editing}>
-          {editing ? 'סיום' : 'הקלדת מחירים'}
-        </button>
-      </div>
-      {editing && <ManualPrices store={basket.store} basket={basket} list={list} onSaved={onSaved} />}
-    </li>
   );
 }
 
