@@ -8,6 +8,12 @@ comparison sites.
 (plus PriceFull/PromoFull for Yochananof). Store counts below are for the
 three target cities, after the city rules in [City matching](#city-matching).
 
+**Ingested** (`src/lib/shopping/chains.ts`): Shufersal, and on Cerberus
+Yochananof, Rami Levy, Tiv Taam, Dor Alon, Fresh Market, Keshet and Osher Ad
+(added 2026-11-16 — all parse with the default field aliases). Next: Bina
+(Good Pharm, King Store, Super Sapir, …), Carrefour (PublishPrice),
+Super-Pharm, Victory / Mahsani HaShuk (Laibcatalog) and Wolt.
+
 ## Access methods
 
 | Method | How | Chains |
@@ -71,6 +77,7 @@ Shuk HaIr, Zol VeBegadol, Meshnat Yosef 1/2, City Market Shops (empty file).
 - **Cadence (Yochananof store 001):** PriceFull and PromoFull at ~00:40 daily, Price/Promo deltas hourly at :40. Full files are ~0.5 MB gz / 8.8 MB XML (price) and ~0.1 MB gz / 3.3 MB XML (promo) per store.
 - **Promos:** Yochananof puts `DiscountedPrice`, `DiscountRate` and `MinQty` on each `PromotionItem` inside `Groups/Group/PromotionItems`. `RedemptionLimit`, `MinNoOfItemOffered` and `ClubID` sit on the `Promotion`. `ClubID` is a string like `"0 - כלל הלקוחות"`, so read the leading number.
 - **The same PromotionID differs per store** (measured over 60 stores): 2,271 of 9,444 ids had different copies. Item lists differ only by items the store doesn't sell; Shufersal lists chain-wide items in every store's file, so 72% of raw promo-item links pointed at items the store doesn't stock. Percent deals publish a per-store `DiscountedPrice` (= rate × that store's price in 56% of cases, ±1 agora). Meal-voucher coupons ("ע. סיבוס / סודקסו קופון … מתנה") are attached to ~21k items with no discount at all. Each of these is handled in `buildPromoDocs`.
+- **Stores with no files:** some stores in a Stores file publish no PriceFull/PromoFull at all — Yochananof 150 (pickup), Rami Levy 39 (מרלוג אינטרנט), Keshet 18 and 91 (Be'er Sheva, the Azrieli food truck) on 2026-11-16. They keep a store doc with `pricesAt: null` and the UI hides them.
 - **Store type:** `StoreType` 1 on physical stores, 2 on Wolt's (online) stores. The meaning of other values still needs confirming against the regulation. Some test stores are published as real stores (e.g. "Wolt Market Israel Test Venue", City Market "איפוס ספירות מלאי"). They need a deny-list.
 
 ## City matching
