@@ -5,16 +5,10 @@ import { ITEM_OPTIONS_SHOWN, RESULTS_PER_SECTION, SPLITS_SHOWN } from '@/lib/sho
 import { MAX_LIST_ITEMS, MAX_QTY } from '@/lib/shopping/lists';
 import { bestSplits, rankStores, type BasketLine, type PricingOptions, type StoreBasket } from '@/lib/shopping/pricing';
 import { israelLocalNow } from '@/lib/shopping/snapshot';
-import type { CompareResponse, ItemBest, StoreInfo } from '@/lib/shopping/api-types';
+import { storeInfo, type CompareResponse, type ItemBest, type StoreInfo } from '@/lib/shopping/api-types';
 import { withManualPrices } from '@/lib/shopping/manual';
-import type { StoreDoc } from '@/lib/shopping/snapshot';
 import { getItems, getPromosFor, getStoresFor } from '@/models/ShoppingCatalog';
 import { getManualPrices } from '@/models/ShoppingManualPrice';
-
-const storeInfo = (s: StoreDoc): StoreInfo => ({
-  k: s.k, chainId: s.chainId, chainName: s.chainName, name: s.name, address: s.address,
-  city: s.city, kind: s.kind, pricesAt: s.pricesAt, source: s.source ?? 'official',
-});
 
 /** Each line's cheapest stores, read off the full ranking (every physical store). */
 function perItem(lines: BasketLine[], baskets: StoreBasket[]): ItemBest[] {

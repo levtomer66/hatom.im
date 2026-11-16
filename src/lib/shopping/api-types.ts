@@ -2,7 +2,8 @@
 // Import-free apart from types.
 
 import type { PriceSource } from './collections.ts';
-import type { Split, StoreBasket } from './pricing.ts';
+import type { AppliedPromo, Offer, Split, StoreBasket } from './pricing.ts';
+import type { StoreDoc } from './snapshot.ts';
 
 export type { PriceSource } from './collections.ts';
 
@@ -37,6 +38,12 @@ export interface StoreInfo {
 }
 
 /** PUT /api/shopping/manual-prices — set (or, with null, clear) one price at a manual store. */
+/** The page's view of a store doc. */
+export const storeInfo = (s: StoreDoc): StoreInfo => ({
+  k: s.k, chainId: s.chainId, chainName: s.chainName, name: s.name, address: s.address,
+  city: s.city, kind: s.kind, pricesAt: s.pricesAt, source: s.source ?? 'official',
+});
+
 export interface ManualPriceRequest {
   store: number;
   item: string;
@@ -99,4 +106,25 @@ export interface CompareResponse {
   splits: Split[];
   /** Per list item, its cheapest physical stores. */
   perItem: ItemBest[];
+}
+
+/** One store's price for a single unit (1 kg when weighted) of one item, promos applied. */
+export interface ItemPrice {
+  store: number;
+  regularUnit: number;
+  cost: number;
+  applied: AppliedPromo[];
+  offers: Offer[];
+}
+
+/** GET /api/shopping/item?key=<item key or scanned barcode>&city=<city id>. 404 when no such item. */
+export interface ItemResponse {
+  now: string;
+  city: string;
+  item: { key: string; name: string; manufacturer: string; w: boolean; img: string | null; barcode: boolean };
+  stores: Record<number, StoreInfo>;
+  /** The city's physical stores selling it (manual shops where it's priced), cheapest first. */
+  physical: ItemPrice[];
+  /** Online stores selling it, cheapest first. */
+  online: ItemPrice[];
 }

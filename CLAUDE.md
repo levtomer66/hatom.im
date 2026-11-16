@@ -320,6 +320,12 @@ Identity = Gmail address. Two roles:
   Neighbourhood shops are priced by hand in <ManualPrices> (one PUT to
   `/api/shopping/manual-prices` per field, then a re-compare); the contract
   is in the header comment of `src/app/shopping/page.tsx`.
+- **One product** (`GET /api/shopping/item?key&city`, the eye button and the
+  camera scanner): one unit priced at every store in the city with promos,
+  manual prices included. A scanned code is tried as-is and without leading
+  zeros. `Scanner.tsx` uses the native `BarcodeDetector` and lazy-loads
+  `@zxing/browser` only where there isn't one (iPhone Safari); it needs https
+  or localhost.
 
 ### MCP server + OAuth (`/api/mcp`)
 

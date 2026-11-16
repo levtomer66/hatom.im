@@ -26,12 +26,13 @@
  */
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { FaMinus, FaPlus, FaTrash, FaSearch, FaChevronDown, FaTimes, FaCheck, FaPen, FaShoppingBasket } from 'react-icons/fa';
+import { FaMinus, FaPlus, FaTrash, FaSearch, FaChevronDown, FaTimes, FaCheck, FaPen, FaShoppingBasket, FaEye, FaBarcode } from 'react-icons/fa';
+import dynamic from 'next/dynamic';
 import Navbar from '@/components/Navbar';
 import { CITIES } from '@/lib/shopping/cities';
 import { SHOPPING_API_PATH } from '@/lib/shopping/config';
 import { normalizeQty, type ShoppingList, type ShoppingListItem } from '@/lib/shopping/lists';
-import type { CompareResponse, ItemBest, ManualPriceResponse, PriceSource, SearchHit, StoreInfo } from '@/lib/shopping/api-types';
+import type { CompareResponse, ItemBest, ItemPrice, ItemResponse, ManualPriceResponse, PriceSource, SearchHit, StoreInfo } from '@/lib/shopping/api-types';
 import type { LineResult, Offer, StoreBasket } from '@/lib/shopping/pricing';
 
 const money = new Intl.NumberFormat('he-IL', { style: 'currency', currency: 'ILS', minimumFractionDigits: 2 });
@@ -90,6 +91,9 @@ async function api<T>(path: string, init?: RequestInit): Promise<T> {
  * single store for the whole list), per stores (how to split the list between
  * stores), and online stores.
  */
+// The scanner (and the decoder it may load) only downloads when opened.
+const Scanner = dynamic(() => import('./Scanner'), { ssr: false });
+
 type Tab = 'item' | 'list' | 'stores' | 'online';
 const step = (w: boolean) => (w ? 0.5 : 1);
 
@@ -105,6 +109,9 @@ export default function ShoppingPage() {
   const [searching, setSearching] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
+  /** The product window: an item key or a scanned barcode. */
+  const [product, setProduct] = useState<{ key: string; scanned: boolean } | null>(null);
+  const [scanning, setScanning] = useState(false);
 
   const [clubs, setClubs] = useState(false);
   const [coupons, setCoupons] = useState(false);
@@ -192,7 +199,7 @@ export default function ShoppingPage() {
 
   const qtyOf = useMemo(() => new Map(list?.items.map((i) => [i.key, i.qty]) ?? []), [list]);
 
-  const addItem = (h: SearchHit) => {
+  const addItem = (h: { key: string; name: string; w: boolean }) => {
     setItems((items) =>
       items.some((i) => i.key === h.key)
         ? items.map((i) => (i.key === h.key ? { ...i, qty: normalizeQty(i.qty + step(h.w), h.w) ?? i.qty } : i))
@@ -349,10 +356,18 @@ export default function ShoppingPage() {
           <>
             <nav className="sh-scroller" aria-label="רשימות">
               {lists.map((l) => (
-                <button key={l.id} type="button" className={`sh-chip ${l.id === list.id ? 'is-on' : ''}`}
-                  aria-pressed={l.id === list.id} onClick={() => pickList(l.id)}>
-                  {l.name} <small>{l.items.length}</small>
-                </button>
+                <React.Fragment key={l.id}>
+                  <button type="button" className={`sh-chip ${l.id === list.id ? 'is-on' : ''}`}
+                    aria-pressed={l.id === list.id} onClick={() => pickList(l.id)}>
+                    {l.name} <small>{l.items.length}</small>
+                  </button>
+                  {l.id === list.id && (
+                    <button type="button" className={`sh-chip sh-chip--edit ${editing ? 'is-on' : ''}`}
+                      onClick={() => setEditing(!editing)} aria-expanded={editing} aria-controls="sh-list-body">
+                      {editing ? <><FaCheck aria-hidden /> סיום</> : <><FaPen aria-hidden /> עריכה</>}
+                    </button>
+                  )}
+                </React.Fragment>
               ))}
               <button type="button" className="sh-chip sh-chip--add" onClick={newList}><FaPlus aria-hidden /> רשימה חדשה</button>
             </nav>
@@ -376,8 +391,10 @@ export default function ShoppingPage() {
                   }}
                   placeholder="חיפוש מוצר או ברקוד" aria-label="חיפוש מוצר" enterKeyHint="search" autoComplete="off" />
                 {searching && <span className="sh-spinner" aria-hidden />}
-                {query && (
+                {query ? (
                   <button type="button" className="sh-icon-btn" onClick={clearSearch} aria-label="ניקוי החיפוש"><FaTimes /></button>
+                ) : (
+                  <button type="button" className="sh-icon-btn" onClick={() => setScanning(true)} aria-label="סריקת ברקוד במצלמה"><FaBarcode /></button>
                 )}
               </label>
               {hits && (
@@ -386,8 +403,7 @@ export default function ShoppingPage() {
                   {hits.map((h) => {
                     const inList = qtyOf.get(h.key);
                     return (
-                      <li key={h.key}>
-                        <button type="button" className={`sh-hit ${inList ? 'is-in' : ''}`} onClick={() => addItem(h)}>
+                      <li key={h.key} className={`sh-hit ${inList ? 'is-in' : ''}`}>
                           <Thumb src={h.img} size={44} />
                           <span className="sh-hit-name">{h.name}{h.w && <small className="sh-weighed">לפי משקל</small>}</span>
                           <span className="sh-hit-meta">
@@ -400,10 +416,16 @@ export default function ShoppingPage() {
                             ) : <span>לא נמכר בעיר</span>}
                             {h.manufacturer && h.manufacturer !== '---' && h.manufacturer !== 'לא ידוע' && <span>{h.manufacturer}</span>}
                           </span>
-                          <span className="sh-hit-add" aria-hidden>
-                            {inList ? <><FaCheck /> {qtyLabel(inList, h.w)}</> : <FaPlus />}
+                          <span className="sh-hit-actions">
+                            <button type="button" className="sh-hit-btn" onClick={() => setProduct({ key: h.key, scanned: false })}
+                              aria-label={`מחירים בכל החנויות: ${h.name}`}>
+                              <FaEye aria-hidden />
+                            </button>
+                            <button type="button" className="sh-hit-btn sh-hit-btn--add" onClick={() => addItem(h)}
+                              aria-label={inList ? `עוד אחד לרשימה: ${h.name} (כבר ${qtyLabel(inList, h.w)})` : `הוספה לרשימה: ${h.name}`}>
+                              {inList ? <><FaCheck aria-hidden /> <small>{qtyLabel(inList, h.w)}</small></> : <FaPlus aria-hidden />}
+                            </button>
                           </span>
-                        </button>
                       </li>
                     );
                   })}
@@ -411,26 +433,16 @@ export default function ShoppingPage() {
               )}
             </section>
 
-            <section className="sh-card">
-              <div className="sh-list-head">
-                <h2 className="sh-h2">{list.name} <small>{itemCount} מוצרים</small></h2>
-                {editing && (
-                  <>
-                    <button type="button" className="sh-icon-btn" onClick={renameList} aria-label="שינוי שם הרשימה"><FaPen /></button>
-                    <button type="button" className="sh-icon-btn" onClick={deleteList} aria-label="מחיקת הרשימה"><FaTrash /></button>
-                  </>
-                )}
-                {itemCount > 0 && (
-                  <button type="button" className={`sh-btn sh-btn--ghost sh-edit ${editing ? 'is-on' : ''}`}
-                    onClick={() => setEditing(!editing)} aria-expanded={editing} aria-controls="sh-list-body">
-                    {editing ? 'סיום' : 'עריכה'}
-                  </button>
-                )}
+            {!itemCount && <p className="sh-empty">הרשימה ריקה. חפשו מוצר או סרקו ברקוד כדי להוסיף.</p>}
+            {saveError && <p className="sh-error">השינויים לא נשמרו. הם יישמרו בשינוי הבא.</p>}
+            {editing && (
+            <section className="sh-card" id="sh-list-body" aria-label={`עריכת ${list.name}`}>
+              <div className="sh-list-tools">
+                <button type="button" className="sh-btn sh-btn--ghost" onClick={renameList}><FaPen aria-hidden /> שינוי שם</button>
+                <button type="button" className="sh-btn sh-btn--ghost sh-btn--danger" onClick={deleteList}><FaTrash aria-hidden /> מחיקת הרשימה</button>
               </div>
-              {!itemCount && <p className="sh-empty">הרשימה ריקה. חפשו מוצר למעלה ולחצו עליו כדי להוסיף.</p>}
-              {saveError && <p className="sh-error">השינויים לא נשמרו. הם יישמרו בשינוי הבא.</p>}
-              {editing && itemCount > 0 && (
-              <div id="sh-list-body">
+              {itemCount > 0 && (
+              <>
               <ul className="sh-items">
                 {list.items.map((i) => {
                   const atMin = normalizeQty(i.qty - step(i.w), i.w) === null;
@@ -454,9 +466,10 @@ export default function ShoppingPage() {
                 <label className="sh-toggle"><input type="checkbox" checked={clubs} onChange={(e) => setClubs(e.target.checked)} /> לחשב מבצעי מועדון</label>
                 <label className="sh-toggle"><input type="checkbox" checked={coupons} onChange={(e) => setCoupons(e.target.checked)} /> לחשב קופונים</label>
               </div>
-              </div>
+              </>
               )}
             </section>
+            )}
 
             {result && (
               <Results ref={resultsRef} result={result} list={list} updating={stale || comparing} tab={tab} setTab={setTab} open={open} setOpen={setOpen}
@@ -470,6 +483,14 @@ export default function ShoppingPage() {
               </p>
             )}
           </>
+        )}
+        {scanning && (
+          <Scanner onClose={() => setScanning(false)}
+            onCode={(code) => { setScanning(false); setProduct({ key: code, scanned: true }); }} />
+        )}
+        {product && (
+          <ProductSheet itemKey={product.key} scanned={product.scanned} city={city} inList={qtyOf}
+            onAdd={addItem} onClose={() => setProduct(null)} />
         )}
         {toast && <div className="sh-toast" role="status">{toast}</div>}
       </main>
@@ -967,5 +988,128 @@ function ManualPrices({ store, basket, list, onSaved }: {
         );
       })}
     </div>
+  );
+}
+
+// ── one product: every store's price ──
+
+function ProductSheet({ itemKey, scanned, city, inList, onAdd, onClose }: {
+  itemKey: string;
+  /** It came from the camera: say "barcode not found" rather than "product not found". */
+  scanned: boolean;
+  city: string;
+  inList: Map<string, number>;
+  onAdd: (item: { key: string; name: string; w: boolean }) => void;
+  onClose: () => void;
+}) {
+  const [data, setData] = useState<ItemResponse | null>(null);
+  const [state, setState] = useState<'loading' | 'ok' | 'missing' | 'error'>('loading');
+  const closeRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    const ctl = new AbortController();
+    setState('loading');
+    fetch(`${SHOPPING_API_PATH}/item?key=${encodeURIComponent(itemKey)}&city=${city}`, { signal: ctl.signal })
+      .then(async (res) => {
+        if (res.status === 404) return setState('missing');
+        if (!res.ok) throw new Error(String(res.status));
+        setData(await res.json());
+        setState('ok');
+      })
+      .catch(() => {
+        if (!ctl.signal.aborted) setState('error');
+      });
+    return () => ctl.abort();
+  }, [itemKey, city]);
+
+  useEffect(() => {
+    closeRef.current?.focus();
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', onKey);
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      document.body.style.overflow = prev;
+    };
+  }, [onClose]);
+
+  const it = data?.item;
+  const qty = it ? inList.get(it.key) : undefined;
+  return (
+    <div className="sh-sheet-backdrop" onClick={onClose}>
+      <div className="sh-sheet" role="dialog" aria-modal="true" aria-labelledby="sh-sheet-title" onClick={(e) => e.stopPropagation()}>
+        <button ref={closeRef} type="button" className="sh-icon-btn sh-sheet-close" onClick={onClose} aria-label="סגירה"><FaTimes /></button>
+        {state === 'loading' && <div className="sh-skeleton" aria-label="טוען" />}
+        {state === 'missing' && (
+          <div className="sh-sheet-empty">
+            <h2 id="sh-sheet-title" className="sh-h2">{scanned ? 'הברקוד לא נמצא' : 'המוצר לא נמצא'}</h2>
+            <p className="sh-muted">
+              {scanned ? <>הברקוד <bdi>{itemKey}</bdi> לא מופיע בקבצי המחירים של הרשתות שאנחנו קוראים.</> : 'אולי הוא הוסר מקבצי המחירים.'}
+            </p>
+          </div>
+        )}
+        {state === 'error' && (
+          <div className="sh-sheet-empty">
+            <h2 id="sh-sheet-title" className="sh-h2">לא הצלחנו לטעון את המחירים</h2>
+            <p className="sh-muted">בדקו את החיבור ונסו לפתוח שוב.</p>
+          </div>
+        )}
+        {state === 'ok' && data && it && (
+          <>
+            <div className="sh-sheet-head">
+              <Thumb src={it.img} size={88} />
+              <div>
+                <h2 id="sh-sheet-title" className="sh-sheet-title">{it.name}</h2>
+                <p className="sh-sheet-sub">
+                  {it.manufacturer && it.manufacturer !== '---' && it.manufacturer !== 'לא ידוע' && <span>{it.manufacturer}</span>}
+                  {it.barcode && <span>ברקוד <bdi>{it.key}</bdi></span>}
+                  {it.w && <span>מחיר לק״ג</span>}
+                </p>
+              </div>
+            </div>
+            <button type="button" className="sh-btn sh-btn--primary" onClick={() => onAdd(it)}>
+              {qty ? <>עוד אחד לרשימה <small>כבר {qtyLabel(qty, it.w)}</small></> : <><FaPlus aria-hidden /> הוספה לרשימה</>}
+            </button>
+            <PriceTable title="בחנויות בעיר" rows={data.physical} data={data} empty="לא נמכר בחנויות בעיר." />
+            {data.online.length > 0 && <PriceTable title="אונליין" rows={data.online} data={data} />}
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function PriceTable({ title, rows, data, empty }: { title: string; rows: ItemPrice[]; data: ItemResponse; empty?: string }) {
+  return (
+    <section className="sh-sheet-section">
+      <h3 className="sh-section-title">{title} <small>{rows.length}</small></h3>
+      {!rows.length && empty && <p className="sh-empty">{empty}</p>}
+      <ol className="sh-sheet-rows">
+        {rows.map((r, i) => {
+          const st = data.stores[r.store];
+          const discounted = r.cost < r.regularUnit;
+          return (
+            <li key={r.store} className={`sh-sheet-row ${i === 0 ? 'is-best' : ''}`}>
+              <span className="sh-sheet-store">
+                <b>{st ? <>{st.chainName} <span className="sh-branch">{st.name}</span></> : r.store}</b>
+                {st && <SourceBadge store={st} now={data.now} />}
+                {r.applied.map((p) => <small key={p.id} className="sh-promo">{p.description} <small>עד {dayMonth(p.end)}</small></small>)}
+                {/* A chain can publish the same deal twice under two ids; show it once. */}
+                {r.offers.filter((o, j, all) => all.findIndex((x) => x.reason === o.reason && x.description === o.description) === j).map((o) => (
+                  <small key={o.id} className="sh-promo is-offer">{OFFER_LABEL[o.reason]}: {o.description}</small>
+                ))}
+              </span>
+              <span className="sh-line-price">
+                <b>{ils(r.cost)}</b>
+                {discounted && <s>{ils(r.regularUnit)}</s>}
+              </span>
+            </li>
+          );
+        })}
+      </ol>
+    </section>
   );
 }
