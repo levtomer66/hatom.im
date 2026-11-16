@@ -2,11 +2,11 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { CHAINS, chainBySlug } from '../shopping/chains.ts';
 
-test('chain config: unique slugs and ids, 13-digit GS1 chain ids', () => {
+test('chain config: unique slugs and ids, 13-digit GS1 chain ids for price-file chains', () => {
   assert.equal(new Set(CHAINS.map((c) => c.slug)).size, CHAINS.length);
   assert.equal(new Set(CHAINS.map((c) => c.chainId)).size, CHAINS.length);
   for (const c of CHAINS) {
-    assert.match(c.chainId, /^729\d{10}$/, c.slug);
+    if (c.source.kind !== 'wolt' && c.source.kind !== 'manual') assert.match(c.chainId, /^729\d{10}$/, c.slug);
     assert.match(c.slug, /^[a-z][a-z-]*$/, c.slug);
     assert.ok(c.name.trim(), c.slug);
     if (c.source.kind === 'cerberus') assert.ok(c.source.username, c.slug);

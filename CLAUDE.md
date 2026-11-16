@@ -260,10 +260,16 @@ Identity = Gmail address. Two roles:
 ### Shopping price comparison (`/shopping`)
 
 - Sources per chain, access methods and verification notes: `docs/sources.md`.
-  Only the official price-transparency files — never comparison sites.
+  Official price-transparency files first; **Wolt** is an approved additional
+  source for small shops (`chainId: 'wolt'`, delivery prices — label them).
+  Never comparison sites.
+- **Pins** (`places/pins.json` in the cache dir, personal — never in the repo)
+  drive `npm run shopping:discover` (small-shop discovery, OSM + hand-collected
+  Google Maps lists) and limit the ingest to stores near them
+  (`ingest/locate.ts`; `--all-stores` to keep whole cities).
 - **Ingest is a local, manually-run job**, not a Vercel function (Hobby cron
   is daily-only and a full run is ~190 MB of downloads + GBs of XML):
-  `npm run shopping:ingest -- [--dry-run] [--offline] [--chains yohananof,shufersal] [--max-stores N] [--full]`.
+  `npm run shopping:ingest -- [--dry-run] [--offline] [--chains yohananof,shufersal,wolt] [--max-stores N] [--full] [--all-stores]`.
   `--offline` rebuilds the docs from saved state without fetching. Test locally
   against Docker Mongo with a *copy* of the cache (`SHOPPING_CACHE_DIR`), or
   its `written.json` will make the next Atlas run skip docs.
@@ -308,11 +314,12 @@ Identity = Gmail address. Two roles:
 - **Result views**: per item (`perItem`, each item's cheapest stores), per
   list (best single store), per stores (every item at its cheapest, grouped
   by store, plus the exact two-store splits), and online. Every price carries
-  its source (`priceSourceOf(chainId)` in `api-types.ts`: official / wolt /
+  its source (`StoreInfo.source`, from `priceSourceOf` in `collections.ts`: official / wolt /
   manual), rendered only by `<SourceBadge>`. Search ranking (name-match
   position first, store count second) is `src/lib/shopping/search-rank.ts`.
-  Manual prices have a UI but no backend yet; the expected API is in the
-  header comment of `src/app/shopping/page.tsx`.
+  Neighbourhood shops are priced by hand in <ManualPrices> (one PUT to
+  `/api/shopping/manual-prices` per field, then a re-compare); the contract
+  is in the header comment of `src/app/shopping/page.tsx`.
 
 ### MCP server + OAuth (`/api/mcp`)
 

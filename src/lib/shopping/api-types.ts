@@ -1,30 +1,10 @@
 // Response shapes of /api/shopping/*, shared by the routes and the page.
 // Import-free apart from types.
 
+import type { PriceSource } from './collections.ts';
 import type { Split, StoreBasket } from './pricing.ts';
 
-/**
- * Where a store's prices come from. Every price the page shows is labelled
- * with its source.
- * - `official` — the chain's price-transparency file (shelf price).
- * - `wolt`     — the store's Wolt listing: delivery prices, usually above shelf.
- * - `manual`   — typed in by one of us (backend not built yet; see page.tsx).
- */
-export type PriceSource = 'official' | 'wolt' | 'manual';
-
-/** Chain id of the Wolt source (see src/lib/shopping/wolt.ts). */
-export const WOLT_CHAIN_ID = 'wolt';
-
-/**
- * The source of a store's prices, from its chain id for now: `'wolt'` is the
- * Wolt listing, a GS1 company prefix (13 digits starting 729) is an official
- * price file. Anything else is a store we add by hand.
- */
-export function priceSourceOf(chainId: string): PriceSource {
-  if (chainId === WOLT_CHAIN_ID) return 'wolt';
-  if (/^729\d{10}$/.test(chainId)) return 'official';
-  return 'manual';
-}
+export type { PriceSource } from './collections.ts';
 
 export interface SearchHit {
   key: string;
@@ -38,8 +18,8 @@ export interface SearchHit {
   stores: number;
   /** Sources the price range above comes from (empty when not sold in the city). */
   sources: PriceSource[];
-  /** Product photo URL (Wolt, matched by barcode), or null. Optional until the photo backend lands. */
-  img?: string | null;
+  /** Product photo link or null; Wolt links take ?w=<px> for a thumbnail. */
+  img: string | null;
 }
 
 export interface StoreInfo {
@@ -50,9 +30,10 @@ export interface StoreInfo {
   address: string;
   city: string | null;
   kind: 'physical' | 'online';
-  source: PriceSource;
-  /** Israel local "YYYY-MM-DDTHH:mm" of the price file, or null. */
+  /** Israel local "YYYY-MM-DDTHH:mm" of the price file, or null (always null for manual stores). */
   pricesAt: string | null;
+  /** Where its prices come from — label every price with it. */
+  source: PriceSource;
 }
 
 /** PUT /api/shopping/manual-prices — set (or, with null, clear) one price at a manual store. */
@@ -102,21 +83,20 @@ export interface CompareResponse {
   now: string;
   city: string;
   stores: Record<number, StoreInfo>;
-  items: Record<string, { name: string; manufacturer: string; w: boolean; img?: string | null }>;
+  items: Record<string, { name: string; manufacturer: string; w: boolean; img: string | null }>;
   /** Physical stores in the city, cheapest first. */
   physical: StoreBasket[];
   /** Online stores, cheapest first. */
   online: StoreBasket[];
+  /**
+   * The city's manual stores (prices typed by users), fewest missing first.
+   * `missing` = the lines still to price; set one with
+   * PUT /api/shopping/manual-prices { store, item, price } (agorot, null clears).
+   * A manual store with nothing missing also appears in `physical`.
+   */
+  manual: StoreBasket[];
   /** Best two-store splits among the city's physical stores. */
   splits: Split[];
   /** Per list item, its cheapest physical stores. */
   perItem: ItemBest[];
-  /**
-   * The city's manual stores (neighbourhood shops priced by hand), fewest
-   * missing first; `missing` = items still unpriced there. Optional until the
-   * manual-prices backend lands; then it replaces `unpriced` for those shops.
-   */
-  manual?: StoreBasket[];
-  /** The city's physical stores that have no prices yet (listed so prices can be added). */
-  unpriced: StoreInfo[];
 }

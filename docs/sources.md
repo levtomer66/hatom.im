@@ -1,8 +1,43 @@
 # Price-transparency sources (shopping feature)
 
 Official files published under Israel's Price Transparency regulations
-(חוק המזון / שקיפות מחירים). Only these files are used — no third-party
-comparison sites.
+(חוק המזון / שקיפות מחירים) are the primary source. No third-party
+comparison sites (chp, zap, pricez, …) are ever used.
+
+**Additional source — Wolt** (approved by the owner 2026-11-16): small shops
+that publish no price files but sell on Wolt. These are Wolt *delivery*
+prices, typically 40–100% above the chains' shelf price for the same barcode
+(e.g. Berman Active 750 g: ₪26.43 on Wolt vs ₪15.90–18.90 in 75 chain
+stores), so the UI must label them. Items carry `barcode_gtin` (GTIN-14 with
+a leading 0) and match the official catalogue exactly; produce is sold by
+weight without a barcode and stays per venue. Endpoints and parsing:
+`src/lib/shopping/wolt.ts`; fetcher `ingest/wolt.ts` (1.5 s between
+requests, one cached response per venue/day/category). A large minimarket is
+~100–160 requests (≈4 min). The venues to fetch are listed in
+`places/wolt.json` in the cache dir, not in the repo.
+
+## Small shops near the pins (discovery)
+
+`npm run shopping:discover` lists the food shops around each pin in
+`places/pins.json` (cache dir — personal locations, never in the repo),
+merging OpenStreetMap (Nominatim category search; the Overpass API is
+unreachable from the dev network) with Google Maps result lists collected by
+hand in a browser (`places/google/<pin>-<query>.tsv`). Each shop is matched
+against the official Stores files: *ingested* (store id found), *publishes*
+(a retailer that publishes but isn't ingested yet), or *no data*. The
+regulator's list of obligated retailers is
+https://www.gov.il/he/pages/cpfta_prices_regulations (updated 12.08.2026);
+independent markets are not obligated, so most small shops have no files.
+
+Checked 2026-11-16 for the three pins: 171 named no-data shops, **none** with
+its own online store showing prices; 8 on Wolt.
+
+**The ingest keeps only stores near the pins** when `pins.json` exists
+(`--all-stores` to keep whole cities). Store files have addresses but no
+coordinates, so `ingest/locate.ts` places each store by the discovery
+match, else a Nominatim lookup of the cleaned address (cached per query in
+`places/geocode.json`). Online stores always pass. A store it can't place is
+logged and left out.
 
 **Verified 2026-11-15** by downloading each chain's latest `Stores` file
 (plus PriceFull/PromoFull for Yochananof). Store counts below are for the

@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireFeatureCaller } from '@/lib/api-caller';
 import { CITIES } from '@/lib/shopping/cities';
 import { searchTerms } from '@/lib/shopping/lists';
-import { priceSourceOf, type SearchHit } from '@/lib/shopping/api-types';
+import type { SearchHit } from '@/lib/shopping/api-types';
+import { priceSourceOf } from '@/lib/shopping/collections';
 import { rankHits } from '@/lib/shopping/search-rank';
 import { findItems, getStoresFor } from '@/models/ShoppingCatalog';
 
@@ -23,7 +24,7 @@ export async function GET(request: NextRequest) {
 
   try {
     const [docs, stores] = await Promise.all([findItems(terms, barcode), getStoresFor(city)]);
-    const local = stores.filter((s) => s.kind === 'physical').map((s) => ({ k: String(s.k), src: priceSourceOf(s.chainId) }));
+    const local = stores.filter((s) => s.kind === 'physical').map((s) => ({ k: String(s.k), src: s.source ?? priceSourceOf(s.chainId) }));
     const hits: SearchHit[] = docs.map((d) => {
       const selling = local.filter((s) => d.p[s.k] !== undefined);
       const prices = selling.map((s) => d.p[s.k]);
@@ -37,6 +38,7 @@ export async function GET(request: NextRequest) {
         maxPrice: prices.length ? Math.max(...prices) : null,
         stores: prices.length,
         sources,
+        img: d.img ?? null,
       };
     });
     return NextResponse.json(rankHits(hits, terms).slice(0, MAX_HITS));

@@ -22,10 +22,7 @@
  *
  * A manual store with nothing missing is also ranked in `physical` (and can
  * be in a split), labelled "הוזן ידנית". Prices are shared by everyone with
- * the `shopping` permission. `manual` and `img` are optional in the types
- * until that backend is merged; without them the section and photos stay
- * hidden. Stores with no price file that *aren't* manual (a chain whose file
- * failed) are listed read-only under `unpriced`.
+ * the `shopping` permission.
  */
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -566,8 +563,7 @@ const Results = React.forwardRef<HTMLElement, {
                 open={open === `s${b.store}`} toggle={() => toggle(`s${b.store}`)} />
             ))
             : <p className="sh-empty">אין בעיר חנויות עם מחירים.</p>}
-          {!!result.manual?.length && <ManualStores baskets={result.manual} result={result} list={list} onSaved={onPricesSaved} />}
-          <Unpriced result={result} />
+          {result.manual.length > 0 && <ManualStores baskets={result.manual} result={result} list={list} onSaved={onPricesSaved} />}
         </>
       )}
 
@@ -830,25 +826,36 @@ function Thumb({ src, size }: { src: string | null | undefined; size: number }) 
 
 // ── stores priced by hand ──
 
+/** Manual stores listed before "show all". */
+const MANUAL_SHOWN = 5;
+
 function ManualStores({ baskets, result, list, onSaved }: {
   baskets: StoreBasket[];
   result: CompareResponse;
   list: ShoppingList;
   onSaved: () => void;
 }) {
+  // A city can have dozens; the API puts the best-priced first, so show those.
+  const [all, setAll] = useState(false);
+  const shown = all ? baskets : baskets.slice(0, MANUAL_SHOWN);
   return (
     <section className="sh-card sh-unpriced">
       <div className="sh-unpriced-head is-static">
         <span>
-          <b>חנויות שכונתיות</b>
+          <b>{baskets.length} חנויות שכונתיות</b>
           <small>אין להן קובץ מחירים, אז אנחנו מקלידים את המחירים. כל מה שמוקלד כאן משותף לכולנו.</small>
         </span>
       </div>
       <ul className="sh-unpriced-list">
-        {baskets.map((b) => (
+        {shown.map((b) => (
           <ManualStore key={b.store} basket={b} store={result.stores[b.store]} list={list} onSaved={onSaved} />
         ))}
       </ul>
+      {baskets.length > shown.length && (
+        <button type="button" className="sh-btn sh-more-btn" onClick={() => setAll(true)}>
+          להציג את כל {baskets.length} החנויות
+        </button>
+      )}
     </section>
   );
 }
@@ -943,40 +950,5 @@ function ManualPrices({ store, basket, list, onSaved }: {
         );
       })}
     </div>
-  );
-}
-
-// ── stores with no price file ──
-
-/** Chain stores whose price file is missing right now (not manual shops): listed so they aren't silently dropped. */
-function Unpriced({ result }: { result: CompareResponse }) {
-  const [expanded, setExpanded] = useState(false);
-  const manual = new Set((result.manual ?? []).map((b) => b.store));
-  const stores = result.unpriced.filter((s) => s.source !== 'manual' && !manual.has(s.k));
-  if (!stores.length) return null;
-  return (
-    <section className="sh-card sh-unpriced">
-      <button type="button" className="sh-unpriced-head" onClick={() => setExpanded(!expanded)} aria-expanded={expanded}>
-        <span>
-          <b>{stores.length} סניפים בעיר בלי קובץ מחירים כרגע</b>
-          <small>הרשת לא פרסמה להם מחירים, אז הם לא בהשוואה</small>
-        </span>
-        <FaChevronDown className={`sh-caret ${expanded ? 'is-open' : ''}`} aria-hidden />
-      </button>
-      {expanded && (
-        <ul className="sh-unpriced-list">
-          {stores.map((s) => (
-            <li key={s.k}>
-              <div className="sh-unpriced-row">
-                <span>
-                  {s.chainName} <span className="sh-branch">{s.name}</span>
-                  {s.address && <small>{s.address}</small>}
-                </span>
-              </div>
-            </li>
-          ))}
-        </ul>
-      )}
-    </section>
   );
 }

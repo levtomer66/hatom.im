@@ -549,6 +549,7 @@ body:has(.sh-page) { background: #ffffff; }
   cursor: pointer;
 }
 .sh-unpriced-head.is-static { cursor: default; }
+.sh-more-btn { display: block; width: calc(100% - 2rem); margin: 0 1rem 1rem; }
 .sh-unpriced-head > span { display: flex; flex-direction: column; gap: 0.125rem; }
 .sh-unpriced-head b { font-weight: 600; }
 .sh-unpriced-head small { font-size: 0.875rem; color: var(--sh-muted); }

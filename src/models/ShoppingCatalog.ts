@@ -9,22 +9,25 @@ async function getDb() {
   return (await clientPromise).db();
 }
 
-/** Stores with prices that serve `city`: its physical stores plus every online store. */
+/**
+ * Stores that serve `city`: its physical stores plus every online store —
+ * those with published prices, and the city's manual stores, which are listed
+ * even before anyone has typed a price.
+ */
 export async function getStoresFor(city: string): Promise<StoreDoc[]> {
   return (await getDb())
     .collection<StoreDoc>(COLLECTIONS.stores)
-    .find({ pricesAt: { $ne: null }, $or: [{ city, kind: 'physical' }, { kind: 'online' }] })
+    .find({
+      $or: [
+        { pricesAt: { $ne: null }, $or: [{ city, kind: 'physical' }, { kind: 'online' }] },
+        { source: 'manual', city },
+      ],
+    })
     .toArray();
 }
 
-/** The city's physical stores without a price file (or, later, any prices at all). */
-export async function getUnpricedStoresIn(city: string): Promise<StoreDoc[]> {
-  return (await getDb())
-    .collection<StoreDoc>(COLLECTIONS.stores)
-    .find({ pricesAt: null, city, kind: 'physical' })
-    .sort({ chainName: 1, name: 1 })
-    .limit(50)
-    .toArray();
+export async function getStoreByKey(k: number): Promise<StoreDoc | null> {
+  return (await getDb()).collection<StoreDoc>(COLLECTIONS.stores).findOne({ k });
 }
 
 const SEARCH_SCAN = 300;

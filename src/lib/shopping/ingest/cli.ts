@@ -16,6 +16,7 @@
 //   state/keys.json           store → short numeric key used in price maps
 //   logs/<run>.log            skipped files / records
 
+import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync, appendFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
@@ -29,6 +30,8 @@ import { decodeXmlBytes, isGzip } from '../xml.ts';
 import { parsePriceFile, parsePromoFile, parseStoresFile, type CanonItem, type CanonPromo, type CanonStore } from '../normalize.ts';
 import { buildItemDocs, buildPromoDocs, buildStoreDocs, diffDocs, israelLocalNow, type StoreState } from '../snapshot.ts';
 import { Throttle, clientFor, errorMessage, type RemoteFile } from './sources.ts';
+import { fetchWoltVenue, type WoltVenueConfig } from './wolt.ts';
+import { pinFilter } from './locate.ts';
 
 const RAW_RETENTION_DAYS = 7;
 const REQUEST_GAP_MS = 1500;
@@ -41,6 +44,8 @@ const { values: args } = parseArgs({
     cities: { type: 'string' },
     'max-stores': { type: 'string' },
     'dry-run': { type: 'boolean', default: false },
+    /** Ignore places/pins.json and keep every store in the target cities. */
+    'all-stores': { type: 'boolean', default: false },
     full: { type: 'boolean', default: false },
     offline: { type: 'boolean', default: false },
   },
@@ -52,6 +57,8 @@ const STATE = join(CACHE, 'state');
 const STORE_STATE = join(STATE, 'stores');
 const LOGS = join(CACHE, 'logs');
 for (const d of [RAW, STORE_STATE, LOGS]) mkdirSync(d, { recursive: true });
+// With pins, only stores near them are ingested (ingest/locate.ts); --all-stores keeps whole cities.
+const PINS = args['all-stores'] ? null : pinFilter(join(CACHE, 'places'));
 
 const runId = new Date().toISOString().replace(/[:.]/g, '-');
 const logFile = join(LOGS, `${runId}.log`);
@@ -122,7 +129,8 @@ function loadState(store: { chainId: string; storeId: string; chainSlug: string 
   const p = statePath(storeId(store));
   if (!existsSync(p)) return null;
   const st = JSON.parse(gunzipSync(readFileSync(p)).toString('utf8')) as SavedStoreState;
-  if (st.parser === PARSER_VERSION) return st;
+  // Wolt state has no price file to re-parse from; its items are rebuilt by the next fetch.
+  if (st.parser === PARSER_VERSION || store.chainSlug === 'wolt' || store.chainSlug === 'manual') return st;
   const raw = (file: string | null) => (file ? join(RAW, store.chainSlug, file) : null);
   const priceRaw = raw(st.priceFile);
   const promoRaw = raw(st.promoFile);
@@ -143,6 +151,8 @@ interface StoreRecord extends CanonStore {
 }
 
 async function ingestChain(chain: ChainConfig, cityIds: Set<string>, maxStores: number | null): Promise<StoreRecord[]> {
+  if (chain.source.kind === 'wolt') return ingestWolt(chain, cityIds, maxStores);
+  if (chain.source.kind === 'manual') return ingestManual(chain, cityIds);
   const client = clientFor(chain, new Throttle(REQUEST_GAP_MS));
   const storesFile = await client.latestStores();
   if (!storesFile) throw new Error(`${chain.slug}: no Stores file listed`);
@@ -151,6 +161,12 @@ async function ingestChain(chain: ChainConfig, cityIds: Set<string>, maxStores: 
     .map((s) => ({ ...s, chainSlug: chain.slug, chainName: chain.name, cityId: cityOf(s) }))
     // Online stores are kept whatever their city and listed separately (kind: 'online').
     .filter((s) => s.kind === 'online' || (s.cityId !== null && cityIds.has(s.cityId)));
+  if (PINS) {
+    const near = await PINS.keep(targets, warn);
+    const before = targets.length;
+    targets = targets.filter((s) => near.has(storeId(s)));
+    log(`${chain.slug}: ${targets.length} of ${before} target-city stores are near a pin or online`);
+  }
   if (maxStores !== null) targets = targets.slice(0, maxStores);
   log(`${chain.slug}: ${parsed.stores.length} stores listed, ${targets.length} in target cities or online (${storesFile.name})`);
 
@@ -186,6 +202,82 @@ async function ingestChain(chain: ChainConfig, cityIds: Set<string>, maxStores: 
     log(`  ${s.storeId.padStart(4)} ${(s.cityId ?? s.kind).padEnd(10)} ${s.name} — ${next.items.length} items, ${next.promos.length} promos`);
   }
   return targets;
+}
+
+/**
+ * Wolt venues approved in places/wolt.json. A venue that fails to load keeps
+ * its previous items, like a chain store whose PriceFull is missing.
+ */
+async function ingestWolt(chain: ChainConfig, cityIds: Set<string>, maxStores: number | null): Promise<StoreRecord[]> {
+  const configPath = join(CACHE, 'places', 'wolt.json');
+  let venues = readJson<WoltVenueConfig[]>(configPath, []).filter((v) => cityIds.has(v.cityId));
+  if (maxStores !== null) venues = venues.slice(0, maxStores);
+  log(`${chain.slug}: ${venues.length} venues in target cities (${existsSync(configPath) ? configPath : 'no places/wolt.json'})`);
+  const rawDir = join(RAW, chain.slug);
+  mkdirSync(rawDir, { recursive: true });
+  const nowLocal = israelLocalNow(); // "YYYY-MM-DDTHH:mm"
+  const day = nowLocal.slice(0, 10).replace(/-/g, '');
+  const throttle = new Throttle(REQUEST_GAP_MS);
+  const previous = readJson<Record<string, StoreRecord>>(join(STATE, 'stores.json'), {});
+  const out: StoreRecord[] = [];
+  for (const v of venues) {
+    const rec: StoreRecord = {
+      chainId: chain.chainId, storeId: v.slug, subChainId: '', name: v.slug, address: '', city: v.cityId, kind: 'physical',
+      chainSlug: chain.slug, chainName: chain.name, cityId: v.cityId,
+    };
+    const prev = loadState(rec);
+    const next: SavedStoreState = prev ?? { chainId: chain.chainId, storeId: v.slug, priceFile: null, promoFile: null, items: [], promos: [] };
+    try {
+      const venue = await fetchWoltVenue(v.slug, rawDir, day, throttle);
+      rec.name = venue.name;
+      rec.address = venue.address;
+      if (!venue.items.length) throw new Error('no items');
+      next.items = venue.items;
+      // Same day = same cached responses, so the stamp only moves when the data can have.
+      next.priceFile = venue.fetched || !prev?.priceFile ? `wolt-${v.slug}-${nowLocal.replace(/[-T:]/g, '')}` : prev.priceFile;
+      const withBarcode = venue.items.filter((i) => i.barcode).length;
+      log(`  ${v.slug.padEnd(30)} ${venue.name} — ${venue.items.length} items (${withBarcode} with barcode), ${venue.fetched} requests`);
+    } catch (e) {
+      warn(`${chain.slug} venue ${v.slug}: ${errorMessage(e)} — keeping previous items`);
+      const old = previous[storeId(rec)];
+      if (old) Object.assign(rec, { name: old.name, address: old.address });
+    }
+    saveState(next);
+    out.push(rec);
+  }
+  return out;
+}
+
+/**
+ * Shops the owner marked "include" in the discovery review (places/decisions.json)
+ * that have no ingested price source: not an official store we fetch, and not a
+ * Wolt venue in places/wolt.json. They are listed with no items; users type
+ * their prices in the app (shoppingManualPrices). Store id = hash of the
+ * discovery place id, so it is stable across runs.
+ */
+function ingestManual(chain: ChainConfig, cityIds: Set<string>): StoreRecord[] {
+  const places = join(CACHE, 'places');
+  const decisions = readJson<Record<string, string>>(join(places, 'decisions.json'), {});
+  const pins = readJson<{ id: string; city: string }[]>(join(places, 'pins.json'), []);
+  const woltPlaces = new Set(readJson<WoltVenueConfig[]>(join(places, 'wolt.json'), []).map((v) => v.placeId).filter(Boolean));
+  const out = new Map<string, StoreRecord>();
+  for (const pin of pins.filter((p) => cityIds.has(p.city))) {
+    type Row = { id: string; name: string; address: string; refs: string[]; status: string };
+    for (const r of readJson<Row[]>(join(places, `${pin.id}.review.json`), [])) {
+      if (r.status === 'ingested' || !r.refs.some((ref) => decisions[ref] === 'include')) continue;
+      if (r.refs.some((ref) => woltPlaces.has(ref))) continue;
+      const id = createHash('sha1').update(r.id).digest('hex').slice(0, 10);
+      out.set(id, {
+        chainId: chain.chainId, storeId: id, subChainId: '', name: r.name, address: r.address, city: pin.city, kind: 'physical',
+        chainSlug: chain.slug, chainName: chain.name, cityId: pin.city,
+      });
+    }
+  }
+  for (const rec of out.values()) {
+    if (!loadState(rec)) saveState({ chainId: chain.chainId, storeId: rec.storeId, priceFile: null, promoFile: null, items: [], promos: [] });
+  }
+  log(`${chain.slug}: ${out.size} included shops with no price source (from places/decisions.json)`);
+  return [...out.values()];
 }
 
 function assignKeys(stores: StoreRecord[], existing: Record<string, number>): Record<string, number> {
@@ -260,6 +352,12 @@ async function main() {
       }
     }
     for (const s of fresh) registry[storeId(s)] = s;
+    // Stores of chains not run this time (or an --offline run) are held to the pins too.
+    if (PINS) {
+      const others = Object.values(registry).filter((s) => s.chainSlug !== 'wolt' && s.chainSlug !== 'manual');
+      const near = await PINS.keep(others, warn);
+      for (const s of others) if (!near.has(storeId(s))) delete registry[storeId(s)];
+    }
 
     // 3. Short store keys — Mongo is the authority when we have it.
     const keysPath = join(STATE, 'keys.json');
