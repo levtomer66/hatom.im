@@ -32,6 +32,18 @@ independent markets are not obligated, so most small shops have no files.
 Checked 2026-11-16 for the three pins: 171 named no-data shops, **none** with
 its own online store showing prices; 8 on Wolt.
 
+Shops the map searches miss (e.g. a supermarket OSM tags as a department
+store) go in `places/extra.json` and are listed like any other discovered shop.
+
+**Walk limit.** A pin with `walkMinutes` keeps only stores within that walk,
+measured as a walking route by the OpenStreetMap foot router
+(routing.openstreetmap.de, cached per point pair in `places/walk.json`); a
+store farther than `walkMinutes × 60 × 1.5 m` straight-line is never routed.
+Official and Wolt stores are held to it; neighbourhood (manual) shops follow
+`decisions.json`, the owner's curated list, and an official store a curated
+entry points to is always kept — Google and OSM routes differ by about a
+minute at the edge.
+
 **The ingest keeps only stores near the pins** when `pins.json` exists
 (`--all-stores` to keep whole cities). Store files have addresses but no
 coordinates, so `ingest/locate.ts` places each store by the discovery

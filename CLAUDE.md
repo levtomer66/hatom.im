@@ -266,7 +266,9 @@ Identity = Gmail address. Two roles:
 - **Pins** (`places/pins.json` in the cache dir, personal — never in the repo)
   drive `npm run shopping:discover` (small-shop discovery, OSM + hand-collected
   Google Maps lists) and limit the ingest to stores near them
-  (`ingest/locate.ts`; `--all-stores` to keep whole cities).
+  (`ingest/locate.ts`; `--all-stores` to keep whole cities). A pin's
+  `walkMinutes` limits stores to a routed walking time (`ingest/walk.ts`);
+  `places/extra.json` adds shops the map searches miss.
 - **Ingest is a local, manually-run job**, not a Vercel function (Hobby cron
   is daily-only and a full run is ~190 MB of downloads + GBs of XML):
   `npm run shopping:ingest -- [--dry-run] [--offline] [--chains yohananof,shufersal,wolt] [--max-stores N] [--full] [--all-stores]`.

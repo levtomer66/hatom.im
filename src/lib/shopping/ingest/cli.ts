@@ -211,6 +211,17 @@ async function ingestChain(chain: ChainConfig, cityIds: Set<string>, maxStores: 
 async function ingestWolt(chain: ChainConfig, cityIds: Set<string>, maxStores: number | null): Promise<StoreRecord[]> {
   const configPath = join(CACHE, 'places', 'wolt.json');
   let venues = readJson<WoltVenueConfig[]>(configPath, []).filter((v) => cityIds.has(v.cityId));
+  if (PINS) {
+    // Wolt pages carry no coordinates; a venue is placed by the discovery entry it was approved from.
+    const at = placeCoords();
+    const kept: WoltVenueConfig[] = [];
+    for (const v of venues) {
+      const p = v.placeId ? at.get(v.placeId) : undefined;
+      if (p && (await PINS.near(v.cityId, p))) kept.push(v);
+      else log(`  ${v.slug}: ${p ? 'outside the pin' : 'no discovery entry to place it'} — left out`);
+    }
+    venues = kept;
+  }
   if (maxStores !== null) venues = venues.slice(0, maxStores);
   log(`${chain.slug}: ${venues.length} venues in target cities (${existsSync(configPath) ? configPath : 'no places/wolt.json'})`);
   const rawDir = join(RAW, chain.slug);
@@ -253,8 +264,21 @@ async function ingestWolt(chain: ChainConfig, cityIds: Set<string>, maxStores: n
  * that have no ingested price source: not an official store we fetch, and not a
  * Wolt venue in places/wolt.json. They are listed with no items; users type
  * their prices in the app (shoppingManualPrices). Store id = hash of the
- * discovery place id, so it is stable across runs.
+ * discovery place id, so it is stable across runs. The decisions are the
+ * owner's curated list (checked against the walk limit when it was made), so
+ * they are not re-checked here: two routers disagree by a minute at the edge.
  */
+/** Discovery place ref → coordinates, from every pin's review file. */
+function placeCoords(): Map<string, { lat: number; lng: number }> {
+  const out = new Map<string, { lat: number; lng: number }>();
+  for (const pin of readJson<{ id: string }[]>(join(CACHE, 'places', 'pins.json'), [])) {
+    for (const r of readJson<{ refs: string[]; lat: number; lng: number }[]>(join(CACHE, 'places', `${pin.id}.review.json`), [])) {
+      for (const ref of r.refs) out.set(ref, { lat: r.lat, lng: r.lng });
+    }
+  }
+  return out;
+}
+
 function ingestManual(chain: ChainConfig, cityIds: Set<string>): StoreRecord[] {
   const places = join(CACHE, 'places');
   const decisions = readJson<Record<string, string>>(join(places, 'decisions.json'), {});
@@ -262,7 +286,7 @@ function ingestManual(chain: ChainConfig, cityIds: Set<string>): StoreRecord[] {
   const woltPlaces = new Set(readJson<WoltVenueConfig[]>(join(places, 'wolt.json'), []).map((v) => v.placeId).filter(Boolean));
   const out = new Map<string, StoreRecord>();
   for (const pin of pins.filter((p) => cityIds.has(p.city))) {
-    type Row = { id: string; name: string; address: string; refs: string[]; status: string };
+    type Row = { id: string; name: string; address: string; refs: string[]; status: string; lat: number; lng: number };
     for (const r of readJson<Row[]>(join(places, `${pin.id}.review.json`), [])) {
       if (r.status === 'ingested' || !r.refs.some((ref) => decisions[ref] === 'include')) continue;
       if (r.refs.some((ref) => woltPlaces.has(ref))) continue;
