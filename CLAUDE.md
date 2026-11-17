@@ -315,8 +315,12 @@ Identity = Gmail address. Two roles:
   list (best single store), per stores (every item at its cheapest, grouped
   by store, plus the exact two-store splits), and online. Every price carries
   its source (`StoreInfo.source`, from `priceSourceOf` in `collections.ts`: official / wolt /
-  manual), rendered only by `<SourceBadge>`. Search ranking (name-match
-  position first, store count second) is `src/lib/shopping/search-rank.ts`.
+  manual), rendered only by `<SourceBadge>`. Search is in `src/lib/shopping/search-rank.ts`: `searchPatterns()` turns
+  each word into a spelling-tolerant regex (optional ו/י, final letters, ה/א
+  endings, quotes; a one-typo variant for the retry the route makes under 8
+  hits), matched against the name, the maker `m` and `s` (all chains' names
+  and makers, when the ingest writes it). Ranking: words matched as typed,
+  then name-match position, then store count.
   Neighbourhood shops are priced by hand in <ManualPrices> (one PUT to
   `/api/shopping/manual-prices` per field, then a re-compare); the contract
   is in the header comment of `src/app/shopping/page.tsx`.

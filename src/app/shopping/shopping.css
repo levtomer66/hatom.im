@@ -741,6 +741,7 @@ body:has(.sh-page) { background: #ffffff; }
 }
 .sh-hit-main:hover, .sh-hit.is-open .sh-hit-main { background: var(--sh-surface); }
 .sh-hit-main > .sh-thumb { grid-column: 1; grid-row: 1 / span 2; }
+.sh-hit-maker { margin-inline-start: 0.4rem; font-size: 0.8125rem; color: var(--sh-muted); }
 .sh-hit-cheapest { min-width: 0; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--sh-accent); }
 .sh-hit > .sh-hit-btn { align-self: center; }
 .sh-hit > .sh-sheet--inline { grid-column: 1 / -1; }

@@ -515,7 +515,10 @@ export default function ShoppingPage() {
                         <button type="button" className="sh-hit-main" aria-expanded={narrow ? product?.key === h.key : undefined}
                           onClick={() => setProduct(product?.key === h.key && narrow ? null : { key: h.key, scanned: false })}>
                           <Thumb src={h.img} size={44} />
-                          <span className="sh-hit-name">{h.name}{h.w && <small className="sh-weighed">לפי משקל</small>}</span>
+                          <span className="sh-hit-name">
+                            {h.name}{h.w && <small className="sh-weighed">לפי משקל</small>}
+                            {realMaker(h.manufacturer) && <small className="sh-hit-maker">{realMaker(h.manufacturer)}</small>}
+                          </span>
                           <span className="sh-hit-meta">
                             {h.minPrice !== null ? (
                               <>
@@ -797,6 +800,12 @@ const Results = React.forwardRef<HTMLElement, {
     </section>
   );
 });
+
+/** A manufacturer worth showing: the files often say "לא ידוע", "---" or nothing. */
+const realMaker = (m: string | null | undefined) => {
+  const t = (m ?? '').trim();
+  return !t || /^(-+|לא ידוע|לא\s*ידוע|כללי|unknown|n\/a)$/i.test(t) ? null : t;
+};
 
 const storeName = (s: StoreInfo | undefined) => (s ? `${s.chainName} ${s.name}` : '?');
 
@@ -1220,8 +1229,8 @@ function ProductSheet({ itemKey, scanned, city, inList, onAdd, onClose, inline }
               <div>
                 <h2 id="sh-sheet-title" className="sh-sheet-title">{it.name}</h2>
                 <p className="sh-sheet-sub">
-                  {it.manufacturer && it.manufacturer !== '---' && it.manufacturer !== 'לא ידוע' && <span>{it.manufacturer}</span>}
                   {it.barcode && <span>ברקוד <bdi>{it.key}</bdi></span>}
+                  {realMaker(it.manufacturer) && <span>יצרן/מותג: {realMaker(it.manufacturer)}</span>}
                   {it.w && <span>מחיר לק״ג</span>}
                 </p>
               </div>

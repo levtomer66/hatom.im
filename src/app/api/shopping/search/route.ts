@@ -1,15 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireFeatureCaller } from '@/lib/api-caller';
 import { CITIES } from '@/lib/shopping/cities';
-import { searchTerms } from '@/lib/shopping/lists';
 import type { SearchHit } from '@/lib/shopping/api-types';
 import { priceSourceOf } from '@/lib/shopping/collections';
-import { rankHits } from '@/lib/shopping/search-rank';
+import { rankHits, searchPatterns } from '@/lib/shopping/search-rank';
+
+/** Fewer hits than this, and the search tries again allowing one wrong or missing letter per word. */
+const TYPO_RETRY_BELOW = 8;
 import { findItems, getStoresFor } from '@/models/ShoppingCatalog';
 
 const MAX_HITS = 30;
 
-// GET ?q=<words or barcode>&city=<city id> — items matching every word,
+// GET ?q=<words or barcode>&city=<city id> — items whose name or maker matches every word, spelling-tolerant (see searchPatterns),
 // best name match first (see rankHits), then the most widely sold, with the city's regular price range.
 export async function GET(request: NextRequest) {
   const caller = await requireFeatureCaller(request, 'shopping');
@@ -19,11 +21,19 @@ export async function GET(request: NextRequest) {
   const city = request.nextUrl.searchParams.get('city') ?? '';
   if (!CITIES.some((c) => c.id === city)) return NextResponse.json({ error: 'Unknown city' }, { status: 400 });
   const barcode = /^\d{8,14}$/.test(q) ? q : null;
-  const terms = searchTerms(q);
+  const terms = searchPatterns(q);
+  let loose: string[] | undefined;
   if (!barcode && (!terms.length || q.length < 2)) return NextResponse.json([]);
 
   try {
-    const [docs, stores] = await Promise.all([findItems(terms, barcode), getStoresFor(city)]);
+    const [found, stores] = await Promise.all([findItems(terms, barcode), getStoresFor(city)]);
+    let docs = found;
+    if (!barcode && docs.length < TYPO_RETRY_BELOW) {
+      loose = searchPatterns(q, { typos: true });
+      const more = await findItems(loose, null);
+      const seen = new Set(docs.map((d) => d._id));
+      docs = [...docs, ...more.filter((d) => !seen.has(d._id))];
+    }
     const local = stores.filter((s) => s.kind === 'physical').map((s) => ({
       k: String(s.k), src: s.source ?? priceSourceOf(s.chainId), chainName: s.chainName, name: s.name,
     }));
@@ -45,7 +55,7 @@ export async function GET(request: NextRequest) {
         img: d.img ?? null,
       };
     });
-    return NextResponse.json(rankHits(hits, terms).slice(0, MAX_HITS));
+    return NextResponse.json(rankHits(hits, terms, loose).slice(0, MAX_HITS));
   } catch (error) {
     console.error('Error searching shopping items:', error);
     return NextResponse.json({ error: 'Search failed' }, { status: 500 });

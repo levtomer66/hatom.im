@@ -33,7 +33,8 @@ export async function getStoreByKey(k: number): Promise<StoreDoc | null> {
 const SEARCH_SCAN = 300;
 
 /**
- * Items whose name contains every term (or whose key is `barcode`), unsorted.
+ * Items matching every term (regex sources from searchPatterns) in the name
+ * or manufacturer, or whose key is `barcode`; unsorted.
  * Two scans run side by side: names *starting* with the first term, and
  * names containing the terms anywhere. A common word ("חלב") matches far more
  * than SEARCH_SCAN items, and without the first scan the plain "חלב …"
@@ -42,7 +43,12 @@ const SEARCH_SCAN = 300;
 export async function findItems(terms: string[], barcode: string | null): Promise<ItemDoc[]> {
   const items = (await getDb()).collection<ItemDoc>(COLLECTIONS.items);
   if (barcode) return items.find({ _id: barcode }).toArray();
-  const all = terms.map((t) => ({ n: { $regex: t, $options: 'i' } }));
+  // Each word in the name, the manufacturer, or `s` (every chain's names and
+  // makers, when the ingest provides it).
+  const all = terms.map((t) => {
+    const re = { $regex: t, $options: 'i' };
+    return { $or: [{ n: re }, { m: re }, { s: re }] };
+  });
   const [prefixed, anywhere] = await Promise.all([
     items.find({ $and: [{ n: { $regex: `^[\\d\\s.,]*${terms[0]}`, $options: 'i' } }, ...all.slice(1)] }).limit(SEARCH_SCAN).toArray(),
     items.find({ $and: all }).limit(SEARCH_SCAN).toArray(),
