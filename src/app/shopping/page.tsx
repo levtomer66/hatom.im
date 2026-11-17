@@ -33,8 +33,8 @@ import { CITIES } from '@/lib/shopping/cities';
 import { distanceM } from '@/lib/shopping/places';
 import { SHOPPING_API_PATH } from '@/lib/shopping/config';
 import { normalizeQty, type ShoppingList, type ShoppingListItem } from '@/lib/shopping/lists';
-import type { CompareResponse, ItemBest, ItemPrice, ItemResponse, ManualPriceResponse, PriceSource, SearchHit, StoreInfo } from '@/lib/shopping/api-types';
-import type { LineResult, Offer, StoreBasket } from '@/lib/shopping/pricing';
+import type { CompareResponse, ItemBest, ItemPrice, ItemResponse, ManualPriceResponse, PriceSource, PromoDetail, SearchHit, StoreInfo } from '@/lib/shopping/api-types';
+import type { LineResult, Offer, PromoRef, StoreBasket } from '@/lib/shopping/pricing';
 
 const money = new Intl.NumberFormat('he-IL', { style: 'currency', currency: 'ILS', minimumFractionDigits: 2 });
 const ils = (agorot: number) => money.format(agorot / 100);
@@ -885,13 +885,16 @@ function Line({ line, result }: { line: LineResult; result: CompareResponse }) {
     );
   }
   const discounted = line.cost < line.regularCost;
+  const deals = [...line.applied, ...line.offers];
   return (
     <li className="sh-line">
       <span className="sh-line-name"><Thumb src={it?.img} size={36} /><span>{it?.name ?? line.key} <small>{qtyLabel(line.qty, w)}</small></span></span>
-      <span className="sh-line-price">
-        {discounted && <s>{ils(line.regularCost)}</s>} <b>{ils(line.cost)}</b>
-        {(line.qty !== 1 || discounted) && <small>{ils(line.effectiveUnit)} ל{w ? 'ק״ג' : 'יח׳'}</small>}
-      </span>
+      <PriceReveal label={ils(line.cost)} pop={deals.length ? <DealInfo deals={deals} promos={result.promos} /> : null}>
+        <span className="sh-line-price">
+          {discounted && <s>{ils(line.regularCost)}</s>} <b>{ils(line.cost)}</b>
+          {(line.qty !== 1 || discounted) && <small>{ils(line.effectiveUnit)} ל{w ? 'ק״ג' : 'יח׳'}</small>}
+        </span>
+      </PriceReveal>
       {(line.applied.length > 0 || line.offers.length > 0) && (
         <span className="sh-promos">
           {line.applied.map((p) => (
@@ -1265,11 +1268,10 @@ function ProductSheet({ itemKey, scanned, city, inList, onAdd, onClose, inline }
  * over the price, or on tap where there's no hover.
  */
 function PriceRow({ r, best, data }: { r: ItemPrice; best: boolean; data: ItemResponse }) {
-  const [showSrc, setShowSrc] = useState(false);
   const st = data.stores[r.store];
   const discounted = r.cost < r.regularUnit;
   return (
-    <li className={`sh-sheet-row ${best ? 'is-best' : ''} ${showSrc ? 'is-src' : ''}`}>
+    <li className={`sh-sheet-row ${best ? 'is-best' : ''}`}>
       <span className="sh-sheet-store">
         <b>{st ? <>{st.chainName} <span className="sh-branch">{st.name}</span></> : r.store}</b>
         {r.applied.map((p) => <small key={p.id} className="sh-promo">{p.description} <small>עד {dayMonth(p.end)}</small></small>)}
@@ -1278,15 +1280,60 @@ function PriceRow({ r, best, data }: { r: ItemPrice; best: boolean; data: ItemRe
           <small key={o.id} className="sh-promo is-offer">{OFFER_LABEL[o.reason]}: {o.description}</small>
         ))}
       </span>
-      <button type="button" className="sh-price-btn" onClick={() => setShowSrc(!showSrc)} aria-expanded={showSrc}
-        aria-label={`${ils(r.cost)}${st ? `, ${SOURCE[st.source].label}` : ''}`}>
+      <PriceReveal label={`${ils(r.cost)}${st ? `, ${SOURCE[st.source].label}` : ''}`}
+        pop={<>
+          {st && <SourceBadge store={st} now={data.now} />}
+          {(r.applied.length > 0 || r.offers.length > 0) && <DealInfo deals={[...r.applied, ...r.offers]} promos={data.promos} />}
+        </>}>
         <span className="sh-line-price">
           <b>{ils(r.cost)}</b>
           {discounted && <s>{ils(r.regularUnit)}</s>}
         </span>
-        {st && <span className="sh-price-src"><SourceBadge store={st} now={data.now} /></span>}
-      </button>
+      </PriceReveal>
     </li>
+  );
+}
+
+/**
+ * A price that reveals more about itself (its source, its deals' terms) on
+ * hover, or on tap where there's no hover. With nothing to reveal it's a
+ * plain price.
+ */
+function PriceReveal({ label, pop, children }: { label: string; pop: React.ReactNode; children: React.ReactNode }) {
+  const [open, setOpen] = useState(false);
+  if (!pop) return <>{children}</>;
+  return (
+    <span className={`sh-reveal ${open ? 'is-open' : ''}`}>
+      <button type="button" className="sh-price-btn" onClick={() => setOpen(!open)} aria-expanded={open} aria-label={label}>
+        {children}
+      </button>
+      <span className="sh-reveal-pop" role="note">{pop}</span>
+    </span>
+  );
+}
+
+/** The terms of each deal: dates, basket minimum, limit, club or coupon, the chain's remarks. */
+function DealInfo({ deals, promos }: { deals: PromoRef[]; promos: Record<string, PromoDetail> | undefined }) {
+  const seen = new Set<string>();
+  const unique = deals.filter((d) => !seen.has(d.description) && seen.add(d.description));
+  return (
+    <span className="sh-deal-info">
+      {unique.map((d) => {
+        const p = promos?.[d.id];
+        return (
+          <span key={d.id} className="sh-deal">
+            <b>{d.description}</b>
+            <span>{p ? `${dayMonth(p.start)}–${dayMonth(p.end)}` : `עד ${dayMonth(d.end)}`}</span>
+            {p?.minAmt != null && <span>בקנייה מעל {ils(p.minAmt)}</span>}
+            {p?.limit != null && <span>עד {p.limit} ללקוח</span>}
+            {p?.clubName && <span>לחברי {p.clubName}</span>}
+            {p?.coupon && <span>בהצגת קופון</span>}
+            {/* Remarks often just repeat the description. */}
+            {p?.remarks && !d.description.includes(p.remarks.trim()) && !p.remarks.includes(d.description.trim()) && <span>{p.remarks}</span>}
+          </span>
+        );
+      })}
+    </span>
   );
 }
 

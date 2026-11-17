@@ -3,7 +3,7 @@
 
 import type { PriceSource } from './collections.ts';
 import type { AppliedPromo, Offer, Split, StoreBasket } from './pricing.ts';
-import type { StoreDoc } from './snapshot.ts';
+import type { PromoDoc, StoreDoc } from './snapshot.ts';
 
 export type { PriceSource } from './collections.ts';
 
@@ -40,6 +40,36 @@ export interface StoreInfo {
 }
 
 /** PUT /api/shopping/manual-prices — set (or, with null, clear) one price at a manual store. */
+/** The terms of a deal beyond its description and end date (shown on hover/tap of a price). */
+export interface PromoDetail {
+  /** Israel local "YYYY-MM-DDTHH:mm". */
+  start: string;
+  end: string;
+  /** Basket minimum in agorot, or null. */
+  minAmt: number | null;
+  /** Redemption limit per customer, or null. */
+  limit: number | null;
+  /** The chain's remarks, as published ("" when none). */
+  remarks: string;
+  clubName: string | null;
+  coupon: boolean;
+}
+
+export const promoDetail = (p: PromoDoc): PromoDetail => ({
+  start: p.s, end: p.e, minAmt: p.minAmt, limit: p.limit, remarks: p.remarks ?? '',
+  clubName: p.club ? p.clubName || null : null, coupon: p.coupon,
+});
+
+/** Details of the deals the given price lines actually mention, keyed by promo id. */
+export function promoDetails(
+  promos: PromoDoc[],
+  lines: { applied: { id: string }[]; offers: { id: string }[] }[],
+): Record<string, PromoDetail> {
+  const used = new Set<string>();
+  for (const l of lines) for (const p of [...l.applied, ...l.offers]) used.add(p.id);
+  return Object.fromEntries(promos.filter((p) => used.has(p._id)).map((p) => [p._id, promoDetail(p)]));
+}
+
 /** The page's view of a store doc. */
 export const storeInfo = (s: StoreDoc): StoreInfo => ({
   k: s.k, chainId: s.chainId, chainName: s.chainName, name: s.name, address: s.address,
@@ -108,6 +138,8 @@ export interface CompareResponse {
   splits: Split[];
   /** Per list item, its cheapest physical stores. */
   perItem: ItemBest[];
+  /** Terms of every deal named in the baskets above, by promo id. */
+  promos: Record<string, PromoDetail>;
 }
 
 /** One store's price for a single unit (1 kg when weighted) of one item, promos applied. */
@@ -129,4 +161,6 @@ export interface ItemResponse {
   physical: ItemPrice[];
   /** Online stores selling it, cheapest first. */
   online: ItemPrice[];
+  /** Terms of every deal named above, by promo id. */
+  promos: Record<string, PromoDetail>;
 }

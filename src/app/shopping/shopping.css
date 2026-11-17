@@ -760,13 +760,12 @@ body:has(.sh-page) { background: #ffffff; }
 .sh-sheet--inline .sh-sheet-close { top: 0.25rem; inset-inline-end: 0.25rem; }
 .sh-sheet--inline .sh-sheet-head { margin-bottom: 0.75rem; }
 
-/* a price: its source and update time on hover, or on tap */
+/* a price that reveals its source and deal terms on hover, or on tap */
+.sh-reveal { position: relative; display: flex; flex-direction: column; align-items: flex-end; }
 .sh-price-btn {
-  position: relative;
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  gap: 0.25rem;
   min-height: var(--sh-tap);
   padding: 0;
   border: none;
@@ -774,12 +773,37 @@ body:has(.sh-page) { background: #ffffff; }
   color: inherit;
   font: inherit;
   cursor: help;
+  text-decoration: underline dotted var(--sh-line);
+  text-underline-offset: 5px;
 }
-.sh-price-src { display: none; font-size: 0.75rem; color: var(--sh-muted); white-space: nowrap; }
-.sh-sheet-row.is-src .sh-price-src { display: flex; }
+.sh-reveal-pop {
+  position: absolute;
+  top: calc(100% + 2px);
+  inset-inline-end: 0;
+  z-index: 15;
+  display: none;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.375rem;
+  width: max-content;
+  max-width: min(17rem, 80vw);
+  padding: 0.625rem 0.75rem;
+  border: 1px solid var(--sh-line);
+  border-radius: var(--sh-r-ctl);
+  background: var(--sh-bg);
+  box-shadow: 0 8px 24px rgba(17, 17, 17, 0.14);
+  font-size: 0.8125rem;
+  color: var(--sh-muted);
+  text-align: start;
+}
+.sh-reveal.is-open .sh-reveal-pop { display: flex; }
 @media (hover: hover) {
-  .sh-price-btn:hover .sh-price-src, .sh-price-btn:focus-visible .sh-price-src { display: flex; }
+  .sh-reveal:hover .sh-reveal-pop, .sh-price-btn:focus-visible + .sh-reveal-pop { display: flex; }
 }
+.sh-deal-info { display: flex; flex-direction: column; gap: 0.5rem; }
+.sh-deal { display: flex; flex-direction: column; line-height: 1.45; }
+.sh-deal + .sh-deal { padding-top: 0.5rem; border-top: 1px solid var(--sh-line); }
+.sh-deal b { font-weight: 600; color: var(--sh-ink); }
 
 /* ── camera scanner ── */
 .sh-scan { position: fixed; inset: 0; z-index: 60; background: #000; color: #fff; }

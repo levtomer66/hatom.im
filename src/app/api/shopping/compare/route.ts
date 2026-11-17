@@ -5,7 +5,7 @@ import { ITEM_OPTIONS_SHOWN, RESULTS_PER_SECTION, SPLITS_SHOWN } from '@/lib/sho
 import { MAX_LIST_ITEMS, MAX_QTY } from '@/lib/shopping/lists';
 import { bestSplits, rankStores, type BasketLine, type PricingOptions, type StoreBasket } from '@/lib/shopping/pricing';
 import { israelLocalNow } from '@/lib/shopping/snapshot';
-import { storeInfo, type CompareResponse, type ItemBest, type StoreInfo } from '@/lib/shopping/api-types';
+import { promoDetails, storeInfo, type CompareResponse, type ItemBest, type StoreInfo } from '@/lib/shopping/api-types';
 import { withManualPrices } from '@/lib/shopping/manual';
 import { getItems, getPromosFor, getStoresFor } from '@/models/ShoppingCatalog';
 import { getManualPrices } from '@/models/ShoppingManualPrice';
@@ -88,6 +88,10 @@ export async function POST(request: NextRequest) {
       manual,
       splits,
       perItem: perItem(req.lines, physical),
+      promos: promoDetails(promos, [
+        ...physical.slice(0, RESULTS_PER_SECTION), ...online.slice(0, RESULTS_PER_SECTION), ...manual,
+        ...splits.flatMap((s) => s.stores),
+      ].flatMap((b) => b.lines)),
     };
     return NextResponse.json(res);
   } catch (error) {
