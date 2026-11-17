@@ -111,3 +111,26 @@ export async function getItems(keys: string[]): Promise<ItemDoc[]> {
 export async function getPromosFor(keys: string[]): Promise<PromoDoc[]> {
   return (await getDb()).collection<PromoDoc>(COLLECTIONS.promos).find({ items: { $in: keys } }).toArray();
 }
+
+/**
+ * Deals active at `store` at `now` ("אני בסופר", all deals). No index on
+ * `stores` (the ingest budgets indexes for M0), so this scans the promos;
+ * a few hundred match per branch.
+ */
+export async function getActivePromosAt(store: number, now: string): Promise<PromoDoc[]> {
+  return (await getDb())
+    .collection<PromoDoc>(COLLECTIONS.promos)
+    .find({ stores: store, s: { $lte: now }, e: { $gte: now } })
+    .toArray();
+}
+
+/** Items among `keys` sold at `store`, with only that store's price (and what a row shows). */
+export async function getItemsAt(keys: string[], store: number): Promise<ItemDoc[]> {
+  if (!keys.length) return [];
+  const sk = `p.${store}`;
+  return (await getDb())
+    .collection<ItemDoc>(COLLECTIONS.items)
+    .find({ _id: { $in: keys }, [sk]: { $exists: true } })
+    .project<ItemDoc>({ n: 1, m: 1, w: 1, img: 1, imgBy: 1, d: 1, [sk]: 1 })
+    .toArray();
+}

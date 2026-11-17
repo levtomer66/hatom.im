@@ -1,9 +1,9 @@
-# Shopping: "אני בחנות" (I'm in the store)
+# Shopping: "אני בסופר" (I'm at the supermarket)
 
 Design, 2026-11-17; the owner's answers are in § Decisions. A second way into the store, next to
 the trip in [shopping-in-store-mode.md](shopping-in-store-mode.md):
 
-| | Trip (built) | אני בחנות (this doc) |
+| | Trip (built) | אני בסופר (this doc) |
 |---|---|---|
 | Starts from | A list → a plan → "יוצאים לקניות" | A store you're standing in |
 | Answers | "What do I take, and where?" | "What's worth buying **here**?" |
@@ -11,7 +11,7 @@ the trip in [shopping-in-store-mode.md](shopping-in-store-mode.md):
 
 ## Entry and store choice
 
-- **Entry:** a "📍 אני בחנות" button in the page header, always visible
+- **Entry:** a "📍 אני בסופר" button in the page header, always visible
   (it does not need a list). On a phone it is the fourth item of the bottom bar.
 - **Store picker**, a bottom sheet:
   - Sorted by **live distance** when the browser grants location
@@ -190,20 +190,30 @@ All under `/api/shopping/here/*`, permission `shopping` (`requireFeatureCaller`)
 2. Small shops with hand-typed prices: include them in tab 1's comparison
    (they're in `physical` once fully priced), or only chains?
 
-## Status (2026-11-17, branch `claude/shopping-here`)
+## Status (2026-11-17, PR #10)
 
-Built (app side, no ingest change needed):
-- Entry button, store picker (distance sort when stores have `loc`, else by
-  `walkMin`; 2-hour memory; nearby suggestion), `GET /api/shopping/here/stores`.
+Built:
+- Entry button "אני בסופר", store picker: **stores with prices first** (a price
+  file, or a hand-priced shop with at least one typed price), then the rest
+  under "חנויות שאין לנו מחירים מהן"; inside each part by distance when stores
+  have `loc`, else by `walkMin`. 2-hour memory; the nearest store within 80 m
+  is suggested whichever part it's in. `GET /api/shopping/here/stores`.
 - `GET /api/shopping/here` and tab 1 "כדאי כאן" with the four groups and list chips.
-- Tab 2: "ברשימות שלך" (with the deal finisher) and "קנית בעבר".
-- Scan verdict card with the cheaper twin here (a shared word that isn't the brand).
-- Open-trip handoff. Pure helpers in `src/lib/shopping/here.ts`, tests in
-  `shopping-here.test.ts`.
+- Tab 2, in this order: "ברשימות שלך" (with the deal finisher), "קנית בעבר",
+  then **"עוד מבצעים בסניף"**: every item's best deal at the store now,
+  biggest share saved first, with department chips, 30 at a time
+  (`GET /api/shopping/here/deals`, `storeDeals()` in `here.ts`). It reads the
+  promos straight from Mongo (no index on `stores`; ~500–900 active deals
+  per branch, ~200 ms locally), so `shoppingStoreDeals` isn't needed yet.
+  Deals that make the item free are left out: chains publish gift and
+  compensation coupons ("קופון פיצוי", "… מתנה") as plain deals.
+- The bottom bar: **text search** (the main page's search) or a barcode typed
+  or scanned; a result shows the verdict card, with the cheaper twin here.
+- Open-trip handoff. Tests in `shopping-here.test.ts`.
 
 Not built yet:
 - Ingest: `loc` on store docs (until then the picker sorts by walking time and
-  never suggests "נראה שאתה ב…"), and `shoppingStoreDeals` for tab 2's "all deals".
+  never suggests "נראה שאת/ה ב…").
 - Shelf-price reports.
 - The twin compares shelf prices, not unit prices: a bigger pack can show as "cheaper".
 

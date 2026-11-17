@@ -16,7 +16,7 @@ import { getRecentTicked } from '@/models/ShoppingTrip';
 const BEFORE_SCAN = 300;
 const BEFORE_SHOWN = 30;
 
-// GET ?store=<store key>&city=<city id> — "אני בחנות": every item on the
+// GET ?store=<store key>&city=<city id> — "אני בסופר": every item on the
 // caller's lists (all of them) priced here and at the city's other physical
 // stores, one unit each (1 kg when weighted), deals applied as in the product
 // view, grouped by here.ts' verdict. Plus the items bought on recent trips

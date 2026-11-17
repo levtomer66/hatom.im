@@ -111,7 +111,7 @@ export async function endTrip(id: string): Promise<Trip | null> {
 
 /**
  * Item keys bought on the lists' recent trips (ticked), most recent trip
- * first, for "קנית בעבר" in "אני בחנות". Reads only `ticked` of the last
+ * first, for "קנית בעבר" in "אני בסופר". Reads only `ticked` of the last
  * `trips` trips.
  */
 export async function getRecentTicked(listIds: string[], trips = 20): Promise<string[]> {

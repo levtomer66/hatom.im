@@ -1114,13 +1114,13 @@ body:has(.sh-page) { background: #ffffff; }
 .sh-end-actions .sh-btn--primary { margin: 0; }
 .sh-instore-missing { margin-top: 1rem; font-size: 0.875rem; color: var(--sh-muted); }
 
-/* ── "אני בחנות" (Here.tsx) ──
+/* ── "אני בסופר" (Here.tsx) ──
    Same frame as the trip screen, one layer lower so the product window (115)
    and the scanner (125) open over it. */
 .sh-here-entry { display: inline-flex; align-items: center; gap: 0.5rem; margin-top: 0.75rem; }
 .sh-here-entry svg { color: var(--sh-accent); }
 .sh-instore.sh-here { z-index: 112; }
-.sh-here-body { padding-bottom: calc(5.5rem + env(safe-area-inset-bottom)); }
+.sh-here-body { padding-bottom: calc(6rem + env(safe-area-inset-bottom)); }
 .sh-here-near { margin-top: 0.5rem; }
 .sh-here-filter { margin: 0.5rem 0; min-height: var(--sh-tap); }
 .sh-here-stores { margin: 0; padding: 0; list-style: none; }
@@ -1160,27 +1160,53 @@ body:has(.sh-page) { background: #ffffff; }
 .sh-here-deal:has(.sh-here-add) .sh-tick { padding-inline-end: 2.75rem; }
 .sh-here-add { position: absolute; top: 0.5rem; inset-inline-end: -0.5rem; color: var(--sh-accent); }
 .sh-here-gap { color: var(--sh-accent); font-weight: 500; }
-.sh-here-scan {
+.sh-here-find {
   position: absolute;
-  inset-inline-start: 50%;
-  bottom: calc(1rem + env(safe-area-inset-bottom));
-  transform: translateX(50%);
+  inset-inline: 0;
+  bottom: 0;
+  padding: 0.625rem 0.75rem calc(0.625rem + env(safe-area-inset-bottom));
+  border-top: 1px solid var(--sh-line);
+  background: var(--sh-bg);
+}
+.sh-here-findrow { display: flex; gap: 0.5rem; max-width: 600px; margin: 0 auto; }
+.sh-here-findrow .sh-search-box { flex: 1; min-height: 48px; min-width: 0; }
+.sh-here-hits { position: absolute; top: auto; bottom: calc(100% + 6px); inset-inline: 0.75rem; max-height: min(55vh, 26rem); }
+.sh-here-hit {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  width: 100%;
+  min-height: 52px;
+  padding: 0.375rem 0.75rem;
+  border: none;
+  border-bottom: 1px solid var(--sh-line);
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+.sh-here-hit:hover { background: var(--sh-surface); }
+.sh-here-scan {
+  flex: none;
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
-  min-height: 56px;
-  padding: 0 1.5rem;
+  min-height: 48px;
+  padding: 0 1.125rem;
   border: none;
-  border-radius: 28px;
+  border-radius: var(--sh-r-ctl);
   background: var(--sh-action);
   color: var(--sh-action-ink);
   font: inherit;
-  font-size: 1.0625rem;
   font-weight: 600;
-  box-shadow: 0 6px 20px rgba(17, 17, 17, 0.25);
   cursor: pointer;
 }
-.sh-here-scan:active { transform: translateX(50%) scale(0.97); }
+.sh-here-scan:active { transform: scale(0.97); }
+.sh-here-unpriced { margin: 1.25rem 0 0.25rem; font-size: 0.875rem; font-weight: 600; color: var(--sh-muted); }
+.sh-here-pct { font-size: 0.75rem; font-weight: 600; color: var(--sh-accent); }
+.sh-here-more { width: 100%; margin-top: 0.75rem; }
+.sh-here-deals-skel { height: 6rem; margin-top: 0.5rem; }
 .sh-here-verdict { padding-top: 1rem; }
 .sh-here-verdict-skel { height: 8rem; }
 .sh-here-verdict-head { display: flex; align-items: flex-start; gap: 0.75rem; padding-inline-end: 2.5rem; }

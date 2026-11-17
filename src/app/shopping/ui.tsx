@@ -1,6 +1,6 @@
 'use client';
 
-// Small pieces shared by the /shopping page and its "אני בחנות" screen
+// Small pieces shared by the /shopping page and its "אני בסופר" screen
 // (Here.tsx): money and date formats, the product photo, the sale mark.
 
 import React, { useState } from 'react';

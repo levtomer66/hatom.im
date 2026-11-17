@@ -165,7 +165,7 @@ export default function ShoppingPage() {
   /** The active list's open trip, and whether its in-store screen is showing. */
   const [trip, setTrip] = useState<Trip | null>(null);
   const [inStore, setInStore] = useState(false);
-  /** The "אני בחנות" screen. */
+  /** The "אני בסופר" screen. */
   const [here, setHere] = useState(false);
   /** The results under the search box: hidden by a click elsewhere, back on focus (same query). */
   const [hitsOpen, setHitsOpen] = useState(true);
@@ -515,7 +515,7 @@ export default function ShoppingPage() {
           <p className="sh-subtitle">בונים רשימת קניות ורואים באיזו חנות היא הכי זולה. ליד כל מחיר כתוב מאיפה הוא ומאיזה יום.</p>
           {lists && (
             <button type="button" className="sh-btn sh-here-entry" onClick={() => setHere(true)}>
-              <FaMapMarkerAlt aria-hidden /> אני בחנות
+              <FaMapMarkerAlt aria-hidden /> אני בסופר
             </button>
           )}
         </header>

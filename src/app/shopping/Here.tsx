@@ -1,6 +1,6 @@
 'use client';
 
-// "אני בחנות" (docs/shopping-here-mode.md): pick the store you're in (nearest
+// "אני בסופר" (docs/shopping-here-mode.md): pick the store you're in (nearest
 // first when the phone shares its location), then see what on your lists is
 // worth buying here, the deals here on things you buy, and a verdict for any
 // product you scan. Read-only towards the lists apart from "+ לרשימה".
@@ -11,7 +11,8 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { FaArrowRight, FaBarcode, FaChevronDown, FaLocationArrow, FaPlus, FaSearch, FaShoppingCart, FaTimes } from 'react-icons/fa';
 import { SHOPPING_API_PATH } from '@/lib/shopping/config';
-import type { HereResponse, HereRow, HereStore, HereStoresResponse, ItemPrice, ItemResponse, PromoDetail, StoreInfo } from '@/lib/shopping/api-types';
+import type { HereDealsResponse, HereResponse, HereRow, HereStore, HereStoresResponse, ItemPrice, ItemResponse, PromoDetail, SearchHit, StoreInfo } from '@/lib/shopping/api-types';
+import { DEPARTMENTS } from '@/lib/shopping/departments';
 import {
   dealGap, distanceLabel, endsLabel, groupHere, HERE_REMEMBER_MS, isTwin, nearbyStore, sortStores, verdict, type HereGroup, type LatLng,
 } from '@/lib/shopping/here';
@@ -97,7 +98,7 @@ export default function Here(props: HereProps) {
 
   const store = stores?.find((s) => s.k === storeKey) ?? null;
   return (
-    <div className="sh-instore sh-here" role="dialog" aria-modal="true" aria-label="אני בחנות">
+    <div className="sh-instore sh-here" role="dialog" aria-modal="true" aria-label="אני בסופר">
       {store ? (
         <StoreView {...props} store={store} onChangeStore={() => choose(null)} />
       ) : (
@@ -176,8 +177,9 @@ function Picker({ stores, error, onPick, onClose }: {
         {!stores && !error && <div className="sh-skeleton" aria-label="טוען" />}
         {stores && !stores.length && <p className="sh-empty">אין לנו חנויות בעיר הזאת.</p>}
         <ul className="sh-here-stores">
-          {shown.map((s) => (
+          {shown.map((s, i) => (
             <li key={s.k}>
+              {!s.priced && (i === 0 || shown[i - 1].priced) && <p className="sh-here-unpriced">חנויות שאין לנו מחירים מהן</p>}
               <button type="button" className="sh-here-store" onClick={() => onPick(s.k)}>
                 <span className="sh-tick-name">
                   <span>{s.chainName} <span className="sh-branch">{s.name}</span></span>
@@ -185,7 +187,7 @@ function Picker({ stores, error, onPick, onClose }: {
                 </span>
                 <span className="sh-here-dist">
                   {s.distM !== null ? distanceLabel(s.distM) : s.walkMin !== null ? `${s.walkMin} דק׳` : ''}
-                  {!s.pricesAt && <small>{s.source === 'manual' ? 'מחירים ידניים' : 'אין מחירים'}</small>}
+                  {!s.priced ? <small>אין מחירים</small> : s.source === 'manual' ? <small>מחירים ידניים</small> : null}
                 </span>
               </button>
             </li>
@@ -220,6 +222,9 @@ function StoreView({ store, city, tripStores, onOpenTrip, onOpenItem, onAdd, lis
   const [scanning, setScanning] = useState(false);
   const [scanned, setScanned] = useState<string | null>(null);
   const [reload, setReload] = useState(0);
+  /** The store's other deals, loaded when the deals tab first opens. */
+  const [allDeals, setAllDeals] = useState<HereDealsResponse | null>(null);
+  const [allDealsError, setAllDealsError] = useState(false);
 
   useEffect(() => {
     const ctl = new AbortController();
@@ -230,6 +235,16 @@ function StoreView({ store, city, tripStores, onOpenTrip, onOpenItem, onAdd, lis
     return () => ctl.abort();
   }, [store.k, city, reload]);
 
+  useEffect(() => {
+    if (tab !== 'deals' || allDeals) return;
+    const ctl = new AbortController();
+    setAllDealsError(false);
+    getJson<HereDealsResponse>(`/here/deals?store=${store.k}&city=${city}`, ctl.signal)
+      .then(setAllDeals)
+      .catch(() => { if (!ctl.signal.aborted) setAllDealsError(true); });
+    return () => ctl.abort();
+  }, [tab, allDeals, store.k, city]);
+
   const rows = useMemo(
     () => (data ? data.rows.filter((r) => !listFilter || r.listIds.includes(listFilter)) : []),
     [data, listFilter],
@@ -238,6 +253,12 @@ function StoreView({ store, city, tripStores, onOpenTrip, onOpenItem, onAdd, lis
   const dealRows = rows.filter((r) => r.here && (r.here.applied.length || r.here.idle.length || r.here.offers.length));
   const onTrip = tripStores[store.k] ?? 0;
   const listsWithItems = data?.lists.filter((l) => data.rows.some((r) => r.listIds.includes(l.id))) ?? [];
+  // The store's other deals: not the lists' items or the past trips' (shown above them).
+  const otherDeals = useMemo(() => {
+    if (!allDeals || !data) return null;
+    const shown = new Set([...data.rows.map((r) => r.key), ...data.before.map((d) => d.key)]);
+    return allDeals.deals.filter((d) => !shown.has(d.key));
+  }, [allDeals, data]);
 
   return (
     <>
@@ -254,7 +275,7 @@ function StoreView({ store, city, tripStores, onOpenTrip, onOpenItem, onAdd, lis
           כדאי כאן {data && <small>{groups.best.length}</small>}
         </button>
         <button type="button" role="tab" aria-selected={tab === 'deals'} className={tab === 'deals' ? 'is-on' : ''} onClick={() => setTab('deals')}>
-          מבצעים {data && <small>{dealRows.length + data.before.length}</small>}
+          מבצעים {data && <small>{dealRows.length + data.before.length + (otherDeals?.length ?? 0)}</small>}
         </button>
       </div>
       <div className="sh-instore-body sh-here-body">
@@ -281,7 +302,7 @@ function StoreView({ store, city, tripStores, onOpenTrip, onOpenItem, onAdd, lis
 
         {data && tab === 'worth' && (
           <>
-            {!rows.length && <p className="sh-empty">הרשימות ריקות. אפשר לסרוק מוצר ולראות אם כדאי לקנות אותו כאן.</p>}
+            {!rows.length && <p className="sh-empty">הרשימות ריקות. אפשר לחפש או לסרוק מוצר ולראות אם כדאי לקנות אותו כאן.</p>}
             {(['best', 'ok', 'elsewhere'] as const).map((g) => groups[g].length > 0 && (
               <section key={g} className={`sh-dept sh-here-group is-${g}`}>
                 <h3>{GROUP_TITLE[g]} <small>{groups[g].length}</small></h3>
@@ -319,15 +340,15 @@ function StoreView({ store, city, tripStores, onOpenTrip, onOpenItem, onAdd, lis
                 ))}
               </ul>
             </section>
+            <OtherDeals deals={otherDeals} data={allDeals} error={allDealsError} onOpen={(key) => onOpenItem(key, false)}
+              onAdd={onAdd} listName={listName} />
           </>
         )}
         {data && Object.values(data.items).some((i) => i.img && i.imgBy === 'off') && (
           <p className="sh-credit">חלק מהתמונות: Open Food Facts, ברישיון CC BY-SA.</p>
         )}
       </div>
-      <button type="button" className="sh-here-scan" onClick={() => setScanning(true)} aria-label="סריקת מוצר">
-        <FaBarcode aria-hidden /> סריקה
-      </button>
+      <FindBar city={city} onScan={() => setScanning(true)} onPick={setScanned} />
       {scanning && (
         <Scanner onClose={() => setScanning(false)} onCode={(code) => { setScanning(false); setScanned(code); }} />
       )}
@@ -337,6 +358,162 @@ function StoreView({ store, city, tripStores, onOpenTrip, onOpenItem, onAdd, lis
           onScanAgain={() => { setScanned(null); setScanning(true); }} />
       )}
     </>
+  );
+}
+
+/** Rows of "all deals here" shown at first, and per "עוד". */
+const DEALS_PAGE = 30;
+
+/** "עוד מבצעים בסניף": the store's other deals, biggest share saved first, by department. */
+function OtherDeals({ deals, data, error, onOpen, onAdd, listName }: {
+  deals: HereDealsResponse['deals'] | null;
+  data: HereDealsResponse | null;
+  error: boolean;
+  onOpen: (key: string) => void;
+  onAdd: HereProps['onAdd'];
+  listName: string | null;
+}) {
+  const [dept, setDept] = useState<string | null>(null);
+  const [shown, setShown] = useState(DEALS_PAGE);
+  const depts = useMemo(() => {
+    if (!deals || !data) return [];
+    const have = new Set(deals.map((d) => data.items[d.key]?.d ?? 'other'));
+    return [...DEPARTMENTS.filter((d) => have.has(d.id)), ...(have.has('other') ? [{ id: 'other', name: 'אחר' }] : [])];
+  }, [deals, data]);
+  const list = deals && data ? deals.filter((d) => !dept || (data.items[d.key]?.d ?? 'other') === dept) : [];
+
+  return (
+    <section className="sh-dept">
+      <h3>עוד מבצעים בסניף {deals && <small>{deals.length}{data?.more ? '+' : ''}</small>}</h3>
+      {error && <p className="sh-error">לא הצלחנו לטעון את המבצעים.</p>}
+      {!deals && !error && <div className="sh-skeleton sh-here-deals-skel" aria-label="טוען" />}
+      {deals && !deals.length && <p className="sh-empty">אין עוד מבצעים בסניף הזה.</p>}
+      {depts.length > 1 && (
+        <nav className="sh-scroller sh-here-lists" aria-label="מחלקות">
+          <button type="button" className={`sh-chip ${!dept ? 'is-on' : ''}`} aria-pressed={!dept} onClick={() => { setDept(null); setShown(DEALS_PAGE); }}>הכול</button>
+          {depts.map((d) => (
+            <button key={d.id} type="button" className={`sh-chip ${dept === d.id ? 'is-on' : ''}`} aria-pressed={dept === d.id}
+              onClick={() => { setDept(dept === d.id ? null : d.id); setShown(DEALS_PAGE); }}>{d.name}</button>
+          ))}
+        </nav>
+      )}
+      {data && (
+        <ul>
+          {list.slice(0, shown).map((d) => {
+            const it = data.items[d.key];
+            const p = data.promos[d.promo];
+            return (
+              <li key={d.key} className="sh-here-deal">
+                <button type="button" className="sh-tick sh-here-row" onClick={() => onOpen(d.key)}>
+                  <Thumb src={it?.img} size={40} by={it?.imgBy} />
+                  <span className="sh-tick-name">
+                    <span>{it?.name ?? d.key}</span>
+                    <small className={d.club || d.coupon ? 'sh-promo is-offer' : 'sh-promo'}>
+                      {p?.description ?? 'מבצע'} · {endsLabel(d.end, data.now)}
+                      {d.club && ` · ${p?.clubName ? `לחברי ${p.clubName}` : 'מועדון'}`}{d.coupon && ' · בקופון'}
+                    </small>
+                  </span>
+                  <span className="sh-here-price">
+                    <span className="sh-here-pct" dir="ltr">−{Math.round(d.pct * 100)}%</span>
+                    <b>{ils(d.cost)}</b>
+                    <s>{ils(d.regularCost)}</s>
+                    {(d.qty !== 1 || it?.w) && <small className="sh-muted">{it?.w ? 'לק״ג' : `ל־${d.qty}`}</small>}
+                  </span>
+                </button>
+                <button type="button" className="sh-icon-btn sh-here-add" onClick={() => it && onAdd({ key: d.key, name: it.name, w: it.w })}
+                  aria-label={`הוספה ל${listName ? `"${listName}"` : 'רשימה'}: ${it?.name ?? d.key}`}><FaPlus /></button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+      {list.length > shown && (
+        <button type="button" className="sh-btn sh-here-more" onClick={() => setShown(shown + DEALS_PAGE)}>
+          עוד {Math.min(DEALS_PAGE, list.length - shown)} מבצעים
+        </button>
+      )}
+    </section>
+  );
+}
+
+/**
+ * The bar at the bottom: type a product name (the main page's search) or a
+ * barcode, or open the camera. Picking a result shows its verdict here.
+ */
+function FindBar({ city, onScan, onPick }: { city: string; onScan: () => void; onPick: (key: string) => void }) {
+  const [q, setQ] = useState('');
+  const [hits, setHits] = useState<SearchHit[] | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    const t = q.trim();
+    if (t.length < 2) {
+      setHits(null);
+      return;
+    }
+    const ctl = new AbortController();
+    const timer = setTimeout(async () => {
+      setBusy(true);
+      try {
+        setHits(await getJson<SearchHit[]>(`/search?q=${encodeURIComponent(t)}&city=${city}`, ctl.signal));
+      } catch {
+        /* aborted or offline */
+      } finally {
+        if (!ctl.signal.aborted) setBusy(false);
+      }
+    }, 250);
+    return () => {
+      clearTimeout(timer);
+      ctl.abort();
+    };
+  }, [q, city]);
+
+  const pick = (key: string) => {
+    setQ('');
+    setHits(null);
+    (document.activeElement as HTMLElement | null)?.blur();
+    onPick(key);
+  };
+
+  return (
+    <div className="sh-here-find">
+      {hits && (
+        <ul className="sh-hits sh-here-hits" role="listbox" aria-label="תוצאות">
+          {!busy && !hits.length && <li className="sh-muted sh-hits-empty">לא נמצאו מוצרים</li>}
+          {hits.map((h) => (
+            <li key={h.key}>
+              <button type="button" className="sh-here-hit" onClick={() => pick(h.key)}>
+                <Thumb src={h.img} size={36} by={h.imgBy} />
+                <span className="sh-tick-name">
+                  <span>{h.name}</span>
+                  {h.minPrice !== null && <small>{h.minPrice === h.maxPrice ? ils(h.minPrice) : `${ils(h.minPrice)}–${ils(h.maxPrice!)}`} בעיר</small>}
+                </span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+      <div className="sh-here-findrow">
+        <label className="sh-search-box">
+          <FaSearch aria-hidden />
+          <input type="search" value={q} onChange={(e) => setQ(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') setQ('');
+              if (e.key === 'Enter') {
+                const t = q.trim();
+                if (/^\d{8,14}$/.test(t)) pick(t);
+                else if (hits?.length) pick(hits[0].key);
+              }
+            }}
+            placeholder="מוצר או ברקוד" aria-label="חיפוש מוצר או ברקוד" enterKeyHint="search" autoComplete="off" />
+          {busy && <span className="sh-spinner" aria-hidden />}
+          {q && <button type="button" className="sh-icon-btn" onClick={() => setQ('')} aria-label="ניקוי החיפוש"><FaTimes /></button>}
+        </label>
+        <button type="button" className="sh-here-scan" onClick={onScan} aria-label="סריקת ברקוד">
+          <FaBarcode aria-hidden /> סריקה
+        </button>
+      </div>
+    </div>
   );
 }
 

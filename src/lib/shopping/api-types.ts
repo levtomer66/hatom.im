@@ -244,12 +244,14 @@ export interface ItemResponse {
   promos: Record<string, PromoDetail>;
 }
 
-// ── "אני בחנות" (docs/shopping-here-mode.md) ──
+// ── "אני בסופר" (docs/shopping-here-mode.md) ──
 
-/** A store for the "אני בחנות" picker. */
+/** A store for the "אני בסופר" picker. */
 export interface HereStore extends StoreInfo {
   /** Where the store is, when the ingest geocoded it (`loc` on the store doc); null until then. */
   loc: { lat: number; lng: number } | null;
+  /** We have prices for it: a price file, or (a manual shop) at least one typed price. */
+  priced: boolean;
 }
 
 /** GET /api/shopping/here/stores?city=<city id> — the city's physical stores, for the picker (sorted on the device). */
@@ -292,5 +294,29 @@ export interface HereResponse {
   /** Not on any list, bought on a recent trip, and on a deal here now (biggest saving first). */
   before: { key: string; here: ItemPrice }[];
   /** Terms of every deal named above, by promo id. */
+  promos: Record<string, PromoDetail>;
+}
+
+/**
+ * GET /api/shopping/here/deals?store=<store key>&city=<city id> — every item's
+ * best deal at the store now, biggest share saved first (here.ts storeDeals).
+ */
+export interface HereDealsResponse {
+  now: string;
+  /** More deals than the ones sent (the smallest savings are left out). */
+  more: boolean;
+  deals: {
+    key: string;
+    promo: string;
+    /** Units the deal is priced for (kg when weighed). */
+    qty: number;
+    cost: number;
+    regularCost: number;
+    pct: number;
+    end: string;
+    club: boolean;
+    coupon: boolean;
+  }[];
+  items: Record<string, { name: string; w: boolean; img: string | null; imgBy: ImgBy; d: string | null }>;
   promos: Record<string, PromoDetail>;
 }

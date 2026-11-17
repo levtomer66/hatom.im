@@ -31,3 +31,10 @@ export async function clearManualPrice(store: number, item: string): Promise<boo
   const r = await (await getCollection()).deleteOne({ _id: manualPriceId(store, item) });
   return r.deletedCount > 0;
 }
+
+/** Which of `stores` have at least one typed price. */
+export async function getStoresWithManualPrices(stores: number[]): Promise<Set<number>> {
+  if (!stores.length) return new Set();
+  const ks = await (await getCollection()).distinct('s', { s: { $in: stores } });
+  return new Set(ks as number[]);
+}

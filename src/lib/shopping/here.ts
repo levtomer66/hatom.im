@@ -1,9 +1,11 @@
-// "אני בחנות" (docs/shopping-here-mode.md): what's worth buying at the store
+// "אני בסופר" (docs/shopping-here-mode.md): what's worth buying at the store
 // you're standing in. The verdict for one item, the grouping of the lists'
 // items, merging the lists and sorting stores by distance. Import-free apart
-// from types, for `node --test`.
+// from types and the pricing engine (both import-free), for `node --test`.
 
 import type { HereRow, HereStore } from './api-types.ts';
+import { priceStore, type PricedItem } from './pricing.ts';
+import type { PromoDoc } from './snapshot.ts';
 
 export type { HereRow, HereStore } from './api-types.ts';
 
@@ -74,13 +76,15 @@ export function metresBetween(a: LatLng, b: LatLng): number {
 
 /**
  * Stores for the picker with their distance from `me` (null without a
- * position or a location): nearest first; stores without a distance after
- * them, by walking time from the pins, then by name.
+ * position or a location). Stores we have prices for come first, the rest
+ * after them; inside each part nearest first, stores without a distance
+ * after those, by walking time from the pins, then by name.
  */
 export function sortStores<S extends HereStore>(stores: S[], me: LatLng | null): (S & { distM: number | null })[] {
   return stores
     .map((s) => ({ ...s, distM: me && s.loc ? Math.round(metresBetween(me, s.loc)) : null }))
     .sort((a, b) => {
+      if (a.priced !== b.priced) return a.priced ? -1 : 1;
       if (a.distM !== null || b.distM !== null) {
         if (a.distM === null) return 1;
         if (b.distM === null) return -1;
@@ -93,10 +97,11 @@ export function sortStores<S extends HereStore>(stores: S[], me: LatLng | null):
     });
 }
 
-/** The store to suggest: the nearest, if it's within HERE_NEAR_M. */
-export function nearbyStore<S extends { distM: number | null }>(sorted: S[]): S | null {
-  const first = sorted[0];
-  return first && first.distM !== null && first.distM <= HERE_NEAR_M ? first : null;
+/** The store to suggest: the nearest one (priced or not), if it's within HERE_NEAR_M. */
+export function nearbyStore<S extends { distM: number | null }>(stores: S[]): S | null {
+  let near: S | null = null;
+  for (const s of stores) if (s.distM !== null && s.distM <= HERE_NEAR_M && (!near || s.distM < near.distM!)) near = s;
+  return near;
 }
 
 /** "120 מ׳" / "1.4 ק״מ". */
@@ -138,4 +143,55 @@ export function isTwin(name: string, maker: string, candidate: string): boolean 
   const brand = new Set(nameWords(maker));
   const own = new Set(nameWords(name).filter((w) => !brand.has(w)));
   return nameWords(candidate).some((w) => own.has(w));
+}
+
+/** One item's best deal at a store, priced on its own (the deal's minimum quantity; 1 kg when weighed). */
+export interface StoreDeal {
+  key: string;
+  promo: string;
+  /** Units the deal is priced for (kg when weighed). */
+  qty: number;
+  /** Agorot for `qty` with the deal, and without it. */
+  cost: number;
+  regularCost: number;
+  /** Share saved, 0..1. */
+  pct: number;
+  end: string;
+  club: boolean;
+  coupon: boolean;
+}
+
+/**
+ * Every item's best deal active at `store` now, biggest share saved first.
+ * Each deal is priced like a basket of just that item at the deal's minimum
+ * quantity, with the deal's club and coupon counted (flagged on the row), so
+ * the same reading as the compare applies. Deals that save nothing that way
+ * (a basket minimum, buy-X-get-Y across items, description-only) are left out,
+ * and so are deals that make the item free: chains publish gift and
+ * compensation coupons ("קופון פיצוי", "… מתנה") as plain deals.
+ */
+/** Chains publish some coupon deals without the coupon flag; the description says so. */
+const COUPON_TEXT = /קופון/;
+
+export function storeDeals(store: number, promos: PromoDoc[], items: Map<string, PricedItem>, now: string): StoreDeal[] {
+  const sk = String(store);
+  const best = new Map<string, StoreDeal>();
+  for (const p of promos) {
+    if (p.s > now || p.e < now || !p.stores.includes(store)) continue;
+    for (const key of p.items) {
+      const item = items.get(key);
+      if (!item || item.p[sk] === undefined) continue;
+      const group = p.g.find((g) => g.items.includes(key)) ?? p.g[0];
+      const qty = item.w ? 1 : Math.max(1, Math.ceil(group?.min ?? 1));
+      const l = priceStore(store, [{ key, qty }], items, [p], { now, clubs: p.club ? [p.club] : [], coupons: true }).lines[0];
+      // Free outright = a gift or a compensation coupon ("קופון פיצוי", "… מתנה"), not a shelf deal.
+      if (!l?.available || l.cost >= l.regularCost || l.cost === 0) continue;
+      const pct = (l.regularCost - l.cost) / l.regularCost;
+      const cur = best.get(key);
+      if (!cur || pct > cur.pct) {
+        best.set(key, { key, promo: p._id, qty, cost: l.cost, regularCost: l.regularCost, pct, end: p.e, club: p.club !== 0, coupon: p.coupon || COUPON_TEXT.test(p.d) });
+      }
+    }
+  }
+  return [...best.values()].sort((a, b) => b.pct - a.pct || (b.regularCost - b.cost) - (a.regularCost - a.cost) || a.key.localeCompare(b.key));
 }
