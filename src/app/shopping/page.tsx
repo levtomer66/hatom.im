@@ -524,34 +524,7 @@ export default function ShoppingPage() {
         {!lists && !loadError && <div className="sh-skeleton" aria-label="טוען" />}
 
         {lists && list && (
-          <div className="sh-layout">
-            {/* The lists as a vertical menu: a column on the right on wide screens, on top on a phone. */}
-            <nav className="sh-lists" aria-label="רשימות">
-              <ul>
-                {lists.map((l) => {
-                  const on = l.id === list.id;
-                  return (
-                    <li key={l.id} className={`sh-lists-row ${on ? 'is-on' : ''}`}>
-                      <button type="button" className="sh-lists-item" aria-current={on ? 'true' : undefined} onClick={() => pickList(l.id)}>
-                        {!l.shared && <FaLock className="sh-chip-lock" aria-label="אישית" />}
-                        <span className="sh-lists-name">{l.name}</span>
-                        <small>{l.items.length}</small>
-                      </button>
-                      {on && (
-                        <button type="button" className={`sh-lists-edit ${editing ? 'is-on' : ''}`}
-                          onClick={() => setEditing(!editing)} aria-expanded={editing} aria-controls="sh-list-body">
-                          {editing ? <><FaCheck aria-hidden /> סיום</> : <><FaPen aria-hidden /> עריכה</>}
-                        </button>
-                      )}
-                    </li>
-                  );
-                })}
-                <li className="sh-lists-row">
-                  <button type="button" className="sh-lists-item sh-lists-add" onClick={newList}><FaPlus aria-hidden /> רשימה חדשה</button>
-                </li>
-              </ul>
-            </nav>
-            <div className="sh-main">
+          <>
             {trip && !inStore && (
               <button type="button" className="sh-resume" onClick={() => setInStore(true)}>
                 <FaShoppingCart aria-hidden />
@@ -562,6 +535,24 @@ export default function ShoppingPage() {
                 <span className="sh-resume-go">להמשיך</span>
               </button>
             )}
+            <nav className="sh-scroller" aria-label="רשימות">
+              {lists.map((l) => (
+                <React.Fragment key={l.id}>
+                  <button type="button" className={`sh-chip ${l.id === list.id ? 'is-on' : ''}`}
+                    aria-pressed={l.id === list.id} onClick={() => pickList(l.id)}>
+                    {!l.shared && <FaLock className="sh-chip-lock" aria-label="אישית" />}
+                    {l.name} <small>{l.items.length}</small>
+                  </button>
+                  {l.id === list.id && (
+                    <button type="button" className={`sh-chip sh-chip--edit ${editing ? 'is-on' : ''}`}
+                      onClick={() => setEditing(!editing)} aria-expanded={editing} aria-controls="sh-list-body">
+                      {editing ? <><FaCheck aria-hidden /> סיום</> : <><FaPen aria-hidden /> עריכה</>}
+                    </button>
+                  )}
+                </React.Fragment>
+              ))}
+              <button type="button" className="sh-chip sh-chip--add" onClick={newList} aria-label="רשימה חדשה" title="רשימה חדשה"><FaPlus aria-hidden /></button>
+            </nav>
 
             <div className="sh-loc">
               <FaMapMarkerAlt aria-hidden />
@@ -710,8 +701,7 @@ export default function ShoppingPage() {
                 <button type="button" className="sh-link" onClick={() => setCompareError(false)}>לנסות שוב</button>
               </p>
             )}
-            </div>
-          </div>
+          </>
         )}
         {(hits?.some((h) => h.img && h.imgBy === 'off') || Object.values(result?.items ?? {}).some((i) => i.img && i.imgBy === 'off')) && (
           <p className="sh-credit">חלק מתמונות המוצרים: <a href="https://world.openfoodfacts.org" target="_blank" rel="noopener noreferrer">Open Food Facts</a>, ברישיון CC BY-SA.</p>
