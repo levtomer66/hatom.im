@@ -120,11 +120,12 @@ Shuk HaIr, Zol VeBegadol, Meshnat Yosef 1/2, City Market Shops (empty file).
 
 The price files carry no photos. In order of preference, an item doc's `img` is:
 
-1. **The store's own source**: a priced Wolt venue's photo for the barcode.
-2. **Rami Levy's image CDN**, by barcode: `https://img.rami-levy.co.il/product/<barcode>/small.jpg`
+1. **Rami Levy's image CDN**, by barcode: `https://img.rami-levy.co.il/product/<barcode>/small.jpg`
    (200 = photo, 403 = none; robots.txt `Allow: /product/`). It covers far more
    than Rami Levy's own range. Link only — the files are never copied.
-3. **A photo-only Wolt venue** (places/wolt.json `photosOnly`, e.g. a Wolt Market
+2. **Wolt, as a fallback only** (owner's call, 2026-11-17 — see Wolt's terms below):
+   a priced Wolt venue's own photo, then
+3. **a photo-only Wolt venue** (places/wolt.json `photosOnly`, e.g. a Wolt Market
    dark store), cached per week.
 4. **Open Food Facts** (`imgBy: 'off'`): `image_url` from the monthly CSV export,
    streamed and filtered to our barcodes (never saved whole). Photos are
@@ -141,8 +142,9 @@ only reads those caches. The evaluation behind this (coverage, terms, what
 was rejected): [shopping-photo-sources.md](shopping-photo-sources.md).
 
 **Wolt's terms** (Israel, §12.3 and §13.6) prohibit scraping and systematic
-retrieval. Both the priced Wolt venues and the photo-only one rely on it.
-Open decision for the owner.
+retrieval. The owner kept Wolt prices, and Wolt photos only where no other
+source has one (about a third of what they covered — mainly loose produce and
+imports; Rami Levy has no produce photos).
 
 ## File format observations
 

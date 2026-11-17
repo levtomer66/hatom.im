@@ -455,7 +455,7 @@ async function main() {
     for (const st of states) {
       if (st.chainId !== ramiLevy) continue;
       for (const it of st.items) {
-        if (it.barcode && /^\d{8,14}$/.test(it.key) && !(it.key in probed) && !photos.has(it.key)) photos.set(it.key, { img: RAMI_LEVY_IMG(it.key) });
+        if (it.barcode && /^\d{8,14}$/.test(it.key) && !(it.key in probed) && !photos.has(it.key)) photos.set(it.key, { img: RAMI_LEVY_IMG(it.key), first: true });
       }
     }
     const wm = await woltPhotos(Boolean(args.offline));

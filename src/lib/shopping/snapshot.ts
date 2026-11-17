@@ -113,6 +113,12 @@ function itemDepartment(cats: string[], n: string, names: string[]): string | nu
   return mostCommon(names.map((x) => departmentOf(x) ?? '')) || null;
 }
 
+/** A `first` barcode photo, else the priced source's own (Wolt), else any barcode photo. */
+function photoFields(p: BarcodePhoto | undefined, own: string | undefined): { img?: string; imgBy?: 'off' } {
+  if (p && (p.first || !own)) return { img: p.img, ...(p.by ? { imgBy: p.by } : {}) };
+  return own ? { img: own } : {};
+}
+
 function mostCommon(values: string[]): string {
   const counts = new Map<string, number>();
   for (const v of values) if (v) counts.set(v, (counts.get(v) ?? 0) + 1);
@@ -127,7 +133,14 @@ function mostCommon(values: string[]): string {
  * photo-only Wolt venue, or Open Food Facts with `by: 'off'`), used when no
  * store's own source has one.
  */
-export function buildItemDocs(stores: StoreState[], photos: Map<string, { img: string; by?: 'off' }> = new Map()): Map<string, ItemDoc> {
+/** A photo by barcode from outside the priced sources; `first` wins even over a priced source's own photo. */
+export interface BarcodePhoto {
+  img: string;
+  by?: 'off';
+  first?: boolean;
+}
+
+export function buildItemDocs(stores: StoreState[], photos: Map<string, BarcodePhoto> = new Map()): Map<string, ItemDoc> {
   const acc = new Map<string, { names: string[]; makers: string[]; cats: string[]; first: CanonItem; p: Record<string, number>; img?: string }>();
   for (const s of stores) {
     for (const it of s.items) {
@@ -158,7 +171,7 @@ export function buildItemDocs(stores: StoreState[], photos: Map<string, { img: s
       w: a.first.weighted,
       bc: a.first.barcode,
       p: a.p,
-      ...(a.img ? { img: a.img } : a.first.barcode && photos.has(key) ? { img: photos.get(key)!.img, ...(photos.get(key)!.by ? { imgBy: photos.get(key)!.by } : {}) } : {}),
+      ...photoFields(a.first.barcode ? photos.get(key) : undefined, a.img),
       ...(s ? { s } : {}),
       ...(d ? { d } : {}),
     });
