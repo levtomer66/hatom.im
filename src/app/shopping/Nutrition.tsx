@@ -29,10 +29,10 @@ const money = new Intl.NumberFormat('he-IL', { style: 'currency', currency: 'ILS
 
 /**
  * "ערכים תזונתיים", collapsed at the top of the product window. Under the
- * title, even when closed: what 10 g of protein cost at the cheapest store
- * (and the red-label marks). Opened: a toggle between per 100 g (ml) and the
- * whole pack, one tile per nutrient, the source, and a reminder that the
- * package is what counts.
+ * title, even when closed: what 10 g of protein cost at the cheapest store —
+ * nothing else. Opened: the red-label marks, a toggle between per 100 g (ml)
+ * and the whole pack, one tile per nutrient, the source, and a reminder that
+ * the package is what counts.
  */
 export function NutritionPanel({ item, best }: {
   item: ItemResponse['item'];
@@ -62,15 +62,12 @@ export function NutritionPanel({ item, best }: {
         <span className="sh-section-title">ערכים תזונתיים</span>
         <FaChevronDown aria-hidden className={open ? 'is-open' : ''} />
       </button>
-      {(perProtein !== null || red.length > 0) && (
+      {perProtein !== null && best && (
         <p className="sh-nu-summary">
-          {perProtein !== null && best && (
-            <span className="sh-nu-protein">
-              <b>{money.format(perProtein / 100)}</b> ל־{PROTEIN_PER} גרם חלבון
-              <small> · ב{best.store}{item.w ? ', לפי מחיר לק״ג' : ''}</small>
-            </span>
-          )}
-          {red.map((k) => <span key={k} className="sh-nu-chip">עתיר {RED_LABEL_TEXT[k]}</span>)}
+          <span className="sh-nu-protein">
+            <b>{money.format(perProtein / 100)}</b> ל־{PROTEIN_PER} גרם חלבון
+            <small> · ב{best.store}{item.w ? ', לפי מחיר לק״ג' : ''}</small>
+          </span>
         </p>
       )}
       {open && (
@@ -84,7 +81,12 @@ export function NutritionPanel({ item, best }: {
             )}
             {item.w && <small className="sh-muted">ל־100 גרם</small>}
           </div>
-          {red.length > 0 && <p className="sh-nu-red"><small>הסימון האדום לפי הערכים, לא לפי האריזה</small></p>}
+          {red.length > 0 && (
+            <p className="sh-nu-red">
+              {red.map((k) => <span key={k} className="sh-nu-chip">עתיר {RED_LABEL_TEXT[k]}</span>)}
+              <small>לפי הערכים, לא לפי האריזה</small>
+            </p>
+          )}
           <ul className="sh-nu-tiles">
             {shown.map((k) => {
               const info = NUTRIENT_INFO[k];
