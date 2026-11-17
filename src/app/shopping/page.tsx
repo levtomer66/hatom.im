@@ -26,19 +26,22 @@
  */
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { FaMinus, FaPlus, FaTrash, FaSearch, FaChevronDown, FaTimes, FaCheck, FaPen, FaBarcode, FaMapMarkerAlt, FaLocationArrow, FaLock, FaShoppingCart, FaArrowRight, FaEllipsisH } from 'react-icons/fa';
+import { FaMinus, FaPlus, FaTrash, FaSearch, FaChevronDown, FaTimes, FaCheck, FaBarcode, FaMapMarkerAlt, FaLocationArrow, FaShoppingCart, FaArrowRight, FaEllipsisH } from 'react-icons/fa';
 import dynamic from 'next/dynamic';
 import Navbar from '@/components/Navbar';
 import { CITIES } from '@/lib/shopping/cities';
 import { distanceM } from '@/lib/shopping/places';
 import { SHOPPING_API_PATH } from '@/lib/shopping/config';
-import { normalizeQty, type ShoppingList, type ShoppingListItem } from '@/lib/shopping/lists';
+import { HOME_LIST_ID, normalizeQty, type ListLine, type MyItem } from '@/lib/shopping/home';
 import type { ShoppingSettings } from '@/lib/shopping/api-types';
 import type { CompareResponse, ShoppingPlan, ItemBest, ItemPrice, ItemResponse, ManualPriceResponse, PriceSource, PromoDetail, SearchHit, StoreInfo } from '@/lib/shopping/api-types';
 import type { LineResult, Offer, PromoRef, StoreBasket } from '@/lib/shopping/pricing';
 import { dealNudge, groupByDepartment, progress, withPending, type PlanKind, type Trip, type TripCreate, type TripItem } from '@/lib/shopping/trips';
 import { cleanAddress, dayMonth, ils, MultiStar, multiNote, photoBroken, qtyLabel, SaleLabel, storeName, Thumb } from './ui';
 import Here from './Here';
+import MyItems from './MyItems';
+import Missing from './Missing';
+import { api, loadHome, saveHome, type HomeView } from './home-client';
 import { NutritionHero, NutritionPanel, SettingsMenu } from './Nutrition';
 
 /** "2026-11-28T23:59" → "28.11" */
@@ -63,9 +66,8 @@ const SOURCE: Record<PriceSource, { label: string; hint: string; dated: string }
 /** A price file older than this many days is flagged. */
 const OLD_DAYS = 2;
 
-const LS_LIST = 'shopping:list';
-/** Offline copies: the lists, each list's open trip, and each trip's unsent ticks. */
-const LS_LISTS_CACHE = 'shopping:lists-cache';
+/** Offline copies: My items and the list, the open trip, and each trip's unsent ticks. */
+const LS_HOME_CACHE = 'shopping:home-cache';
 const lsTrip = (listId: string) => `shopping:trip:${listId}`;
 const lsQueue = (tripId: string) => `shopping:trip-queue:${tripId}`;
 const lsJson = <T,>(k: string): T | null => {
@@ -127,15 +129,6 @@ const lsSet = (k: string, v: string) => {
   }
 };
 
-async function api<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(SHOPPING_API_PATH + path, {
-    ...init,
-    headers: { 'Content-Type': 'application/json', ...init?.headers },
-  });
-  if (!res.ok) throw new Error(`${res.status}`);
-  return res.json() as Promise<T>;
-}
-
 /**
  * The result views: per item (each item's cheapest store), per list (the best
  * single store for the whole list), per stores (how to split the list between
@@ -144,12 +137,17 @@ async function api<T>(path: string, init?: RequestInit): Promise<T> {
 // The scanner (and the decoder it may load) only downloads when opened.
 const Scanner = dynamic(() => import('./Scanner'), { ssr: false });
 
+/** The one shopping list, in the shape the result views take. */
+type PageList = { id: string; name: string; items: ListLine[] };
+
 type Tab = 'item' | 'list' | 'stores' | 'online';
 const step = (w: boolean) => (w ? 0.5 : 1);
 
 export default function ShoppingPage() {
-  const [lists, setLists] = useState<ShoppingList[] | null>(null);
-  const [activeId, setActiveId] = useState<string | null>(null);
+  /** The household's My items and its one shopping list (null until loaded). */
+  const [home, setHome] = useState<HomeView | null>(null);
+  /** The "מה חסר?" sheet. */
+  const [missingOpen, setMissingOpen] = useState(false);
   const [city, setCity] = useState<string>(CITIES[0].id);
   const [cityMode, setCityMode] = useState<'auto' | 'manual'>('auto');
   const [loc, setLoc] = useState<LocState>('idle');
@@ -165,7 +163,7 @@ export default function ShoppingPage() {
   /** The product window: an item key or a scanned barcode. */
   const [product, setProduct] = useState<{ key: string; scanned: boolean } | null>(null);
   const [scanning, setScanning] = useState(false);
-  /** The active list's open trip, and whether its in-store screen is showing. */
+  /** The list's open trip, and whether its in-store screen is showing. */
   const [trip, setTrip] = useState<Trip | null>(null);
   const [inStore, setInStore] = useState(false);
   /** The "אני בסופר" screen. */
@@ -201,11 +199,10 @@ export default function ShoppingPage() {
   const [compareError, setCompareError] = useState(false);
   const [tab, setTab] = useState<Tab>('list');
   const [open, setOpen] = useState<string | null>(null);
-  /** The list's items are folded away until "עריכה" is tapped. */
-  const [editing, setEditing] = useState(false);
   const resultsRef = useRef<HTMLElement>(null);
 
-  const list = lists?.find((l) => l.id === activeId) ?? null;
+  /** The list in the shape the result views take (they predate My items). */
+  const list = useMemo(() => (home ? { id: HOME_LIST_ID, name: 'רשימת הקניות', items: home.list } : null), [home]);
 
   // Product photos seen so far (search hits and compare results), by item key.
   const [imgs, setImgs] = useState<Record<string, string>>({});
@@ -257,39 +254,30 @@ export default function ShoppingPage() {
     detectCity();
   };
 
-  // ── load lists (creating the first one) ──
+  // ── load My items and the list ──
   useEffect(() => {
     const savedCity = lsGet(LS_CITY);
     const manual = lsGet(LS_CITY_MODE) === 'manual';
     if (manual) setCityMode('manual');
     else detectCity();
     if (savedCity && CITIES.some((c) => c.id === savedCity)) setCity(savedCity);
-    (async () => {
-      try {
-        let all = await api<ShoppingList[]>('/lists');
-        if (!all.length) all = [await api<ShoppingList>('/lists', { method: 'POST', body: JSON.stringify({ name: 'רשימת קניות', shared: true }) })];
-        setLists(all);
-        lsSet(LS_LISTS_CACHE, JSON.stringify(all));
-        const saved = lsGet(LS_LIST);
-        setActiveId(all.some((l) => l.id === saved) ? saved : all[0].id);
-      } catch (e) {
-        // In the store without signal: the last lists seen on this phone, so an open trip still opens.
-        const cached = isNetworkError(e) ? lsJson<ShoppingList[]>(LS_LISTS_CACHE) : null;
-        if (cached?.length) {
-          setLists(cached);
-          const saved = lsGet(LS_LIST);
-          setActiveId(cached.some((l) => l.id === saved) ? saved : cached[0].id);
+    loadHome()
+      .then((h) => {
+        setHome(h);
+        lsSet(LS_HOME_CACHE, JSON.stringify(h));
+      })
+      .catch((e) => {
+        // In the store without signal: the last copy seen on this phone, so an open trip still opens.
+        const cached = isNetworkError(e) ? lsJson<HomeView>(LS_HOME_CACHE) : null;
+        if (cached) {
+          setHome(cached);
           setToast('אין חיבור. מוצגים הנתונים האחרונים מהטלפון.');
         } else {
           setLoadError(true);
         }
-      }
-    })();
+      });
   }, []);
 
-  useEffect(() => {
-    if (activeId) lsSet(LS_LIST, activeId);
-  }, [activeId]);
   useEffect(() => lsSet(LS_CITY, city), [city]);
   useEffect(() => lsSet(LS_CITY_MODE, cityMode), [cityMode]);
 
@@ -299,58 +287,86 @@ export default function ShoppingPage() {
     return () => clearTimeout(t);
   }, [toast]);
 
-  // ── save items, debounced ──
-  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const setItems = useCallback(
-    (fn: (items: ShoppingListItem[]) => ShoppingListItem[]) => {
-      if (!list) return;
-      const items = fn(list.items);
-      setLists((ls) => ls!.map((l) => (l.id === list.id ? { ...l, items } : l)));
-      if (saveTimer.current) clearTimeout(saveTimer.current);
-      const id = list.id;
-      saveTimer.current = setTimeout(async () => {
-        try {
-          await api(`/lists/${id}`, { method: 'PATCH', body: JSON.stringify({ items }) });
-          setSaveError(false);
-        } catch {
-          setSaveError(true);
-        }
-      }, 600);
-    },
-    [list],
-  );
+  // ── save, debounced: the list and My items each have their own timer ──
+  const timers = useRef<{ list?: ReturnType<typeof setTimeout>; items?: ReturnType<typeof setTimeout> }>({});
+  const save = useCallback((field: 'list' | 'items', value: ListLine[] | MyItem[]) => {
+    clearTimeout(timers.current[field]);
+    timers.current[field] = setTimeout(async () => {
+      try {
+        const res = await saveHome({ [field]: value });
+        // Only the looked-up photos and departments: local edits made since stay.
+        setHome((h) => (h ? { ...h, meta: { ...h.meta, ...res.meta } } : res));
+        setSaveError(false);
+      } catch {
+        setSaveError(true);
+      }
+    }, 600);
+  }, []);
+  const setListLines = useCallback((fn: (lines: ListLine[]) => ListLine[]) => {
+    setHome((h) => {
+      if (!h) return h;
+      const next = fn(h.list);
+      save('list', next);
+      return { ...h, list: next };
+    });
+  }, [save]);
+  const setMyItems = useCallback((items: MyItem[]) => {
+    setHome((h) => (h ? { ...h, items } : h));
+    save('items', items);
+  }, [save]);
 
-  const qtyOf = useMemo(() => new Map(list?.items.map((i) => [i.key, i.qty]) ?? []), [list]);
+  /** My items by key (the search marks the ones already saved). */
+  const saved = useMemo(() => new Map(home?.items.map((i) => [i.key, i.qty]) ?? []), [home]);
 
-  const addItem = (h: { key: string; name: string; w: boolean }) => {
-    setItems((items) =>
-      items.some((i) => i.key === h.key)
-        ? items.map((i) => (i.key === h.key ? { ...i, qty: normalizeQty(i.qty + step(h.w), h.w) ?? i.qty } : i))
-        : [...items, { key: h.key, name: h.name, qty: 1, w: h.w }],
-    );
-    setToast(`נוסף: ${h.name}`);
-    // Keep the results so a second tap adds another; the next keystroke replaces the query.
+  /** Search, scan and the product window save to My items. */
+  const saveItem = (h: { key: string; name: string; w: boolean }) => {
+    if (!home) return;
+    if (saved.has(h.key)) {
+      setToast(`כבר במוצרים שלי: ${h.name}`);
+    } else {
+      setMyItems([...home.items, { key: h.key, name: h.name, w: h.w, qty: 1, addedBy: '', addedAt: '' }]);
+      setToast(`נוסף למוצרים שלי: ${h.name}`);
+    }
+    // Keep the results so the next keystroke replaces the query.
     searchRef.current?.select();
   };
+  /** The "מה חסר?" search: save now and wait, so the pick has a My item behind it. */
+  const saveItemNow = async (h: { key: string; name: string; w: boolean }) => {
+    if (!home || saved.has(h.key)) return;
+    const items = [...home.items, { key: h.key, name: h.name, w: h.w, qty: 1, addedBy: '', addedAt: '' }];
+    clearTimeout(timers.current.items);
+    const res = await saveHome({ items });
+    setHome((hh) => (hh ? { ...hh, items: res.items, meta: { ...hh.meta, ...res.meta } } : res));
+  };
+  /** In-store "+ לרשימה": straight onto the list (one more if it's there), and into My items if new. */
+  const addToList = (h: { key: string; name: string; w: boolean }) => {
+    setListLines((lines) =>
+      lines.some((i) => i.key === h.key)
+        ? lines.map((i) => (i.key === h.key ? { ...i, qty: normalizeQty(i.qty + step(h.w), h.w) ?? i.qty } : i))
+        : [...lines, { key: h.key, name: h.name, qty: 1, w: h.w }],
+    );
+    if (home && !saved.has(h.key)) setMyItems([...home.items, { key: h.key, name: h.name, w: h.w, qty: 1, addedBy: '', addedAt: '' }]);
+    setToast(`נוסף לרשימה: ${h.name}`);
+  };
   const stepQty = (key: string, dir: 1 | -1) =>
-    setItems((items) =>
-      items.flatMap((i) => {
+    setListLines((lines) =>
+      lines.flatMap((i) => {
         if (i.key !== key) return [i];
         const q = normalizeQty(i.qty + dir * step(i.w), i.w);
         return q === null ? [] : [{ ...i, qty: q }];
       }),
     );
-  const removeItem = (key: string) => setItems((items) => items.filter((i) => i.key !== key));
-  // A click outside the search closes its results, and one outside the list
-  // editor closes the editor. Clicks inside the product window or the scanner
-  // don't count, and the search box counts as part of editing (it's where
-  // items are added). What was typed or opened stays; it just folds away.
+  const removeLine = (key: string) => setListLines((lines) => lines.filter((i) => i.key !== key));
+  const clearList = () => {
+    if (window.confirm('לנקות את הרשימה? המוצרים שלי נשארים.')) setListLines(() => []);
+  };
+  // A click outside the search closes its results. Clicks inside the product
+  // window or the scanner don't count. What was typed stays; it just folds away.
   useEffect(() => {
     const onDown = (e: PointerEvent) => {
       const t = e.target as Element | null;
       if (!t?.closest || t.closest('.sh-sheet-backdrop, .sh-scan')) return;
       if (!t.closest('.sh-search')) setHitsOpen(false);
-      if (!t.closest('#sh-list-body, .sh-chip--edit, .sh-search')) setEditing(false);
     };
     document.addEventListener('pointerdown', onDown);
     return () => document.removeEventListener('pointerdown', onDown);
@@ -386,88 +402,33 @@ export default function ShoppingPage() {
     };
   }, [query, city]);
 
-  // ── lists ──
+  // ── the list's open trip ──
+  const homeLoaded = !!home;
   useEffect(() => {
-    if (!activeId) return;
+    if (!homeLoaded) return;
     let live = true;
-    api<Trip | null>(`/trips?listId=${activeId}`)
+    api<Trip | null>('/trips')
       .then((t) => { if (live) setTrip(t); })
-      .catch((e) => { if (live && isNetworkError(e)) setTrip(lsJson<Trip>(lsTrip(activeId))); });
+      .catch((e) => { if (live && isNetworkError(e)) setTrip(lsJson<Trip>(lsTrip(HOME_LIST_ID))); });
     return () => { live = false; };
-  }, [activeId]);
+  }, [homeLoaded]);
 
   useEffect(() => {
-    if (!activeId) return;
-    if (trip && !trip.endedAt) lsSet(lsTrip(activeId), JSON.stringify(trip));
-    else lsDel(lsTrip(activeId));
-  }, [trip, activeId]);
+    if (!homeLoaded) return;
+    if (trip && !trip.endedAt) lsSet(lsTrip(HOME_LIST_ID), JSON.stringify(trip));
+    else lsDel(lsTrip(HOME_LIST_ID));
+  }, [trip, homeLoaded]);
 
   /** Start a trip on the chosen plan, or join the list's open one. */
   const startTrip = async (plan: ShoppingPlan) => {
     if (!list || !result) return;
     if (trip) return setInStore(true);
     try {
-      const t = await api<Trip>('/trips', { method: 'POST', body: JSON.stringify(tripSnapshot(result, plan, list.id, city)) });
+      const t = await api<Trip>('/trips', { method: 'POST', body: JSON.stringify(tripSnapshot(result, plan, HOME_LIST_ID, city)) });
       setTrip(t);
       setInStore(true);
     } catch {
       setToast('לא הצלחנו להתחיל את הקנייה. נסו שוב.');
-    }
-  };
-
-  const pickList = (id: string) => {
-    setActiveId(id);
-    setResult(null);
-  };
-  const newList = async () => {
-    const name = window.prompt('שם הרשימה', 'רשימה חדשה')?.trim();
-    if (!name) return;
-    try {
-      const created = await api<ShoppingList>('/lists', { method: 'POST', body: JSON.stringify({ name }) });
-      setLists((ls) => [created, ...(ls ?? [])]);
-      pickList(created.id);
-      setToast('רשימה אישית. אפשר לשתף אותה בעריכה.');
-    } catch {
-      setSaveError(true);
-    }
-  };
-  /** Shared with everyone, or personal (only the creator may switch it). */
-  const setShared = async (shared: boolean) => {
-    if (!list?.mine) return;
-    try {
-      await api(`/lists/${list.id}`, { method: 'PATCH', body: JSON.stringify({ shared }) });
-      setLists((ls) => ls!.map((l) => (l.id === list.id ? { ...l, shared } : l)));
-      setToast(shared ? 'הרשימה משותפת עכשיו לכל מי שיש לו גישה לדף' : 'הרשימה אישית עכשיו, רק לך');
-    } catch {
-      setSaveError(true);
-    }
-  };
-  const renameList = async () => {
-    if (!list) return;
-    const name = window.prompt('שם חדש לרשימה', list.name)?.trim();
-    if (!name || name === list.name) return;
-    try {
-      await api(`/lists/${list.id}`, { method: 'PATCH', body: JSON.stringify({ name }) });
-      setLists((ls) => ls!.map((l) => (l.id === list.id ? { ...l, name } : l)));
-    } catch {
-      setSaveError(true);
-    }
-  };
-  const deleteList = async () => {
-    if (!list || !window.confirm(`למחוק את "${list.name}"?`)) return;
-    try {
-      await api(`/lists/${list.id}`, { method: 'DELETE' });
-      const rest = lists!.filter((l) => l.id !== list.id);
-      if (rest.length) {
-        setLists(rest);
-        pickList(rest[0].id);
-      } else {
-        const created = await api<ShoppingList>('/lists', { method: 'POST', body: JSON.stringify({ name: 'רשימת קניות', shared: true }) });
-        setLists([created]);
-        pickList(created.id);
-      }
-    } catch {
-      setSaveError(true);
     }
   };
 
@@ -527,17 +488,17 @@ export default function ShoppingPage() {
         <header className="sh-header">
           <SettingsMenu settings={settings} onChange={changeSettings} />
           <h1 className="sh-title">כיף לי בסופר</h1>
-          {lists && (
+          {home && (
             <button type="button" className="sh-btn sh-here-entry" onClick={() => setHere(true)}>
               <FaMapMarkerAlt aria-hidden /> אני בסופר
             </button>
           )}
         </header>
 
-        {loadError && <p className="sh-error">לא הצלחנו לטעון את הרשימות. נסו לרענן.</p>}
-        {!lists && !loadError && <div className="sh-skeleton" aria-label="טוען" />}
+        {loadError && <p className="sh-error">לא הצלחנו לטעון את המוצרים והרשימה. נסו לרענן.</p>}
+        {!home && !loadError && <div className="sh-skeleton" aria-label="טוען" />}
 
-        {lists && list && (
+        {home && list && (
           <>
             {trip && !inStore && (
               <button type="button" className="sh-resume" onClick={() => setInStore(true)}>
@@ -549,24 +510,6 @@ export default function ShoppingPage() {
                 <span className="sh-resume-go">להמשיך</span>
               </button>
             )}
-            <nav className="sh-scroller" aria-label="רשימות">
-              {lists.map((l) => (
-                <React.Fragment key={l.id}>
-                  <button type="button" className={`sh-chip ${l.id === list.id ? 'is-on' : ''}`}
-                    aria-pressed={l.id === list.id} onClick={() => pickList(l.id)}>
-                    {!l.shared && <FaLock className="sh-chip-lock" aria-label="אישית" />}
-                    {l.name} <small>{l.items.length}</small>
-                  </button>
-                  {l.id === list.id && (
-                    <button type="button" className={`sh-chip sh-chip--edit ${editing ? 'is-on' : ''}`}
-                      onClick={() => setEditing(!editing)} aria-expanded={editing} aria-controls="sh-list-body">
-                      {editing ? <><FaCheck aria-hidden /> סיום</> : <><FaPen aria-hidden /> עריכה</>}
-                    </button>
-                  )}
-                </React.Fragment>
-              ))}
-              <button type="button" className="sh-chip sh-chip--add" onClick={newList} aria-label="רשימה חדשה" title="רשימה חדשה"><FaPlus aria-hidden /></button>
-            </nav>
             {settings?.nutritionHero && (
               <NutritionHero lines={list.items.map((i) => ({ key: i.key, qty: i.qty, name: i.name }))} />
             )}
@@ -604,7 +547,7 @@ export default function ShoppingPage() {
                   onChange={(e) => { setQuery(e.target.value); setHitsOpen(true); }} onFocus={() => setHitsOpen(true)}
                   onKeyDown={(e) => {
                     if (e.key === 'Escape') clearSearch();
-                    if (e.key === 'Enter' && hits?.length) addItem(hits[0]);
+                    if (e.key === 'Enter' && hits?.length) saveItem(hits[0]);
                   }}
                   placeholder="חיפוש מוצר או ברקוד" aria-label="חיפוש מוצר" enterKeyHint="search" autoComplete="off" />
                 {searching && <span className="sh-spinner" aria-hidden />}
@@ -618,9 +561,9 @@ export default function ShoppingPage() {
                 <ul className="sh-hits">
                   {!searching && !hits.length && <li className="sh-muted sh-hits-empty">לא נמצאו מוצרים</li>}
                   {hits.map((h) => {
-                    const inList = qtyOf.get(h.key);
+                    const isSaved = saved.has(h.key);
                     return (
-                      <li key={h.key} className={`sh-hit ${inList ? 'is-in' : ''} ${product?.key === h.key ? 'is-open' : ''}`}>
+                      <li key={h.key} className={`sh-hit ${isSaved ? 'is-in' : ''} ${product?.key === h.key ? 'is-open' : ''}`}>
                         <button type="button" className="sh-hit-main" aria-expanded={narrow ? product?.key === h.key : undefined}
                           onClick={() => setProduct(product?.key === h.key && narrow ? null : { key: h.key, scanned: false })}>
                           <Thumb src={h.img} size={44} by={h.imgBy} />
@@ -643,13 +586,13 @@ export default function ShoppingPage() {
                             ) : <span>לא נמכר בעיר</span>}
                           </span>
                         </button>
-                        <button type="button" className="sh-hit-btn sh-hit-btn--add" onClick={() => addItem(h)}
-                          aria-label={inList ? `עוד אחד לרשימה: ${h.name} (כבר ${qtyLabel(inList, h.w)})` : `הוספה לרשימה: ${h.name}`}>
-                          {inList ? <><FaCheck aria-hidden /> <small>{qtyLabel(inList, h.w)}</small></> : <FaPlus aria-hidden />}
+                        <button type="button" className="sh-hit-btn sh-hit-btn--add" onClick={() => saveItem(h)}
+                          aria-label={isSaved ? `כבר במוצרים שלי: ${h.name}` : `הוספה למוצרים שלי: ${h.name}`}>
+                          {isSaved ? <FaCheck aria-hidden /> : <FaPlus aria-hidden />}
                         </button>
                         {narrow && product?.key === h.key && (
-                          <ProductSheet inline itemKey={h.key} scanned={false} city={city} inList={qtyOf}
-                            onAdd={addItem} onClose={() => setProduct(null)} />
+                          <ProductSheet inline itemKey={h.key} scanned={false} city={city} saved={saved}
+                            onSave={saveItem} onClose={() => setProduct(null)} />
                         )}
                       </li>
                     );
@@ -658,38 +601,29 @@ export default function ShoppingPage() {
               )}
             </section>
 
-            {!itemCount && <p className="sh-empty">הרשימה ריקה. חפשו מוצר או סרקו ברקוד כדי להוסיף.</p>}
-            {saveError && <p className="sh-error">השינויים לא נשמרו. הם יישמרו בשינוי הבא.</p>}
-            {editing && (
-            <section className="sh-card" id="sh-list-body" aria-label={`עריכת ${list.name}`}>
-              <div className="sh-list-tools">
-                <button type="button" className="sh-btn sh-btn--ghost" onClick={renameList}><FaPen aria-hidden /> שינוי שם</button>
-                <button type="button" className="sh-btn sh-btn--ghost sh-btn--danger" onClick={deleteList}><FaTrash aria-hidden /> מחיקת הרשימה</button>
+            {saveError && <p className="sh-error">לא נשמר, נסו שוב</p>}
+            <MyItems items={home.items} meta={home.meta} onChange={setMyItems} startOpen={!home.items.length} />
+            <button type="button" className="sh-btn sh-btn--primary sh-missing-entry" onClick={() => setMissingOpen(true)}>
+              מה חסר?
+            </button>
+            {!itemCount && <p className="sh-empty">הרשימה ריקה. לחצו ״מה חסר?״ כדי לבחור מהמוצרים שלי.</p>}
+            {itemCount > 0 && (
+            <section className="sh-card" id="sh-list-body" aria-label="רשימת הקניות">
+              <div className="sh-list-head">
+                <h2 className="sh-h2">רשימת הקניות <small>· {itemCount}</small></h2>
+                <button type="button" className="sh-btn sh-btn--ghost sh-btn--danger" onClick={clearList}><FaTrash aria-hidden /> נקה רשימה</button>
               </div>
-              {list.mine ? (
-                <label className="sh-toggle sh-share">
-                  <input type="checkbox" checked={list.shared} onChange={(e) => setShared(e.target.checked)} />
-                  <span>
-                    רשימה משותפת
-                    <small>{list.shared ? 'כל מי שיש לו גישה לדף רואה ועורך אותה' : 'אישית: רק לך'}</small>
-                  </span>
-                </label>
-              ) : (
-                <p className="sh-share-note">רשימה משותפת. רק החשבון שיצר אותה יכול להפוך אותה לאישית.</p>
-              )}
-              {itemCount > 0 && (
-              <>
               <ul className="sh-items">
                 {list.items.map((i) => {
                   const atMin = normalizeQty(i.qty - step(i.w), i.w) === null;
                   return (
                     <li key={i.key} className="sh-item">
-                      <Thumb src={imgs[i.key]} size={40} />
+                      <Thumb src={home.meta[i.key]?.img ?? imgs[i.key]} size={40} by={home.meta[i.key]?.imgBy} />
                       <span className="sh-item-name">{i.name}</span>
                       <span className="sh-stepper">
                         <button type="button" onClick={() => stepQty(i.key, 1)} aria-label={`עוד ${i.name}`}><FaPlus /></button>
                         <span className="sh-qty" aria-live="polite">{i.w ? `${i.qty} ק״ג` : i.qty}</span>
-                        <button type="button" onClick={() => (atMin ? removeItem(i.key) : stepQty(i.key, -1))}
+                        <button type="button" onClick={() => (atMin ? removeLine(i.key) : stepQty(i.key, -1))}
                           aria-label={atMin ? `הסרת ${i.name}` : `פחות ${i.name}`} className={atMin ? 'is-remove' : ''}>
                           {atMin ? <FaTrash /> : <FaMinus />}
                         </button>
@@ -702,8 +636,6 @@ export default function ShoppingPage() {
                 <label className="sh-toggle"><input type="checkbox" checked={clubs} onChange={(e) => setClubs(e.target.checked)} /> לחשב מבצעי מועדון</label>
                 <label className="sh-toggle"><input type="checkbox" checked={coupons} onChange={(e) => setCoupons(e.target.checked)} /> לחשב קופונים</label>
               </div>
-              </>
-              )}
             </section>
             )}
 
@@ -728,18 +660,28 @@ export default function ShoppingPage() {
             onCode={(code) => { setScanning(false); setProduct({ key: code, scanned: true }); }} />
         )}
         {here && (
-          <Here city={city} listName={list?.name ?? null} onAdd={addItem} onClose={() => setHere(false)}
+          <Here city={city} listName={list?.name ?? null} onAdd={addToList} onClose={() => setHere(false)}
             onOpenItem={(key, scanned) => setProduct({ key, scanned })}
             tripStores={trip && !trip.endedAt ? Object.fromEntries(trip.stops.map((st) => [st.store, st.items.length])) : {}}
             onOpenTrip={() => { setHere(false); setInStore(true); }} />
         )}
         {product && (here || !(narrow && hits?.some((h) => h.key === product.key) && !product.scanned)) && (
-          <ProductSheet itemKey={product.key} scanned={product.scanned} city={city} inList={qtyOf}
-            onAdd={addItem} onClose={() => setProduct(null)} />
+          <ProductSheet itemKey={product.key} scanned={product.scanned} city={city} saved={saved}
+            onSave={saveItem} onClose={() => setProduct(null)} />
         )}
         {trip && inStore && (
           <InStore trip={trip} onTrip={setTrip} onClose={() => setInStore(false)}
-            onEnded={() => { setTrip(null); setInStore(false); setToast('הקנייה הסתיימה'); }} />
+            onEnded={() => {
+              setTrip(null);
+              setInStore(false);
+              setToast('הקנייה הסתיימה');
+              // Ending took what was bought off the list.
+              loadHome().then(setHome).catch(() => {});
+            }} />
+        )}
+        {missingOpen && home && (
+          <Missing items={home.items} list={home.list} meta={home.meta} city={city} onSaveItem={saveItemNow}
+            onAdded={(h) => { setHome(h); setMissingOpen(false); setToast('נוסף לרשימה'); }} onClose={() => setMissingOpen(false)} />
         )}
         {toast && <div className="sh-toast" role="status">{toast}</div>}
       </main>
@@ -773,7 +715,7 @@ function SourceBadge({ store, now }: { store: StoreInfo; now: string }) {
 
 const Results = React.forwardRef<HTMLElement, {
   result: CompareResponse;
-  list: ShoppingList;
+  list: PageList;
   updating: boolean;
   tab: Tab;
   setTab: (t: Tab) => void;
@@ -1316,7 +1258,7 @@ const MANUAL_SHOWN = 5;
 function ManualStores({ baskets, result, list, onSaved, startOpen }: {
   baskets: StoreBasket[];
   result: CompareResponse;
-  list: ShoppingList;
+  list: PageList;
   onSaved: () => void;
   /** Open from the start: when these are the only stores near home. */
   startOpen?: boolean;
@@ -1386,7 +1328,7 @@ function parseAgorot(raw: string): number | null | undefined {
 function ManualPrices({ store, basket, list, onSaved }: {
   store: number;
   basket: StoreBasket;
-  list: ShoppingList;
+  list: PageList;
   onSaved: () => void;
 }) {
   const current = new Map(basket.lines.filter((l) => l.available).map((l) => [l.key, l.regularUnit]));
@@ -1437,15 +1379,16 @@ function ManualPrices({ store, basket, list, onSaved }: {
 
 // ── one product: every store's price ──
 
-function ProductSheet({ itemKey, scanned, city, inList, onAdd, onClose, inline }: {
+function ProductSheet({ itemKey, scanned, city, saved, onSave, onClose, inline }: {
   itemKey: string;
   /** Under its search result (phone) instead of a window over the page. */
   inline?: boolean;
   /** It came from the camera: say "barcode not found" rather than "product not found". */
   scanned: boolean;
   city: string;
-  inList: Map<string, number>;
-  onAdd: (item: { key: string; name: string; w: boolean }) => void;
+  /** My items by key: the button says when the product is already saved. */
+  saved: Map<string, number>;
+  onSave: (item: { key: string; name: string; w: boolean }) => void;
   onClose: () => void;
 }) {
   const [data, setData] = useState<ItemResponse | null>(null);
@@ -1491,7 +1434,7 @@ function ProductSheet({ itemKey, scanned, city, inList, onAdd, onClose, inline }
 
   const it = data?.item;
   const showPhoto = !!it?.img && it.img !== photoFailed && !photoBroken(it.img);
-  const qty = it ? inList.get(it.key) : undefined;
+  const isSaved = !!it && saved.has(it.key);
   const body = (
       <>
         <button ref={closeRef} type="button" className="sh-icon-btn sh-sheet-close" onClick={onClose} aria-label="סגירה"><FaTimes /></button>
@@ -1528,8 +1471,8 @@ function ProductSheet({ itemKey, scanned, city, inList, onAdd, onClose, inline }
                 </p>
               </div>
             </div>
-            <button type="button" className="sh-btn sh-btn--primary" onClick={() => onAdd(it)}>
-              {qty ? <>עוד אחד לרשימה <small>כבר {qtyLabel(qty, it.w)}</small></> : <><FaPlus aria-hidden /> הוספה לרשימה</>}
+            <button type="button" className="sh-btn sh-btn--primary" onClick={() => onSave(it)} disabled={isSaved}>
+              {isSaved ? <>במוצרים שלי ✓</> : <>+ למוצרים שלי</>}
             </button>
             <NutritionPanel item={it}
               best={data.physical[0] ? { cost: data.physical[0].cost, store: storeName(data.stores[data.physical[0].store]) } : null} />

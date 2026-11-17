@@ -302,14 +302,32 @@ body:has(.sh-page) { background: #ffffff; }
   border-radius: var(--sh-r-group);
   background: var(--sh-surface);
 }
-.sh-chip-lock { font-size: 0.75em; opacity: 0.7; }
-.sh-share { display: flex; align-items: flex-start; gap: 0.625rem; margin: 0 0 0.5rem; color: var(--sh-ink); }
-.sh-share input { margin-top: 0.2rem; }
-.sh-share span { display: flex; flex-direction: column; }
-.sh-share small, .sh-share-note { font-size: 0.8125rem; color: var(--sh-muted); }
-.sh-share-note { margin: 0 0 0.5rem; }
-.sh-list-tools { display: flex; flex-wrap: wrap; gap: 0.5rem; padding: 0.5rem 0 0.75rem; }
-.sh-list-tools .sh-btn { display: inline-flex; align-items: center; gap: 0.5rem; }
+/* ── My items, "מה חסר?" and the list ── */
+.sh-myitems { padding-block: 0; }
+.sh-myitems-head {
+  display: flex; align-items: center; justify-content: space-between; width: 100%;
+  min-height: var(--sh-tap); padding: 0.5rem 0; border: 0; background: none;
+  color: var(--sh-ink); font: inherit; font-weight: 600; cursor: pointer;
+}
+.sh-myitems-head small { font-weight: 400; color: var(--sh-muted); }
+.sh-myitems-head svg { transition: transform 0.15s; }
+.sh-myitems-head svg.is-open { transform: rotate(180deg); }
+.sh-myitems-remove { color: var(--sh-muted); }
+.sh-missing-entry { width: 100%; margin: 0 0 1.25rem; min-height: 52px; font-size: 1.0625rem; }
+.sh-list-head { display: flex; align-items: center; gap: 0.5rem; padding: 0.75rem 0 0.5rem; }
+.sh-list-head .sh-btn { display: inline-flex; align-items: center; gap: 0.5rem; }
+.sh-missing .sh-h2 { margin: 0 0 0.75rem; padding-inline-end: 2.5rem; }
+.sh-missing .sh-search { margin-bottom: 0.5rem; }
+.sh-missing-row.is-on .sh-item-name { font-weight: 600; }
+.sh-missing-pick { display: flex; flex: 1; min-width: 0; align-items: center; gap: 0.625rem; min-height: 52px; cursor: pointer; }
+.sh-missing-pick input { width: 20px; height: 20px; flex: none; accent-color: var(--sh-action); }
+.sh-missing-foot {
+  position: sticky; bottom: calc(-1.25rem - env(safe-area-inset-bottom));
+  margin: 1rem -1rem calc(-1.25rem - env(safe-area-inset-bottom));
+  padding: 0.75rem 1rem calc(0.75rem + env(safe-area-inset-bottom));
+  background: var(--sh-bg); border-top: 1px solid var(--sh-line);
+}
+.sh-missing-foot .sh-btn { width: 100%; }
 .sh-btn--danger { color: var(--sh-miss); }
 .sh-retry { margin: 0 0 1rem; }
 .sh-items { margin: 0; padding: 0; list-style: none; }
