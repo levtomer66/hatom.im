@@ -1692,6 +1692,20 @@ function InStore({ trip, onTrip, onClose, onEnded }: {
   // Ticked and "לא היה" items both sink to the bottom of their department.
   const groups = groupByDepartment(stop.items, new Set([...ticked, ...gone]));
   const prog = progress(trip);
+  // Everything in the cart: the end sheet opens by itself and counts down, so
+  // nobody has to look for "סיום קנייה". It opens each time the list becomes
+  // complete (an untick and re-tick opens it again), never on a list that was already complete.
+  const complete = prog.of > 0 && prog.count === prog.of;
+  const wasComplete = useRef(complete);
+  const [auto, setAuto] = useState(false);
+  useEffect(() => {
+    if (complete && !wasComplete.current) {
+      setEnding(true);
+      setAuto(true);
+    }
+    if (!complete) setAuto(false);
+    wasComplete.current = complete;
+  }, [complete]);
 
   useEffect(() => {
     const prev = document.body.style.overflow;
@@ -1838,7 +1852,7 @@ function InStore({ trip, onTrip, onClose, onEnded }: {
           <b>{trip.stops.length > 1 ? 'הכי זול' : stop.storeName}</b>
           <small>{ils(prog.done)} מתוך {ils(prog.total)} · {prog.count}/{prog.of}</small>
         </div>
-        <button type="button" className="sh-btn sh-btn--ghost" onClick={() => setEnding(true)}>סיום קנייה</button>
+        <button type="button" className="sh-btn sh-btn--ghost" onClick={() => { setAuto(false); setEnding(true); }}>סיום קנייה</button>
       </header>
       <div className="sh-instore-bar" aria-hidden><span style={{ width: `${prog.of ? (100 * prog.count) / prog.of : 0}%` }} /></div>
       {trip.stops.length > 1 && (
@@ -1900,7 +1914,7 @@ function InStore({ trip, onTrip, onClose, onEnded }: {
           <p className="sh-credit">חלק מהתמונות: Open Food Facts, ברישיון CC BY-SA.</p>
         )}
       </div>
-      {ending && <EndTrip onEnd={end} onCancel={() => setEnding(false)} />}
+      {ending && <EndTrip auto={auto && complete} onEnd={end} onCancel={() => { setEnding(false); setAuto(false); }} />}
     </div>
   );
 }
@@ -1961,11 +1975,36 @@ function NotThere({ item, stop, trip, missing, onChange }: {
   );
 }
 
-/** End of trip: one confirmation (a stray tap would close it for everyone on the trip), then it closes. */
-function EndTrip({ onEnd, onCancel }: { onEnd: () => void; onCancel: () => void }) {
+/** Seconds the end sheet waits, once everything is ticked, before it closes the trip. */
+const AUTO_END_SECONDS = 4;
+
+/**
+ * End of trip: one confirmation (a stray tap would close it for everyone on
+ * the trip). With `auto` (the last item just got ticked) it ends by itself
+ * after a short countdown; "עוד לא" stops it.
+ */
+function EndTrip({ auto, onEnd, onCancel }: { auto: boolean; onEnd: () => void; onCancel: () => void }) {
+  const [left, setLeft] = useState(AUTO_END_SECONDS);
+  const endRef = useRef(onEnd);
+  endRef.current = onEnd;
+  useEffect(() => {
+    if (!auto) return;
+    setLeft(AUTO_END_SECONDS);
+    let n = AUTO_END_SECONDS;
+    const timer = window.setInterval(() => {
+      n -= 1;
+      setLeft(n);
+      if (n <= 0) {
+        window.clearInterval(timer);
+        endRef.current();
+      }
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, [auto]);
   return (
     <div className="sh-end" role="dialog" aria-label="סיום קנייה">
-      <p className="sh-end-title">לסיים את הקנייה?</p>
+      <p className="sh-end-title">{auto ? 'הכול בעגלה!' : 'לסיים את הקנייה?'}</p>
+      {auto && <p className="sh-end-count" aria-live="polite">מסיימים את הקנייה בעוד {Math.max(left, 0)}…</p>}
       <div className="sh-end-actions">
         <button type="button" className="sh-btn sh-btn--primary" onClick={onEnd}>סיום הקנייה</button>
         <button type="button" className="sh-btn sh-btn--ghost" onClick={onCancel}>עוד לא</button>
