@@ -214,20 +214,21 @@ export function listNutrition(
   return { totals, covered, of, top, red, missing };
 }
 
-/** Protein grams the price-per-protein measure is quoted for ("₪0.42 ל־10 ג׳ חלבון"). */
-export const PROTEIN_PER = 10;
-/** Below this much protein per 100 g the measure says nothing useful (soft drinks, sweets). */
+/** Below this much protein per 100 g the protein price says nothing useful (soft drinks, sweets). */
 export const MIN_PROTEIN = 2;
 
 /**
- * What PROTEIN_PER grams of protein cost, in agorot: `cost` buys one pack
- * (1 kg when weighed); its protein is the per-100 value × pack grams.
- * Null without protein, a known pack size or a price.
+ * The price of `grams` of the product and the protein in them, so the
+ * protein tile follows the "ל־100 גרם | לאריזה" toggle: "₪6.67 ל־10 גרם
+ * חלבון" per 100 g of Bamba nougat, "₪4.00 ל־6 גרם" for its 60 g pack.
+ * `cost` buys one pack (1 kg when weighed). Null without protein, a pack
+ * size or a price.
  */
-export function proteinPrice(cost: number | null, nu: Nutrition | null, pack: number | null, w: boolean): number | null {
-  if (cost === null || cost <= 0 || !nu || nu.p === null || nu.p < MIN_PROTEIN) return null;
-  const grams = w ? 1000 : pack;
-  if (!grams) return null;
-  const protein = (nu.p * grams) / 100;
-  return Math.round((cost * PROTEIN_PER) / protein);
+export function proteinCost(
+  cost: number | null, nu: Nutrition | null, pack: number | null, w: boolean, grams: number,
+): { agorot: number; protein: number } | null {
+  if (cost === null || cost <= 0 || !nu || nu.p === null || nu.p < MIN_PROTEIN || grams <= 0) return null;
+  const packGrams = w ? 1000 : pack;
+  if (!packGrams) return null;
+  return { agorot: Math.round((cost * grams) / packGrams), protein: (nu.p * grams) / 100 };
 }
