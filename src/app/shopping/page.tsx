@@ -513,7 +513,6 @@ export default function ShoppingPage() {
       <main className="sh-page">
         <header className="sh-header">
           <h1 className="sh-title">השוואת מחירים</h1>
-          <p className="sh-subtitle">בונים רשימת קניות ורואים באיזו חנות היא הכי זולה. ליד כל מחיר כתוב מאיפה הוא ומאיזה יום.</p>
           {lists && (
             <button type="button" className="sh-btn sh-here-entry" onClick={() => setHere(true)}>
               <FaMapMarkerAlt aria-hidden /> אני בסופר
@@ -525,18 +524,8 @@ export default function ShoppingPage() {
         {!lists && !loadError && <div className="sh-skeleton" aria-label="טוען" />}
 
         {lists && list && (
-          <>
-            {trip && !inStore && (
-              <button type="button" className="sh-resume" onClick={() => setInStore(true)}>
-                <FaShoppingCart aria-hidden />
-                <span>
-                  <b>קנייה בתהליך</b>
-                  <small>{progress(trip).count} מתוך {progress(trip).of} מוצרים, {trip.stops.map((st) => st.storeName).join(', ')}</small>
-                </span>
-                <span className="sh-resume-go">להמשיך</span>
-              </button>
-            )}
-            {/* The lists as a vertical menu on the right; the open one is marked, its "עריכה" beside it. */}
+          <div className="sh-layout">
+            {/* The lists as a vertical menu: a column on the right on wide screens, on top on a phone. */}
             <nav className="sh-lists" aria-label="רשימות">
               <ul>
                 {lists.map((l) => {
@@ -562,6 +551,17 @@ export default function ShoppingPage() {
                 </li>
               </ul>
             </nav>
+            <div className="sh-main">
+            {trip && !inStore && (
+              <button type="button" className="sh-resume" onClick={() => setInStore(true)}>
+                <FaShoppingCart aria-hidden />
+                <span>
+                  <b>קנייה בתהליך</b>
+                  <small>{progress(trip).count} מתוך {progress(trip).of} מוצרים, {trip.stops.map((st) => st.storeName).join(', ')}</small>
+                </span>
+                <span className="sh-resume-go">להמשיך</span>
+              </button>
+            )}
 
             <div className="sh-loc">
               <FaMapMarkerAlt aria-hidden />
@@ -710,7 +710,8 @@ export default function ShoppingPage() {
                 <button type="button" className="sh-link" onClick={() => setCompareError(false)}>לנסות שוב</button>
               </p>
             )}
-          </>
+            </div>
+          </div>
         )}
         {(hits?.some((h) => h.img && h.imgBy === 'off') || Object.values(result?.items ?? {}).some((i) => i.img && i.imgBy === 'off')) && (
           <p className="sh-credit">חלק מתמונות המוצרים: <a href="https://world.openfoodfacts.org" target="_blank" rel="noopener noreferrer">Open Food Facts</a>, ברישיון CC BY-SA.</p>

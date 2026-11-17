@@ -166,7 +166,14 @@ body:has(.sh-page) { background: #ffffff; }
 .sh-chip--edit.is-on { border-color: var(--sh-accent); background: var(--sh-accent); color: #fff; }
 
 /* lists: a vertical menu on the right (inline-start in RTL) */
-.sh-lists { max-width: 22rem; margin: 0 0 0.75rem; margin-inline-end: auto; }
+.sh-lists { margin: 0 0 0.75rem; }
+/* Wide screens: the lists menu is a column on the right (first in RTL), the page beside it. */
+@media (min-width: 700px) {
+  .sh-page:has(.sh-layout) { max-width: calc(600px + 15rem + 1.5rem); }
+  .sh-layout { display: grid; grid-template-columns: 15rem minmax(0, 1fr); gap: 1.5rem; align-items: start; }
+  .sh-lists { position: sticky; top: 1rem; margin: 0; }
+}
+.sh-main { min-width: 0; }
 .sh-lists ul { margin: 0; padding: 0; list-style: none; border: 1px solid var(--sh-line); border-radius: var(--sh-r-group); overflow: hidden; }
 .sh-lists-row { display: flex; align-items: center; border-top: 1px solid var(--sh-line); }
 .sh-lists-row:first-child { border-top: 0; }
