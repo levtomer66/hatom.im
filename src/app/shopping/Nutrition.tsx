@@ -10,7 +10,7 @@ import { FaCog, FaChevronDown } from 'react-icons/fa';
 import { SHOPPING_API_PATH } from '@/lib/shopping/config';
 import type { ItemResponse, NutritionResponse, ShoppingSettings } from '@/lib/shopping/api-types';
 import {
-  forGrams, HERO_NUTRIENTS, isFood, listNutrition, NUTRIENT_INFO, NUTRIENTS, RED_LABEL_TEXT, redLabels,
+  forGrams, HERO_NUTRIENTS, isFood, listNutrition, NUTRIENT_INFO, NUTRIENTS, nutritionGrade, proteinGramCost, proteinValue, RED_LABEL_TEXT, redLabels,
   type HeroNutrient, type Nutrition,
 } from '@/lib/shopping/nutrition';
 
@@ -25,12 +25,21 @@ const fmt = (v: number, digits: number) =>
 
 // ── the product window ──
 
+const money = new Intl.NumberFormat('he-IL', { style: 'currency', currency: 'ILS', minimumFractionDigits: 2 });
+
 /**
- * "ערכים תזונתיים": a toggle between per 100 g (ml) and the whole pack, one
- * tile per nutrient, red-label marks derived from the values, the source,
- * and a reminder that the package is what counts.
+ * "ערכים תזונתיים", collapsed at the top of the product window. Under the
+ * title only, until opened; then "שקל לחלבון" — the average cost of 1 g
+ * of protein at the cheapest store — leads the nutrient tiles. Opened: the red-label marks, a toggle between per 100 g (ml)
+ * and the whole pack, one tile per nutrient, the source, and a reminder that
+ * the package is what counts.
  */
-export function NutritionPanel({ item }: { item: ItemResponse['item'] }) {
+export function NutritionPanel({ item, best }: {
+  item: ItemResponse['item'];
+  /** The cheapest store's price for one pack (1 kg when weighed), agorot, and the store's name. */
+  best: { cost: number; store: string } | null;
+}) {
+  const [open, setOpen] = useState(false);
   const [perPack, setPerPack] = useState(false);
   if (!isFood(item.d)) return null;
   const nu = item.nu;
@@ -45,39 +54,61 @@ export function NutritionPanel({ item }: { item: ItemResponse['item'] }) {
   }
   const grams = perPack && item.pack ? item.pack : 100;
   const red = redLabels(nu, item.liquid, item.d);
+  const grade = nutritionGrade(nu, item.liquid, item.d);
   const shown = NUTRIENTS.filter((k) => nu[k] !== null);
+  // "שקל לחלבון": the average cost of 1 g of protein at the cheapest store (the same per 100 g or per pack).
+  const perGram = best ? proteinGramCost(best.cost, nu, item.pack, item.w) : null;
+  const value = perGram !== null ? proteinValue(perGram) : null;
+  const proteinTile = perGram !== null && value && best ? (
+    <li className={`sh-nu-tile is-price is-${value.tone}`} title={`עלות ממוצעת ל־1 גרם חלבון, במחיר הזול ביותר: ${best.store}${item.w ? ', לפי מחיר לק״ג' : ''}`}>
+      <b>{money.format(perGram / 100)}</b>
+      <small>ל־1 גרם חלבון</small>
+      <span>{value.label}</span>
+    </li>
+  ) : null;
   return (
-    <section className="sh-sheet-section sh-nu" aria-label="ערכים תזונתיים">
-      <div className="sh-nu-head">
-        <h3 className="sh-section-title">ערכים תזונתיים</h3>
-        {item.pack && !item.w && (
-          <div className="sh-seg sh-nu-toggle" role="tablist" aria-label="כמות">
-            <button type="button" role="tab" aria-selected={!perPack} className={!perPack ? 'is-on' : ''} onClick={() => setPerPack(false)}>ל־100 {unit}</button>
-            <button type="button" role="tab" aria-selected={perPack} className={perPack ? 'is-on' : ''} onClick={() => setPerPack(true)}>לאריזה ({fmt(item.pack, 0)} {unit})</button>
+    <section className={`sh-sheet-section sh-nu ${open ? 'is-open' : ''}`} aria-label="ערכים תזונתיים">
+      <button type="button" className="sh-nu-fold" onClick={() => setOpen(!open)} aria-expanded={open}>
+        <span className="sh-nu-fold-title">
+          <span className="sh-section-title">ערכים תזונתיים</span>
+          <span className={`sh-nu-dot is-${grade.tone}`} role="img" aria-label={grade.text} title={grade.text} />
+        </span>
+        <FaChevronDown aria-hidden className={open ? 'is-open' : ''} />
+      </button>
+      {open && (
+        <>
+          <div className="sh-nu-head">
+            {item.pack && !item.w && (
+              <div className="sh-seg sh-nu-toggle" role="tablist" aria-label="כמות">
+                <button type="button" role="tab" aria-selected={!perPack} className={!perPack ? 'is-on' : ''} onClick={() => setPerPack(false)}>ל־100 {unit}</button>
+                <button type="button" role="tab" aria-selected={perPack} className={perPack ? 'is-on' : ''} onClick={() => setPerPack(true)}>לאריזה ({fmt(item.pack, 0)} {unit})</button>
+              </div>
+            )}
+            {item.w && <small className="sh-muted">ל־100 גרם</small>}
           </div>
-        )}
-        {item.w && <small className="sh-muted">ל־100 גרם</small>}
-      </div>
-      {red.length > 0 && (
-        <p className="sh-nu-red">
-          {red.map((k) => <span key={k} className="sh-nu-chip">עתיר {RED_LABEL_TEXT[k]}</span>)}
-          <small>לפי הערכים, לא לפי האריזה</small>
-        </p>
+          {red.length > 0 && (
+            <p className="sh-nu-red">
+              {red.map((k) => <span key={k} className="sh-nu-chip">עתיר {RED_LABEL_TEXT[k]}</span>)}
+              <small>לפי הערכים, לא לפי האריזה</small>
+            </p>
+          )}
+          <ul className="sh-nu-tiles">
+            {proteinTile}
+            {shown.map((k) => {
+              const info = NUTRIENT_INFO[k];
+              const v = forGrams(nu[k], grams)!;
+              return (
+                <li key={k} className={`sh-nu-tile ${red.includes(k as 'na' | 's' | 'sf') ? 'is-red' : ''} ${k === 's' || k === 'sf' ? 'is-sub' : ''}`}>
+                  <b>{fmt(v, info.digits)}</b>
+                  <small>{info.unit}</small>
+                  <span>{info.name}</span>
+                </li>
+              );
+            })}
+          </ul>
+          <p className="sh-nu-source">{SOURCE_TEXT[nu.by]}. הערכים להמחשה; הקובע הוא הסימון על האריזה.</p>
+        </>
       )}
-      <ul className="sh-nu-tiles">
-        {shown.map((k) => {
-          const info = NUTRIENT_INFO[k];
-          const v = forGrams(nu[k], grams)!;
-          return (
-            <li key={k} className={`sh-nu-tile ${red.includes(k as 'na' | 's' | 'sf') ? 'is-red' : ''} ${k === 's' || k === 'sf' ? 'is-sub' : ''}`}>
-              <b>{fmt(v, info.digits)}</b>
-              <small>{info.unit}</small>
-              <span>{info.name}</span>
-            </li>
-          );
-        })}
-      </ul>
-      <p className="sh-nu-source">{SOURCE_TEXT[nu.by]}. הערכים להמחשה; הקובע הוא הסימון על האריזה.</p>
     </section>
   );
 }
@@ -117,7 +148,7 @@ export function NutritionHero({ lines }: { lines: { key: string; qty: number; na
   const r = listNutrition(lines, meta);
   const nameOf = (k: string) => meta[k]?.name ?? lines.find((l) => l.key === k)?.name ?? k;
   const partial = r.covered * 2 < r.of;
-  if (!r.of) return <p className="sh-nu-hero sh-nu-hero-empty">אין ברשימה הזאת מוצרי מזון.</p>;
+  if (!r.of) return null; // no food on the list: nothing to sum
 
   return (
     <section className={`sh-nu-hero ${partial ? 'is-partial' : ''}`} aria-label="ערכים תזונתיים ברשימה">

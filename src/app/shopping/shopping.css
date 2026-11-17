@@ -1240,6 +1240,29 @@ body:has(.sh-page) { background: #ffffff; }
 .sh-settings-pop .sh-toggle span { display: flex; flex-direction: column; }
 .sh-settings-pop .sh-toggle small { font-size: 0.8125rem; color: var(--sh-muted); }
 
+.sh-nu-fold {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  width: 100%;
+  margin: 1rem 0 0;
+  padding: 0;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+.sh-nu-fold .sh-section-title { margin: 0; }
+.sh-nu-fold-title { display: inline-flex; align-items: center; gap: 0.5rem; }
+.sh-nu-dot { width: 0.625rem; height: 0.625rem; border-radius: 50%; flex: none; }
+.sh-nu-dot.is-green { background: #2e9d5b; }
+.sh-nu-dot.is-yellow { background: #e0a400; }
+.sh-nu-dot.is-red { background: var(--sh-miss); }
+.sh-nu-fold svg { color: var(--sh-muted); transition: transform 0.15s; }
+.sh-nu-fold svg.is-open { transform: rotate(180deg); }
 .sh-nu-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.5rem; }
 .sh-seg.sh-nu-toggle { margin: 1rem 0 0; }
 .sh-seg.sh-nu-toggle button { min-height: 34px; padding: 0 0.75rem; font-size: 0.8125rem; }
@@ -1269,12 +1292,17 @@ body:has(.sh-page) { background: #ffffff; }
 .sh-nu-tile span { margin-top: 0.125rem; font-size: 0.8125rem; }
 .sh-nu-tile.is-sub span { color: var(--sh-muted); }
 .sh-nu-tile.is-red b { color: var(--sh-miss); }
+.sh-nu-tile.is-price { border: 1px solid var(--sh-accent); background: var(--sh-accent-soft); }
+.sh-nu-tile.is-price b { font-size: 1.125rem; }
+.sh-nu-tile.is-price span { font-weight: 600; }
+.sh-nu-tile.is-price.is-meh, .sh-nu-tile.is-price.is-bad { border-color: var(--sh-line); background: var(--sh-surface); }
+.sh-nu-tile.is-price.is-meh b, .sh-nu-tile.is-price.is-meh span { color: var(--sh-ink); }
+.sh-nu-tile.is-price.is-bad b, .sh-nu-tile.is-price.is-bad span { color: var(--sh-miss); }
 .sh-nu-source { margin: 0.5rem 0 0; font-size: 0.75rem; color: var(--sh-muted); }
 .sh-nu-source a { color: inherit; text-decoration: underline; text-underline-offset: 3px; }
 
 .sh-nu-hero { margin: 0 0 0.75rem; border: 1px solid var(--sh-line); border-radius: var(--sh-r-group); background: var(--sh-surface); }
 .sh-nu-hero.is-loading { height: 5.5rem; }
-.sh-nu-hero-empty { padding: 0.625rem 0.875rem; font-size: 0.875rem; color: var(--sh-muted); }
 .sh-nu-hero.is-partial .sh-nu-hero-nums { opacity: 0.6; }
 .sh-nu-hero-main {
   display: flex;

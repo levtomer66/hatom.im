@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  isLiquid, listNutrition, namesAgree, nutritionOf, packGrams, parseOff, plausible, redLabels, type Nutrition,
+  isLiquid, listNutrition, namesAgree, nutritionGrade, nutritionOf, packGrams, parseOff, plausible, proteinGramCost, proteinValue, redLabels, type Nutrition,
 } from '../shopping/nutrition.ts';
 
 const nu = (o: Partial<Nutrition>): Nutrition => ({ kcal: null, p: null, c: null, s: null, f: null, sf: null, fib: null, na: null, by: 'off', ...o });
@@ -76,4 +76,32 @@ test('nutritionOf: reads a doc\'s nu, null when empty or absent', () => {
   assert.equal(nutritionOf({}), null);
   assert.equal(nutritionOf({ nu: { by: 'off' } }), null);
   assert.deepEqual(nutritionOf({ nu: { kcal: 60, p: 3.3, by: 'moh' } }), nu({ kcal: 60, p: 3.3, by: 'moh' }));
+});
+
+test('proteinGramCost: average agorot per 1 g of protein, from one pack\'s (or 1 kg\'s) price', () => {
+  const r = (v: number | null) => (v === null ? null : Math.round(v * 10) / 10);
+  // Tara cottage 5%, 250 g at ₪6.90, 10.1 g protein per 100 g → 25.25 g → 27.3 agorot.
+  assert.equal(r(proteinGramCost(690, nu({ p: 10.1 }), 250, false)), 27.3);
+  // Bamba nougat, 60 g at ₪4.00, 10 g per 100 g → 6 g → 66.7 agorot.
+  assert.equal(r(proteinGramCost(400, nu({ p: 10 }), 60, false)), 66.7);
+  // Chicken breast by weight, ₪39.90 a kg, 23 g per 100 g → 230 g → 17.3 agorot.
+  assert.equal(r(proteinGramCost(3990, nu({ p: 23 }), null, true)), 17.3);
+  assert.equal(proteinGramCost(400, nu({ p: 1.5 }), 60, false), null); // too little protein to say
+  assert.equal(proteinGramCost(400, nu({ p: 10 }), null, false), null); // no pack size
+  assert.equal(proteinGramCost(null, nu({ p: 10 }), 60, false), null);
+});
+
+test('proteinValue: the owner\'s bands, from very good to expensive', () => {
+  assert.equal(proteinValue(15).label, 'משתלם מאוד'); // chicken breast
+  assert.equal(proteinValue(20).label, 'משתלם מאוד');
+  assert.equal(proteinValue(27.3).label, 'משתלם'); // cottage
+  assert.equal(proteinValue(35).label, 'יקר יחסית'); // protein pudding
+  assert.equal(proteinValue(66.7).label, 'יקר'); // Bamba nougat
+});
+
+test('nutritionGrade: green without red labels, yellow with one, red with more', () => {
+  assert.equal(nutritionGrade(nu({ na: 50, s: 4.6, sf: 2 }), false, 'dairy').tone, 'green'); // milk-like
+  assert.deepEqual(nutritionGrade(nu({ na: 700, s: 3.5, sf: 2 }), false, 'snacks'), { tone: 'yellow', text: 'סימון אדום אחד: נתרן' }); // Bissli
+  assert.equal(nutritionGrade(nu({ na: 200, s: 26, sf: 5.2 }), false, 'snacks').tone, 'red'); // Bamba nougat
+  assert.equal(nutritionGrade(nu({ s: 20 }), false, 'produce').tone, 'green');
 });

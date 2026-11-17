@@ -213,3 +213,46 @@ export function listNutrition(
   const top = Object.fromEntries(HERO_NUTRIENTS.map((k) => [k, parts[k].sort((a, b) => b.amount - a.amount).slice(0, 3)])) as ListNutrition['top'];
   return { totals, covered, of, top, red, missing };
 }
+
+/** Below this much protein per 100 g the protein price says nothing useful (soft drinks, sweets). */
+export const MIN_PROTEIN = 2;
+
+/**
+ * "שקל לחלבון": the average cost of 1 g of protein, in agorot (not rounded)
+ * — one pack's price (1 kg's when weighed) over the protein in it. The same
+ * whether you look per 100 g or per pack. Tara cottage 5%, 250 g at ₪6.90
+ * with 25.3 g protein → 27.3 agorot. Null without protein, a pack size or a price.
+ */
+export function proteinGramCost(cost: number | null, nu: Nutrition | null, pack: number | null, w: boolean): number | null {
+  if (cost === null || cost <= 0 || !nu || nu.p === null || nu.p < MIN_PROTEIN) return null;
+  const grams = w ? 1000 : pack;
+  if (!grams) return null;
+  return cost / ((nu.p * grams) / 100);
+}
+
+/**
+ * How good a deal a protein cost per gram is (agorot), in the owner's bands
+ * (2026-11-17): chicken breast and protein powder ₪0.13–0.18 very good, tuna
+ * and cottage ₪0.22–0.30 good, protein puddings ₪0.30–0.40 pricey, protein
+ * bars ₪0.55–0.80 expensive.
+ */
+export const PROTEIN_VALUE = [
+  { upTo: 20, label: 'משתלם מאוד', tone: 'great' },
+  { upTo: 30, label: 'משתלם', tone: 'good' },
+  { upTo: 50, label: 'יקר יחסית', tone: 'meh' },
+  { upTo: Infinity, label: 'יקר', tone: 'bad' },
+] as const;
+
+export const proteinValue = (agorotPerGram: number) => PROTEIN_VALUE.find((b) => agorotPerGram <= b.upTo)!;
+
+/**
+ * A one-glance summary next to "ערכים תזונתיים": green with no red label,
+ * yellow with one, red with two or three (sodium, sugar, saturated fat by
+ * תקנה 5). Departments the label never applies to (produce…) are green.
+ */
+export function nutritionGrade(nu: Nutrition, liquid: boolean, d: string | null | undefined): { tone: 'green' | 'yellow' | 'red'; text: string } {
+  const red = redLabels(nu, liquid, d);
+  if (!red.length) return { tone: 'green', text: 'בלי סימון אדום' };
+  const names = red.map((k) => RED_LABEL_TEXT[k]).join(', ');
+  return red.length === 1 ? { tone: 'yellow', text: `סימון אדום אחד: ${names}` } : { tone: 'red', text: `${red.length} סימונים אדומים: ${names}` };
+}
