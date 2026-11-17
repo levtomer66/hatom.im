@@ -381,8 +381,10 @@ export function rankStores(
 
 /**
  * One unit (1 kg when weighted) of `key` at each of `stores`, deals applied as
- * in the product view: the cheapest store, the lowest and highest price paid,
- * how many stores sell it, and whether the cheapest is a deal. Null when none sells it.
+ * in the product view: a multi-buy counts at its per-unit price ("2 ב-10" is
+ * ₪5 a unit, multiBuyUnit). The cheapest store, the lowest and highest unit
+ * price, how many stores sell it, whether the cheapest is a deal, and whether
+ * it takes buying several (`multi`). Null when none sells it.
  */
 export function unitAcross(
   stores: number[],
@@ -390,18 +392,35 @@ export function unitAcross(
   items: Map<string, PricedItem>,
   promos: PromoDoc[],
   opts: PricingOptions,
-): { store: number; min: number; max: number; stores: number; onSale: boolean } | null {
+): { store: number; min: number; max: number; stores: number; onSale: boolean; multi: boolean } | null {
   const selling = rankStores(stores, [{ key, qty: 1 }], items, promos, opts).filter((b) => !b.missing.length);
   if (!selling.length) return null;
-  const best = selling[0];
-  const l = best.lines[0];
+  const units = selling.map((b) => {
+    const l = b.lines[0];
+    const u = shownUnit(b.store, key, items, promos, opts, l.cost);
+    return { store: b.store, unit: u.cost, onSale: l.cost < l.regularCost || !!u.multi, multi: !!u.multi };
+  });
+  const best = units.reduce((a, b) => (b.unit < a.unit ? b : a));
   return {
     store: best.store,
-    min: best.total,
-    max: Math.max(...selling.map((b) => b.total)),
-    stores: selling.length,
-    onSale: l.cost < l.regularCost,
+    min: best.unit,
+    max: Math.max(...units.map((u) => u.unit)),
+    stores: units.length,
+    onSale: best.onSale,
+    multi: best.multi,
   };
+}
+
+/**
+ * One unit's displayed price at a store: `cost` is the multi-buy's per-unit
+ * price when there is one (with `multi` set, for the asterisk), else one unit
+ * as priced. `oneUnit` is the line priced for a single unit.
+ */
+export function shownUnit(
+  store: number, key: string, items: Map<string, PricedItem>, promos: PromoDoc[], opts: PricingOptions, oneUnit: number,
+): { cost: number; multi: { qty: number; unit: number; total: number } | null } {
+  const m = multiBuyUnit(store, key, items, promos, opts);
+  return m && m.unit < oneUnit ? { cost: m.unit, multi: m } : { cost: oneUnit, multi: null };
 }
 
 /** Most units a multi-buy is priced at for its per-unit price. */

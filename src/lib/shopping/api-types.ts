@@ -36,6 +36,8 @@ export interface SearchHit {
   cheapest: { chainName: string; name: string } | null;
   /** The cheapest price is a deal's. */
   onSale: boolean;
+  /** The cheapest price is a multi-buy's per unit: it takes buying several (shown with an asterisk). */
+  multi?: boolean;
   /** Product photo link or null; Wolt links take ?w=<px> for a thumbnail. */
   img: string | null;
   imgBy: ImgBy;
@@ -225,10 +227,11 @@ export interface ItemPrice {
   /** Deals not triggered by one unit (promo ids; details in `promos`). */
   idle: string[];
   regularUnit: number;
+  /** The price of one unit, deals applied; a multi-buy at its per-unit price ("2 ב-10" → ₪5), see `multi`. */
   cost: number;
   applied: AppliedPromo[];
   offers: Offer[];
-  /** A multi-buy here one unit doesn't reach: its quantity and price per unit (multiBuyUnit). */
+  /** Set when `cost` is a multi-buy's per-unit price: its quantity, per-unit and total (shown with an asterisk). */
   multi?: { qty: number; unit: number; total: number } | null;
 }
 

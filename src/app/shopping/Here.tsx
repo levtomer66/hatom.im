@@ -16,7 +16,7 @@ import { DEPARTMENTS } from '@/lib/shopping/departments';
 import {
   dealGap, distanceLabel, endsLabel, groupHere, HERE_REMEMBER_MS, isTwin, nearbyStore, sortStores, verdict, type HereGroup, type LatLng,
 } from '@/lib/shopping/here';
-import { cleanAddress, dayMonth, ils, qtyLabel, SaleLabel, storeName, Thumb } from './ui';
+import { cleanAddress, dayMonth, ils, MultiStar, multiNote, qtyLabel, SaleLabel, storeName, Thumb } from './ui';
 
 const Scanner = dynamic(() => import('./Scanner'), { ssr: false });
 
@@ -405,6 +405,7 @@ function OtherDeals({ deals, data, error, onOpen, onAdd, listName }: {
           {list.slice(0, shown).map((d) => {
             const it = data.items[d.key];
             const p = data.promos[d.promo];
+            const multi = !it?.w && d.qty > 1;
             return (
               <li key={d.key} className="sh-here-deal">
                 <button type="button" className="sh-tick sh-here-row" onClick={() => onOpen(d.key)}>
@@ -416,12 +417,13 @@ function OtherDeals({ deals, data, error, onOpen, onAdd, listName }: {
                       {d.club && ` · ${p?.clubName ? `לחברי ${p.clubName}` : 'מועדון'}`}{d.coupon && ' · בקופון'}
                     </small>
                   </span>
-                  <span className="sh-here-price">
+                  {/* Per unit, as the product view shows it: "2 ב-10" on ₪23.90 is ₪5*, the terms on hover. */}
+                  <span className="sh-here-price"
+                    title={multi ? multiNote({ qty: d.qty, unit: perUnit(d.cost, d.qty), total: d.cost }) : undefined}>
                     <span className="sh-here-pct" dir="ltr">−{Math.round(d.pct * 100)}%</span>
-                    {/* Per unit, as the product view shows it: "2 ב-10" on ₪23.90 is ₪5, not ₪10. */}
-                    <b>{ils(perUnit(d.cost, d.qty, it?.w))}</b>
+                    <b>{ils(perUnit(d.cost, d.qty, it?.w))}{multi && <MultiStar />}</b>
                     <s>{ils(perUnit(d.regularCost, d.qty, it?.w))}</s>
-                    {(d.qty !== 1 || it?.w) && <small className="sh-muted">{it?.w ? 'לק״ג' : `ליח׳, בקנייה של ${d.qty}`}</small>}
+                    {it?.w && <small className="sh-muted">לק״ג</small>}
                   </span>
                 </button>
                 <button type="button" className="sh-icon-btn sh-here-add" onClick={() => it && onAdd({ key: d.key, name: it.name, w: it.w })}
@@ -549,8 +551,8 @@ function WorthRow({ row, data, onOpen }: { row: HereRow; data: HereResponse; onO
           <small>{sub}</small>
         </span>
         <span className="sh-here-price">
-          {here && <SaleLabel applied={here.applied.length > 0} idle={here.idle.length > 0} offers={here.offers.length > 0} />}
-          {here ? <b>{ils(here.cost)}</b> : <span className="sh-muted">—</span>}
+          {here && <SaleLabel applied={here.applied.length > 0 || !!here.multi} idle={!here.multi && here.idle.length > 0} offers={here.offers.length > 0} />}
+          {here ? <b title={here.multi ? multiNote(here.multi) : undefined}>{ils(here.cost)}{here.multi && <MultiStar />}</b> : <span className="sh-muted">—</span>}
           {here && here.cost < here.regularUnit && <s>{ils(here.regularUnit)}</s>}
         </span>
       </button>
@@ -597,7 +599,7 @@ function DealRow({ itemKey, price, qty, data, onOpen, onAdd, listName }: {
           {add !== null && <small className="sh-here-gap">ברשימה {qty}, עוד {add === 1 ? 'אחד' : add} למבצע</small>}
         </span>
         <span className="sh-here-price">
-          <b>{ils(price.cost)}</b>
+          <b title={price.multi ? multiNote(price.multi) : undefined}>{ils(price.cost)}{price.multi && <MultiStar />}</b>
           {price.cost < price.regularUnit && <s>{ils(price.regularUnit)}</s>}
         </span>
       </button>
@@ -692,8 +694,9 @@ function Verdict({ code, store, city, rows, listName, onAdd, onDetails, onClose,
           </div>
           {here && (
             <p className="sh-here-verdict-price">
-              <b>{ils(here.cost)}</b> כאן{here.cost < here.regularUnit && <> <s>{ils(here.regularUnit)}</s></>}
+              <b>{ils(here.cost)}{here.multi && <MultiStar />}</b> כאן{here.cost < here.regularUnit && <> <s>{ils(here.regularUnit)}</s></>}
               {it.w && <small> לק״ג</small>}
+              {here.multi && <small className="sh-here-multi">{multiNote(here.multi)}</small>}
             </p>
           )}
           <p className="sh-here-verdict-why">

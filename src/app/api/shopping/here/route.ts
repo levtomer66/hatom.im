@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireFeatureCaller } from '@/lib/api-caller';
 import { CITIES } from '@/lib/shopping/cities';
-import { multiBuyUnit, priceStore, type PricedItem, type PricingOptions } from '@/lib/shopping/pricing';
+import { priceStore, shownUnit, type PricedItem, type PricingOptions } from '@/lib/shopping/pricing';
 import type { PromoDoc } from '@/lib/shopping/snapshot';
 import { israelLocalNow } from '@/lib/shopping/snapshot';
 import { idleDeals, imgByOf, promoDetails, storeInfo, type HereResponse, type HereRow, type ItemPrice, type StoreInfo } from '@/lib/shopping/api-types';
@@ -57,8 +57,8 @@ export async function GET(request: NextRequest) {
       const l = b.lines[0];
       if (!l?.available) return null;
       return {
-        store: k, idle: idleDeals(own, k, key, now, l), regularUnit: l.regularUnit, cost: l.cost,
-        applied: l.applied, offers: l.offers, multi: multiBuyUnit(k, key, items, own, opts),
+        store: k, idle: idleDeals(own, k, key, now, l), regularUnit: l.regularUnit,
+        applied: l.applied, offers: l.offers, ...shownUnit(k, key, items, own, opts, l.cost),
       };
     };
 

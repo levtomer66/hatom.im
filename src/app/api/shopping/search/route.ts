@@ -94,7 +94,7 @@ export async function GET(request: NextRequest) {
       if (!u) continue;
       const st = byK.get(u.store)!;
       Object.assign(h, {
-        minPrice: u.min, maxPrice: u.max, stores: u.stores, onSale: u.onSale,
+        minPrice: u.min, maxPrice: u.max, stores: u.stores, onSale: u.onSale, multi: u.multi,
         cheapest: { chainName: st.chainName, name: st.name },
       });
     }

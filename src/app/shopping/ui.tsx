@@ -49,6 +49,14 @@ export function Thumb({ src, size, by }: { src: string | null | undefined; size:
  * this price, "מבצע בכמות" when buying more would trigger one, "מבצע מותנה"
  * for a club, coupon or basket-minimum deal. Its terms show on hover/tap.
  */
+/**
+ * A unit price that takes buying several ("2 ב-10" → ₪5): the asterisk beside
+ * it, and the line that explains it where the deal's terms show (hover/tap).
+ */
+export const multiNote = (m: { qty: number; unit: number; total: number }) =>
+  `* ${ils(m.unit)} ליח׳ בקנייה של ${m.qty} (${ils(m.total)} ל־${m.qty})`;
+export const MultiStar = () => <span className="sh-star" aria-hidden>*</span>;
+
 export function SaleLabel({ applied, idle, offers }: { applied: boolean; idle: boolean; offers: boolean }) {
   if (applied) return <span className="sh-sale is-on">מבצע</span>;
   if (idle) return <span className="sh-sale">מבצע בכמות</span>;

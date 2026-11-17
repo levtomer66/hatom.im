@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireFeatureCaller } from '@/lib/api-caller';
 import { CITIES } from '@/lib/shopping/cities';
-import { multiBuyUnit, rankStores, type BasketLine, type PricingOptions, type StoreBasket } from '@/lib/shopping/pricing';
+import { rankStores, shownUnit, type BasketLine, type PricingOptions, type StoreBasket } from '@/lib/shopping/pricing';
 import { israelLocalNow } from '@/lib/shopping/snapshot';
 import { idleDeals, imgByOf, promoDetails, storeInfo, type ItemPrice, type ItemResponse, type StoreInfo } from '@/lib/shopping/api-types';
 import { withManualPrices } from '@/lib/shopping/manual';
@@ -50,10 +50,11 @@ export async function GET(request: NextRequest) {
     const toPrice = (b: StoreBasket): ItemPrice => {
       const l = b.lines[0];
       return {
-        store: b.store, idle: idleDeals(promos, b.store, key, now, l), regularUnit: l.regularUnit, cost: l.cost,
-        applied: l.applied, offers: l.offers, multi: multiBuyUnit(b.store, key, items, promos, opts),
+        store: b.store, idle: idleDeals(promos, b.store, key, now, l), regularUnit: l.regularUnit,
+        applied: l.applied, offers: l.offers, ...shownUnit(b.store, key, items, promos, opts, l.cost),
       };
     };
+    // Cheapest per unit first, a multi-buy at its per-unit price.
     const byCost = (a: ItemPrice, b: ItemPrice) => a.cost - b.cost;
     const physical = rankStores(stores.filter((s) => s.kind === 'physical').map((s) => s.k), line, items, promos, opts)
       .filter(sells).map(toPrice).sort(byCost);
