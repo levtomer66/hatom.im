@@ -308,6 +308,10 @@ Identity = Gmail address. Two roles:
   biggest saving first, and a unit counts toward one promo only. Club, coupon
   and unmet basket-minimum promos are returned as `offers`, not applied.
   Description-only deals are not parsed.
+- **Photos**: Wolt by barcode, else Open Food Facts by barcode (`imgBy: 'off'`,
+  a weekly cached list of products tagged Israel — never one request per item;
+  credit OFF in the UI), else borrowed by name from the same product under
+  another code (`imgBy: 'name'`, `photos.ts`). Details: docs/sources.md § Product photos.
 - **Departments**: the price files carry no category, so each item doc gets
   `d` at ingest (`src/lib/shopping/departments.ts`, import-free): Wolt's category
   path for the barcode first, else keyword rules on the name (longest stem wins).

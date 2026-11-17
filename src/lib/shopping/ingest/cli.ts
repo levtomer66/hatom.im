@@ -32,6 +32,7 @@ import { buildItemDocs, buildPromoDocs, buildStoreDocs, diffDocs, israelLocalNow
 import { Throttle, clientFor, errorMessage, type RemoteFile } from './sources.ts';
 import { fetchWoltVenue, type WoltVenueConfig } from './wolt.ts';
 import { pinFilter } from './locate.ts';
+import { offPhotos } from './off.ts';
 
 const RAW_RETENTION_DAYS = 7;
 const REQUEST_GAP_MS = 1500;
@@ -214,7 +215,7 @@ async function ingestChain(chain: ChainConfig, cityIds: Set<string>, maxStores: 
  */
 async function ingestWolt(chain: ChainConfig, cityIds: Set<string>, maxStores: number | null): Promise<StoreRecord[]> {
   const configPath = join(CACHE, 'places', 'wolt.json');
-  let venues = readJson<WoltVenueConfig[]>(configPath, []).filter((v) => cityIds.has(v.cityId));
+  let venues = readJson<WoltVenueConfig[]>(configPath, []).filter((v) => cityIds.has(v.cityId) && !v.photosOnly);
   if (PINS) {
     // Wolt pages carry no coordinates; a venue is placed by the discovery entry it was approved from.
     const at = placeCoords();
@@ -274,6 +275,41 @@ async function ingestWolt(chain: ChainConfig, cityIds: Set<string>, maxStores: n
  * they are not re-checked here: two routers disagree by a minute at the edge.
  */
 /** Discovery place ref → coordinates, from every pin's review file. */
+/**
+ * barcode → photo link from the photo-only Wolt venues (places/wolt.json
+ * `photosOnly`). Their responses are cached under the week's Sunday, so a
+ * venue is downloaded at most once a week; --offline only reads that cache.
+ */
+async function woltPhotos(offline: boolean): Promise<Map<string, string>> {
+  const venues = readJson<WoltVenueConfig[]>(join(CACHE, 'places', 'wolt.json'), []).filter((v) => v.photosOnly);
+  const out = new Map<string, string>();
+  if (!venues.length) return out;
+  const rawDir = join(RAW, 'wolt');
+  mkdirSync(rawDir, { recursive: true });
+  const now = new Date(`${israelLocalNow().slice(0, 10)}T00:00:00Z`);
+  const week = new Date(now.getTime() - now.getUTCDay() * 86_400_000).toISOString().slice(0, 10).replace(/-/g, '');
+  const throttle = new Throttle(REQUEST_GAP_MS);
+  for (const v of venues) {
+    if (offline && !existsSync(join(rawDir, `${v.slug}-${week}-assortment.json`))) {
+      log(`  ${v.slug}: photos not cached for week ${week} — skipped (--offline)`);
+      continue;
+    }
+    try {
+      const venue = await fetchWoltVenue(v.slug, rawDir, week, throttle);
+      let n = 0;
+      for (const it of venue.items) {
+        if (!it.barcode || !it.img || out.has(it.key)) continue;
+        out.set(it.key, it.img);
+        n++;
+      }
+      log(`  ${v.slug.padEnd(30)} ${venue.name} — photos for ${n} barcodes (${venue.fetched} requests)`);
+    } catch (e) {
+      warn(`photo venue ${v.slug}: ${errorMessage(e)}`);
+    }
+  }
+  return out;
+}
+
 function placeCoords(): Map<string, { lat: number; lng: number }> {
   const out = new Map<string, { lat: number; lng: number }>();
   for (const pin of readJson<{ id: string }[]>(join(CACHE, 'places', 'pins.json'), [])) {
@@ -408,7 +444,14 @@ async function main() {
       st ? [{ k: keys[storeId(s)], chainId: s.chainId, storeId: s.storeId, items: st.items, promos: st.promos }] : [],
     );
     const nowLocal = israelLocalNow();
-    const items = buildItemDocs(states);
+    // Photos by barcode from Open Food Facts (a week-old list is refreshed, ~10 min; --offline only reads it).
+    const offline = Boolean(args.offline);
+    const off = await offPhotos(CACHE, { fetch: !offline, log });
+    log(`Open Food Facts: ${off.size} product photos`);
+    const wm = await woltPhotos(offline);
+    // Wolt's own photo (no credit needed) wins over Open Food Facts's (CC BY-SA, credited).
+    const photos = new Map<string, { img: string; by?: 'off' }>([...[...off].map(([k, img]) => [k, { img, by: 'off' as const }] as const), ...[...wm].map(([k, img]) => [k, { img }] as const)]);
+    const items = buildItemDocs(states, photos);
     const promoStats = { droppedCoupons: 0 };
     const promos = buildPromoDocs(states, nowLocal, promoStats);
     // Walking minutes from the nearest pin, for the plan cards (null when unplaced or with no pins).
@@ -458,6 +501,8 @@ async function main() {
     if (db) {
       await db.collection(COLLECTIONS.promos).createIndex({ items: 1 });
       await db.collection(COLLECTIONS.stores).createIndex({ city: 1 });
+      // In-store "לא היה": alternatives in the same department (app's /api/shopping/alternatives).
+      await db.collection(COLLECTIONS.items).createIndex({ d: 1 }, { sparse: true });
       for (const [name, d] of plan) {
         await writeCollection(db, name, d.upserts as StringIdDoc[], d.deletes);
         written[name] = d.next; // persisted per collection, so a crash mid-run only repeats the rest

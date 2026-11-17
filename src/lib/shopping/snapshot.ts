@@ -39,8 +39,12 @@ export interface ItemDoc {
   s?: string;
   /** Store department (departments.ts), omitted when nothing places it. */
   d?: string;
-  /** 'name' when `img` is borrowed from the same product under another code (photos.ts) — an illustration. */
-  imgBy?: 'name';
+  /**
+   * Where `img` came from when it isn't the item's own Wolt photo: 'off' = Open
+   * Food Facts by barcode (credit it), 'name' = borrowed from the same product
+   * under another code (photos.ts) — an illustration.
+   */
+  imgBy?: 'off' | 'name';
 }
 
 export interface PromoGroupDoc {
@@ -118,7 +122,12 @@ function mostCommon(values: string[]): string {
   return best;
 }
 
-export function buildItemDocs(stores: StoreState[]): Map<string, ItemDoc> {
+/**
+ * `photos`: barcode → a photo from a source that isn't a store here (a
+ * photo-only Wolt venue, or Open Food Facts with `by: 'off'`), used when no
+ * store's own source has one.
+ */
+export function buildItemDocs(stores: StoreState[], photos: Map<string, { img: string; by?: 'off' }> = new Map()): Map<string, ItemDoc> {
   const acc = new Map<string, { names: string[]; makers: string[]; cats: string[]; first: CanonItem; p: Record<string, number>; img?: string }>();
   for (const s of stores) {
     for (const it of s.items) {
@@ -149,7 +158,7 @@ export function buildItemDocs(stores: StoreState[]): Map<string, ItemDoc> {
       w: a.first.weighted,
       bc: a.first.barcode,
       p: a.p,
-      ...(a.img ? { img: a.img } : {}),
+      ...(a.img ? { img: a.img } : a.first.barcode && photos.has(key) ? { img: photos.get(key)!.img, ...(photos.get(key)!.by ? { imgBy: photos.get(key)!.by } : {}) } : {}),
       ...(s ? { s } : {}),
       ...(d ? { d } : {}),
     });

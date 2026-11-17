@@ -116,6 +116,22 @@ Shuk HaIr, Zol VeBegadol, Meshnat Yosef 1/2, City Market Shops (empty file).
 | Yellow (Paz), Super Yuda, Salach Dabach | Their Cerberus accounts need a non-empty published password. I didn't log in with those. Yellow (Paz convenience stores) very likely has TLV stores, so it's worth adding: run the verify command below with the password from the chain's transparency page. |
 | Quik, Cofix, Mega, City Market Givatayim/Kiryat Ono | Defunct, merged or removed from the gov.il list. |
 
+## Product photos
+
+The price files carry no photos. In order of preference, an item doc's `img` is:
+
+1. **Wolt**: the venue's photo for the barcode (or the venue's own item).
+2. **Open Food Facts** (`imgBy: 'off'`): the front photo by barcode, from the
+   search API's list of products tagged Israel (`/api/v2/search?countries_tags_en=israel&fields=code,image_front_url&page_size=100`,
+   ~9.3k products, ~95 pages). OFF allows ~10 searches and 15 product reads a
+   minute per IP, so items are never looked up one by one; the list is cached
+   in `off/israel-<YYYYMMDD>.json` and refreshed weekly (`ingest/off.ts`).
+   Data is ODbL and photos are CC BY-SA: credit "Open Food Facts" where shown.
+3. **Borrowed by name** (`imgBy: 'name'`, `src/lib/shopping/photos.ts`): loose
+   produce and other chain-internal codes take the photo of the same product
+   under another code — same department, same head word, every word of the
+   item in the other name. An illustration, not the exact pack.
+
 ## File format observations
 
 - **Encoding:** every Cerberus `Stores` file, and Bitan's, is **UTF-16 LE with BOM**. Shufersal and Hazi Hinam are UTF-8 **with BOM**. The rest are UTF-8. Yochananof's PriceFull is UTF-8 with BOM. Detect by BOM, fall back to UTF-8, then windows-1255.

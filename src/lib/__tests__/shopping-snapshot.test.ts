@@ -196,3 +196,10 @@ test('buildStoreDocs carries the publish time of the price and promo files', () 
   assert.equal(d.pricesAt, '2026-11-15T00:40');
   assert.equal(d.promosAt, null);
 });
+
+test('buildItemDocs: an Open Food Facts photo fills in for a barcode no source photographs', () => {
+  const docs = buildItemDocs([store(1, 'A', [item('7290000066295', 500, 'במבה'), item('A:7', 300, 'עגבניה')])], new Map([['7290000066295', { img: 'https://images.openfoodfacts.org/x.jpg', by: 'off' as const }], ['A:7', { img: 'https://nope' }]]));
+  assert.equal(docs.get('7290000066295')!.img, 'https://images.openfoodfacts.org/x.jpg');
+  assert.equal(docs.get('7290000066295')!.imgBy, 'off');
+  assert.equal(docs.get('A:7')!.img, undefined); // chain-internal code: never looked up
+});
