@@ -36,7 +36,7 @@ import { normalizeQty, type ShoppingList, type ShoppingListItem } from '@/lib/sh
 import type { CompareResponse, ShoppingPlan, ItemBest, ItemPrice, ItemResponse, ManualPriceResponse, PriceSource, PromoDetail, SearchHit, StoreInfo } from '@/lib/shopping/api-types';
 import type { LineResult, Offer, PromoRef, StoreBasket } from '@/lib/shopping/pricing';
 import { dealNudge, groupByDepartment, progress, withPending, type PlanKind, type Trip, type TripCreate, type TripItem } from '@/lib/shopping/trips';
-import { cleanAddress, dayMonth, ils, qtyLabel, SaleLabel, storeName, Thumb } from './ui';
+import { cleanAddress, dayMonth, ils, MultiStar, multiNote, photoBroken, qtyLabel, SaleLabel, storeName, Thumb } from './ui';
 import Here from './Here';
 
 /** "2026-11-28T23:59" → "28.11" */
@@ -615,7 +615,9 @@ export default function ShoppingPage() {
                           <span className="sh-hit-meta">
                             {h.minPrice !== null ? (
                               <>
-                                <b>{h.minPrice === h.maxPrice ? ils(h.minPrice) : `${ils(h.minPrice)}–${ils(h.maxPrice!)}`}</b>
+                                <b title={h.multi ? '* מחיר ליחידה במבצע כמות' : undefined}>
+                                  {h.minPrice === h.maxPrice ? ils(h.minPrice) : `${ils(h.minPrice)}–${ils(h.maxPrice!)}`}{h.multi && <MultiStar />}
+                                </b>
                                 {h.onSale && <SaleLabel applied idle={false} offers={false} />}
                                 <span>{h.stores} {h.stores === 1 ? 'סניף' : 'סניפים'}</span>
                                 {h.cheapest && h.stores > 1 && <span className="sh-hit-cheapest">הכי זול ב{h.cheapest.chainName} {h.cheapest.name}</span>}
@@ -1432,6 +1434,8 @@ function ProductSheet({ itemKey, scanned, city, inList, onAdd, onClose, inline }
 }) {
   const [data, setData] = useState<ItemResponse | null>(null);
   const [state, setState] = useState<'loading' | 'ok' | 'missing' | 'error'>('loading');
+  /** The photo link that failed to load (its credit hides with it). */
+  const [photoFailed, setPhotoFailed] = useState<string | null>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
@@ -1470,6 +1474,7 @@ function ProductSheet({ itemKey, scanned, city, inList, onAdd, onClose, inline }
   }, [inline, state]);
 
   const it = data?.item;
+  const showPhoto = !!it?.img && it.img !== photoFailed && !photoBroken(it.img);
   const qty = it ? inList.get(it.key) : undefined;
   const body = (
       <>
@@ -1493,9 +1498,10 @@ function ProductSheet({ itemKey, scanned, city, inList, onAdd, onClose, inline }
           <>
             <div className="sh-sheet-head">
               <div className="sh-sheet-photo">
-                <Thumb src={it.img} size={88} by={it.imgBy} />
-                {it.img && it.imgBy === 'off' && <OffCredit barcode={it.barcode ? it.key : null} />}
-                {it.img && it.imgBy === 'name' && <span className="sh-photo-credit is-plain">תמונה להמחשה</span>}
+                <Thumb src={it.img} size={88} by={it.imgBy} onFail={() => setPhotoFailed(it.img)} />
+                {/* The credit goes with the photo: hidden when it doesn't load. */}
+                {showPhoto && it.imgBy === 'off' && <OffCredit barcode={it.barcode ? it.key : null} />}
+                {showPhoto && it.imgBy === 'name' && <span className="sh-photo-credit is-plain">תמונה להמחשה</span>}
               </div>
               <div>
                 <h2 id="sh-sheet-title" className="sh-sheet-title">{it.name}</h2>
@@ -1537,7 +1543,10 @@ function ProductSheet({ itemKey, scanned, city, inList, onAdd, onClose, inline }
  */
 function PriceRow({ r, best, data }: { r: ItemPrice; best: boolean; data: ItemResponse }) {
   const st = data.stores[r.store];
-  const discounted = r.cost < r.regularUnit;
+  // Always the price of one unit: a multi-buy at its per-unit price (r.cost), with an asterisk.
+  const multi = r.multi ?? null;
+  const unit = r.cost;
+  const discounted = unit < r.regularUnit;
   return (
     <li className={`sh-sheet-row ${best ? 'is-best' : ''}`}>
       <span className="sh-sheet-store">
@@ -1548,16 +1557,17 @@ function PriceRow({ r, best, data }: { r: ItemPrice; best: boolean; data: ItemRe
           <small key={o.id} className="sh-promo is-offer">{OFFER_LABEL[o.reason]}: {o.description}</small>
         ))}
       </span>
-      <PriceReveal label={`${ils(r.cost)}${st ? `, ${SOURCE[st.source].label}` : ''}`}
+      <PriceReveal label={`${ils(unit)}${multi ? `, ${multiNote(multi)}` : ''}${st ? `, ${SOURCE[st.source].label}` : ''}`}
         pop={<>
+          {multi && <span className="sh-multi-note">{multiNote(multi)}</span>}
           {st && <SourceBadge store={st} now={data.now} />}
           {(r.applied.length > 0 || r.offers.length > 0 || r.idle.length > 0) && (
             <DealInfo deals={[...r.applied, ...r.offers, ...idleRefs(r.idle, data.promos)]} promos={data.promos} />
           )}
         </>}>
-        <SaleLabel applied={r.applied.length > 0} idle={r.idle.length > 0} offers={r.offers.length > 0} />
+        <SaleLabel applied={r.applied.length > 0 || !!multi} idle={!multi && r.idle.length > 0} offers={r.offers.length > 0} />
         <span className="sh-line-price">
-          <b>{ils(r.cost)}</b>
+          <b>{ils(unit)}{multi && <MultiStar />}</b>
           {discounted && <s>{ils(r.regularUnit)}</s>}
         </span>
       </PriceReveal>

@@ -249,11 +249,11 @@ test('the cheapest store for one unit counts a sale, like the product view', () 
   assert.equal(u.onSale, true);
 });
 
-test('a multi-buy deal does not lower the one-unit price; no store sells it → null', () => {
+test('a multi-buy counts at its per-unit price ("2 ב-10" is ₪5); no store sells it → null', () => {
   const it = items(['rice', { 1: 1190, 2: 1290 }]);
   const two = promo([part(['rice'], { rt: 1, min: 2, price: 1000 })], { stores: [2] });
   const u = unitAcross([1, 2], 'rice', it, [two], NOW)!;
-  assert.deepEqual([u.store, u.min, u.max, u.onSale], [1, 1190, 1290, false]);
+  assert.deepEqual([u.store, u.min, u.max, u.onSale, u.multi], [2, 500, 1190, true, true]);
   assert.equal(unitAcross([9], 'rice', it, [], NOW), null);
 });
 
@@ -282,4 +282,26 @@ test('a deep but plausible deal (16% of shelf) still applies; a negative price n
   assert.equal(priceStore(1, [{ key: 'a', qty: 2 }], it, [deep], NOW).total, 420);
   const negative = promo([part(['a'], { min: 1, price: -14999 })]);
   assert.equal(priceStore(1, [{ key: 'a', qty: 1 }], it, [negative], NOW).total, 1290);
+});
+
+import { multiBuyUnit, shownUnit } from '../shopping/pricing.ts';
+
+test('regression: Good Pharm "פירסט סמייל 2 ב-10" on ₪23.90 — the per-unit price at the deal\'s quantity', () => {
+  const it = items(['pads', { 440: 2390 }]);
+  const two = promo([part(['pads'], { gid: '001', rt: 10, min: 2, price: 1000 })], { stores: [440] });
+  assert.deepEqual(multiBuyUnit(440, 'pads', it, [two], NOW), { qty: 2, unit: 500, total: 1000 });
+  // One unit doesn't reach it: no multi-buy price where the deal isn't, or for a one-unit sale.
+  assert.equal(multiBuyUnit(440, 'pads', it, [], NOW), null);
+  const sale = promo([part(['pads'], { min: 1, price: 1990 })], { stores: [440] });
+  assert.equal(multiBuyUnit(440, 'pads', it, [sale], NOW), null);
+  // With a one-unit sale at ₪19.90 too, "3 ב-60" (₪20 each) saves nothing over one unit.
+  const three = promo([part(['pads'], { min: 3, price: 6000 })], { stores: [440] });
+  assert.equal(multiBuyUnit(440, 'pads', it, [sale, three], NOW), null);
+});
+
+test('shownUnit: one unit is shown at the multi-buy\'s per-unit price, marked, else as priced', () => {
+  const it = items(['pads', { 440: 2390 }]);
+  const two = promo([part(['pads'], { gid: '001', rt: 10, min: 2, price: 1000 })], { stores: [440] });
+  assert.deepEqual(shownUnit(440, 'pads', it, [two], NOW, 2390), { cost: 500, multi: { qty: 2, unit: 500, total: 1000 } });
+  assert.deepEqual(shownUnit(440, 'pads', it, [], NOW, 2390), { cost: 2390, multi: null });
 });
