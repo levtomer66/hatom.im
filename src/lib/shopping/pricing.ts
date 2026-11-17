@@ -24,6 +24,11 @@
 // Not applied by default but listed on the line as an offer: club promos
 // (club ≠ 0) unless the club is in `clubs`, coupons unless `coupons`, and
 // basket-minimum promos whose minimum the store subtotal doesn't reach.
+// Never applied, listed as 'unclear': a plain deal priced below
+// MIN_PLAUSIBLE of the shelf price per unit, or below zero. Of ~31k priced
+// deals (2026-11-17) 11 were: "מישל מרסייה 2 ב-10" on ₪69.90 serums,
+// institutional packs ("מוסדי", min 30), packaging credits, a negative-price
+// coupon. Deals at 15–20% looked real ("2 ב-5" clearance), hence 15%.
 // Deals that exist only in the description text are not parsed.
 
 import type { PromoDoc, PromoGroupDoc } from './snapshot.ts';
@@ -51,7 +56,10 @@ export interface PricingOptions {
   coupons?: boolean;
 }
 
-export type OfferReason = 'club' | 'coupon' | 'min-purchase';
+export type OfferReason = 'club' | 'coupon' | 'min-purchase' | 'unclear';
+
+/** A plain deal's price per unit below this share of the shelf price is taken for a data error. */
+export const MIN_PLAUSIBLE = 0.15;
 
 export interface PromoRef {
   id: string;
@@ -146,6 +154,22 @@ export function dealMinQty(promo: PromoDoc): number | null {
     return a + b;
   }
   return promo.g[0]?.min ?? null;
+}
+
+/**
+ * Whether a plain deal's price is too low to be real for any basket item
+ * (see MIN_PLAUSIBLE). Buy-and-reward deals are exempt: "השני ב-1₪" is real.
+ */
+function implausible(promo: PromoDoc, regular: Map<string, number>): boolean {
+  if (buyAndReward(promo)) return false;
+  return promo.g.some((g) => {
+    if (g.price === null || isGift(g) || g.w) return false;
+    const unit = g.price / Math.max(1, Math.round(g.min));
+    return g.items.some((k) => {
+      const reg = regular.get(k);
+      return reg !== undefined && (unit < 0 || unit < reg * MIN_PLAUSIBLE);
+    });
+  });
 }
 
 interface Evaluation {
@@ -288,6 +312,7 @@ export function priceStore(
     if (p.club !== 0 && !clubs.has(p.club)) reason = 'club';
     else if (p.coupon && !opts.coupons) reason = 'coupon';
     else if (p.minAmt !== null && subtotal < p.minAmt) reason = 'min-purchase';
+    else if (implausible(p, regular)) reason = 'unclear';
     if (!reason) {
       eligible.push(p);
       continue;

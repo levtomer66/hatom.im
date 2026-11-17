@@ -250,7 +250,7 @@ function StoreView({ store, city, tripStores, onOpenTrip, onOpenItem, onAdd, lis
     [data, listFilter],
   );
   const groups = useMemo(() => groupHere(rows), [rows]);
-  const dealRows = rows.filter((r) => r.here && (r.here.applied.length || r.here.idle.length || r.here.offers.length));
+  const dealRows = rows.filter((r) => r.here && (r.here.applied.length || r.here.idle.length || r.here.offers.some((o) => o.reason !== 'unclear')));
   const onTrip = tripStores[store.k] ?? 0;
   const listsWithItems = data?.lists.filter((l) => data.rows.some((r) => r.listIds.includes(l.id))) ?? [];
   // The store's other deals: not the lists' items or the past trips' (shown above them).
@@ -560,7 +560,7 @@ function dealsOf(price: ItemPrice, promos: Record<string, PromoDetail>) {
   const all = [
     ...price.applied.map((p) => ({ id: p.id, description: p.description, end: p.end, kind: 'applied' as const })),
     ...price.idle.flatMap((id) => (promos[id] ? [{ id, description: promos[id].description, end: promos[id].end, kind: 'idle' as const }] : [])),
-    ...price.offers.map((o) => ({ id: o.id, description: o.description, end: o.end, kind: 'offer' as const })),
+    ...price.offers.filter((o) => o.reason !== 'unclear').map((o) => ({ id: o.id, description: o.description, end: o.end, kind: 'offer' as const })),
   ];
   return all.filter((d) => !seen.has(d.description) && seen.add(d.description));
 }
