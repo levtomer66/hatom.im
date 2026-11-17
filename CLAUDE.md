@@ -321,6 +321,12 @@ Identity = Gmail address. Two roles:
   hits), matched against the name, the maker `m` and `s` (all chains' names
   and makers, when the ingest writes it). Ranking: words matched as typed,
   then name-match position, then store count.
+- **Atlas Search** (`items_search` on shoppingItems; definition and query in
+  `src/lib/shopping/search-index.ts`): the search route asks it for ~100
+  fuzzy candidates, then ranks them with rankHits as above; no retry pass.
+  Where `$search` fails (Docker Mongo, index missing) it falls back to the
+  regex search and skips Atlas for 5 minutes. Create the index on a new
+  cluster with `npm run shopping:search-index` (`-- --show` to inspect).
   Neighbourhood shops are priced by hand in <ManualPrices> (one PUT to
   `/api/shopping/manual-prices` per field, then a re-compare); the contract
   is in the header comment of `src/app/shopping/page.tsx`.

@@ -5,9 +5,14 @@ import type { SearchHit } from '@/lib/shopping/api-types';
 import { priceSourceOf } from '@/lib/shopping/collections';
 import { rankHits, searchPatterns } from '@/lib/shopping/search-rank';
 
-/** Fewer hits than this, and the search tries again allowing one wrong or missing letter per word. */
-const TYPO_RETRY_BELOW = 8;
-import { findItems, getStoresFor } from '@/models/ShoppingCatalog';
+/**
+ * Regex path only (no Atlas Search): with no hit at all, try again allowing
+ * one wrong or missing letter per word, over names only. The typo patterns
+ * scan slowly (seconds on 54k items), so this stays a last resort; on Atlas
+ * the fuzzy $search covers typos.
+ */
+const TYPO_RETRY_BELOW = 1;
+import { findItems, getStoresFor, searchItemsAtlas } from '@/models/ShoppingCatalog';
 
 const MAX_HITS = 30;
 
@@ -26,11 +31,15 @@ export async function GET(request: NextRequest) {
   if (!barcode && (!terms.length || q.length < 2)) return NextResponse.json([]);
 
   try {
-    const [found, stores] = await Promise.all([findItems(terms, barcode), getStoresFor(city)]);
+    // Atlas Search first (fuzzy, so no retry pass); the regex search where
+    // there is no Atlas Search (Docker) or for a barcode.
+    const [atlas, stores] = await Promise.all([barcode ? null : searchItemsAtlas(q), getStoresFor(city)]);
+    const found = atlas ?? (await findItems(terms, barcode));
     let docs = found;
-    if (!barcode && docs.length < TYPO_RETRY_BELOW) {
+    if (atlas) loose = searchPatterns(q, { typos: true }); // rank Atlas's fuzzy matches like typo matches
+    if (!atlas && !barcode && docs.length < TYPO_RETRY_BELOW) {
       loose = searchPatterns(q, { typos: true });
-      const more = await findItems(loose, null);
+      const more = await findItems(loose, null, { namesOnly: true });
       const seen = new Set(docs.map((d) => d._id));
       docs = [...docs, ...more.filter((d) => !seen.has(d._id))];
     }
