@@ -42,6 +42,9 @@ export interface StoreInfo {
 /** PUT /api/shopping/manual-prices — set (or, with null, clear) one price at a manual store. */
 /** The terms of a deal beyond its description and end date (shown on hover/tap of a price). */
 export interface PromoDetail {
+  description: string;
+  /** Units (kg when weighted) the deal starts at, from its first part. */
+  minQty: number | null;
   /** Israel local "YYYY-MM-DDTHH:mm". */
   start: string;
   end: string;
@@ -56,18 +59,38 @@ export interface PromoDetail {
 }
 
 export const promoDetail = (p: PromoDoc): PromoDetail => ({
+  description: p.d, minQty: p.g[0]?.min ?? null,
   start: p.s, end: p.e, minAmt: p.minAmt, limit: p.limit, remarks: p.remarks ?? '',
   clubName: p.club ? p.clubName || null : null, coupon: p.coupon,
 });
 
-/** Details of the deals the given price lines actually mention, keyed by promo id. */
+/** Details of the deals the given price lines mention (applied, offered or not triggered yet), keyed by promo id. */
 export function promoDetails(
   promos: PromoDoc[],
-  lines: { applied: { id: string }[]; offers: { id: string }[] }[],
+  lines: { applied: { id: string }[]; offers: { id: string }[]; idle?: string[] }[],
 ): Record<string, PromoDetail> {
   const used = new Set<string>();
-  for (const l of lines) for (const p of [...l.applied, ...l.offers]) used.add(p.id);
+  for (const l of lines) {
+    for (const p of [...l.applied, ...l.offers]) used.add(p.id);
+    for (const id of l.idle ?? []) used.add(id);
+  }
   return Object.fromEntries(promos.filter((p) => used.has(p._id)).map((p) => [p._id, promoDetail(p)]));
+}
+
+/**
+ * Deals an item has at a store right now that the price doesn't use: a
+ * multi-buy the quantity doesn't reach yet ("3 ב־100" for one pack). Promo
+ * ids, the ones already applied or offered left out.
+ */
+export function idleDeals(
+  promos: PromoDoc[], store: number, item: string, now: string, line: { applied: { id: string }[]; offers: { id: string }[] },
+): string[] {
+  const shown = new Set([...line.applied, ...line.offers].map((p) => p.id));
+  const seen = new Set<string>();
+  return promos
+    .filter((p) => !shown.has(p._id) && p.s <= now && now <= p.e && p.stores.includes(store) && p.items.includes(item))
+    .filter((p) => !seen.has(p.d) && seen.add(p.d)) // a chain can publish one deal under two ids
+    .map((p) => p._id);
 }
 
 /** The page's view of a store doc. */
@@ -140,11 +163,15 @@ export interface CompareResponse {
   perItem: ItemBest[];
   /** Terms of every deal named in the baskets above, by promo id. */
   promos: Record<string, PromoDetail>;
+  /** Deals a shown line doesn't reach yet, by "<store>|<item key>" (promo ids). */
+  idle: Record<string, string[]>;
 }
 
 /** One store's price for a single unit (1 kg when weighted) of one item, promos applied. */
 export interface ItemPrice {
   store: number;
+  /** Deals not triggered by one unit (promo ids; details in `promos`). */
+  idle: string[];
   regularUnit: number;
   cost: number;
   applied: AppliedPromo[];

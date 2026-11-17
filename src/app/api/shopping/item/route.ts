@@ -3,7 +3,7 @@ import { requireFeatureCaller } from '@/lib/api-caller';
 import { CITIES } from '@/lib/shopping/cities';
 import { rankStores, type BasketLine, type PricingOptions, type StoreBasket } from '@/lib/shopping/pricing';
 import { israelLocalNow } from '@/lib/shopping/snapshot';
-import { promoDetails, storeInfo, type ItemPrice, type ItemResponse, type StoreInfo } from '@/lib/shopping/api-types';
+import { idleDeals, promoDetails, storeInfo, type ItemPrice, type ItemResponse, type StoreInfo } from '@/lib/shopping/api-types';
 import { withManualPrices } from '@/lib/shopping/manual';
 import { getItems, getPromosFor, getStoresFor } from '@/models/ShoppingCatalog';
 import { getManualPrices } from '@/models/ShoppingManualPrice';
@@ -19,9 +19,9 @@ function candidates(raw: string): string[] {
   return [...new Set([k, bare])];
 }
 
-const toPrice = (b: StoreBasket): ItemPrice => {
+const toPrice = (b: StoreBasket, idle: string[]): ItemPrice => {
   const l = b.lines[0];
-  return { store: b.store, regularUnit: l.regularUnit, cost: l.cost, applied: l.applied, offers: l.offers };
+  return { store: b.store, idle, regularUnit: l.regularUnit, cost: l.cost, applied: l.applied, offers: l.offers };
 };
 
 // GET ?key=<item key or barcode>&city=<city id> — one unit of one item (1 kg
@@ -53,9 +53,9 @@ export async function GET(request: NextRequest) {
     const sells = (b: StoreBasket) => !b.missing.length;
     const byCost = (a: ItemPrice, b: ItemPrice) => a.cost - b.cost;
     const physical = rankStores(stores.filter((s) => s.kind === 'physical').map((s) => s.k), line, items, promos, opts)
-      .filter(sells).map(toPrice).sort(byCost);
+      .filter(sells).map((b) => toPrice(b, idleDeals(promos, b.store, key, now, b.lines[0]))).sort(byCost);
     const online = rankStores(stores.filter((s) => s.kind === 'online').map((s) => s.k), line, items, promos, opts)
-      .filter(sells).map(toPrice).sort(byCost);
+      .filter(sells).map((b) => toPrice(b, idleDeals(promos, b.store, key, now, b.lines[0]))).sort(byCost);
     const used = new Set([...physical, ...online].map((p) => p.store));
 
     const res: ItemResponse = {

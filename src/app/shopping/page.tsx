@@ -868,12 +868,12 @@ function Breakdown({ basket, result, onlyAvailable }: { basket: StoreBasket; res
   const lines = [...basket.lines].filter((l) => !onlyAvailable || l.available).sort((a, b) => Number(b.available) - Number(a.available));
   return (
     <ul className="sh-lines">
-      {lines.map((l) => <Line key={l.key} line={l} result={result} />)}
+      {lines.map((l) => <Line key={l.key} line={l} result={result} store={basket.store} />)}
     </ul>
   );
 }
 
-function Line({ line, result }: { line: LineResult; result: CompareResponse }) {
+function Line({ line, result, store }: { line: LineResult; result: CompareResponse; store: number }) {
   const it = result.items[line.key];
   const w = it?.w ?? false;
   if (!line.available) {
@@ -885,11 +885,13 @@ function Line({ line, result }: { line: LineResult; result: CompareResponse }) {
     );
   }
   const discounted = line.cost < line.regularCost;
-  const deals = [...line.applied, ...line.offers];
+  const idle = result.idle?.[`${store}|${line.key}`] ?? [];
+  const deals = [...line.applied, ...line.offers, ...idleRefs(idle, result.promos)];
   return (
     <li className="sh-line">
       <span className="sh-line-name"><Thumb src={it?.img} size={36} /><span>{it?.name ?? line.key} <small>{qtyLabel(line.qty, w)}</small></span></span>
       <PriceReveal label={ils(line.cost)} pop={deals.length ? <DealInfo deals={deals} promos={result.promos} /> : null}>
+        <SaleLabel applied={line.applied.length > 0} idle={idle.length > 0} offers={line.offers.length > 0} />
         <span className="sh-line-price">
           {discounted && <s>{ils(line.regularCost)}</s>} <b>{ils(line.cost)}</b>
           {(line.qty !== 1 || discounted) && <small>{ils(line.effectiveUnit)} ל{w ? 'ק״ג' : 'יח׳'}</small>}
@@ -1283,8 +1285,11 @@ function PriceRow({ r, best, data }: { r: ItemPrice; best: boolean; data: ItemRe
       <PriceReveal label={`${ils(r.cost)}${st ? `, ${SOURCE[st.source].label}` : ''}`}
         pop={<>
           {st && <SourceBadge store={st} now={data.now} />}
-          {(r.applied.length > 0 || r.offers.length > 0) && <DealInfo deals={[...r.applied, ...r.offers]} promos={data.promos} />}
+          {(r.applied.length > 0 || r.offers.length > 0 || r.idle.length > 0) && (
+            <DealInfo deals={[...r.applied, ...r.offers, ...idleRefs(r.idle, data.promos)]} promos={data.promos} />
+          )}
         </>}>
+        <SaleLabel applied={r.applied.length > 0} idle={r.idle.length > 0} offers={r.offers.length > 0} />
         <span className="sh-line-price">
           <b>{ils(r.cost)}</b>
           {discounted && <s>{ils(r.regularUnit)}</s>}
@@ -1312,6 +1317,23 @@ function PriceReveal({ label, pop, children }: { label: string; pop: React.React
   );
 }
 
+/** Untriggered deals as refs for DealInfo (their text is in the details map). */
+function idleRefs(ids: string[], promos: Record<string, PromoDetail> | undefined): PromoRef[] {
+  return ids.flatMap((id) => (promos?.[id] ? [{ id, description: promos[id].description, end: promos[id].end }] : []));
+}
+
+/**
+ * A small mark beside a price saying a deal is in play: "מבצע" when it lowers
+ * this price, "מבצע בכמות" when buying more would trigger one, "מבצע מותנה"
+ * for a club, coupon or basket-minimum deal. Its terms show on hover/tap.
+ */
+function SaleLabel({ applied, idle, offers }: { applied: boolean; idle: boolean; offers: boolean }) {
+  if (applied) return <span className="sh-sale is-on">מבצע</span>;
+  if (idle) return <span className="sh-sale">מבצע בכמות</span>;
+  if (offers) return <span className="sh-sale">מבצע מותנה</span>;
+  return null;
+}
+
 /** The terms of each deal: dates, basket minimum, limit, club or coupon, the chain's remarks. */
 function DealInfo({ deals, promos }: { deals: PromoRef[]; promos: Record<string, PromoDetail> | undefined }) {
   const seen = new Set<string>();
@@ -1323,6 +1345,7 @@ function DealInfo({ deals, promos }: { deals: PromoRef[]; promos: Record<string,
         return (
           <span key={d.id} className="sh-deal">
             <b>{d.description}</b>
+            {p?.minQty != null && p.minQty > 1 && <span>מ־{p.minQty} יחידות</span>}
             <span>{p ? `${dayMonth(p.start)}–${dayMonth(p.end)}` : `עד ${dayMonth(d.end)}`}</span>
             {p?.minAmt != null && <span>בקנייה מעל {ils(p.minAmt)}</span>}
             {p?.limit != null && <span>עד {p.limit} ללקוח</span>}

@@ -5,7 +5,7 @@ import { ITEM_OPTIONS_SHOWN, RESULTS_PER_SECTION, SPLITS_SHOWN } from '@/lib/sho
 import { MAX_LIST_ITEMS, MAX_QTY } from '@/lib/shopping/lists';
 import { bestSplits, rankStores, type BasketLine, type PricingOptions, type StoreBasket } from '@/lib/shopping/pricing';
 import { israelLocalNow } from '@/lib/shopping/snapshot';
-import { promoDetails, storeInfo, type CompareResponse, type ItemBest, type StoreInfo } from '@/lib/shopping/api-types';
+import { idleDeals, promoDetails, storeInfo, type CompareResponse, type ItemBest, type StoreInfo } from '@/lib/shopping/api-types';
 import { withManualPrices } from '@/lib/shopping/manual';
 import { getItems, getPromosFor, getStoresFor } from '@/models/ShoppingCatalog';
 import { getManualPrices } from '@/models/ShoppingManualPrice';
@@ -78,6 +78,21 @@ export async function POST(request: NextRequest) {
     const online = rankStores(onlineKeys, req.lines, items, promos, opts).filter(sellsAny);
     const splits = bestSplits(physical, req.lines, items, promos, opts, SPLITS_SHOWN);
 
+    // Deals a shown line doesn't use yet (a "3 ב־100" with one pack in the list).
+    const shownBaskets = [
+      ...physical.slice(0, RESULTS_PER_SECTION), ...online.slice(0, RESULTS_PER_SECTION), ...manual,
+      ...splits.flatMap((s) => s.stores),
+    ];
+    const shownLines = shownBaskets.flatMap((b) => b.lines);
+    const idle: Record<string, string[]> = {};
+    for (const b of shownBaskets) {
+      for (const l of b.lines) {
+        if (!l.available) continue;
+        const ids = idleDeals(promos, b.store, l.key, now, l);
+        if (ids.length) idle[`${b.store}|${l.key}`] = ids;
+      }
+    }
+
     const res: CompareResponse = {
       now,
       city: req.city,
@@ -88,10 +103,8 @@ export async function POST(request: NextRequest) {
       manual,
       splits,
       perItem: perItem(req.lines, physical),
-      promos: promoDetails(promos, [
-        ...physical.slice(0, RESULTS_PER_SECTION), ...online.slice(0, RESULTS_PER_SECTION), ...manual,
-        ...splits.flatMap((s) => s.stores),
-      ].flatMap((b) => b.lines)),
+      promos: promoDetails(promos, [...shownLines, ...Object.values(idle).map((ids) => ({ applied: [], offers: [], idle: ids }))]),
+      idle,
     };
     return NextResponse.json(res);
   } catch (error) {
