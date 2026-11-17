@@ -372,8 +372,19 @@ export default function ShoppingPage() {
       setMyItems([...home.items, { key: h.key, name: h.name, w: h.w, qty: 1, addedBy: '', addedAt: '' }]);
       setToast(`נוסף למוצרים שלי: ${h.name}`);
     }
-    // Keep the results so the next keystroke replaces the query.
-    searchRef.current?.select();
+    // Straight back to the search for the next product (unless this came from in-store mode):
+    // the product window closes, the results stay, and the query is selected so typing replaces it.
+    if (here) return;
+    setProduct(null);
+    setScanning(false);
+    setHitsOpen(true);
+    const input = searchRef.current;
+    input?.focus({ preventScroll: true });
+    input?.select();
+    requestAnimationFrame(() => {
+      input?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+      if (document.activeElement !== input) input?.focus();
+    });
   };
   /** The "מה חסר?" search: save now and wait, so the pick has a My item behind it. */
   const saveItemNow = async (h: { key: string; name: string; w: boolean }) => {

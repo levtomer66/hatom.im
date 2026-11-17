@@ -316,7 +316,7 @@ body:has(.sh-page) { background: #ffffff; }
 }
 .sh-home-foot .sh-loc { flex: 1; min-width: 0; margin: 0; }
 .sh-home-foot .sh-loc-pick { flex-basis: 100%; order: 3; margin: 0.25rem 0 0; }
-.sh-home-foot .sh-settings { position: relative; top: auto; inset-inline-end: auto; }
+.sh-home-foot .sh-settings { position: relative; top: auto; inset-inline-end: auto; z-index: 10; } /* under the search results (20) */
 .sh-home-foot .sh-settings-pop { top: auto; bottom: calc(100% + 4px); }
 
 /* "מה חסר?": a fridge door — a cold panel, a handle on the hinge side, frost in the corner */
