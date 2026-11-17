@@ -33,6 +33,8 @@ export interface ItemDoc {
   bc: boolean; // real barcode (cross-chain)
   p: Record<string, number>; // storeKey → price in agorot
   img?: string; // product photo link (omitted when no source has one)
+  /** Search text: the other chains' names and makers, " | "-joined (omitted when nothing adds to n/m). */
+  s?: string;
 }
 
 export interface PromoGroupDoc {
@@ -67,6 +69,28 @@ export interface PromoDoc {
   stores: number[];
 }
 
+/** Makers that say nothing: "לא ידוע", dashes, "כללי", … (compared after trimming). */
+const PLACEHOLDER_MAKER = /^(|-+|\.+|0|לא ידוע|לא מוגדר|ללא|כללי|כללית|שונות|אחר|unknown|n\/a|none|general)$/i;
+export const realMaker = (m: string) => !PLACEHOLDER_MAKER.test(m.trim());
+const SEARCH_TEXT_MAX = 400;
+const tidy = (v: string) => v.replace(/\s+/g, ' ').trim();
+
+/**
+ * Every distinct name and real maker the chains publish for an item, except
+ * the doc's own n/m — sorted, so the text (and the doc hash) is stable.
+ */
+function searchText(n: string, m: string, names: string[], makers: string[]): string {
+  const seen = new Set([n, m].map((v) => tidy(v).toLowerCase()));
+  const out: string[] = [];
+  for (const v of [...names, ...makers.filter(realMaker)].map(tidy).sort()) {
+    const k = v.toLowerCase();
+    if (!v || seen.has(k)) continue;
+    seen.add(k);
+    out.push(v);
+  }
+  return out.join(' | ').slice(0, SEARCH_TEXT_MAX);
+}
+
 function mostCommon(values: string[]): string {
   const counts = new Map<string, number>();
   for (const v of values) if (v) counts.set(v, (counts.get(v) ?? 0) + 1);
@@ -77,12 +101,13 @@ function mostCommon(values: string[]): string {
 }
 
 export function buildItemDocs(stores: StoreState[]): Map<string, ItemDoc> {
-  const acc = new Map<string, { names: string[]; first: CanonItem; p: Record<string, number>; img?: string }>();
+  const acc = new Map<string, { names: string[]; makers: string[]; first: CanonItem; p: Record<string, number>; img?: string }>();
   for (const s of stores) {
     for (const it of s.items) {
       let a = acc.get(it.key);
-      if (!a) acc.set(it.key, (a = { names: [], first: it, p: {} }));
+      if (!a) acc.set(it.key, (a = { names: [], makers: [], first: it, p: {} }));
       a.names.push(it.name);
+      a.makers.push(it.manufacturer);
       // The smallest link wins, so the choice doesn't flip between runs (and rewrite the doc).
       if (it.img && (!a.img || it.img < a.img)) a.img = it.img;
       a.p[String(s.k)] = it.priceAgorot;
@@ -90,10 +115,14 @@ export function buildItemDocs(stores: StoreState[]): Map<string, ItemDoc> {
   }
   const out = new Map<string, ItemDoc>();
   for (const [key, a] of acc) {
+    const n = mostCommon(a.names);
+    // The most common real maker; a placeholder only when no chain names one.
+    const m = mostCommon(a.makers.map(tidy).filter(realMaker)) || a.first.manufacturer;
+    const s = searchText(n, m, a.names, a.makers);
     out.set(key, {
       _id: key,
-      n: mostCommon(a.names),
-      m: a.first.manufacturer,
+      n,
+      m,
       uq: a.first.unitQty,
       q: a.first.quantity,
       um: a.first.unitOfMeasure,
@@ -101,6 +130,7 @@ export function buildItemDocs(stores: StoreState[]): Map<string, ItemDoc> {
       bc: a.first.barcode,
       p: a.p,
       ...(a.img ? { img: a.img } : {}),
+      ...(s ? { s } : {}),
     });
   }
   return out;
