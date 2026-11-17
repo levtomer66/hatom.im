@@ -12,6 +12,7 @@
 import { createHash } from 'node:crypto';
 import { parseFileName, type CanonItem, type CanonPromo, type CanonPromoGroup, type CanonStore } from './normalize.ts';
 import { departmentOf, departmentOfCategory } from './departments.ts';
+import { photoByName } from './photos.ts';
 import { priceSourceOf, storeId, type PriceSource, type StoreId } from './collections.ts';
 
 export interface StoreState {
@@ -38,6 +39,8 @@ export interface ItemDoc {
   s?: string;
   /** Store department (departments.ts), omitted when nothing places it. */
   d?: string;
+  /** 'name' when `img` is borrowed from the same product under another code (photos.ts) — an illustration. */
+  imgBy?: 'name';
 }
 
 export interface PromoGroupDoc {
@@ -151,6 +154,9 @@ export function buildItemDocs(stores: StoreState[]): Map<string, ItemDoc> {
       ...(d ? { d } : {}),
     });
   }
+  // Items no source photographs borrow a photo from the same product under another code.
+  const borrowed = photoByName([...out.values()].map((d) => ({ key: d._id, name: d.n, d: d.d, img: d.img })));
+  for (const [key, img] of borrowed) Object.assign(out.get(key)!, { img, imgBy: 'name' as const });
   return out;
 }
 
