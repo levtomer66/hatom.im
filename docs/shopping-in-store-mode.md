@@ -54,8 +54,8 @@ Rules:
   this store whose name shares a word, or moves the item to the plan's next store.
 - **Deal nudges:** "מבצע 3 ב-₪20 – יש לך 2, להוסיף עוד אחד?" from the promo
   labels the compare already returns.
-- **End of trip:** "₪127 נאמד – כמה שילמת?" (optional), then the trip closes.
-  Saves estimated vs. paid for a monthly savings line later.
+- **End of trip:** "סיום קנייה", one confirmation, and the trip closes. No
+  question about what was paid (dropped 2026-11-17: not worth the friction).
 
 ## Departments (ingest side, done)
 
@@ -88,7 +88,8 @@ Stored per store in a small `shoppingAisleOrder` doc; no personal data.
 
 - `shoppingTrips`: `{ _id, listId, plan: 'cheapest' | 'one-store', stops:
   [{ storeKey, items: [itemKey] }], ticks: { [itemKey]: { by, at } },
-  missing: [itemKey], estimate, paid?, startedBy, startedAt, endedAt? }`.
+  missing: [itemKey], estimate, startedBy, startedAt, endedAt? }`.
+  Trips ended before 2026-11-17 may carry a `paid` field; nothing reads it.
   One open trip per list; anyone who can see the list can join it.
 - The list itself is unchanged; a trip snapshots the items and prices at start.
 

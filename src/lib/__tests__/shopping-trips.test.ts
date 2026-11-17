@@ -43,9 +43,8 @@ test('a valid trip parses; bad ones say why', () => {
 
 test('patch: tick or end, nothing else', () => {
   assert.deepEqual(parseTripPatch({ tick: { key: 'a', on: true } }), { ok: true, value: { tick: { key: 'a', on: true } } });
-  assert.deepEqual(parseTripPatch({ end: {} }), { ok: true, value: { end: { paid: null } } });
-  assert.deepEqual(parseTripPatch({ end: { paid: 12700 } }), { ok: true, value: { end: { paid: 12700 } } });
-  assert.equal(parseTripPatch({ end: { paid: 1.5 } }).ok, false);
+  assert.deepEqual(parseTripPatch({ end: true }), { ok: true, value: { end: true } });
+  assert.deepEqual(parseTripPatch({ end: { paid: 12700 } }), { ok: true, value: { end: true } }); // an old client's paid is ignored
   assert.equal(parseTripPatch({}).ok, false);
 });
 

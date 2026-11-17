@@ -1852,9 +1852,9 @@ function InStore({ trip, onTrip, onClose, onEnded }: {
       setError(true);
     }
   };
-  const end = async (paid: number | null) => {
+  const end = async () => {
     try {
-      await api(`/trips/${trip.id}`, { method: 'PATCH', body: JSON.stringify({ end: { paid } }) });
+      await api(`/trips/${trip.id}`, { method: 'PATCH', body: JSON.stringify({ end: true }) });
       onEnded();
     } catch {
       setError(true);
@@ -1931,7 +1931,7 @@ function InStore({ trip, onTrip, onClose, onEnded }: {
           <p className="sh-credit">חלק מהתמונות: Open Food Facts, ברישיון CC BY-SA.</p>
         )}
       </div>
-      {ending && <EndTrip estimate={prog.total} onEnd={end} onCancel={() => setEnding(false)} />}
+      {ending && <EndTrip onEnd={end} onCancel={() => setEnding(false)} />}
     </div>
   );
 }
@@ -1992,22 +1992,13 @@ function NotThere({ item, stop, trip, missing, onChange }: {
   );
 }
 
-/** End of trip: the estimate, and optionally what was actually paid. */
-function EndTrip({ estimate, onEnd, onCancel }: { estimate: number; onEnd: (paid: number | null) => void; onCancel: () => void }) {
-  const [paid, setPaid] = useState('');
-  const agorot = parseAgorot(paid);
+/** End of trip: one confirmation (a stray tap would close it for everyone on the trip), then it closes. */
+function EndTrip({ onEnd, onCancel }: { onEnd: () => void; onCancel: () => void }) {
   return (
     <div className="sh-end" role="dialog" aria-label="סיום קנייה">
-      <p className="sh-end-title">{ils(estimate)} נאמד. כמה שילמת?</p>
-      <label className="sh-money-input sh-end-input">
-        <input type="text" inputMode="decimal" value={paid} onChange={(e) => setPaid(e.target.value)} placeholder="לא חובה" aria-label="כמה שילמת" />
-        <span aria-hidden>₪</span>
-      </label>
-      {agorot !== null && agorot !== undefined && agorot !== estimate && (
-        <p className="sh-muted">{agorot < estimate ? `${ils(estimate - agorot)} פחות מהאומדן` : `${ils(agorot - estimate)} יותר מהאומדן`}</p>
-      )}
+      <p className="sh-end-title">לסיים את הקנייה?</p>
       <div className="sh-end-actions">
-        <button type="button" className="sh-btn sh-btn--primary" disabled={agorot === undefined} onClick={() => onEnd(agorot ?? null)}>סיום הקנייה</button>
+        <button type="button" className="sh-btn sh-btn--primary" onClick={onEnd}>סיום הקנייה</button>
         <button type="button" className="sh-btn sh-btn--ghost" onClick={onCancel}>עוד לא</button>
       </div>
     </div>

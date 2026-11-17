@@ -1110,7 +1110,6 @@ body:has(.sh-page) { background: #ffffff; }
   box-shadow: 0 -8px 24px rgba(17, 17, 17, 0.14);
 }
 .sh-end-title { margin: 0 0 0.75rem; font-size: 1.125rem; font-weight: 600; }
-.sh-end-input input { width: 8rem; }
 .sh-end-actions { display: flex; flex-direction: column; gap: 0.5rem; margin-top: 0.75rem; }
 .sh-end-actions .sh-btn--primary { margin: 0; }
 .sh-instore-missing { margin-top: 1rem; font-size: 0.875rem; color: var(--sh-muted); }

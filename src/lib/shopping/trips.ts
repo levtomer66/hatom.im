@@ -47,8 +47,6 @@ export interface Trip {
   startedBy: string;
   startedAt: string;
   endedAt: string | null;
-  /** What was actually paid, agorot, if given at the end. */
-  paid: number | null;
 }
 
 export type TripCreate = Pick<Trip, 'listId' | 'plan' | 'city' | 'stops' | 'missing' | 'estimate'>;
@@ -62,7 +60,8 @@ export type TripPatch =
   | { move: { key: string; toStore: number } }
   /** Change an item's quantity (the deal nudge's "+1"); its cost scales with it. */
   | { qty: { key: string; qty: number } }
-  | { end: { paid: number | null } };
+  /** Close the trip. Older clients also sent {paid}; it's ignored. */
+  | { end: true };
 
 const MAX_STOPS = 3;
 const MAX_ITEMS = 100;
@@ -145,11 +144,7 @@ export function parseTripPatch(body: unknown): Result<TripPatch> {
     if (!isStr(t.key, 60) || typeof t.qty !== 'number' || !(t.qty > 0) || t.qty > 100) return { ok: false, error: 'qty needs key and 0 < qty ≤ 100' };
     return { ok: true, value: { qty: { key: t.key, qty: t.qty } } };
   }
-  if (b.end && typeof b.end === 'object') {
-    const paid = (b.end as Record<string, unknown>).paid;
-    if (paid !== null && paid !== undefined && !isAgorot(paid)) return { ok: false, error: 'paid must be agorot or null' };
-    return { ok: true, value: { end: { paid: (paid as number | undefined) ?? null } } };
-  }
+  if (b.end) return { ok: true, value: { end: true } };
   return { ok: false, error: 'nothing to do' };
 }
 

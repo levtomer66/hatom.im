@@ -44,7 +44,7 @@ export async function startTrip(input: TripCreate, by: string): Promise<{ trip: 
   const open = await getOpenTrip(input.listId);
   if (open) return { trip: open, created: false };
   const doc: Omit<TripDocument, '_id'> = {
-    ...input, ticked: [], notThere: [], tickLog: [], rev: 0, startedBy: by, startedAt: new Date().toISOString(), endedAt: null, paid: null,
+    ...input, ticked: [], notThere: [], tickLog: [], rev: 0, startedBy: by, startedAt: new Date().toISOString(), endedAt: null,
   };
   const res = await (await getCollection()).insertOne(doc);
   return { trip: docToTrip({ ...doc, _id: res.insertedId }), created: true };
@@ -100,10 +100,10 @@ export async function changeStops(
   return null;
 }
 
-export async function endTrip(id: string, paid: number | null): Promise<Trip | null> {
+export async function endTrip(id: string): Promise<Trip | null> {
   const doc = await (await getCollection()).findOneAndUpdate(
     { _id: new ObjectId(id), endedAt: null },
-    { $set: { endedAt: new Date().toISOString(), paid } },
+    { $set: { endedAt: new Date().toISOString() } },
     { returnDocument: 'after' },
   );
   return doc ? docToTrip(doc) : null;

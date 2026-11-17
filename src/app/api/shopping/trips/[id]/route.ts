@@ -29,7 +29,7 @@ export async function GET(request: NextRequest, { params }: Params) {
 
 // PATCH — one change: { tick: {key, on} } | { notThere: {key, on} } |
 // { replace: {key, item} } | { move: {key, toStore} } | { qty: {key, qty} } |
-// { end: {paid} }.
+// { end: true }.
 export async function PATCH(request: NextRequest, { params }: Params) {
   const caller = await requireFeatureCaller(request, 'shopping');
   if (caller instanceof NextResponse) return caller;
@@ -47,7 +47,7 @@ export async function PATCH(request: NextRequest, { params }: Params) {
     const p = parsed.value;
     const trip = 'tick' in p ? await setTick(id, p.tick.key, p.tick.on, caller.userEmail)
       : 'notThere' in p ? await setNotThere(id, p.notThere.key, p.notThere.on)
-        : 'end' in p ? await endTrip(id, p.end.paid)
+        : 'end' in p ? await endTrip(id)
           : await changeStops(id, p);
     return trip ? NextResponse.json(trip) : NextResponse.json({ error: 'Trip already ended, or no such item' }, { status: 409 });
   } catch (error) {
