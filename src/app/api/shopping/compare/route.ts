@@ -3,9 +3,11 @@ import { requireFeatureCaller } from '@/lib/api-caller';
 import { CITIES } from '@/lib/shopping/cities';
 import { ITEM_OPTIONS_SHOWN, RESULTS_PER_SECTION, SPLITS_SHOWN } from '@/lib/shopping/config';
 import { MAX_LIST_ITEMS, MAX_QTY } from '@/lib/shopping/lists';
-import { bestSplits, rankStores, type BasketLine, type PricingOptions, type StoreBasket } from '@/lib/shopping/pricing';
+import { bestSplits, priceStore, rankStores, type BasketLine, type PricedItem, type PricingOptions, type StoreBasket } from '@/lib/shopping/pricing';
+import { choosePlan, splitPays } from '@/lib/shopping/plans';
+import type { PromoDoc } from '@/lib/shopping/snapshot';
 import { israelLocalNow } from '@/lib/shopping/snapshot';
-import { idleDeals, promoDetails, storeInfo, type CompareResponse, type ItemBest, type StoreInfo } from '@/lib/shopping/api-types';
+import { idleDeals, promoDetails, storeInfo, type Plans, type ShoppingPlan, type CompareResponse, type ItemBest, type StoreInfo } from '@/lib/shopping/api-types';
 import { withManualPrices } from '@/lib/shopping/manual';
 import { getItems, getPromosFor, getStoresFor } from '@/models/ShoppingCatalog';
 import { getManualPrices } from '@/models/ShoppingManualPrice';
@@ -20,6 +22,38 @@ function perItem(lines: BasketLine[], baskets: StoreBasket[]): ItemBest[] {
       .sort((a, b) => a.cost - b.cost);
     return { key, qty, options: options.slice(0, ITEM_OPTIONS_SHOWN), stores: options.length };
   });
+}
+
+/**
+ * The one-store plan (the ranking's first) and the cheapest plan over at most
+ * three stores, each stop re-priced on its own items.
+ */
+function buildPlans(
+  physical: StoreBasket[],
+  lines: BasketLine[],
+  items: Map<string, PricedItem>,
+  promos: PromoDoc[],
+  opts: PricingOptions,
+): Plans {
+  const first = physical[0];
+  const oneStore: ShoppingPlan | null = first
+    ? { kind: 'one-store', stops: [{ store: first.store, basket: first }], total: first.total, missing: first.missing }
+    : null;
+  const choice = choosePlan(physical, lines.map((l) => l.key));
+  let cheapest: ShoppingPlan | null = null;
+  if (choice && choice.stores.length > 1) {
+    const stops = choice.stores.map((store) => ({
+      store,
+      basket: priceStore(store, lines.filter((l) => choice.assign[l.key] === store), items, promos, opts),
+    }));
+    cheapest = { kind: 'cheapest', stops, total: stops.reduce((s, x) => s + x.basket.total, 0), missing: choice.missing };
+  }
+  const saving = oneStore && cheapest ? oneStore.total - cheapest.total : 0;
+  const pays = !!oneStore && !!cheapest && (
+    cheapest.missing.length < oneStore.missing.length
+    || (cheapest.missing.length === oneStore.missing.length && splitPays(cheapest.total, oneStore.total))
+  );
+  return { oneStore, cheapest, saving, splitPays: pays };
 }
 
 function parseBody(body: unknown): { city: string; lines: BasketLine[]; clubs: boolean; coupons: boolean } | string {
@@ -78,10 +112,13 @@ export async function POST(request: NextRequest) {
     const online = rankStores(onlineKeys, req.lines, items, promos, opts).filter(sellsAny);
     const splits = bestSplits(physical, req.lines, items, promos, opts, SPLITS_SHOWN);
 
+    const plans = buildPlans(physical, req.lines, items, promos, opts);
+
     // Deals a shown line doesn't use yet (a "3 ב־100" with one pack in the list).
     const shownBaskets = [
       ...physical.slice(0, RESULTS_PER_SECTION), ...online.slice(0, RESULTS_PER_SECTION), ...manual,
       ...splits.flatMap((s) => s.stores),
+      ...(plans.cheapest?.stops.map((s) => s.basket) ?? []),
     ];
     const shownLines = shownBaskets.flatMap((b) => b.lines);
     const idle: Record<string, string[]> = {};
@@ -103,6 +140,7 @@ export async function POST(request: NextRequest) {
       manual,
       splits,
       perItem: perItem(req.lines, physical),
+      plans,
       promos: promoDetails(promos, [...shownLines, ...Object.values(idle).map((ids) => ({ applied: [], offers: [], idle: ids }))]),
       idle,
     };

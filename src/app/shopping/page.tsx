@@ -687,9 +687,20 @@ const Results = React.forwardRef<HTMLElement, {
     ['online', 'אונליין'],
   ];
 
+  const hasPlans = !!result.plans?.oneStore;
+  const [showAll, setShowAll] = useState(false);
+
   return (
     <section ref={ref} className={`sh-results ${updating ? 'is-updating' : ''}`} aria-live="polite" aria-busy={updating}>
-      {best ? (
+      {hasPlans && <PlansView key={result.city} result={result} updating={updating} />}
+      {hasPlans && (
+        <button type="button" className="sh-all-toggle" onClick={() => setShowAll(!showAll)} aria-expanded={showAll}>
+          {showAll ? 'הסתרת כל החנויות' : 'כל החנויות והשוואה מפורטת'}
+          <FaChevronDown className={`sh-caret ${showAll ? 'is-open' : ''}`} aria-hidden />
+        </button>
+      )}
+      {(!hasPlans || showAll) && (<>
+      {hasPlans ? null : best ? (
         <div className="sh-hero">
           <span className="sh-hero-kicker">הכי זול לקנות הכול</span>
           <span className="sh-hero-store">{storeName(result.stores[best.store])}</span>
@@ -820,10 +831,105 @@ const Results = React.forwardRef<HTMLElement, {
           ))
           : <p className="sh-empty">אין חנויות אונליין עם מחירים.</p>
       )}
-
+      </>)}
+      {hasPlans && !showAll && result.manual.length > 0 && (
+        <ManualStores key={`m-${result.city}`} baskets={result.manual} result={result} list={list} onSaved={onPricesSaved} />
+      )}
     </section>
   );
 });
+
+// ── plans: how to shop the list ──
+
+type PlanKind = 'cheapest' | 'one-store';
+
+/**
+ * The two ways to shop the list, as cards: "הכי זול" (each item at its
+ * cheapest store, up to three stores) and "חנות אחת". The split is only
+ * offered as the default when it saves at least ₪15 or covers more items.
+ * Below the cards, the chosen plan: its stops and what to buy at each.
+ */
+function PlansView({ result, updating }: { result: CompareResponse; updating: boolean }) {
+  const { oneStore, cheapest, saving, splitPays } = result.plans;
+  const [choice, setChoice] = useState<PlanKind>(splitPays && cheapest ? 'cheapest' : 'one-store');
+  if (!oneStore) return null;
+  const plan = choice === 'cheapest' && cheapest ? cheapest : oneStore;
+  const more = cheapest ? oneStore.missing.length - cheapest.missing.length : 0;
+  const cheapNote = !cheapest
+    ? 'חנות אחת כבר הכי זולה'
+    : more > 0
+      ? `כולל עוד ${more} ${more === 1 ? 'מוצר' : 'מוצרים'} שחסרים בחנות אחת`
+      : splitPays
+        ? `${ils(saving)} פחות מחנות אחת`
+        : `לא שווה לפצל: ${saving > 0 ? `רק ${ils(saving)} פחות` : 'לא זול יותר'}`;
+  const one = result.stores[oneStore.stops[0].store];
+  return (
+    <div className="sh-plans">
+      {updating && <span className="sh-updating">מעדכן…</span>}
+      <div className="sh-plan-cards" role="radiogroup" aria-label="איך לקנות">
+        <button type="button" role="radio" aria-checked={plan.kind === 'cheapest'} disabled={!cheapest}
+          className={`sh-plan-card ${plan.kind === 'cheapest' ? 'is-on' : ''} ${cheapest && !splitPays ? 'is-weak' : ''}`}
+          onClick={() => setChoice('cheapest')}>
+          <span className="sh-plan-kind">הכי זול</span>
+          <b className="sh-plan-total">{cheapest ? ils(cheapest.total) : ils(oneStore.total)}</b>
+          <span className="sh-plan-sub">{cheapest ? `${cheapest.stops.length} חנויות` : storeName(one)}</span>
+          <span className={`sh-plan-note ${cheapest && (splitPays || more > 0) ? 'is-good' : ''}`}>{cheapNote}</span>
+        </button>
+        <button type="button" role="radio" aria-checked={plan.kind === 'one-store'}
+          className={`sh-plan-card ${plan.kind === 'one-store' ? 'is-on' : ''}`} onClick={() => setChoice('one-store')}>
+          <span className="sh-plan-kind">חנות אחת</span>
+          <b className="sh-plan-total">{ils(oneStore.total)}</b>
+          <span className="sh-plan-sub">{storeName(one)}</span>
+          <span className={`sh-plan-note ${oneStore.missing.length ? 'is-miss' : ''}`}>
+            {oneStore.missing.length ? `חסרים ${oneStore.missing.length}` : 'יש בה הכול'}
+          </span>
+        </button>
+      </div>
+
+      <div className="sh-plan-detail">
+        {plan.stops.map((stop, i) => (
+          <section key={stop.store} className="sh-plan-stop">
+            <h3 className="sh-plan-stop-head">
+              {plan.stops.length > 1 && <span className="sh-rank">{i + 1}</span>}
+              <span className="sh-store-name">{storeName(result.stores[stop.store])}</span>
+              <span className="sh-store-total">{ils(stop.basket.total)}</span>
+            </h3>
+            {result.stores[stop.store] && (
+              <span className="sh-plan-stop-meta">
+                <SourceBadge store={result.stores[stop.store]} now={result.now} />
+                {cleanAddress(result.stores[stop.store].address) && <span className="sh-addr">{cleanAddress(result.stores[stop.store].address)}</span>}
+              </span>
+            )}
+            <Breakdown basket={stop.basket} result={result} onlyAvailable />
+          </section>
+        ))}
+        {plan.missing.length > 0 && <MissingHere keys={plan.missing} result={result} />}
+      </div>
+    </div>
+  );
+}
+
+/** Items the plan's stores don't sell, with where they can be had nearby. */
+function MissingHere({ keys, result }: { keys: string[]; result: CompareResponse }) {
+  return (
+    <section className="sh-plan-missing">
+      <h3 className="sh-section-title">חסר כאן</h3>
+      <ul>
+        {keys.map((k) => {
+          const it = result.items[k];
+          const best = result.perItem.find((x) => x.key === k)?.options[0];
+          const st = best ? result.stores[best.store] : undefined;
+          return (
+            <li key={k}>
+              <span>{it?.name ?? k}</span>
+              <small>{best && st ? <>{ils(best.cost)} ב{st.chainName} {st.name}</> : 'לא נמכר בחנויות שליד הבית'}</small>
+            </li>
+          );
+        })}
+      </ul>
+    </section>
+  );
+}
 
 /** A manufacturer worth showing: the files often say "לא ידוע", "---" or nothing. */
 const realMaker = (m: string | null | undefined) => {
@@ -838,7 +944,10 @@ const storeName = (s: StoreInfo | undefined) => (s ? `${s.chainName} ${s.name}` 
  * ("הרצל 91,עובר להרצל 114)"), so keep the text before the first comma or
  * parenthesis.
  */
-const cleanAddress = (a: string | null | undefined) => (a ?? '').split(/[,(]/)[0].replace(/[()]/g, '').trim();
+const cleanAddress = (a: string | null | undefined) => {
+  const t = (a ?? '').split(/[,(]/)[0].replace(/[()]/g, '').trim();
+  return /^(unknown|לא ידוע|-+|0)$/i.test(t) ? '' : t; // placeholders some files use
+};
 
 /** The small line next to the city name. */
 const LOC_NOTE: Record<LocState | 'manual', string> = {

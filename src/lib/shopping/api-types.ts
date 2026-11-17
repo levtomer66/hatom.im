@@ -141,6 +141,31 @@ export interface ItemBest {
   stores: number;
 }
 
+/** One stop of a plan: the store and its items, priced on their own. */
+export interface PlanStop {
+  store: number;
+  basket: StoreBasket;
+}
+
+export interface ShoppingPlan {
+  kind: 'one-store' | 'cheapest';
+  /** One for 'one-store', two or three for 'cheapest' (in no particular order yet). */
+  stops: PlanStop[];
+  total: number;
+  /** Items no stop sells. */
+  missing: string[];
+}
+
+export interface Plans {
+  oneStore: ShoppingPlan | null;
+  /** Null when using more stores doesn't change anything (one store is already cheapest). */
+  cheapest: ShoppingPlan | null;
+  /** oneStore − cheapest, agorot (0 when either is missing). */
+  saving: number;
+  /** The split is worth the extra stops: it saves ≥ SPLIT_MIN_SAVING, or covers items the one store lacks. */
+  splitPays: boolean;
+}
+
 export interface CompareResponse {
   now: string;
   city: string;
@@ -161,6 +186,8 @@ export interface CompareResponse {
   splits: Split[];
   /** Per list item, its cheapest physical stores. */
   perItem: ItemBest[];
+  /** The two ways to shop the list (docs/shopping-in-store-mode.md). */
+  plans: Plans;
   /** Terms of every deal named in the baskets above, by promo id. */
   promos: Record<string, PromoDetail>;
   /** Deals a shown line doesn't reach yet, by "<store>|<item key>" (promo ids). */
