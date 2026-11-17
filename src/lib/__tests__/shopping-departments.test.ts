@@ -39,3 +39,12 @@ test('a source category path places its items by the aisle, not a word in the le
 test('unknown text places nothing', () => {
   assert.equal(departmentOf('מבצעי השבוע'), null);
 });
+
+test('canned, pickled and dried produce is not in the produce aisle', () => {
+  assert.equal(departmentOf('עגבניות מרוסקות יכין'), 'pantry');
+  assert.equal(departmentOf('מלפפון במלח 18-25 540גרם'), 'deli');
+  assert.equal(departmentOf('לימונית מיץ לימון200מ"ל'), 'pantry');
+  assert.equal(departmentOf('אננס חתוך 227גרם'), 'pantry');
+  assert.equal(departmentOf('תפוח עץ מיובש 160 גר'), 'snacks');
+  assert.equal(departmentOf('עגבניה'), 'produce');
+});

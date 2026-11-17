@@ -19,6 +19,12 @@ const MAX_PAGES = 20;
 export interface WoltVenueConfig {
   /** The venue sells only part of the shop (e.g. produce): keep the manual shop listed as well. */
   manualToo?: boolean;
+  /**
+   * Only its photos are used (by barcode), not its prices: e.g. a Wolt Market
+   * dark store, whose big photographed catalogue fills in photos for items the
+   * chains sell. Fetched at most once a week.
+   */
+  photosOnly?: boolean;
   slug: string;
   /** Target city id (cities.ts). */
   cityId: string;

@@ -11,6 +11,8 @@ export type ChainSource =
   | { kind: 'laibcatalog' }
   /** `https://prices.<site>.co.il` — today's files embedded in the page (Carrefour). */
   | { kind: 'publishprice'; site: string }
+  /** prices.super-pharm.co.il — a paged table filtered by file type and day. */
+  | { kind: 'superpharm' }
   /** Not a price-transparency chain: Wolt delivery prices for shops that publish none (ingest/wolt.ts). */
   | { kind: 'wolt' }
   /** Shops with no price source at all, listed so users can type prices (ingest/manual.ts). */
@@ -47,6 +49,8 @@ export const CHAINS: ChainConfig[] = [
   { slug: 'carrefour', chainId: '7290055700007', name: 'קרפור', source: { kind: 'publishprice', site: 'carrefour' }, onlineStores: ['471', '473'] }, // Carrefour online, Quik
   { slug: 'victory', chainId: '7290696200003', name: 'ויקטורי', source: { kind: 'laibcatalog' }, onlineStores: ['97'] },
   { slug: 'mahsani-hashuk', chainId: '7290661400001', name: 'מחסני השוק', source: { kind: 'laibcatalog' }, onlineStores: ['97'] },
+  { slug: 'good-pharm', chainId: '7290058197699', name: 'גוד פארם', source: { kind: 'bina', host: 'goodpharm' } },
+  { slug: 'super-pharm', chainId: '7290172900007', name: 'סופר-פארם', source: { kind: 'superpharm' } },
   { slug: 'bareket', chainId: '7290875100001', name: 'סופר ברקת', source: { kind: 'bina', host: 'superbareket' } },
   // Stores file is the main company's; some branches publish prices under a second id (7290058288090) — matched by store number.
   { slug: 'city-market', chainId: '7290058266241', name: 'סיטי מרקט', source: { kind: 'bina', host: 'citymarketkiryatgat' } },

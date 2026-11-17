@@ -116,6 +116,36 @@ Shuk HaIr, Zol VeBegadol, Meshnat Yosef 1/2, City Market Shops (empty file).
 | Yellow (Paz), Super Yuda, Salach Dabach | Their Cerberus accounts need a non-empty published password. I didn't log in with those. Yellow (Paz convenience stores) very likely has TLV stores, so it's worth adding: run the verify command below with the password from the chain's transparency page. |
 | Quik, Cofix, Mega, City Market Givatayim/Kiryat Ono | Defunct, merged or removed from the gov.il list. |
 
+## Product photos
+
+The price files carry no photos. In order of preference, an item doc's `img` is:
+
+1. **Rami Levy's image CDN**, by barcode: `https://img.rami-levy.co.il/product/<barcode>/small.jpg`
+   (200 = photo, 403 = none; robots.txt `Allow: /product/`). It covers far more
+   than Rami Levy's own range. Link only — the files are never copied.
+2. **Wolt, as a fallback only** (owner's call, 2026-11-17 — see Wolt's terms below):
+   a priced Wolt venue's own photo, then
+3. **a photo-only Wolt venue** (places/wolt.json `photosOnly`, e.g. a Wolt Market
+   dark store), cached per week.
+4. **Open Food Facts** (`imgBy: 'off'`): `image_url` from the monthly CSV export,
+   streamed and filtered to our barcodes (never saved whole). Photos are
+   CC BY-SA: credit "Open Food Facts" where shown.
+5. **Borrowed by name** (`imgBy: 'name'`, `src/lib/shopping/photos.ts`): loose
+   produce and other chain-internal codes take the photo of the same product
+   under another code — same department, same head word, every word of the
+   item in the other name. An illustration, not the exact pack.
+
+Sources 2 and 4 are probed by `npm run shopping:photos` (`ingest/fetch-photos.ts`:
+Rami Levy 1.5 s apart, most widely sold first, misses re-checked after 30
+days; `--off` refreshes OFF at most monthly) into `photos/*.json`; the ingest
+only reads those caches. The evaluation behind this (coverage, terms, what
+was rejected): [shopping-photo-sources.md](shopping-photo-sources.md).
+
+**Wolt's terms** (Israel, §12.3 and §13.6) prohibit scraping and systematic
+retrieval. The owner kept Wolt prices, and Wolt photos only where no other
+source has one (about a third of what they covered — mainly loose produce and
+imports; Rami Levy has no produce photos).
+
 ## File format observations
 
 - **Encoding:** every Cerberus `Stores` file, and Bitan's, is **UTF-16 LE with BOM**. Shufersal and Hazi Hinam are UTF-8 **with BOM**. The rest are UTF-8. Yochananof's PriceFull is UTF-8 with BOM. Detect by BOM, fall back to UTF-8, then windows-1255.

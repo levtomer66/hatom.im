@@ -32,6 +32,7 @@ import { buildItemDocs, buildPromoDocs, buildStoreDocs, diffDocs, israelLocalNow
 import { Throttle, clientFor, errorMessage, type RemoteFile } from './sources.ts';
 import { fetchWoltVenue, type WoltVenueConfig } from './wolt.ts';
 import { pinFilter } from './locate.ts';
+import { RAMI_LEVY_IMG, cachedPhotos, readOffNutrition, readRamiLevy } from './off.ts';
 
 const RAW_RETENTION_DAYS = 7;
 const REQUEST_GAP_MS = 1500;
@@ -148,6 +149,8 @@ interface StoreRecord extends CanonStore {
   chainName: string;
   /** Target city id; null for an online store outside the target cities. */
   cityId: string | null;
+  /** Map point, when the source places it (discovery review rows); official stores are placed by the pin filter. */
+  at?: { lat: number; lng: number };
 }
 
 async function ingestChain(chain: ChainConfig, cityIds: Set<string>, maxStores: number | null): Promise<StoreRecord[]> {
@@ -212,7 +215,7 @@ async function ingestChain(chain: ChainConfig, cityIds: Set<string>, maxStores: 
  */
 async function ingestWolt(chain: ChainConfig, cityIds: Set<string>, maxStores: number | null): Promise<StoreRecord[]> {
   const configPath = join(CACHE, 'places', 'wolt.json');
-  let venues = readJson<WoltVenueConfig[]>(configPath, []).filter((v) => cityIds.has(v.cityId));
+  let venues = readJson<WoltVenueConfig[]>(configPath, []).filter((v) => cityIds.has(v.cityId) && !v.photosOnly);
   if (PINS) {
     // Wolt pages carry no coordinates; a venue is placed by the discovery entry it was approved from.
     const at = placeCoords();
@@ -234,9 +237,10 @@ async function ingestWolt(chain: ChainConfig, cityIds: Set<string>, maxStores: n
   const previous = readJson<Record<string, StoreRecord>>(join(STATE, 'stores.json'), {});
   const out: StoreRecord[] = [];
   for (const v of venues) {
+    const at = v.placeId ? placeCoords().get(v.placeId) : undefined;
     const rec: StoreRecord = {
       chainId: chain.chainId, storeId: v.slug, subChainId: '', name: v.slug, address: '', city: v.cityId, kind: 'physical',
-      chainSlug: chain.slug, chainName: chain.name, cityId: v.cityId,
+      chainSlug: chain.slug, chainName: chain.name, cityId: v.cityId, ...(at ? { at } : {}),
     };
     const prev = loadState(rec);
     const next: SavedStoreState = prev ?? { chainId: chain.chainId, storeId: v.slug, priceFile: null, promoFile: null, items: [], promos: [] };
@@ -271,6 +275,41 @@ async function ingestWolt(chain: ChainConfig, cityIds: Set<string>, maxStores: n
  * they are not re-checked here: two routers disagree by a minute at the edge.
  */
 /** Discovery place ref → coordinates, from every pin's review file. */
+/**
+ * barcode → photo link from the photo-only Wolt venues (places/wolt.json
+ * `photosOnly`). Their responses are cached under the week's Sunday, so a
+ * venue is downloaded at most once a week; --offline only reads that cache.
+ */
+async function woltPhotos(offline: boolean): Promise<Map<string, string>> {
+  const venues = readJson<WoltVenueConfig[]>(join(CACHE, 'places', 'wolt.json'), []).filter((v) => v.photosOnly);
+  const out = new Map<string, string>();
+  if (!venues.length) return out;
+  const rawDir = join(RAW, 'wolt');
+  mkdirSync(rawDir, { recursive: true });
+  const now = new Date(`${israelLocalNow().slice(0, 10)}T00:00:00Z`);
+  const week = new Date(now.getTime() - now.getUTCDay() * 86_400_000).toISOString().slice(0, 10).replace(/-/g, '');
+  const throttle = new Throttle(REQUEST_GAP_MS);
+  for (const v of venues) {
+    if (offline && !existsSync(join(rawDir, `${v.slug}-${week}-assortment.json`))) {
+      log(`  ${v.slug}: photos not cached for week ${week} — skipped (--offline)`);
+      continue;
+    }
+    try {
+      const venue = await fetchWoltVenue(v.slug, rawDir, week, throttle);
+      let n = 0;
+      for (const it of venue.items) {
+        if (!it.barcode || !it.img || out.has(it.key)) continue;
+        out.set(it.key, it.img);
+        n++;
+      }
+      log(`  ${v.slug.padEnd(30)} ${venue.name} — photos for ${n} barcodes (${venue.fetched} requests)`);
+    } catch (e) {
+      warn(`photo venue ${v.slug}: ${errorMessage(e)}`);
+    }
+  }
+  return out;
+}
+
 function placeCoords(): Map<string, { lat: number; lng: number }> {
   const out = new Map<string, { lat: number; lng: number }>();
   for (const pin of readJson<{ id: string }[]>(join(CACHE, 'places', 'pins.json'), [])) {
@@ -296,7 +335,7 @@ function ingestManual(chain: ChainConfig, cityIds: Set<string>): StoreRecord[] {
       const id = createHash('sha1').update(r.id).digest('hex').slice(0, 10);
       out.set(id, {
         chainId: chain.chainId, storeId: id, subChainId: '', name: r.name, address: r.address, city: pin.city, kind: 'physical',
-        chainSlug: chain.slug, chainName: chain.name, cityId: pin.city,
+        chainSlug: chain.slug, chainName: chain.name, cityId: pin.city, at: { lat: r.lat, lng: r.lng },
       });
     }
   }
@@ -405,11 +444,58 @@ async function main() {
       st ? [{ k: keys[storeId(s)], chainId: s.chainId, storeId: s.storeId, items: st.items, promos: st.promos }] : [],
     );
     const nowLocal = israelLocalNow();
-    const items = buildItemDocs(states);
+    // Photos by barcode for items no priced source photographs: Rami Levy's CDN,
+    // then a photo-only Wolt venue, then Open Food Facts (caches filled by
+    // `npm run shopping:photos`; the ingest never fetches them).
+    const photos = cachedPhotos(CACHE);
+    // Rami Levy's CDN has a photo for 99.4% of the barcodes Rami Levy sells (checked
+    // 2026-11-17), so those get its link before they're checked; a checked miss wins.
+    const probed = readRamiLevy(CACHE);
+    const ramiLevy = chainBySlug('rami-levy')!.chainId;
+    for (const st of states) {
+      if (st.chainId !== ramiLevy) continue;
+      for (const it of st.items) {
+        if (it.barcode && /^\d{8,14}$/.test(it.key) && !(it.key in probed) && !photos.has(it.key)) photos.set(it.key, { img: RAMI_LEVY_IMG(it.key), first: true });
+      }
+    }
+    const wm = await woltPhotos(Boolean(args.offline));
+    for (const [k, img] of wm) if (!photos.get(k) || photos.get(k)!.by === 'off') photos.set(k, { img });
+    // The owner's call (2026-11-17): every other barcode not yet checked is assumed
+    // to be on Rami Levy's CDN too (~91% are) rather than waiting ~17 h of checks.
+    // It's the last resort: any photo known to exist wins, and a checked miss is
+    // never guessed. Missing ones are reported by hand and probed then.
+    for (const st of states) {
+      for (const it of st.items) {
+        if (it.barcode && !it.img && /^\d{8,14}$/.test(it.key) && !(it.key in probed) && !photos.has(it.key)) photos.set(it.key, { img: RAMI_LEVY_IMG(it.key) });
+      }
+    }
+    log(`photos by barcode: ${photos.size} (Rami Levy + Open Food Facts cache, ${wm.size} from photo-only Wolt venues)`);
+    // Nutrition per 100 g from the Open Food Facts export (cached by `npm run shopping:photos -- --off`).
+    const nuStats = { used: 0, notFood: 0, implausible: 0, otherProduct: 0 };
+    const nuRows = new Map(Object.entries(readOffNutrition(CACHE)?.rows ?? {}));
+    const items = buildItemDocs(states, photos, { rows: nuRows, stats: nuStats });
+    {
+      const docs = [...items.values()];
+      const sold = (x: (typeof docs)[number]) => Object.keys(x.p).length;
+      const all = docs.reduce((t, x) => t + sold(x), 0);
+      const withNu = docs.filter((x) => x.nu);
+      log(`nutrition: ${withNu.length} items (${Math.round((100 * withNu.reduce((t, x) => t + sold(x), 0)) / Math.max(all, 1))}% weighted by stores) from ${nuRows.size} Open Food Facts rows; dropped — not food ${nuStats.notFood}, implausible ${nuStats.implausible}, another product ${nuStats.otherProduct}`);
+    }
     const promoStats = { droppedCoupons: 0 };
     const promos = buildPromoDocs(states, nowLocal, promoStats);
+    // Walking minutes from the nearest pin, for the plan cards (null when unplaced or with no pins).
+    const walk = new Map<string, number | null>();
+    const where = new Map<string, { lat: number; lng: number }>();
+    if (PINS) {
+      for (const { s } of loaded) {
+        if (s.kind !== 'physical') continue;
+        const at = s.at ?? (await PINS.pointOf(s));
+        if (at) where.set(storeId(s), at);
+        walk.set(storeId(s), at ? await PINS.walkMinutes(s.cityId, at) : null);
+      }
+    }
     const storeDocs = buildStoreDocs(
-      loaded.map(({ s, st }) => ({ ...s, priceFile: st?.priceFile ?? null, promoFile: st?.promoFile ?? null })),
+      loaded.map(({ s, st }) => ({ ...s, priceFile: st?.priceFile ?? null, promoFile: st?.promoFile ?? null, walkMin: walk.get(storeId(s)) ?? null, loc: where.get(storeId(s)) ?? null })),
       keys,
     );
     const chainDocs = new Map(CHAINS.map((c) => [c.chainId, { _id: c.chainId, slug: c.slug, name: c.name }]));
@@ -446,6 +532,8 @@ async function main() {
     if (db) {
       await db.collection(COLLECTIONS.promos).createIndex({ items: 1 });
       await db.collection(COLLECTIONS.stores).createIndex({ city: 1 });
+      // In-store "לא היה": alternatives in the same department (app's /api/shopping/alternatives).
+      await db.collection(COLLECTIONS.items).createIndex({ d: 1 }, { sparse: true });
       for (const [name, d] of plan) {
         await writeCollection(db, name, d.upserts as StringIdDoc[], d.deletes);
         written[name] = d.next; // persisted per collection, so a crash mid-run only repeats the rest

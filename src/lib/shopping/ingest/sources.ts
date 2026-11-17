@@ -305,6 +305,51 @@ export function publishPriceClient(site: string, throttle: Throttle): SourceClie
   );
 }
 
+// ── Super-Pharm (prices.super-pharm.co.il) ───────────────────────────────
+// An MVC grid: `?Category-equals=<type>&Date-equals=<dd/mm/yyyy>&page=N`, 20
+// rows a page with the total in `data-total-rows`; links are
+// `/Download/<name>?bucketName=…` and answer the gz file itself. Today's and
+// yesterday's listings are read (early in the day today's can be empty).
+
+const SUPER_PHARM = 'https://prices.super-pharm.co.il';
+
+export function superPharmClient(throttle: Throttle): SourceClient {
+  const day = (offset: number) => {
+    const [y, m, d] = new Date(Date.now() - offset * 86_400_000).toLocaleDateString('en-CA', { timeZone: 'Asia/Jerusalem' }).split('-');
+    return `${d}/${m}/${y}`;
+  };
+  const listing = async (category: string) => {
+    const out: RemoteFile[] = [];
+    for (const offset of [0, 1]) {
+      for (let page = 1, pages = 1; page <= pages && page <= 100; page++) {
+        const q = new URLSearchParams({ 'Category-equals': category, 'Date-equals': day(offset), page: String(page) });
+        const html = await getText(throttle, `${SUPER_PHARM}/?${q}`);
+        const total = Number(/data-total-rows="(\d+)"/.exec(html)?.[1] ?? 0);
+        pages = Math.ceil(total / 20);
+        for (const m of html.matchAll(/href="(\/Download\/([^"?]+)\?[^"]*)"/g)) {
+          const f = toRemote(decodeURIComponent(m[2]), m[1].replace(/&amp;/g, '&'));
+          if (f) out.push(f);
+        }
+      }
+    }
+    return out;
+  };
+  const cache = new Map<string, Promise<RemoteFile[]>>();
+  const files = (c: string) => {
+    if (!cache.has(c)) cache.set(c, listing(c));
+    return cache.get(c)!;
+  };
+  return {
+    async latestStores() {
+      return newestStores(await files('Stores'));
+    },
+    async latestFor(type, storeIds) {
+      return newestByStore(await files(type), type, storeIds);
+    },
+    download: (f) => withRetry(`download ${f.name}`, () => getBytes(throttle, `${SUPER_PHARM}${f.ref}`)),
+  };
+}
+
 export function clientFor(chain: ChainConfig, throttle: Throttle): SourceClient {
   switch (chain.source.kind) {
     case 'cerberus':
@@ -317,6 +362,8 @@ export function clientFor(chain: ChainConfig, throttle: Throttle): SourceClient 
       return laibcatalogClient(chain.chainId, throttle);
     case 'publishprice':
       return publishPriceClient(chain.source.site, throttle);
+    case 'superpharm':
+      return superPharmClient(throttle);
     case 'wolt':
     case 'manual':
       throw new Error(`${chain.source.kind} has no price files — the ingest builds it separately`);
