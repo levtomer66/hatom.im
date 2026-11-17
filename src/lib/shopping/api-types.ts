@@ -228,6 +228,8 @@ export interface ItemPrice {
   cost: number;
   applied: AppliedPromo[];
   offers: Offer[];
+  /** A multi-buy here one unit doesn't reach: its quantity and price per unit (multiBuyUnit). */
+  multi?: { qty: number; unit: number; total: number } | null;
 }
 
 /** GET /api/shopping/item?key=<item key or scanned barcode>&city=<city id>. 404 when no such item. */

@@ -283,3 +283,18 @@ test('a deep but plausible deal (16% of shelf) still applies; a negative price n
   const negative = promo([part(['a'], { min: 1, price: -14999 })]);
   assert.equal(priceStore(1, [{ key: 'a', qty: 1 }], it, [negative], NOW).total, 1290);
 });
+
+import { multiBuyUnit } from '../shopping/pricing.ts';
+
+test('regression: Good Pharm "פירסט סמייל 2 ב-10" on ₪23.90 — the per-unit price at the deal\'s quantity', () => {
+  const it = items(['pads', { 440: 2390 }]);
+  const two = promo([part(['pads'], { gid: '001', rt: 10, min: 2, price: 1000 })], { stores: [440] });
+  assert.deepEqual(multiBuyUnit(440, 'pads', it, [two], NOW), { qty: 2, unit: 500, total: 1000 });
+  // One unit doesn't reach it: no multi-buy price where the deal isn't, or for a one-unit sale.
+  assert.equal(multiBuyUnit(440, 'pads', it, [], NOW), null);
+  const sale = promo([part(['pads'], { min: 1, price: 1990 })], { stores: [440] });
+  assert.equal(multiBuyUnit(440, 'pads', it, [sale], NOW), null);
+  // With a one-unit sale at ₪19.90 too, "3 ב-60" (₪20 each) saves nothing over one unit.
+  const three = promo([part(['pads'], { min: 3, price: 6000 })], { stores: [440] });
+  assert.equal(multiBuyUnit(440, 'pads', it, [sale, three], NOW), null);
+});

@@ -361,6 +361,9 @@ function StoreView({ store, city, tripStores, onOpenTrip, onOpenItem, onAdd, lis
   );
 }
 
+/** A deal's price for one unit: whole units split evenly; weighted deals are already per kg. */
+const perUnit = (cost: number, qty: number, w?: boolean) => (w || qty <= 1 ? cost : Math.round(cost / qty));
+
 /** Rows of "all deals here" shown at first, and per "עוד". */
 const DEALS_PAGE = 30;
 
@@ -415,9 +418,10 @@ function OtherDeals({ deals, data, error, onOpen, onAdd, listName }: {
                   </span>
                   <span className="sh-here-price">
                     <span className="sh-here-pct" dir="ltr">−{Math.round(d.pct * 100)}%</span>
-                    <b>{ils(d.cost)}</b>
-                    <s>{ils(d.regularCost)}</s>
-                    {(d.qty !== 1 || it?.w) && <small className="sh-muted">{it?.w ? 'לק״ג' : `ל־${d.qty}`}</small>}
+                    {/* Per unit, as the product view shows it: "2 ב-10" on ₪23.90 is ₪5, not ₪10. */}
+                    <b>{ils(perUnit(d.cost, d.qty, it?.w))}</b>
+                    <s>{ils(perUnit(d.regularCost, d.qty, it?.w))}</s>
+                    {(d.qty !== 1 || it?.w) && <small className="sh-muted">{it?.w ? 'לק״ג' : `ליח׳, בקנייה של ${d.qty}`}</small>}
                   </span>
                 </button>
                 <button type="button" className="sh-icon-btn sh-here-add" onClick={() => it && onAdd({ key: d.key, name: it.name, w: it.w })}

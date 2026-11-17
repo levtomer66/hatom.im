@@ -404,6 +404,44 @@ export function unitAcross(
   };
 }
 
+/** Most units a multi-buy is priced at for its per-unit price. */
+const MULTI_BUY_MAX_QTY = 10;
+
+/**
+ * The best per-unit price a multi-buy at `store` gives when one unit doesn't
+ * reach it ("2 ב־10" on a ₪23.90 item → 2 units, ₪5 each, ₪10 in all). The
+ * deals list shows a deal at its quantity; the product view prices one unit,
+ * so it shows this beside the shelf price. Null when no multi-buy here saves
+ * anything (sold by weight, or none of its deals needs more than one unit).
+ */
+export function multiBuyUnit(
+  store: number,
+  key: string,
+  items: Map<string, PricedItem>,
+  promos: PromoDoc[],
+  opts: PricingOptions,
+): { qty: number; unit: number; total: number } | null {
+  const item = items.get(key);
+  if (!item || item.w || item.p[String(store)] === undefined) return null;
+  const qtys = new Set<number>();
+  for (const p of promos) {
+    if (!p.items.includes(key) || !p.stores.includes(store)) continue;
+    const q = dealMinQty(p);
+    if (q && Number.isInteger(q) && q > 1 && q <= MULTI_BUY_MAX_QTY) qtys.add(q);
+  }
+  if (!qtys.size) return null;
+  // Beats one unit as priced (a one-unit sale included), not just the shelf price.
+  const one = priceStore(store, [{ key, qty: 1 }], items, promos, opts).lines[0]?.cost ?? Infinity;
+  let best: { qty: number; unit: number; total: number } | null = null;
+  for (const qty of [...qtys].sort((a, b) => a - b)) {
+    const l = priceStore(store, [{ key, qty }], items, promos, opts).lines[0];
+    if (!l?.available || !l.applied.length || l.cost >= l.regularCost) continue;
+    const unit = Math.round(l.cost / qty);
+    if (unit < one && (!best || unit < best.unit)) best = { qty, unit, total: l.cost };
+  }
+  return best;
+}
+
 export interface Split {
   stores: [StoreBasket, StoreBasket];
   total: number;

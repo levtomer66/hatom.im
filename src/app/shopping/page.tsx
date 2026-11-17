@@ -1547,6 +1547,12 @@ function PriceRow({ r, best, data }: { r: ItemPrice; best: boolean; data: ItemRe
         {r.offers.filter((o, j, all) => all.findIndex((x) => x.reason === o.reason && x.description === o.description) === j).map((o) => (
           <small key={o.id} className="sh-promo is-offer">{OFFER_LABEL[o.reason]}: {o.description}</small>
         ))}
+        {/* A multi-buy one unit doesn't reach: the same per-unit price the store's deals list shows. */}
+        {r.multi && (
+          <small className="sh-promo">
+            {idleRefs(r.idle, data.promos)[0]?.description ?? 'מבצע בכמות'} · <b>{ils(r.multi.unit)}</b> ליח׳ בקנייה של {r.multi.qty}
+          </small>
+        )}
       </span>
       <PriceReveal label={`${ils(r.cost)}${st ? `, ${SOURCE[st.source].label}` : ''}`}
         pop={<>
