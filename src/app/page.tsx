@@ -39,7 +39,7 @@ const allFeatures: Feature[] = [
   { icon: FaBirthdayCake, title: 'חידון יום הולדת', description: 'חידון משפחתי — כמה טוב אתם מכירים את המשפחה?', href: '/birthday-quiz', linkText: 'לחידון', permission: 'birthday-quiz' },
   { icon: FaTshirt,   title: 'כביסה',             description: 'הוראות כביסה צעד אחר צעד למכונה',          href: '/laundry',                  linkText: 'להוראות',            permission: 'laundry'     },
   { icon: FaCalendarAlt, title: 'לוח שנה',        description: 'ימי הולדת, ימי שנה ואירועים שבדרך',        href: '/calendar',                 linkText: 'ללוח',               permission: 'calendar'    },
-  { icon: FaShoppingCart, title: 'השוואת מחירים', description: 'רשימת קניות ואיפה הכי זול לקנות אותה',   href: '/shopping',                 linkText: 'לרשימה',             permission: 'shopping'    },
+  { icon: FaShoppingCart, title: 'כיף לי בסופר', description: 'רשימת קניות ואיפה הכי זול לקנות אותה',   href: '/shopping',                 linkText: 'לרשימה',             permission: 'shopping'    },
 ];
 
 const containerVariants = {

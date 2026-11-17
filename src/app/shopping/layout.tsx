@@ -12,7 +12,7 @@ const plex = IBM_Plex_Sans_Hebrew({
 });
 
 export const metadata: Metadata = {
-  title: '🛒 השוואת מחירים',
+  title: '🛒 כיף לי בסופר',
   description: 'רשימת קניות ואיפה הכי זול לקנות אותה',
 };
 
