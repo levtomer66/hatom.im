@@ -57,6 +57,25 @@ test('buildItemDocs merges one barcode across chains into a single price map', (
   assert.deepEqual(docs.get('B:101')!.p, { '2': 700 });
 });
 
+test('buildItemDocs: a real maker beats placeholders, and every chain\'s name and maker is searchable', () => {
+  const made = (name: string, manufacturer: string): CanonItem => ({ ...item('7290010066575', 1000, name), manufacturer });
+  const docs = buildItemDocs([
+    store(1, 'A', [made('מארז רביעיית טונה במים 4*160 גרם', 'לא ידוע')]),
+    store(2, 'B', [made('טונה במי מלח פילטונה4', 'תעשיות פילטונה')]),
+    store(3, 'B', [made('טונה במי מלח פילטונה4', 'תעשיות פילטונה')]),
+    store(4, 'C', [made('פילטונה במי מלח רביעייה', '---')]),
+  ]);
+  const d = docs.get('7290010066575')!;
+  assert.equal(d.n, 'טונה במי מלח פילטונה4');
+  assert.equal(d.m, 'תעשיות פילטונה');
+  assert.equal(d.s, 'מארז רביעיית טונה במים 4*160 גרם | פילטונה במי מלח רביעייה');
+  // Nothing to add → no field (keeps docs small and their hashes unchanged).
+  assert.equal(docs.size, 1);
+  const lone = buildItemDocs([store(1, 'A', [made('חלב 3%', 'לא ידוע')])]).get('7290010066575')!;
+  assert.equal(lone.m, 'לא ידוע');
+  assert.equal('s' in lone, false);
+});
+
 const sells = (...keys: string[]) => keys.map((k) => item(k, 1000));
 
 test('buildPromoDocs dedupes identical promotions across stores and drops expired ones', () => {

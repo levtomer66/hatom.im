@@ -9,7 +9,11 @@
 //   google/<pin>-<query>.tsv     Google Maps result lists, collected by hand in a
 //                                browser: name \t lat \t lng \t "category · address"
 //   osm/<pin>-<cat>-<q>.json     Nominatim responses (fetched here, kept 7 days)
+//   extra.json                   shops the map searches miss, added by hand:
+//                                [{ pin, name, lat, lng, address, category? }]
 //   decisions.json               { [placeId]: "include" | "skip" } — your answers
+//   official.json                { [placeId]: "<chainSlug>/<storeId>" } — hand matches
+//                                to an official store whose address doesn't match
 // Output: <pin>.review.json and a table on stdout.
 //
 // Official store lists come from the Stores files the price ingest already
@@ -128,7 +132,9 @@ async function osmPlaces(pin: Pin, box: [number, number, number, number]): Promi
   const out: RawPlace[] = [];
   for (const cat of OSM_CATEGORIES) {
     for (const [qi, q] of quads.entries()) {
-      const file = join(OSM_DIR, `${pin.id}-${cat.replace(/\s+/g, '_')}-${qi}.json`);
+      // The box is in the name: moving a pin must not reuse the old area's results.
+      const boxTag = q.map((n) => n.toFixed(4)).join('_');
+      const file = join(OSM_DIR, `${pin.id}-${cat.replace(/\s+/g, '_')}-${boxTag}.json`);
       let rows: NominatimRow[];
       if (existsSync(file) && Date.now() - statSync(file).mtimeMs < OSM_MAX_AGE_DAYS * 86_400_000) {
         rows = readJson(file, []);
@@ -188,6 +194,15 @@ interface ReviewRow extends Place {
 }
 
 const official = officialStores();
+// Hand matches for shops whose address differs from the chain's file (a
+// misspelt street, a mall address, "unknown"): place ref → "<chainSlug>/<storeId>".
+const handMatches = readJson<Record<string, string>>(join(PLACES, 'official.json'), {});
+const handMatch = (p: Place) => {
+  const key = p.refs.map((r) => handMatches[r]).find(Boolean);
+  const hit = key ? official.find((s) => `${s.chainSlug}/${s.storeId}` === key) : undefined;
+  if (key && !hit) console.log(`! places/official.json: ${key} is not in any cached Stores file`);
+  return hit ?? null;
+};
 
 for (const pin of pins) {
   let box: [number, number, number, number];
@@ -205,13 +220,20 @@ for (const pin of pins) {
   }
 
   const google = googlePlaces(pin);
-  const raw = [...google, ...(await osmPlaces(pin, box))].filter(inside);
+  const added = readJson<{ pin: string; name: string; lat: number; lng: number; address: string; category?: string }[]>(join(PLACES, 'extra.json'), [])
+    .filter((x) => x.pin === pin.id)
+    .map((x): RawPlace => ({
+      source: 'added', name: x.name, lat: x.lat, lng: x.lng, address: x.address, category: x.category ?? 'added by hand',
+      ref: `A:${x.name}@${x.lat.toFixed(5)},${x.lng.toFixed(5)}`,
+    }));
+  // Added shops are kept even outside the search box: they were named on purpose.
+  const raw = [...added, ...[...google, ...(await osmPlaces(pin, box))].filter(inside)];
   const places = mergePlaces(raw, pin);
   const cityStores = official.filter((s) => s.cityId === pin.city);
 
   const rows: ReviewRow[] = places.map((p) => {
     const brand = brandOf(p.names);
-    const match = brand?.chainSlug ? matchOfficial(p, cityStores.filter((s) => s.chainSlug === brand.chainSlug)) : null;
+    const match = handMatch(p) ?? (brand?.chainSlug ? matchOfficial(p, cityStores.filter((s) => s.chainSlug === brand.chainSlug)) : null);
     const status: Status = match ? 'ingested' : brand ? 'publishes' : 'none';
     const decision = p.refs.map((r) => decisions[r]).find(Boolean) ?? 'pending';
     return { ...p, status, retailer: brand?.retailer ?? null, official: match, decision };

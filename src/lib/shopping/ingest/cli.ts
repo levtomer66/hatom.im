@@ -23,7 +23,7 @@ import { join } from 'node:path';
 import { gunzipSync, gzipSync } from 'node:zlib';
 import { parseArgs } from 'node:util';
 import { BSON, MongoClient, type AnyBulkWriteOperation, type Db, type Document } from 'mongodb';
-import { CHAINS, chainBySlug, type ChainConfig } from '../chains.ts';
+import { CHAINS, chainBySlug, keepOnlineStore, type ChainConfig } from '../chains.ts';
 import { COLLECTIONS, SNAPSHOT_COLLECTIONS, storeId, type StoreId } from '../collections.ts';
 import { CITIES, cityOf } from '../cities.ts';
 import { decodeXmlBytes, isGzip } from '../xml.ts';
@@ -157,10 +157,12 @@ async function ingestChain(chain: ChainConfig, cityIds: Set<string>, maxStores: 
   const storesFile = await client.latestStores();
   if (!storesFile) throw new Error(`${chain.slug}: no Stores file listed`);
   const parsed = parseStoresFile(toXml(await fetchCached(chain, storesFile, (f) => client.download(f))));
+  const seen = new Set<string>(); // some Stores files list a store more than once
   let targets: StoreRecord[] = parsed.stores
+    .filter((s) => !seen.has(s.storeId) && !!seen.add(s.storeId))
     .map((s) => ({ ...s, chainSlug: chain.slug, chainName: chain.name, cityId: cityOf(s) }))
-    // Online stores are kept whatever their city and listed separately (kind: 'online').
-    .filter((s) => s.kind === 'online' || (s.cityId !== null && cityIds.has(s.cityId)));
+    // Online stores are listed separately (kind: 'online'): those serving the target cities (chains.ts).
+    .filter((s) => (s.kind === 'online' ? keepOnlineStore(chain, s.storeId, s.cityId) : s.cityId !== null && cityIds.has(s.cityId)));
   if (PINS) {
     const near = await PINS.keep(targets, warn);
     const before = targets.length;
@@ -211,6 +213,17 @@ async function ingestChain(chain: ChainConfig, cityIds: Set<string>, maxStores: 
 async function ingestWolt(chain: ChainConfig, cityIds: Set<string>, maxStores: number | null): Promise<StoreRecord[]> {
   const configPath = join(CACHE, 'places', 'wolt.json');
   let venues = readJson<WoltVenueConfig[]>(configPath, []).filter((v) => cityIds.has(v.cityId));
+  if (PINS) {
+    // Wolt pages carry no coordinates; a venue is placed by the discovery entry it was approved from.
+    const at = placeCoords();
+    const kept: WoltVenueConfig[] = [];
+    for (const v of venues) {
+      const p = v.placeId ? at.get(v.placeId) : undefined;
+      if (p && (await PINS.near(v.cityId, p))) kept.push(v);
+      else log(`  ${v.slug}: ${p ? 'outside the pin' : 'no discovery entry to place it'} — left out`);
+    }
+    venues = kept;
+  }
   if (maxStores !== null) venues = venues.slice(0, maxStores);
   log(`${chain.slug}: ${venues.length} venues in target cities (${existsSync(configPath) ? configPath : 'no places/wolt.json'})`);
   const rawDir = join(RAW, chain.slug);
@@ -253,16 +266,30 @@ async function ingestWolt(chain: ChainConfig, cityIds: Set<string>, maxStores: n
  * that have no ingested price source: not an official store we fetch, and not a
  * Wolt venue in places/wolt.json. They are listed with no items; users type
  * their prices in the app (shoppingManualPrices). Store id = hash of the
- * discovery place id, so it is stable across runs.
+ * discovery place id, so it is stable across runs. The decisions are the
+ * owner's curated list (checked against the walk limit when it was made), so
+ * they are not re-checked here: two routers disagree by a minute at the edge.
  */
+/** Discovery place ref → coordinates, from every pin's review file. */
+function placeCoords(): Map<string, { lat: number; lng: number }> {
+  const out = new Map<string, { lat: number; lng: number }>();
+  for (const pin of readJson<{ id: string }[]>(join(CACHE, 'places', 'pins.json'), [])) {
+    for (const r of readJson<{ refs: string[]; lat: number; lng: number }[]>(join(CACHE, 'places', `${pin.id}.review.json`), [])) {
+      for (const ref of r.refs) out.set(ref, { lat: r.lat, lng: r.lng });
+    }
+  }
+  return out;
+}
+
 function ingestManual(chain: ChainConfig, cityIds: Set<string>): StoreRecord[] {
   const places = join(CACHE, 'places');
   const decisions = readJson<Record<string, string>>(join(places, 'decisions.json'), {});
   const pins = readJson<{ id: string; city: string }[]>(join(places, 'pins.json'), []);
-  const woltPlaces = new Set(readJson<WoltVenueConfig[]>(join(places, 'wolt.json'), []).map((v) => v.placeId).filter(Boolean));
+  // A venue with `manualToo` sells only part of the shop on Wolt (e.g. just produce): keep the manual shop too.
+  const woltPlaces = new Set(readJson<WoltVenueConfig[]>(join(places, 'wolt.json'), []).filter((v) => !v.manualToo).map((v) => v.placeId).filter(Boolean));
   const out = new Map<string, StoreRecord>();
   for (const pin of pins.filter((p) => cityIds.has(p.city))) {
-    type Row = { id: string; name: string; address: string; refs: string[]; status: string };
+    type Row = { id: string; name: string; address: string; refs: string[]; status: string; lat: number; lng: number };
     for (const r of readJson<Row[]>(join(places, `${pin.id}.review.json`), [])) {
       if (r.status === 'ingested' || !r.refs.some((ref) => decisions[ref] === 'include')) continue;
       if (r.refs.some((ref) => woltPlaces.has(ref))) continue;
@@ -352,6 +379,10 @@ async function main() {
       }
     }
     for (const s of fresh) registry[storeId(s)] = s;
+    // Online stores left from before the per-chain list (chains.ts onlineStores).
+    for (const s of Object.values(registry)) {
+      if (s.kind === 'online' && !keepOnlineStore(chainBySlug(s.chainSlug), s.storeId, s.cityId)) delete registry[storeId(s)];
+    }
     // Stores of chains not run this time (or an --offline run) are held to the pins too.
     if (PINS) {
       const others = Object.values(registry).filter((s) => s.chainSlug !== 'wolt' && s.chainSlug !== 'manual');

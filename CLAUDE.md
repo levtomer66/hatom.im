@@ -266,7 +266,12 @@ Identity = Gmail address. Two roles:
 - **Pins** (`places/pins.json` in the cache dir, personal — never in the repo)
   drive `npm run shopping:discover` (small-shop discovery, OSM + hand-collected
   Google Maps lists) and limit the ingest to stores near them
-  (`ingest/locate.ts`; `--all-stores` to keep whole cities).
+  (`ingest/locate.ts`; `--all-stores` to keep whole cities). A pin's
+  `walkMinutes` limits stores to a routed walking time (`ingest/walk.ts`);
+  `places/extra.json` adds shops the map searches miss, and `places/official.json`
+  hand-matches a shop to an official store whose address doesn't match
+  (`"<placeRef>": "<chainSlug>/<storeId>"`). An official store matched to a shop
+  the owner skipped is left out, like an included one is kept, without re-routing.
 - **Ingest is a local, manually-run job**, not a Vercel function (Hobby cron
   is daily-only and a full run is ~190 MB of downloads + GBs of XML):
   `npm run shopping:ingest -- [--dry-run] [--offline] [--chains yohananof,shufersal,wolt] [--max-stores N] [--full] [--all-stores]`.
@@ -303,6 +308,10 @@ Identity = Gmail address. Two roles:
   biggest saving first, and a unit counts toward one promo only. Club, coupon
   and unmet basket-minimum promos are returned as `offers`, not applied.
   Description-only deals are not parsed.
+- **Departments**: the price files carry no category, so each item doc gets
+  `d` at ingest (`src/lib/shopping/departments.ts`, import-free): Wolt's category
+  path for the barcode first, else keyword rules on the name (longest stem wins).
+  ~78% of items are placed. The in-store mode built on it: `docs/shopping-in-store-mode.md`.
 - **UI** at `SHOPPING_BASE_PATH` (`src/lib/shopping/config.ts`; the middleware
   `matcher` literal must move with it). A list is shared by everyone holding
   `shopping` or personal to its creator (`shared: false`; lists saved before

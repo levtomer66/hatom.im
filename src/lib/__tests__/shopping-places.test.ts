@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  brandOf, circleBox, distanceM, inRing, matchOfficial, mergePlaces, cleanStoreStreet, pinContains, storeGeocodeQueries, streetOf,
+  brandOf, circleBox, distanceM, inRing, matchOfficial, mergePlaces, cleanStoreStreet, pinContains, storeGeocodeQueries, streetOf, walkPrefilterM,
   type OfficialStore, type Place, type RawPlace,
 } from '../shopping/places.ts';
 
@@ -92,4 +92,22 @@ test('pin test: circle radius, or the area outline', () => {
   const ring: [number, number][] = [[0, 0], [2, 0], [2, 2], [0, 2], [0, 0]];
   assert.equal(pinContains(area, ring, { lat: 1, lng: 1 }), true);
   assert.equal(pinContains(area, null, { lat: 1, lng: 1 }), false);
+});
+
+test('walk prefilter: no route of N minutes is longer than N×60×1.5 m in a straight line', () => {
+  assert.equal(walkPrefilterM({ id: 'w', label: '', lat: 0, lng: 0, city: 'x', walkMinutes: 7 }), 630);
+  assert.equal(walkPrefilterM({ id: 'r', label: '', lat: 0, lng: 0, city: 'x' }), 0);
+});
+
+test('a geresh is spelling, not a word break: ז\'בוטינסקי matches זבוטינסקי', () => {
+  const stores = [store('517', 'זבוטינסקי 86', 'Am-pm זבוטינסקי ר"ג'), store('536', 'זבוטינסקי 44', 'Am-pmזבוטינסקי 44')];
+  assert.equal(matchOfficial(place("רחוב זאב ז'בוטינסקי 86"), stores)?.storeId, '517');
+  assert.equal(matchOfficial(place("רחוב זאב ז'בוטינסקי 44"), stores)?.storeId, '536');
+});
+
+test('corner addresses: the street before "פינת" is the one matched', () => {
+  assert.equal(streetOf('הרצל פינת, דרך שלמה 91'), 'הרצל');
+  assert.equal(streetOf("ביאליק פינת, רחוב זאב ז'בוטינסקי"), 'ביאליק');
+  const stores = [store('511', 'הרצל 91,עובר להרצל 114)'), store('513', 'פרנקל 15')];
+  assert.equal(matchOfficial(place('הרצל פינת, דרך שלמה 91'), stores)?.storeId, '511');
 });

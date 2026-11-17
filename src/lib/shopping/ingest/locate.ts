@@ -4,14 +4,17 @@
 // else (2) a Nominatim lookup of its address, cached forever per query in
 // places/geocode.json (a miss is retried after a day: Nominatim answers []
 // while it throttles a client). Online stores are not location-bound and always
-// pass; a store that still can't be placed is kept and logged — keeping one
-// extra store costs a little space, dropping one near a pin loses it.
+// pass. A pin with `walkMinutes` keeps only stores within that walk (a routed
+// walking time, ingest/walk.ts); there a store that can't be placed is dropped,
+// since it can't be shown to meet the limit. Without walkMinutes, an unplaced
+// store is kept and logged.
 
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { CITIES } from '../cities.ts';
 import { storeId } from '../collections.ts';
-import { pinContains, storeGeocodeQueries, type Pin } from '../places.ts';
+import { distanceM, pinContains, storeGeocodeQueries, walkPrefilterM, type Pin } from '../places.ts';
+import { walkRouter } from './walk.ts';
 
 const NOMINATIM = 'https://nominatim.openstreetmap.org/search';
 const USER_AGENT = 'hatom-shopping-ingest/0.1';
@@ -40,6 +43,8 @@ export interface PinFilter {
   pins: Pin[];
   /** Whether the store is near a pin; logs every store it can't place. */
   keep(stores: LocatableStore[], warn: (msg: string) => void): Promise<Set<string>>;
+  /** Whether a point is within one of the city's pins (walking time when the pin sets one). */
+  near(cityId: string | null, at: Point): Promise<boolean>;
 }
 
 /** null when there's no pins.json: the ingest then keeps whole target cities. */
@@ -50,12 +55,25 @@ export function pinFilter(placesDir: string): PinFilter | null {
     pins.filter((p) => p.osmArea).map((p) => [p.id, readJson<{ coordinates: [number, number][][] } | null>(join(placesDir, `${p.osmArea}.geojson`), null)?.coordinates[0] ?? null]),
   );
 
-  // Official stores the discovery review matched to a mapped shop.
+  // Official stores the discovery review matched to a mapped shop. One the owner
+  // included in places/decisions.json is on their curated list, so it is kept
+  // without re-checking the walk (two routers disagree by a minute at the edge);
+  // one they only skipped is left out the same way.
   const matched = new Map<string, Point>();
+  const curated = new Set<string>();
+  const skipped = new Set<string>();
+  const decisions = readJson<Record<string, string>>(join(placesDir, 'decisions.json'), {});
   for (const pin of pins) {
-    const rows = readJson<{ lat: number; lng: number; official: { chainSlug: string; storeId: string } | null }[]>(join(placesDir, `${pin.id}.review.json`), []);
-    for (const r of rows) if (r.official) matched.set(`${r.official.chainSlug}/${r.official.storeId}`, { lat: r.lat, lng: r.lng });
+    const rows = readJson<{ lat: number; lng: number; refs: string[]; official: { chainSlug: string; storeId: string } | null }[]>(join(placesDir, `${pin.id}.review.json`), []);
+    for (const r of rows) {
+      if (!r.official) continue;
+      const k = `${r.official.chainSlug}/${r.official.storeId}`;
+      matched.set(k, { lat: r.lat, lng: r.lng });
+      if (r.refs.some((ref) => decisions[ref] === 'include')) curated.add(k);
+      else if (r.refs.some((ref) => decisions[ref] === 'skip')) skipped.add(k);
+    }
   }
+  for (const k of curated) skipped.delete(k); // two rows can match one store
 
   const cachePath = join(placesDir, 'geocode.json');
   const cache = readJson<GeocodeCache>(cachePath, {});
@@ -85,8 +103,23 @@ export function pinFilter(placesDir: string): PinFilter | null {
     }
   }
 
+  const walkSeconds = walkRouter(placesDir);
+  async function near(cityId: string | null, at: Point): Promise<boolean> {
+    for (const p of pins.filter((x) => x.city === cityId)) {
+      if (p.walkMinutes) {
+        if (distanceM(p, at) > walkPrefilterM(p)) continue;
+        const s = await walkSeconds(p, at);
+        if (s !== null && s <= p.walkMinutes * 60) return true;
+      } else if (pinContains(p, rings.get(p.id) ?? null, at)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   return {
     pins,
+    near,
     async keep(stores, warn) {
       const out = new Set<string>();
       for (const s of stores) {
@@ -96,6 +129,11 @@ export function pinFilter(placesDir: string): PinFilter | null {
         }
         const cityPins = pins.filter((p) => p.city === s.cityId);
         if (!cityPins.length) continue;
+        if (curated.has(`${s.chainSlug}/${s.storeId}`)) {
+          out.add(storeId(s));
+          continue;
+        }
+        if (skipped.has(`${s.chainSlug}/${s.storeId}`)) continue;
         const city = CITIES.find((c) => c.id === s.cityId)!;
         const queries = storeGeocodeQueries(s, city.name.replace('-יפו', ''));
         let at = matched.get(`${s.chainSlug}/${s.storeId}`) ?? null;
@@ -104,11 +142,12 @@ export function pinFilter(placesDir: string): PinFilter | null {
           at = await geocode(q);
         }
         if (!at) {
-          warn(`${s.chainSlug} store ${s.storeId} (${s.name} / ${s.address}): can't place it (tried ${queries.map((q) => `"${q}"`).join(', ') || 'nothing'}); kept`);
-          out.add(storeId(s));
+          const strict = cityPins.some((p) => p.walkMinutes);
+          warn(`${s.chainSlug} store ${s.storeId} (${s.name} / ${s.address}): can't place it (tried ${queries.map((q) => `"${q}"`).join(', ') || 'nothing'}); ${strict ? 'left out' : 'kept'}`);
+          if (!strict) out.add(storeId(s));
           continue;
         }
-        if (cityPins.some((p) => pinContains(p, rings.get(p.id) ?? null, at))) out.add(storeId(s));
+        if (await near(s.cityId, at)) out.add(storeId(s));
       }
       return out;
     },

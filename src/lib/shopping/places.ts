@@ -16,9 +16,22 @@ export interface Pin {
   osmArea?: string;
   /** Target city id (cities.ts) the pin sits in. */
   city: string;
+  /**
+   * Keep only stores within this many minutes' walk of lat/lng (walking route,
+   * not straight line). Takes precedence over radiusM / osmArea for the ingest;
+   * discovery still uses the radius or area to list candidates.
+   */
+  walkMinutes?: number;
 }
 
-export type PlaceSource = 'osm' | 'google';
+/** Brisk walking upper bound, m/s: no route can be faster, so it prefilters before routing. */
+export const MAX_WALK_SPEED = 1.5;
+
+/** The straight-line distance beyond which a store can't be within the pin's walk. */
+export const walkPrefilterM = (pin: Pin) => (pin.walkMinutes ?? 0) * 60 * MAX_WALK_SPEED;
+
+/** osm / google = the map searches; added = places/extra.json, shops the searches miss. */
+export type PlaceSource = 'osm' | 'google' | 'added';
 
 export interface RawPlace {
   source: PlaceSource;
@@ -86,7 +99,9 @@ export function normText(s: string): string {
   return s
     .toLowerCase()
     .replace(/[֑-ׇ]/g, '')
-    .replace(/["'`׳״.,()|\-–/\\:]/g, ' ')
+    // Geresh/gershayim are spelling, not separators: ז'בוטינסקי = זבוטינסקי, ר"ג = רג.
+    .replace(/["'`׳״]/g, '')
+    .replace(/[.,()|\-–/\\:]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
 }
@@ -99,7 +114,11 @@ function nameTokens(s: string): Set<string> {
 
 /** Street part of an address: "חיים נחמן ביאליק 24" → "חיים נחמן ביאליק". */
 export function streetOf(address: string): string {
-  return normText(address.split(',')[0] ?? '').replace(/(^|\s+)(\d+[א-ת]?\s*)+$/, '').trim(); // "10-16" is "10 16" after normText
+  // Google writes corners as "הרצל פינת, דרך שלמה 91": the street is the part before "פינת".
+  const first = normText(address.split(',')[0] ?? '')
+    .replace(/^(רחוב|רח|שדרות|שד)\s+/, '')
+    .replace(/\s+פינת(\s.*)?$/, '');
+  return first.replace(/(^|\s+)(\d+[א-ת]?\s*)+$/, '').trim(); // "10-16" is "10 16" after normText
 }
 
 export function similarNames(a: string, b: string): boolean {
@@ -175,17 +194,17 @@ export const BRANDS: Brand[] = [
   { retailer: 'פרשמרקט', chainSlug: 'fresh-market', pattern: /פרשמרקט|פרש מרקט|fresh ?market|מחסני להב|סופר יודה|super yuda/i },
   { retailer: 'קשת טעמים', chainSlug: 'keshet', pattern: /קשת טעמים|keshet/i },
   { retailer: 'אושר עד', chainSlug: 'osher-ad', pattern: /אושר עד|osher ad/i },
-  { retailer: 'קרפור / יינות ביתן', pattern: /קרפור|carrefour|יינות ביתן|ביתן|^מגה(\s|$)|מגה בעיר|קוויק/i },
-  { retailer: 'ויקטורי', pattern: /ויקטורי|victory/i },
-  { retailer: 'מחסני השוק', pattern: /מחסני השוק/i },
+  { retailer: 'קרפור / יינות ביתן', chainSlug: 'carrefour', pattern: /קרפור|carrefour|יינות ביתן|ביתן|^מגה(\s|$)|מגה בעיר|קוויק/i },
+  { retailer: 'ויקטורי', chainSlug: 'victory', pattern: /ויקטורי|victory/i },
+  { retailer: 'מחסני השוק', chainSlug: 'mahsani-hashuk', pattern: /מחסני השוק/i },
   { retailer: 'חצי חינם', pattern: /חצי חינם/i },
   { retailer: 'סופר-פארם', pattern: /סופר[ -]?פארם|super[- ]?pharm/i },
   { retailer: 'גוד פארם', pattern: /גוד פארם|good ?pharm/i },
   { retailer: 'ניו פארם', pattern: /ניו פארם|new ?pharm/i },
   { retailer: 'סופר ספיר', pattern: /סופר ספיר/i },
-  { retailer: 'ברקת', pattern: /סופר ברקת/i },
+  { retailer: 'ברקת', chainSlug: 'bareket', pattern: /סופר ברקת/i },
   { retailer: 'קינג סטור', pattern: /קינג סטור|king store/i },
-  { retailer: 'סיטי מרקט', pattern: /סיטי מרקט|city market/i },
+  { retailer: 'סיטי מרקט', chainSlug: 'city-market', pattern: /סיטי מרקט|city market/i },
   { retailer: 'מעיין 2000', pattern: /מעיין 2000/i },
   { retailer: 'זול ובגדול', pattern: /זול ובגדול/i },
   { retailer: 'נתיב החסד', pattern: /נתיב החסד/i },

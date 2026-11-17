@@ -210,12 +210,113 @@ export function shufersalClient(throttle: Throttle): SourceClient {
   };
 }
 
+/** A client over one full listing (fetched once per run). */
+function listingClient(list: () => Promise<RemoteFile[]>, download: (f: RemoteFile) => Promise<Uint8Array>): SourceClient {
+  let cached: Promise<RemoteFile[]> | null = null;
+  const files = () => (cached ??= list());
+  return {
+    async latestStores() {
+      return newestStores(await files());
+    },
+    async latestFor(type, storeIds) {
+      return newestByStore(await files(), type, storeIds);
+    },
+    download: (f) => withRetry(`download ${f.name}`, () => download(f)),
+  };
+}
+
+const getText = async (throttle: Throttle, url: string, init: RequestInit = {}) =>
+  withRetry(`GET ${url}`, () =>
+    throttle.run(async () => {
+      const res = await fetch(url, { ...init, headers: { 'User-Agent': UA, ...(init.headers ?? {}) } });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return res.text();
+    }),
+  );
+const getBytes = (throttle: Throttle, url: string) =>
+  throttle.run(async () => okBytes(await fetch(url, { headers: { 'User-Agent': UA } }), url));
+
+// ── Bina projects (<host>.binaprojects.com) ──────────────────────────────
+// POST MainIO_Hok.aspx with a day (dd/mm/yyyy) lists that day's files as
+// JSON; Download.aspx?FileNm= answers [{SPath}], the real file URL. Early in
+// the morning today's listing can be empty, so yesterday's is read too.
+
+export function binaClient(host: string, throttle: Throttle): SourceClient {
+  const base = `https://${host}.binaprojects.com`;
+  const day = (offset: number) => {
+    const d = new Date(Date.now() - offset * 86_400_000);
+    const [y, m, dd] = d.toLocaleDateString('en-CA', { timeZone: 'Asia/Jerusalem' }).split('-');
+    return `${dd}/${m}/${y}`;
+  };
+  return listingClient(
+    async () => {
+      const out: RemoteFile[] = [];
+      for (const offset of [0, 1]) {
+        const body = new URLSearchParams({ WStore: '', WDate: day(offset), WFileType: '0' });
+        const json = await getText(throttle, `${base}/MainIO_Hok.aspx`, {
+          method: 'POST',
+          body,
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        });
+        const rows = (json.trim() ? JSON.parse(json) : []) as { FileNm: string }[];
+        out.push(...rows.map((r) => toRemote(r.FileNm, r.FileNm)).filter((f): f is RemoteFile => f !== null));
+      }
+      return out;
+    },
+    async (f) => {
+      const [hit] = JSON.parse(await getText(throttle, `${base}/Download.aspx?FileNm=${encodeURIComponent(f.ref)}`)) as { SPath?: string }[];
+      if (!hit?.SPath) throw new Error(`bina ${host}: no download path for ${f.name}`);
+      return getBytes(throttle, hit.SPath.replace(/\\/g, '/'));
+    },
+  );
+}
+
+// ── Laibcatalog (laibcatalog.co.il web API) ──────────────────────────────
+
+const LAIB = 'https://laibcatalog.co.il/webapi';
+
+export function laibcatalogClient(chainId: string, throttle: Throttle): SourceClient {
+  return listingClient(
+    async () => {
+      const rows = JSON.parse(await getText(throttle, `${LAIB}/api/getfiles?edi=${chainId}`)) as { fileName: string }[];
+      return rows.map((r) => toRemote(r.fileName, r.fileName)).filter((f): f is RemoteFile => f !== null);
+    },
+    (f) => getBytes(throttle, `${LAIB}/${chainId}/${encodeURIComponent(f.ref)}`),
+  );
+}
+
+// ── PublishPrice (prices.<site>.co.il) ───────────────────────────────────
+// The page embeds today's listing as `const files = [...]` and its folder as
+// `const path = 'YYYYMMDD'`; a file is served at /<path>/<name>.
+
+export function publishPriceClient(site: string, throttle: Throttle): SourceClient {
+  const base = `https://prices.${site}.co.il`;
+  return listingClient(
+    async () => {
+      const html = await getText(throttle, `${base}/`);
+      const files = /const files = (\[[\s\S]*?\]);/.exec(html)?.[1];
+      const path = /const path = '(\d{8})'/.exec(html)?.[1];
+      if (!files || !path) throw new Error(`publishprice ${site}: no file listing on the page`);
+      return (JSON.parse(files) as { name: string }[])
+        .map((r) => toRemote(r.name, `${path}/${r.name}`))
+        .filter((f): f is RemoteFile => f !== null);
+    },
+    (f) => getBytes(throttle, `${base}/${f.ref.split('/').map(encodeURIComponent).join('/')}`),
+  );
+}
+
 export function clientFor(chain: ChainConfig, throttle: Throttle): SourceClient {
   switch (chain.source.kind) {
     case 'cerberus':
       return cerberusClient(chain.source.username, throttle);
     case 'shufersal':
       return shufersalClient(throttle);
+    case 'bina':
+      return binaClient(chain.source.host, throttle);
+    case 'laibcatalog':
+      return laibcatalogClient(chain.chainId, throttle);
+    case 'publishprice':
+      return publishPriceClient(chain.source.site, throttle);
     case 'wolt':
     case 'manual':
       throw new Error(`${chain.source.kind} has no price files — the ingest builds it separately`);
