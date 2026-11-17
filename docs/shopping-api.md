@@ -3,7 +3,8 @@
 Two ways for something other than the page to use `/shopping`: the REST
 routes (Shortcuts, scripts) and the MCP tools (AI assistants: claude.ai,
 ChatGPT, Copilot). Both act as the signed-in person, with their live
-`shopping` permission, and see only the lists that person can see.
+`shopping` permission. There is one household "My items" and one shopping list,
+shared by everyone with that permission.
 
 ## Credentials
 
@@ -24,16 +25,14 @@ ranking) and the answer names the runner-ups so the model can correct it.
 |---|---|---|
 | `shopping_search` | "How much is Bamba?" | Top 8 matches: price range, store count, cheapest store, key. |
 | `shopping_product_prices` | "Is ₪7.90 for cottage cheese cheap?" | Every nearby store, cheapest first, deals applied. With `price`: a verdict against the cheapest and typical single-unit price, plus the multi-buy deal that beats it. |
-| `shopping_lists` | "What lists do I have?" | Id, name, item count, shared/personal. |
-| `shopping_get_list` | "What's on the weekly list?" | |
-| `shopping_add_items` | "Add milk, 2 cottage and a kilo of tomatoes" | Several at once; an item already on the list gets its quantity raised; quantities are units or kg. |
+| `shopping_my_items` | "What do we usually buy?" | The household's My items with their usual quantities. |
+| `shopping_get_list` | "What's on the list?" | The one shopping list. |
+| `shopping_add_items` | "Add milk, 2 cottage and a kilo of tomatoes" | Several at once; an item already on the list gets its quantity raised; a product not yet among My items is saved there too; quantities are units or kg. |
 | `shopping_remove_items` | "Take the Bamba off", "only one cottage" | By key or part of the name; `qty` lowers instead of removing. |
-| `shopping_create_list` | "Start a list for the party" | Personal unless `shared`. |
 | `shopping_compare` | "Where should I shop for my list?" | Cheapest single store, the cheapest 2–3-store split when it saves enough (the plan cards' rule), top 5 stores with what each lacks, best online store. `clubs` adds club deals. |
 | `shopping_set_city` | "I'm in Ramat Gan" | Saved in the user's shopping settings and used whenever a tool gets no `city`. |
 
-`list` is optional everywhere (a name, part of it, or an id; default: the
-most recently changed list). `city` is optional once one is saved; without
+`city` is optional once one is saved; without
 either, the tool answers with the list of cities so the model asks.
 
 Code: `src/lib/shopping/mcp-tools.ts`, registered in `src/app/api/mcp/route.ts`
@@ -50,8 +49,9 @@ agorot. The shapes are in `src/lib/shopping/api-types.ts`.
 | `GET search?q=&city=` | Products matching every word (`SearchHit[]`). |
 | `GET item?key=&city=` | One product at every store (`ItemResponse`); `key` may be a barcode. |
 | `POST compare` `{ city, lines: [{key, qty}], clubs?, coupons? }` | A basket at every store, plans and splits (`CompareResponse`). |
-| `GET lists`, `POST lists` `{ name, shared? }` | The caller's lists; create one. |
-| `GET/PATCH/DELETE lists/<id>` | Read, change (`{ name?, items?, shared? }`), delete. |
+| `GET home` | My items and the list (`{ items, list, updatedAt, meta }`; `meta` = department and photo per key). |
+| `PATCH home` `{ items?, list? }` | Replace My items and/or the list. |
+| `POST home/list` `{ add: [{key, qty}] }` | Put My items on the list ("מה חסר?"); items already there keep their quantity. |
 | `GET/PUT settings` `{ nutritionHero?, city? }` | The caller's preferences, incl. the saved city. |
 | `PUT manual-prices` `{ store, item, price }` | Type a neighbourhood shop's price (agorot; null clears). |
 

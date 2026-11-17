@@ -7,10 +7,10 @@
 // can correct. Server-only; the queries are the page's (service.ts).
 
 import { CITIES } from '@/lib/shopping/cities';
-import { MAX_LIST_ITEMS, MAX_QTY, normalizeQty, type ShoppingList, type ShoppingListItem } from '@/lib/shopping/lists';
+import { MAX_LIST_ITEMS, MAX_QTY, normalizeQty, type ListLine } from '@/lib/shopping/home';
 import type { SearchHit, StoreInfo } from '@/lib/shopping/api-types';
 import { compareBasket, itemPrices, searchProducts } from '@/lib/shopping/service';
-import { createShoppingList, getShoppingList, getShoppingLists, updateShoppingList } from '@/models/ShoppingList';
+import { ensureMyItems, getHome, setList } from '@/models/ShoppingHome';
 import { getShoppingSettings, updateShoppingSettings } from '@/models/ShoppingUserSettings';
 
 export interface ShoppingToolCaller {
@@ -69,20 +69,9 @@ async function cityFor(args: Record<string, unknown>, caller: ShoppingToolCaller
   throw new Error(`Which city should I price in? Pass city (${CITY_LIST}), or save one with shopping_set_city.`);
 }
 
-/** The list named or with this id, else the most recently changed one the caller can see. */
-async function listFor(args: Record<string, unknown>, caller: ShoppingToolCaller): Promise<ShoppingList> {
-  const want = str(args, 'list');
-  if (/^[0-9a-f]{24}$/i.test(want)) {
-    const l = await getShoppingList(want, caller.userEmail);
-    if (l) return l;
-  }
-  const lists = await getShoppingLists(caller.userEmail); // most recently changed first
-  if (!lists.length) throw new Error('There are no shopping lists yet. Create one with shopping_create_list.');
-  if (!want) return lists[0];
-  const lc = want.toLowerCase();
-  const hit = lists.find((l) => l.name.toLowerCase() === lc) ?? lists.find((l) => l.name.toLowerCase().includes(lc));
-  if (!hit) throw new Error(`No list named "${want}". Lists: ${lists.map((l) => `"${l.name}"`).join(', ')}.`);
-  return hit;
+/** The household's one shopping list (built from My items on the page with "מה חסר?"). */
+async function theList(): Promise<{ name: string; items: ListLine[] }> {
+  return { name: 'the shopping list', items: (await getHome()).list };
 }
 
 const isKey = (s: string) => /^\d{8,14}$/.test(s) || /^\d{13}:[^\s]+$/.test(s) || /^wolt:/.test(s) || /^manual:/.test(s);
@@ -108,7 +97,7 @@ function hitLine(h: SearchHit): string {
   return `${h.name}${maker(h.manufacturer) ? ` (${maker(h.manufacturer)})` : ''} — ${price} [key ${h.key}]`;
 }
 
-const listLine = (it: ShoppingListItem) => `${it.name} × ${it.qty}${it.w ? ' kg' : ''} [key ${it.key}]`;
+const listLine = (it: ListLine) => `${it.name} × ${it.qty}${it.w ? ' kg' : ''} [key ${it.key}]`;
 
 // ── tools ────────────────────────────────────────────────────────────────
 
@@ -116,7 +105,6 @@ const cityProp = {
   type: 'string',
   description: `City to price in: ${CITY_LIST}. Optional when the user saved one (shopping_set_city).`,
 };
-const listProp = { type: 'string', description: 'List name or id. Optional: defaults to the most recently changed list.' };
 
 export const SHOPPING_TOOLS: ShoppingTool[] = [
   {
@@ -197,21 +185,21 @@ export const SHOPPING_TOOLS: ShoppingTool[] = [
     },
   },
   {
-    name: 'shopping_lists',
-    description: 'The shopping lists the user can see: id, name, how many items, shared with the household or personal.',
+    name: 'shopping_my_items',
+    description: 'The household\'s "My items": the products it usually buys, each with its usual quantity. The shopping list is built from these.',
     inputSchema: { type: 'object', properties: {}, additionalProperties: false },
-    handler: async (_args, caller) => {
-      const lists = await getShoppingLists(caller.userEmail);
-      if (!lists.length) return 'No shopping lists yet.';
-      return lists.map((l) => `- ${l.id}: "${l.name}" — ${l.items.length} item${l.items.length === 1 ? '' : 's'}, ${l.shared ? 'shared' : 'personal'}`).join('\n');
+    handler: async () => {
+      const { items } = await getHome();
+      if (!items.length) return 'My items is empty.';
+      return [`My items (${items.length}):`, ...items.map((it) => `- ${listLine(it)}`)].join('\n');
     },
   },
   {
     name: 'shopping_get_list',
-    description: 'The items on a shopping list (name, quantity, key).',
-    inputSchema: { type: 'object', properties: { list: listProp }, additionalProperties: false },
-    handler: async (args, caller) => {
-      const list = await listFor(args, caller);
+    description: 'The items on the household\'s shopping list (name, quantity, key).',
+    inputSchema: { type: 'object', properties: {}, additionalProperties: false },
+    handler: async () => {
+      const list = await theList();
       if (!list.items.length) return `"${list.name}" is empty.`;
       return [`"${list.name}" (${list.items.length} items):`, ...list.items.map((it) => `- ${listLine(it)}`)].join('\n');
     },
@@ -219,7 +207,7 @@ export const SHOPPING_TOOLS: ShoppingTool[] = [
   {
     name: 'shopping_add_items',
     description:
-      'Add products to a shopping list. Each product can be a name ("חלב 3%", "tomatoes"), a barcode or a key; names use the best search match, and the answer says which product was picked and the alternatives. An item already on the list gets its quantity increased. Quantity is units, or kg for products sold by weight (default 1).',
+      'Add products to the household\'s shopping list (a product not yet among My items is saved there too). Each product can be a name ("חלב 3%", "tomatoes"), a barcode or a key; names use the best search match, and the answer says which product was picked and the alternatives. An item already on the list gets its quantity increased. Quantity is units, or kg for products sold by weight (default 1).',
     inputSchema: {
       type: 'object',
       properties: {
@@ -237,7 +225,6 @@ export const SHOPPING_TOOLS: ShoppingTool[] = [
             additionalProperties: false,
           },
         },
-        list: listProp,
         city: cityProp,
       },
       required: ['items'],
@@ -246,7 +233,7 @@ export const SHOPPING_TOOLS: ShoppingTool[] = [
     handler: async (args, caller) => {
       const wanted = Array.isArray(args.items) ? (args.items as Record<string, unknown>[]) : [];
       if (!wanted.length) throw new Error('items is required.');
-      const list = await listFor(args, caller);
+      const list = await theList();
       const city = await cityFor(args, caller);
       const items = [...list.items];
       const report: string[] = [];
@@ -277,13 +264,14 @@ export const SHOPPING_TOOLS: ShoppingTool[] = [
           report.push(`✓ "${product}" → ${hit.name} × ${qty}${hit.w ? ' kg' : ''}${price}.${alt}`);
         }
       }
-      await updateShoppingList(list.id, { items }, caller.userEmail);
-      return [`List "${list.name}" (${items.length} items):`, ...report].join('\n');
+      await setList(items);
+      await ensureMyItems(items, caller.userEmail);
+      return [`The list (${items.length} items):`, ...report].join('\n');
     },
   },
   {
     name: 'shopping_remove_items',
-    description: 'Remove products from a shopping list, by key or by (part of) the name as it appears on the list. Pass qty to lower the quantity instead of removing.',
+    description: 'Remove products from the shopping list, by key or by (part of) the name as it appears on the list. Pass qty to lower the quantity instead of removing.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -300,14 +288,13 @@ export const SHOPPING_TOOLS: ShoppingTool[] = [
             additionalProperties: false,
           },
         },
-        list: listProp,
       },
       required: ['items'],
       additionalProperties: false,
     },
-    handler: async (args, caller) => {
+    handler: async (args) => {
       const wanted = Array.isArray(args.items) ? (args.items as Record<string, unknown>[]) : [];
-      const list = await listFor(args, caller);
+      const list = await theList();
       let items = [...list.items];
       const report: string[] = [];
       for (const w of wanted) {
@@ -327,44 +314,24 @@ export const SHOPPING_TOOLS: ShoppingTool[] = [
           report.push(`✓ Removed ${it.name}.`);
         }
       }
-      await updateShoppingList(list.id, { items }, caller.userEmail);
-      return [`List "${list.name}" (${items.length} items):`, ...report].join('\n');
-    },
-  },
-  {
-    name: 'shopping_create_list',
-    description: 'Create a new shopping list. Shared lists are visible to the whole household; personal ones only to the user.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        name: { type: 'string', description: 'List name, up to 60 characters.' },
-        shared: { type: 'boolean', description: 'Share with the household (default false: personal).' },
-      },
-      required: ['name'],
-      additionalProperties: false,
-    },
-    handler: async (args, caller) => {
-      const name = str(args, 'name').slice(0, 60);
-      if (!name) throw new Error('name is required.');
-      const list = await createShoppingList(name, args.shared === true, caller.userEmail);
-      return `Created ${list.shared ? 'shared' : 'personal'} list "${list.name}" (${list.id}).`;
+      await setList(items);
+      return [`The list (${items.length} items):`, ...report].join('\n');
     },
   },
   {
     name: 'shopping_compare',
     description:
-      'Where to buy a shopping list: the cheapest single store, the cheapest way to split it across up to 3 nearby stores (only suggested when it saves enough), and the totals at the top stores, with what each store lacks. Deals are applied; club and coupon deals only when asked.',
+      'Where to buy the shopping list: the cheapest single store, the cheapest way to split it across up to 3 nearby stores (only suggested when it saves enough), and the totals at the top stores, with what each store lacks. Deals are applied; club and coupon deals only when asked.',
     inputSchema: {
       type: 'object',
       properties: {
-        list: listProp,
         city: cityProp,
         clubs: { type: 'boolean', description: 'Include club-member deals (default false).' },
       },
       additionalProperties: false,
     },
     handler: async (args, caller) => {
-      const list = await listFor(args, caller);
+      const list = await theList();
       if (!list.items.length) return `"${list.name}" is empty — nothing to compare.`;
       const city = await cityFor(args, caller);
       const res = await compareBasket({
