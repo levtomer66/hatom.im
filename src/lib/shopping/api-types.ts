@@ -25,7 +25,7 @@ export interface SearchHit {
   name: string;
   manufacturer: string;
   w: boolean;
-  /** Cheapest and dearest regular price in the chosen city's stores (agorot), or null. */
+  /** One unit's (1 kg's) lowest and highest price in the city's stores, deals applied (agorot), or null. */
   minPrice: number | null;
   maxPrice: number | null;
   /** Stores in the city that sell it. */
@@ -34,6 +34,8 @@ export interface SearchHit {
   sources: PriceSource[];
   /** The store with the lowest price (chain and branch), or null when not sold in the city. */
   cheapest: { chainName: string; name: string } | null;
+  /** The cheapest price is a deal's. */
+  onSale: boolean;
   /** Product photo link or null; Wolt links take ?w=<px> for a thumbnail. */
   img: string | null;
   imgBy: ImgBy;

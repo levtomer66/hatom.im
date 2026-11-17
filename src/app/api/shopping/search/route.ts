@@ -4,6 +4,10 @@ import { CITIES } from '@/lib/shopping/cities';
 import { imgByOf, type SearchHit } from '@/lib/shopping/api-types';
 import { priceSourceOf } from '@/lib/shopping/collections';
 import { rankHits, searchPatterns } from '@/lib/shopping/search-rank';
+import { unitAcross, type PricedItem } from '@/lib/shopping/pricing';
+import { israelLocalNow } from '@/lib/shopping/snapshot';
+import { withManualPrices } from '@/lib/shopping/manual';
+import { getManualPrices } from '@/models/ShoppingManualPrice';
 
 /**
  * Regex path only (no Atlas Search): with no hit at all, try again allowing
@@ -12,12 +16,13 @@ import { rankHits, searchPatterns } from '@/lib/shopping/search-rank';
  * the fuzzy $search covers typos.
  */
 const TYPO_RETRY_BELOW = 1;
-import { findItems, getStoresFor, searchItemsAtlas } from '@/models/ShoppingCatalog';
+import { findItems, getPromosFor, getStoresFor, searchItemsAtlas } from '@/models/ShoppingCatalog';
 
 const MAX_HITS = 30;
 
 // GET ?q=<words or barcode>&city=<city id> — items whose name or maker matches every word, spelling-tolerant (see searchPatterns),
-// best name match first (see rankHits), then the most widely sold, with the city's regular price range.
+// best name match first (see rankHits), then the most widely sold, with one unit's price range in the
+// city and its cheapest store, deals and hand-typed prices included (as the product view prices it).
 export async function GET(request: NextRequest) {
   const caller = await requireFeatureCaller(request, 'shopping');
   if (caller instanceof NextResponse) return caller;
@@ -61,6 +66,7 @@ export async function GET(request: NextRequest) {
         stores: prices.length,
         sources,
         cheapest: low ? { chainName: low.chainName, name: low.name } : null,
+        onSale: false,
         img: d.img ?? null,
         imgBy: imgByOf(d),
         // Ranking only, not sent: other chains' names and makers.
@@ -72,6 +78,26 @@ export async function GET(request: NextRequest) {
       void aka; // ranking only
       return hit;
     });
+
+    // The shown hits re-priced for one unit with deals and typed prices, so
+    // "הכי זול ב…" names the store the product view puts first.
+    const keys = ranked.map((h) => h.key);
+    const manualKeys = stores.filter((s) => s.source === 'manual').map((s) => s.k);
+    const [promos, typed] = await Promise.all([getPromosFor(keys), getManualPrices(manualKeys, keys)]);
+    const shown = new Set(keys);
+    const items = withManualPrices(new Map(docs.filter((d) => shown.has(d._id)).map((d): [string, PricedItem] => [d._id, d])), typed);
+    const byK = new Map(stores.map((s) => [s.k, s]));
+    const physical = stores.filter((s) => s.kind === 'physical').map((s) => s.k);
+    const opts = { now: israelLocalNow() };
+    for (const h of ranked) {
+      const u = unitAcross(physical, h.key, items, promos, opts);
+      if (!u) continue;
+      const st = byK.get(u.store)!;
+      Object.assign(h, {
+        minPrice: u.min, maxPrice: u.max, stores: u.stores, onSale: u.onSale,
+        cheapest: { chainName: st.chainName, name: st.name },
+      });
+    }
     return NextResponse.json(ranked);
   } catch (error) {
     console.error('Error searching shopping items:', error);

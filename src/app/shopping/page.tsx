@@ -610,6 +610,7 @@ export default function ShoppingPage() {
                             {h.minPrice !== null ? (
                               <>
                                 <b>{h.minPrice === h.maxPrice ? ils(h.minPrice) : `${ils(h.minPrice)}–${ils(h.maxPrice!)}`}</b>
+                                {h.onSale && <SaleLabel applied idle={false} offers={false} />}
                                 <span>{h.stores} {h.stores === 1 ? 'סניף' : 'סניפים'}</span>
                                 {h.cheapest && h.stores > 1 && <span className="sh-hit-cheapest">הכי זול ב{h.cheapest.chainName} {h.cheapest.name}</span>}
                                 {h.stores === 1 && h.cheapest && <span className="sh-hit-cheapest">{h.cheapest.chainName} {h.cheapest.name}</span>}

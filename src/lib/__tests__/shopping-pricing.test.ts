@@ -202,3 +202,26 @@ test('best split re-prices each half, so a broken mix & match deal is not counte
   // a → store 2 (450 < 500), b → store 1, where alone it is back to 800.
   assert.equal(split.total, 450 + 800);
 });
+
+// ---- one unit across the city (search results) ----
+
+import { unitAcross } from '../shopping/pricing.ts';
+
+test('the cheapest store for one unit counts a sale, like the product view', () => {
+  const it = items(['snack', { 1: 1590, 2: 1890, 3: 1690 }]);
+  const sale = promo([part(['snack'], { rt: 1, min: 1, price: 1390 })], { stores: [2] });
+  const u = unitAcross([1, 2, 3, 4], 'snack', it, [sale], NOW)!;
+  assert.equal(u.store, 2);
+  assert.equal(u.min, 1390);
+  assert.equal(u.max, 1690); // the dearest price paid, Bareket's 18.90 is now 13.90
+  assert.equal(u.stores, 3);
+  assert.equal(u.onSale, true);
+});
+
+test('a multi-buy deal does not lower the one-unit price; no store sells it → null', () => {
+  const it = items(['rice', { 1: 1190, 2: 1290 }]);
+  const two = promo([part(['rice'], { rt: 1, min: 2, price: 1000 })], { stores: [2] });
+  const u = unitAcross([1, 2], 'rice', it, [two], NOW)!;
+  assert.deepEqual([u.store, u.min, u.max, u.onSale], [1, 1190, 1290, false]);
+  assert.equal(unitAcross([9], 'rice', it, [], NOW), null);
+});

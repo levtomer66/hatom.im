@@ -303,6 +303,31 @@ export function rankStores(
   return stores.map((s) => priceStore(s, lines, items, promos, opts)).sort(byValue);
 }
 
+/**
+ * One unit (1 kg when weighted) of `key` at each of `stores`, deals applied as
+ * in the product view: the cheapest store, the lowest and highest price paid,
+ * how many stores sell it, and whether the cheapest is a deal. Null when none sells it.
+ */
+export function unitAcross(
+  stores: number[],
+  key: string,
+  items: Map<string, PricedItem>,
+  promos: PromoDoc[],
+  opts: PricingOptions,
+): { store: number; min: number; max: number; stores: number; onSale: boolean } | null {
+  const selling = rankStores(stores, [{ key, qty: 1 }], items, promos, opts).filter((b) => !b.missing.length);
+  if (!selling.length) return null;
+  const best = selling[0];
+  const l = best.lines[0];
+  return {
+    store: best.store,
+    min: best.total,
+    max: Math.max(...selling.map((b) => b.total)),
+    stores: selling.length,
+    onSale: l.cost < l.regularCost,
+  };
+}
+
 export interface Split {
   stores: [StoreBasket, StoreBasket];
   total: number;
