@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  priceStore, rankStores, bestSplits, unitPriceAt,
+  dealMinQty, priceStore, rankStores, bestSplits, unitPriceAt,
   type PricedItem, type PricingOptions,
 } from '../shopping/pricing.ts';
 import type { PromoDoc, PromoGroupDoc } from '../shopping/snapshot.ts';
@@ -102,6 +102,37 @@ test('1+3: buy 3, the 4th (cheapest) free', () => {
   const b = priceStore(1, [{ key: 'k', qty: 3 }, { key: 'h', qty: 1 }], it, [p], NOW);
   assert.equal(b.total, 3 * 1500);
   assert.equal(priceStore(1, [{ key: 'k', qty: 3 }], it, [p], NOW).total, 3 * 1500);
+});
+
+test('regression: Good Pharm 27675 — "השני ב-20": one unit at regular, the second at ₪20', () => {
+  // Part 001 lists each item at its own regular price (informational); part 002 is the reward.
+  const it = items(['solgar', { 1: 10490 }], ['vit', { 1: 4490 }]);
+  const p = promo([
+    part(['solgar'], { gid: '001', rt: 0, min: 1, price: 10490 }),
+    part(['vit'], { gid: '001', rt: 0, min: 1, price: 4490 }),
+    part(['solgar', 'vit'], { gid: '002', rt: 1, min: 1, price: 2000 }),
+  ]);
+  assert.equal(priceStore(1, [{ key: 'solgar', qty: 1 }], it, [p], NOW).total, 10490);
+  assert.equal(priceStore(1, [{ key: 'solgar', qty: 2 }], it, [p], NOW).total, 10490 + 2000);
+  // Mix & match: the cheaper unit is the one at ₪20.
+  assert.equal(priceStore(1, [{ key: 'solgar', qty: 1 }, { key: 'vit', qty: 1 }], it, [p], NOW).total, 10490 + 2000);
+  // Three units: one pair plus one at regular.
+  assert.equal(priceStore(1, [{ key: 'solgar', qty: 3 }], it, [p], NOW).total, 2 * 10490 + 2000);
+});
+
+test('second unit at a percent off ("השני ב-50%")', () => {
+  const it = items(['a', { 1: 1000 }]);
+  const p = promo([part(['a'], { rt: 0, min: 1 }), part(['a'], { gid: '2', rt: 10, min: 1, rate: 50 })]);
+  assert.equal(priceStore(1, [{ key: 'a', qty: 1 }], it, [p], NOW).total, 1000);
+  assert.equal(priceStore(1, [{ key: 'a', qty: 2 }], it, [p], NOW).total, 1500);
+  assert.equal(priceStore(1, [{ key: 'a', qty: 4 }], it, [p], NOW).total, 3000);
+});
+
+test('second unit for ₪1 (Super-Pharm): the buy part\'s price is informational', () => {
+  const it = items(['cream', { 1: 2490 }]);
+  const p = promo([part(['cream'], { rt: 0, min: 1, price: 1990 }), part(['cream'], { gid: '2', rt: 10, min: 1, price: 100 })]);
+  assert.equal(priceStore(1, [{ key: 'cream', qty: 1 }], it, [p], NOW).total, 2490);
+  assert.equal(priceStore(1, [{ key: 'cream', qty: 2 }], it, [p], NOW).total, 2490 + 100);
 });
 
 test('gift with purchase: buy from one set, a different item free', () => {
@@ -224,4 +255,14 @@ test('a multi-buy deal does not lower the one-unit price; no store sells it → 
   const u = unitAcross([1, 2], 'rice', it, [two], NOW)!;
   assert.deepEqual([u.store, u.min, u.max, u.onSale], [1, 1190, 1290, false]);
   assert.equal(unitAcross([9], 'rice', it, [], NOW), null);
+});
+
+test('dealMinQty: buy and reward units together, else the first part\'s minimum', () => {
+  const second = promo([part(['a'], { rt: 0, min: 1 }), part(['a'], { gid: '2', min: 1, price: 2000 })]);
+  const oneOne = promo([part(['a'], { rt: 0, min: 1 }), part(['a'], { gid: '2', min: 1, rate: 100, price: 0 })]);
+  const twoFor = promo([part(['a'], { min: 2, price: 2000 })]);
+  assert.equal(dealMinQty(second), 2);
+  assert.equal(dealMinQty(oneOne), 2);
+  assert.equal(dealMinQty(twoFor), 2);
+  assert.equal(dealMinQty(promo([part(['a'], { rate: 10 })])), 1);
 });

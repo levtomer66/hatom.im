@@ -1,8 +1,8 @@
 // Response shapes of /api/shopping/*, shared by the routes and the page.
-// Import-free apart from types.
+// Import-free apart from types and the (import-free) pricing engine.
 
 import type { PriceSource } from './collections.ts';
-import type { AppliedPromo, Offer, Split, StoreBasket } from './pricing.ts';
+import { dealMinQty, type AppliedPromo, type Offer, type Split, type StoreBasket } from './pricing.ts';
 import type { PromoDoc, StoreDoc } from './snapshot.ts';
 
 export type { PriceSource } from './collections.ts';
@@ -61,7 +61,7 @@ export interface StoreInfo {
 /** The terms of a deal beyond its description and end date (shown on hover/tap of a price). */
 export interface PromoDetail {
   description: string;
-  /** Units (kg when weighted) the deal starts at, from its first part. */
+  /** Units (kg when weighted) the deal needs before it saves anything (dealMinQty). */
   minQty: number | null;
   /** Israel local "YYYY-MM-DDTHH:mm". */
   start: string;
@@ -77,7 +77,7 @@ export interface PromoDetail {
 }
 
 export const promoDetail = (p: PromoDoc): PromoDetail => ({
-  description: p.d, minQty: p.g[0]?.min ?? null,
+  description: p.d, minQty: dealMinQty(p),
   start: p.s, end: p.e, minAmt: p.minAmt, limit: p.limit, remarks: p.remarks ?? '',
   clubName: p.club ? p.clubName || null : null, coupon: p.coupon,
 });

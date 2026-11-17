@@ -4,7 +4,7 @@
 // from types and the pricing engine (both import-free), for `node --test`.
 
 import type { HereRow, HereStore } from './api-types.ts';
-import { priceStore, type PricedItem } from './pricing.ts';
+import { dealMinQty, priceStore, type PricedItem } from './pricing.ts';
 import type { PromoDoc } from './snapshot.ts';
 
 export type { HereRow, HereStore } from './api-types.ts';
@@ -181,8 +181,7 @@ export function storeDeals(store: number, promos: PromoDoc[], items: Map<string,
     for (const key of p.items) {
       const item = items.get(key);
       if (!item || item.p[sk] === undefined) continue;
-      const group = p.g.find((g) => g.items.includes(key)) ?? p.g[0];
-      const qty = item.w ? 1 : Math.max(1, Math.ceil(group?.min ?? 1));
+      const qty = item.w ? 1 : Math.max(1, Math.ceil(dealMinQty(p) ?? 1));
       const l = priceStore(store, [{ key, qty }], items, [p], { now, clubs: p.club ? [p.club] : [], coupons: true }).lines[0];
       // Free outright = a gift or a compensation coupon ("קופון פיצוי", "… מתנה"), not a shelf deal.
       if (!l?.available || l.cost >= l.regularCost || l.cost === 0) continue;

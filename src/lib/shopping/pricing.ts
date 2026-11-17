@@ -13,6 +13,12 @@
 // - Units of every item in one part pool together (mix & match).
 // - "1+1"/"1+3" deals are a buy part plus a gift part (price 0 or rate 100).
 //   The buy part's price is informational, and the cheapest units go free.
+// - "השני ב-20" / "השני ב-50%" / "השני ב-1₪" are the same shape with a priced
+//   reward: parts under a second group id (gid) are the reward, the first
+//   gid's parts the buy (each item listed at its own regular price, again
+//   informational). One unit alone gets nothing; each pair gets its cheaper
+//   unit at the reward's price per unit or percent off. Measured on Good Pharm
+//   27675, Super-Pharm and Dor Alon, 2026-11-17.
 // - `limit` (RedemptionLimit) caps the number of redemptions per basket.
 //
 // Not applied by default but listed on the line as an offer: club promos
@@ -98,6 +104,50 @@ function weightedUnitPrice(g: PromoGroupDoc, regular: number): number | null {
   return null;
 }
 
+/** A reward part's price for one unit of an item whose regular price is `reg`. */
+function rewardUnit(g: PromoGroupDoc, reg: number): number {
+  if (isGift(g)) return 0;
+  if (g.price !== null) return Math.min(reg, g.price / Math.max(1, Math.round(g.min)));
+  if (g.rate !== null && g.rate > 0) return reg * (1 - g.rate / 100);
+  return reg;
+}
+
+/**
+ * A buy-and-reward deal's parts: gift parts reward the others; without a
+ * gift, the parts under a group id other than the first part's are the
+ * reward. Null when the deal is a plain one (one group id, no gift, or
+ * nothing to buy).
+ */
+function buyAndReward(promo: PromoDoc): { buys: PromoGroupDoc[]; rewards: PromoGroupDoc[] } | null {
+  const gifts = promo.g.filter(isGift);
+  const split = gifts.length
+    ? { buys: promo.g.filter((g) => !isGift(g)), rewards: gifts }
+    : { buys: promo.g.filter((g) => g.gid === promo.g[0]?.gid), rewards: promo.g.filter((g) => g.gid !== promo.g[0]?.gid) };
+  return split.buys.length && split.rewards.length ? split : null;
+}
+
+/** Units bought (`a`) and rewarded (`b`) per redemption of a buy-and-reward deal. */
+function buyRewardCounts(split: { buys: PromoGroupDoc[]; rewards: PromoGroupDoc[] }): { a: number; b: number } {
+  return {
+    a: Math.max(1, Math.round(Math.min(...split.buys.map((g) => g.min)))),
+    b: Math.max(1, Math.round(Math.min(...split.rewards.map((g) => (g.max !== null ? Math.min(g.min, g.max) : g.min))))),
+  };
+}
+
+/**
+ * Units a deal needs before it saves anything: bought and rewarded units
+ * together for buy-and-reward deals ("השני ב-20" → 2, "1+1" → 2), else its
+ * first part's minimum. Null for a deal with no parts.
+ */
+export function dealMinQty(promo: PromoDoc): number | null {
+  const split = buyAndReward(promo);
+  if (split) {
+    const { a, b } = buyRewardCounts(split);
+    return a + b;
+  }
+  return promo.g[0]?.min ?? null;
+}
+
 interface Evaluation {
   /** Agorot saved per line key. */
   savings: Map<string, number>;
@@ -143,28 +193,29 @@ function evaluate(
   const inBasket = (g: PromoGroupDoc) => g.items.filter((k) => (remaining.get(k) ?? 0) > EPS);
   let redemptions = promo.limit ?? Infinity;
 
-  const gifts = promo.g.filter(isGift);
-  const buys = promo.g.filter((g) => !isGift(g));
-  if (gifts.length && buys.length) {
-    // Buy `a`, get `b` free; the cheapest units of each redemption are the gift.
-    const a = Math.max(1, Math.round(Math.min(...buys.map((g) => g.min))));
-    const b = Math.max(1, Math.round(Math.min(...gifts.map((g) => (g.max !== null ? Math.min(g.min, g.max) : g.min)))));
+  const split = buyAndReward(promo);
+  if (split) {
+    // Buy `a`, get `b` free or cheaper; the cheapest units of each redemption get the reward.
+    const { buys, rewards } = split;
+    const { a, b } = buyRewardCounts(split);
     const buyKeys = new Set(buys.flatMap(inBasket));
-    const giftKeys = new Set(gifts.flatMap(inBasket));
-    const pooled = [...giftKeys].every((k) => buyKeys.has(k));
+    const rewardKeys = new Set(rewards.flatMap(inBasket));
+    /** What the reward saves on one unit (its best reward part). */
+    const saving = (u: Unit) => Math.max(0, u.price - Math.min(...rewards.filter((g) => g.items.includes(u.key)).map((g) => rewardUnit(g, u.price))));
+    const pooled = [...rewardKeys].every((k) => buyKeys.has(k));
     if (pooled) {
       const units = unitsOf(buyKeys, remaining, regular);
       for (let i = 0; i + a + b <= units.length && redemptions > 0; i += a + b, redemptions--) {
         const group = units.slice(i, i + a + b);
-        if (!group.slice(a).every((u) => giftKeys.has(u.key))) break;
-        group.forEach((u, n) => credit(ev, u.key, n >= a ? u.price : 0, 1));
+        if (!group.slice(a).every((u) => rewardKeys.has(u.key))) break;
+        group.forEach((u, n) => credit(ev, u.key, n >= a ? saving(u) : 0, 1));
       }
     } else {
-      const buyUnits = unitsOf([...buyKeys].filter((k) => !giftKeys.has(k)), remaining, regular);
-      const giftUnits = unitsOf(giftKeys, remaining, regular);
-      const r = Math.min(Math.floor(buyUnits.length / a), Math.floor(giftUnits.length / b), redemptions);
+      const buyUnits = unitsOf([...buyKeys].filter((k) => !rewardKeys.has(k)), remaining, regular);
+      const rewardUnits = unitsOf(rewardKeys, remaining, regular);
+      const r = Math.min(Math.floor(buyUnits.length / a), Math.floor(rewardUnits.length / b), redemptions);
       for (const u of buyUnits.slice(0, r * a)) credit(ev, u.key, 0, 1);
-      for (const u of giftUnits.slice(0, r * b)) credit(ev, u.key, u.price, 1);
+      for (const u of rewardUnits.slice(0, r * b)) credit(ev, u.key, saving(u), 1);
     }
     return ev;
   }

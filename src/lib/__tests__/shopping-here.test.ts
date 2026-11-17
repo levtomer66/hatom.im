@@ -158,3 +158,11 @@ test('storeDeals: "קופון" in the description marks a coupon deal', () => {
   const [d] = storeDeals(7, [promo('p1', ['a'], { rate: 20 }, { d: 'קופון 20% הנחה' })], items, '2026-11-17T12:00');
   assert.equal(d.coupon, true);
 });
+
+test('storeDeals: a "second for ₪20" deal is priced for two units', () => {
+  const items = new Map<string, PricedItem>([['s', { _id: 's', w: false, p: { '7': 10490 } }]]);
+  const p = promo('p1', ['s'], { gid: '001', rt: 0, min: 1, price: 10490 });
+  p.g.push({ gid: '002', rt: 1, min: 1, max: null, rate: null, price: 2000, w: false, items: ['s'] });
+  const [d] = storeDeals(7, [p], items, '2026-11-17T12:00');
+  assert.deepEqual([d.qty, d.cost, d.regularCost], [2, 10490 + 2000, 2 * 10490]);
+});

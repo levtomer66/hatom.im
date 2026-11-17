@@ -304,7 +304,9 @@ Identity = Gmail address. Two roles:
 - **Basket pricing** is `src/lib/shopping/pricing.ts` (pure; the header
   comment says how each promo shape is read). `price` = total for `min`
   units and wins over `rate`; weighted min 0.01 = per kg; a gift part (price 0
-  / rate 100) makes the promo buy-X-get-Y. Promos are applied greedily, the
+  / rate 100) makes the promo buy-X-get-Y, and so do parts under a second
+  `gid` ("השני ב-20": the first gid is the buy part, its prices informational —
+  never price one unit at the reward). Promos are applied greedily, the
   biggest saving first, and a unit counts toward one promo only. Club, coupon
   and unmet basket-minimum promos are returned as `offers`, not applied.
   Description-only deals are not parsed.
