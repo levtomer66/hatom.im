@@ -460,6 +460,15 @@ async function main() {
     }
     const wm = await woltPhotos(Boolean(args.offline));
     for (const [k, img] of wm) if (!photos.get(k) || photos.get(k)!.by === 'off') photos.set(k, { img });
+    // The owner's call (2026-11-17): every other barcode not yet checked is assumed
+    // to be on Rami Levy's CDN too (~91% are) rather than waiting ~17 h of checks.
+    // It's the last resort: any photo known to exist wins, and a checked miss is
+    // never guessed. Missing ones are reported by hand and probed then.
+    for (const st of states) {
+      for (const it of st.items) {
+        if (it.barcode && !it.img && /^\d{8,14}$/.test(it.key) && !(it.key in probed) && !photos.has(it.key)) photos.set(it.key, { img: RAMI_LEVY_IMG(it.key) });
+      }
+    }
     log(`photos by barcode: ${photos.size} (Rami Levy + Open Food Facts cache, ${wm.size} from photo-only Wolt venues)`);
     const items = buildItemDocs(states, photos);
     const promoStats = { droppedCoupons: 0 };
