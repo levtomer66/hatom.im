@@ -314,6 +314,11 @@ Identity = Gmail address. Two roles:
   `d` at ingest (`src/lib/shopping/departments.ts`, import-free): Wolt's category
   path for the barcode first, else keyword rules on the name (longest stem wins).
   ~78% of items are placed. The in-store mode built on it: `docs/shopping-in-store-mode.md`.
+- **API and MCP**: `docs/shopping-api.md`. The search, item and compare routes
+  and the MCP tools (`src/lib/shopping/mcp-tools.ts`) share one set of queries,
+  `src/lib/shopping/service.ts` — change pricing there, not in a route. Tools
+  take a free-text product (best search match, runner-ups named) and an
+  optional `city` that falls back to the user's saved `settings.city`.
 - **UI** at `SHOPPING_BASE_PATH` (`src/lib/shopping/config.ts`; the middleware
   `matcher` literal must move with it). A list is shared by everyone holding
   `shopping` or personal to its creator (`shared: false`; lists saved before

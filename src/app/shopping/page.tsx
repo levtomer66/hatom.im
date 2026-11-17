@@ -173,7 +173,7 @@ export default function ShoppingPage() {
   /** The caller's preferences (the ⚙ menu); null until loaded. */
   const [settings, setSettings] = useState<ShoppingSettings | null>(null);
   useEffect(() => {
-    api<ShoppingSettings>('/settings').then(setSettings).catch(() => setSettings({ nutritionHero: false }));
+    api<ShoppingSettings>('/settings').then(setSettings).catch(() => setSettings({ nutritionHero: false, city: null }));
   }, []);
   const changeSettings = (patch: Partial<ShoppingSettings>) => {
     setSettings((s) => (s ? { ...s, ...patch } : s));

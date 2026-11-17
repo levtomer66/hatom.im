@@ -356,4 +356,9 @@ export type NutritionResponse = Record<string, ItemNutrition>;
 export interface ShoppingSettings {
   /** Show the list's nutrition totals above it. Off by default. */
   nutritionHero: boolean;
+  /**
+   * The city to price in when a client doesn't say (the MCP tools, Shortcuts):
+   * a cities.ts id, or null. The page detects its own city on the device.
+   */
+  city: string | null;
 }
