@@ -5,6 +5,7 @@ import { rankStores, shownUnit, type BasketLine, type PricingOptions, type Store
 import { israelLocalNow } from '@/lib/shopping/snapshot';
 import { idleDeals, imgByOf, promoDetails, storeInfo, type ItemPrice, type ItemResponse, type StoreInfo } from '@/lib/shopping/api-types';
 import { withManualPrices } from '@/lib/shopping/manual';
+import { isLiquid, nutritionOf, packGrams } from '@/lib/shopping/nutrition';
 import { getItems, getPromosFor, getStoresFor } from '@/models/ShoppingCatalog';
 import { getManualPrices } from '@/models/ShoppingManualPrice';
 
@@ -65,7 +66,10 @@ export async function GET(request: NextRequest) {
     const res: ItemResponse = {
       now,
       city,
-      item: { key, name: doc.n, manufacturer: doc.m, w: doc.w, img: doc.img ?? null, imgBy: imgByOf(doc), barcode: doc.bc },
+      item: {
+        key, name: doc.n, manufacturer: doc.m, w: doc.w, img: doc.img ?? null, imgBy: imgByOf(doc), barcode: doc.bc,
+        nu: nutritionOf(doc), pack: packGrams(doc.q, doc.uq), liquid: isLiquid(doc.uq, doc.d), d: doc.d ?? null,
+      },
       stores: Object.fromEntries(stores.filter((s) => used.has(s.k)).map((s): [number, StoreInfo] => [s.k, storeInfo(s)])),
       physical,
       online,

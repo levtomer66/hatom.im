@@ -33,11 +33,13 @@ import { CITIES } from '@/lib/shopping/cities';
 import { distanceM } from '@/lib/shopping/places';
 import { SHOPPING_API_PATH } from '@/lib/shopping/config';
 import { normalizeQty, type ShoppingList, type ShoppingListItem } from '@/lib/shopping/lists';
+import type { ShoppingSettings } from '@/lib/shopping/api-types';
 import type { CompareResponse, ShoppingPlan, ItemBest, ItemPrice, ItemResponse, ManualPriceResponse, PriceSource, PromoDetail, SearchHit, StoreInfo } from '@/lib/shopping/api-types';
 import type { LineResult, Offer, PromoRef, StoreBasket } from '@/lib/shopping/pricing';
 import { dealNudge, groupByDepartment, progress, withPending, type PlanKind, type Trip, type TripCreate, type TripItem } from '@/lib/shopping/trips';
 import { cleanAddress, dayMonth, ils, MultiStar, multiNote, photoBroken, qtyLabel, SaleLabel, storeName, Thumb } from './ui';
 import Here from './Here';
+import { NutritionHero, NutritionPanel, SettingsMenu } from './Nutrition';
 
 /** "2026-11-28T23:59" → "28.11" */
 const stamp = (local: string) => `${dayMonth(local)} ${local.slice(11, 16)}`;
@@ -168,6 +170,17 @@ export default function ShoppingPage() {
   const [inStore, setInStore] = useState(false);
   /** The "אני בסופר" screen. */
   const [here, setHere] = useState(false);
+  /** The caller's preferences (the ⚙ menu); null until loaded. */
+  const [settings, setSettings] = useState<ShoppingSettings | null>(null);
+  useEffect(() => {
+    api<ShoppingSettings>('/settings').then(setSettings).catch(() => setSettings({ nutritionHero: false }));
+  }, []);
+  const changeSettings = (patch: Partial<ShoppingSettings>) => {
+    setSettings((s) => (s ? { ...s, ...patch } : s));
+    api<ShoppingSettings>('/settings', { method: 'PUT', body: JSON.stringify(patch) })
+      .then(setSettings)
+      .catch(() => setToast('ההגדרה לא נשמרה. נסו שוב.'));
+  };
   /** The results under the search box: hidden by a click elsewhere, back on focus (same query). */
   const [hitsOpen, setHitsOpen] = useState(true);
   /** Phone width: a product opens inline under its search result instead of a window. */
@@ -512,6 +525,7 @@ export default function ShoppingPage() {
       <Navbar />
       <main className="sh-page">
         <header className="sh-header">
+          <SettingsMenu settings={settings} onChange={changeSettings} />
           <h1 className="sh-title">כיף לי בסופר</h1>
           {lists && (
             <button type="button" className="sh-btn sh-here-entry" onClick={() => setHere(true)}>
@@ -553,6 +567,9 @@ export default function ShoppingPage() {
               ))}
               <button type="button" className="sh-chip sh-chip--add" onClick={newList} aria-label="רשימה חדשה" title="רשימה חדשה"><FaPlus aria-hidden /></button>
             </nav>
+            {settings?.nutritionHero && (
+              <NutritionHero lines={list.items.map((i) => ({ key: i.key, qty: i.qty, name: i.name }))} />
+            )}
 
             <div className="sh-loc">
               <FaMapMarkerAlt aria-hidden />
@@ -1516,6 +1533,7 @@ function ProductSheet({ itemKey, scanned, city, inList, onAdd, onClose, inline }
             </button>
             <PriceTable title="בחנויות בעיר" rows={data.physical} data={data} empty="לא נמכר בחנויות בעיר." />
             {data.online.length > 0 && <PriceTable title="אונליין" rows={data.online} data={data} />}
+            <NutritionPanel item={it} />
           </>
         )}
       </>

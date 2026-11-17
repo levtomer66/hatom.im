@@ -4,6 +4,7 @@
 import type { PriceSource } from './collections.ts';
 import { dealMinQty, type AppliedPromo, type Offer, type Split, type StoreBasket } from './pricing.ts';
 import type { PromoDoc, StoreDoc } from './snapshot.ts';
+import type { Nutrition } from './nutrition.ts';
 
 export type { PriceSource } from './collections.ts';
 
@@ -239,7 +240,17 @@ export interface ItemPrice {
 export interface ItemResponse {
   now: string;
   city: string;
-  item: { key: string; name: string; manufacturer: string; w: boolean; img: string | null; imgBy: ImgBy; barcode: boolean };
+  item: {
+    key: string; name: string; manufacturer: string; w: boolean; img: string | null; imgBy: ImgBy; barcode: boolean;
+    /** Nutrition per 100 g (100 ml for drinks), or null when no source has it. */
+    nu: Nutrition | null;
+    /** Grams (ml) in one pack, from the price file; null when sold by the unit or unknown. */
+    pack: number | null;
+    /** A drink sold by volume: its values and red labels are per 100 ml. */
+    liquid: boolean;
+    /** Department id, or null. */
+    d: string | null;
+  };
   stores: Record<number, StoreInfo>;
   /** The city's physical stores selling it (manual shops where it's priced), cheapest first. */
   physical: ItemPrice[];
@@ -324,4 +335,25 @@ export interface HereDealsResponse {
   }[];
   items: Record<string, { name: string; w: boolean; img: string | null; imgBy: ImgBy; d: string | null }>;
   promos: Record<string, PromoDetail>;
+}
+
+// ── nutrition (docs/shopping-nutrition.md) ──
+
+/** What the list's nutrition totals need per item. */
+export interface ItemNutrition {
+  nu: Nutrition | null;
+  pack: number | null;
+  w: boolean;
+  liquid: boolean;
+  d: string | null;
+  name: string;
+}
+
+/** GET /api/shopping/nutrition?keys=<k1,k2,…> (≤ 100 keys): per item key; unknown keys are left out. */
+export type NutritionResponse = Record<string, ItemNutrition>;
+
+/** GET / PUT /api/shopping/settings: the caller's /shopping preferences (the ⚙ menu). */
+export interface ShoppingSettings {
+  /** Show the list's nutrition totals above it. Off by default. */
+  nutritionHero: boolean;
 }
