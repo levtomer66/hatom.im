@@ -266,3 +266,20 @@ test('dealMinQty: buy and reward units together, else the first part\'s minimum'
   assert.equal(dealMinQty(twoFor), 2);
   assert.equal(dealMinQty(promo([part(['a'], { rate: 10 })])), 1);
 });
+
+test('regression: Good Pharm 27883 "מישל מרסייה 2 ב-10" on ₪69.90 items is not applied, listed as unclear', () => {
+  const it = items(['serum', { 1: 6990 }]);
+  const p = promo([part(['serum'], { gid: '001', rt: 10, min: 2, price: 1000 })]);
+  const l = line(priceStore(1, [{ key: 'serum', qty: 2 }], it, [p], NOW), 'serum');
+  assert.equal(l.cost, 2 * 6990);
+  assert.deepEqual(l.applied, []);
+  assert.deepEqual(l.offers.map((o) => o.reason), ['unclear']);
+});
+
+test('a deep but plausible deal (16% of shelf) still applies; a negative price never does', () => {
+  const it = items(['a', { 1: 1290 }]);
+  const deep = promo([part(['a'], { min: 2, price: 420 })]); // 2.10 a unit on 12.90 = 16%
+  assert.equal(priceStore(1, [{ key: 'a', qty: 2 }], it, [deep], NOW).total, 420);
+  const negative = promo([part(['a'], { min: 1, price: -14999 })]);
+  assert.equal(priceStore(1, [{ key: 'a', qty: 1 }], it, [negative], NOW).total, 1290);
+});

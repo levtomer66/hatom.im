@@ -49,6 +49,7 @@ const OFFER_LABEL: Record<Offer['reason'], string> = {
   club: 'במועדון',
   coupon: 'בקופון',
   'min-purchase': 'בקנייה מעל סכום',
+  unclear: 'לבדוק במדף, המחיר בקובץ לא סביר',
 };
 
 /** Label, explanation and how its date reads, per price source. */
