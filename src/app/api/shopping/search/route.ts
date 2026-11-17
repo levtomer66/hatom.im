@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireFeatureCaller } from '@/lib/api-caller';
 import { CITIES } from '@/lib/shopping/cities';
-import type { SearchHit } from '@/lib/shopping/api-types';
+import { imgByOf, type SearchHit } from '@/lib/shopping/api-types';
 import { priceSourceOf } from '@/lib/shopping/collections';
 import { rankHits, searchPatterns } from '@/lib/shopping/search-rank';
 
@@ -62,6 +62,7 @@ export async function GET(request: NextRequest) {
         sources,
         cheapest: low ? { chainName: low.chainName, name: low.name } : null,
         img: d.img ?? null,
+        imgBy: imgByOf(d),
         // Ranking only, not sent: other chains' names and makers.
         aka: (d as { s?: string }).s,
       };

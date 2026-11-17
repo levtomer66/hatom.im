@@ -18,6 +18,8 @@ export interface TripItem {
   /** Department id (departments.ts), or null: shown under "אחר". */
   d: string | null;
   img: string | null;
+  /** 'off' = an Open Food Facts photo (credit it), 'name' = borrowed from a similar product. */
+  imgBy?: 'name' | 'off' | null;
   /** A deal this quantity doesn't reach yet ("3ב20" from 3 units), for the in-store nudge. */
   deal?: { text: string; minQty: number } | null;
 }
@@ -80,7 +82,8 @@ function parseItem(raw: unknown): TripItem | null {
   const dl = r.deal as Record<string, unknown> | null | undefined;
   const deal = dl && isStr(dl.text) && typeof dl.minQty === 'number' && dl.minQty > 0 && dl.minQty <= 100
     ? { text: dl.text, minQty: dl.minQty } : null;
-  return { key: r.key, name: r.name, qty: r.qty, w: r.w === true, cost: r.cost, d, img, deal };
+  const imgBy = r.imgBy === 'off' || r.imgBy === 'name' ? r.imgBy : null;
+  return { key: r.key, name: r.name, qty: r.qty, w: r.w === true, cost: r.cost, d, img, imgBy, deal };
 }
 
 export function parseTripCreate(body: unknown): Result<TripCreate> {

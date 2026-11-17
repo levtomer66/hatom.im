@@ -7,6 +7,19 @@ import type { PromoDoc, StoreDoc } from './snapshot.ts';
 
 export type { PriceSource } from './collections.ts';
 
+/**
+ * Where a product photo came from when it isn't the item's own: 'name' = the
+ * same product under another code or size (an illustration), 'off' = Open
+ * Food Facts (CC BY-SA: must be credited where shown). Null/absent = its own.
+ */
+export type ImgBy = 'name' | 'off' | null;
+
+/** The item doc's `imgBy` (written by the ingest since e82e391), read before that type is merged. */
+export const imgByOf = (d: object): ImgBy => {
+  const v = (d as { imgBy?: unknown }).imgBy;
+  return v === 'name' || v === 'off' ? v : null;
+};
+
 export interface SearchHit {
   key: string;
   name: string;
@@ -23,6 +36,7 @@ export interface SearchHit {
   cheapest: { chainName: string; name: string } | null;
   /** Product photo link or null; Wolt links take ?w=<px> for a thumbnail. */
   img: string | null;
+  imgBy: ImgBy;
 }
 
 export interface StoreInfo {
@@ -175,7 +189,7 @@ export interface CompareResponse {
   city: string;
   stores: Record<number, StoreInfo>;
   /** `d`: department id (departments.ts) when known. */
-  items: Record<string, { name: string; manufacturer: string; w: boolean; img: string | null; d?: string | null }>;
+  items: Record<string, { name: string; manufacturer: string; w: boolean; img: string | null; imgBy?: ImgBy; d?: string | null }>;
   /** Physical stores in the city, cheapest first. */
   physical: StoreBasket[];
   /** Online stores, cheapest first. */
@@ -214,7 +228,7 @@ export interface ItemPrice {
 export interface ItemResponse {
   now: string;
   city: string;
-  item: { key: string; name: string; manufacturer: string; w: boolean; img: string | null; barcode: boolean };
+  item: { key: string; name: string; manufacturer: string; w: boolean; img: string | null; imgBy: ImgBy; barcode: boolean };
   stores: Record<number, StoreInfo>;
   /** The city's physical stores selling it (manual shops where it's priced), cheapest first. */
   physical: ItemPrice[];

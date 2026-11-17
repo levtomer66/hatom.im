@@ -693,6 +693,9 @@ export default function ShoppingPage() {
             )}
           </>
         )}
+        {(hits?.some((h) => h.img && h.imgBy === 'off') || Object.values(result?.items ?? {}).some((i) => i.img && i.imgBy === 'off')) && (
+          <p className="sh-credit">חלק מתמונות המוצרים: <a href="https://world.openfoodfacts.org" target="_blank" rel="noopener noreferrer">Open Food Facts</a>, ברישיון CC BY-SA.</p>
+        )}
         {scanning && (
           <Scanner onClose={() => setScanning(false)}
             onCode={(code) => { setScanning(false); setProduct({ key: code, scanned: true }); }} />
@@ -1458,7 +1461,10 @@ function ProductSheet({ itemKey, scanned, city, inList, onAdd, onClose, inline }
         {state === 'ok' && data && it && (
           <>
             <div className="sh-sheet-head">
-              <Thumb src={it.img} size={88} />
+              <div className="sh-sheet-photo">
+                <Thumb src={it.img} size={88} />
+                {it.img && it.imgBy === 'off' && <OffCredit barcode={it.barcode ? it.key : null} />}
+              </div>
               <div>
                 <h2 id="sh-sheet-title" className="sh-sheet-title">{it.name}</h2>
                 <p className="sh-sheet-sub">
@@ -1616,7 +1622,7 @@ function tripSnapshot(result: CompareResponse, plan: ShoppingPlan, listId: strin
         // A deal this quantity doesn't reach yet, for the in-store "add one more?" nudge.
         const idle = (result.idle?.[`${s.store}|${l.key}`] ?? []).map((id) => result.promos?.[id]).find((p) => p?.minQty && p.minQty > l.qty);
         return {
-          key: l.key, name: it?.name ?? l.key, qty: l.qty, w: it?.w ?? false, cost: l.cost, d: it?.d ?? null, img: it?.img ?? null,
+          key: l.key, name: it?.name ?? l.key, qty: l.qty, w: it?.w ?? false, cost: l.cost, d: it?.d ?? null, img: it?.img ?? null, imgBy: it?.imgBy ?? null,
           deal: idle ? { text: idle.description, minQty: idle.minQty! } : null,
         };
       }),
@@ -1871,6 +1877,9 @@ function InStore({ trip, onTrip, onClose, onEnded }: {
         {trip.missing.length > 0 && stopIdx === trip.stops.length - 1 && (
           <p className="sh-instore-missing">לא בתוכנית: {trip.missing.map((m) => m.name).join(', ')}</p>
         )}
+        {stop.items.some((i) => i.img && i.imgBy === 'off') && (
+          <p className="sh-credit">חלק מהתמונות: Open Food Facts, ברישיון CC BY-SA.</p>
+        )}
       </div>
       {ending && <EndTrip estimate={prog.total} onEnd={end} onCancel={() => setEnding(false)} />}
     </div>
@@ -1952,5 +1961,15 @@ function EndTrip({ estimate, onEnd, onCancel }: { estimate: number; onEnd: (paid
         <button type="button" className="sh-btn sh-btn--ghost" onClick={onCancel}>עוד לא</button>
       </div>
     </div>
+  );
+}
+
+/** Open Food Facts photos are CC BY-SA: credited where they're shown, with a link to the product there. */
+function OffCredit({ barcode }: { barcode: string | null }) {
+  return (
+    <a className="sh-photo-credit" target="_blank" rel="noopener noreferrer"
+      href={barcode ? `https://world.openfoodfacts.org/product/${barcode}` : 'https://world.openfoodfacts.org'}>
+      תמונה: Open Food Facts, CC BY-SA
+    </a>
   );
 }

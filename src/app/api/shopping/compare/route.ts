@@ -7,7 +7,7 @@ import { bestSplits, priceStore, rankStores, type BasketLine, type PricedItem, t
 import { choosePlan, splitPays } from '@/lib/shopping/plans';
 import type { PromoDoc } from '@/lib/shopping/snapshot';
 import { israelLocalNow } from '@/lib/shopping/snapshot';
-import { idleDeals, promoDetails, storeInfo, type Plans, type ShoppingPlan, type CompareResponse, type ItemBest, type StoreInfo } from '@/lib/shopping/api-types';
+import { idleDeals, imgByOf, promoDetails, storeInfo, type Plans, type ShoppingPlan, type CompareResponse, type ItemBest, type StoreInfo } from '@/lib/shopping/api-types';
 import { withManualPrices } from '@/lib/shopping/manual';
 import { getItems, getPromosFor, getStoresFor } from '@/models/ShoppingCatalog';
 import { getManualPrices } from '@/models/ShoppingManualPrice';
@@ -134,7 +134,7 @@ export async function POST(request: NextRequest) {
       now,
       city: req.city,
       stores: Object.fromEntries(stores.map((s): [number, StoreInfo] => [s.k, storeInfo(s)])),
-      items: Object.fromEntries(itemDocs.map((d) => [d._id, { name: d.n, manufacturer: d.m, w: d.w, img: d.img ?? null, d: d.d ?? null }])),
+      items: Object.fromEntries(itemDocs.map((d) => [d._id, { name: d.n, manufacturer: d.m, w: d.w, img: d.img ?? null, imgBy: imgByOf(d), d: d.d ?? null }])),
       physical: physical.slice(0, RESULTS_PER_SECTION),
       online: online.slice(0, RESULTS_PER_SECTION),
       manual,

@@ -3,7 +3,7 @@ import { requireFeatureCaller } from '@/lib/api-caller';
 import { CITIES } from '@/lib/shopping/cities';
 import { rankStores, type BasketLine, type PricingOptions, type StoreBasket } from '@/lib/shopping/pricing';
 import { israelLocalNow } from '@/lib/shopping/snapshot';
-import { idleDeals, promoDetails, storeInfo, type ItemPrice, type ItemResponse, type StoreInfo } from '@/lib/shopping/api-types';
+import { idleDeals, imgByOf, promoDetails, storeInfo, type ItemPrice, type ItemResponse, type StoreInfo } from '@/lib/shopping/api-types';
 import { withManualPrices } from '@/lib/shopping/manual';
 import { getItems, getPromosFor, getStoresFor } from '@/models/ShoppingCatalog';
 import { getManualPrices } from '@/models/ShoppingManualPrice';
@@ -61,7 +61,7 @@ export async function GET(request: NextRequest) {
     const res: ItemResponse = {
       now,
       city,
-      item: { key, name: doc.n, manufacturer: doc.m, w: doc.w, img: doc.img ?? null, barcode: doc.bc },
+      item: { key, name: doc.n, manufacturer: doc.m, w: doc.w, img: doc.img ?? null, imgBy: imgByOf(doc), barcode: doc.bc },
       stores: Object.fromEntries(stores.filter((s) => used.has(s.k)).map((s): [number, StoreInfo] => [s.k, storeInfo(s)])),
       physical,
       online,
