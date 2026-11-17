@@ -141,6 +141,8 @@ export default function ShoppingPage() {
   /** The product window: an item key or a scanned barcode. */
   const [product, setProduct] = useState<{ key: string; scanned: boolean } | null>(null);
   const [scanning, setScanning] = useState(false);
+  /** The results under the search box: hidden by a click elsewhere, back on focus (same query). */
+  const [hitsOpen, setHitsOpen] = useState(true);
   /** Phone width: a product opens inline under its search result instead of a window. */
   const [narrow, setNarrow] = useState(false);
   useEffect(() => {
@@ -289,6 +291,21 @@ export default function ShoppingPage() {
       }),
     );
   const removeItem = (key: string) => setItems((items) => items.filter((i) => i.key !== key));
+  // A click outside the search closes its results, and one outside the list
+  // editor closes the editor. Clicks inside the product window or the scanner
+  // don't count, and the search box counts as part of editing (it's where
+  // items are added). What was typed or opened stays; it just folds away.
+  useEffect(() => {
+    const onDown = (e: PointerEvent) => {
+      const t = e.target as Element | null;
+      if (!t?.closest || t.closest('.sh-sheet-backdrop, .sh-scan')) return;
+      if (!t.closest('.sh-search')) setHitsOpen(false);
+      if (!t.closest('#sh-list-body, .sh-chip--edit, .sh-search')) setEditing(false);
+    };
+    document.addEventListener('pointerdown', onDown);
+    return () => document.removeEventListener('pointerdown', onDown);
+  }, []);
+
   const clearSearch = () => {
     setQuery('');
     setHits(null);
@@ -474,7 +491,8 @@ export default function ShoppingPage() {
             <section className="sh-search">
               <label className="sh-search-box">
                 <FaSearch aria-hidden />
-                <input ref={searchRef} type="search" value={query} onChange={(e) => setQuery(e.target.value)}
+                <input ref={searchRef} type="search" value={query}
+                  onChange={(e) => { setQuery(e.target.value); setHitsOpen(true); }} onFocus={() => setHitsOpen(true)}
                   onKeyDown={(e) => {
                     if (e.key === 'Escape') clearSearch();
                     if (e.key === 'Enter' && hits?.length) addItem(hits[0]);
@@ -487,7 +505,7 @@ export default function ShoppingPage() {
                   <button type="button" className="sh-icon-btn" onClick={() => setScanning(true)} aria-label="סריקת ברקוד במצלמה"><FaBarcode /></button>
                 )}
               </label>
-              {hits && (
+              {hits && hitsOpen && (
                 <ul className="sh-hits">
                   {!searching && !hits.length && <li className="sh-muted sh-hits-empty">לא נמצאו מוצרים</li>}
                   {hits.map((h) => {
