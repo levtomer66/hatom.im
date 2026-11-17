@@ -210,8 +210,9 @@ No separate command; nutrition is a step of `npm run shopping:ingest`:
 
 ## Decisions (owner, 2026-11-17)
 
-1. **Source**: the MoH national nutrition database, inside the ingest and the
-   Atlas build. Not Open Food Facts.
+1. **Source**: first the MoH national nutrition database, inside the ingest and
+   the Atlas build; after the spike (25% coverage) the owner asked to rethink
+   it — see § Source rethink.
 2. **Hero totals**: calories, protein, sugar, sodium.
 3. **No "household days"** estimate.
 4. **Multipacks / per-unit display**: model on existing sites — Rami Levy's
@@ -255,6 +256,26 @@ everyday food items, at roughly 90% precision as it stands. A department
 check (a "שוקו" in `dairy` can't be an ice-pop in `frozen`) and generic
 matches for produce and staples are the obvious next gains; "לא המוצר הנכון?"
 covers the rest by hand.
+
+## Source rethink (2026-11-17)
+
+The ministry table alone covers too little (25% of top food items). Other
+sources, checked the same day:
+
+| Source | Coverage | Terms | Verdict |
+|---|---|---|---|
+| **Open Food Facts, by barcode** | Of our 100 top food barcodes: 92 found, **83 with calories, 66 with calories + protein + sugar + sodium**. Has the imports the ministry lacks (Kinder, Oreo, Barilla) | ODbL, bulk use invited; the ingest already streams OFF's monthly CSV for photos, and the nutrition columns are in the same file | **Primary**, with sanity checks: some rows are wrong (Dubonim: 160 g sodium per 100 g; Tortit: 233 kcal instead of ~530; one barcode names a Spanish tortilla) |
+| Ministry table (צמרת) | 25% of top food items by name, ~10% of those wrong; generic rows for produce and staples | open, credit the source | **Fallback** where OFF has nothing, and for loose produce |
+| Rami Levy's site | full label data per barcode | **No**: terms (April 2026) forbid building a database from the site (3.3), crawlers/robots (3.6), copying content without written permission (13.1); robots.txt disallows all but `/he` | Not used. The same terms also cover the product photos the ingest loads from `img.rami-levy.co.il` — to review |
+| Other chain sites | similar | Shufersal forbids copying; others alike | Not used |
+| GS1 Israel catalogue | the manufacturers' own data, by barcode | by contract only | Only if the owner contacts GS1 |
+| Label photo → AI reads it | grows with what the household buys | ours | Later; needs a model API key (none in the app today) |
+
+**Sanity checks for OFF rows** (pure, in `nutrition.ts`): values within
+physical limits (kcal ≤ 900, grams ≤ 100, sodium ≤ 40 g per 100); calories
+within ±25% of 4·protein + 4·carbs + 9·fat; the OFF product name shares a word
+with ours (or the brand does), else the row is dropped as "barcode points
+elsewhere". A row that fails falls back to the ministry match.
 
 ## Order of work
 
