@@ -652,7 +652,6 @@ const Results = React.forwardRef<HTMLElement, {
   const full = result.physical.filter((b) => !b.missing.length);
   const bestOnline = result.online[0];
   const partial = result.physical.filter((b) => b.missing.length);
-  const sources = [...new Set(Object.values(result.stores).map((s) => s.source))];
   const toggle = (id: string) => setOpen(open === id ? null : id);
   const tabs: [Tab, string][] = [
     ['item', 'לפי מוצר'],
@@ -795,14 +794,6 @@ const Results = React.forwardRef<HTMLElement, {
           : <p className="sh-empty">אין חנויות אונליין עם מחירים.</p>
       )}
 
-      <dl className="sh-legend">
-        {sources.map((s) => (
-          <div key={s}><dt><SourceTag source={s} /></dt><dd>{SOURCE[s].hint}.</dd></div>
-        ))}
-      </dl>
-      <p className="sh-footnote">
-        מבצעי מועדון וקופונים מוצגים בסגול ולא נכללים בסכום, אלא אם סימנתם אותם למעלה.
-      </p>
     </section>
   );
 });

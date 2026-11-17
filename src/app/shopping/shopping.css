@@ -641,9 +641,6 @@ body:has(.sh-page) { background: #ffffff; }
 }
 .sh-manual .sh-btn--primary { margin-top: 0.75rem; min-height: var(--sh-tap); font-size: 0.9375rem; }
 
-.sh-legend { display: flex; flex-direction: column; gap: 0.375rem; margin: 1.5rem 0 0; font-size: 0.875rem; color: var(--sh-muted); }
-.sh-legend > div { display: flex; align-items: baseline; gap: 0.5rem; }
-.sh-legend dt, .sh-legend dd { margin: 0; }
 .sh-footnote { margin: 0.5rem 0 0; font-size: 0.875rem; color: var(--sh-muted); }
 
 /* product photos: Wolt shots are wide (16:9) on white with the product in
