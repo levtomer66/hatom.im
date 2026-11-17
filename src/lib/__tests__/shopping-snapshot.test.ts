@@ -214,3 +214,24 @@ test('buildItemDocs: an Open Food Facts photo fills in for a barcode no source p
   assert.equal(docs.get('7290000066295')!.imgBy, 'off');
   assert.equal(docs.get('A:7')!.img, undefined); // chain-internal code: never looked up
 });
+
+test('buildItemDocs: nutrition only on food items whose source row passes the checks', () => {
+  const nu = (over: object) => ({ kcal: 100, p: 5, c: 15, s: 3, f: 2, sf: 1, fib: null, na: 300, by: 'off' as const, ...over });
+  const mk = (k: string, name: string) => item(k, 500, name);
+  const stats = { used: 0, notFood: 0, implausible: 0, otherProduct: 0 };
+  const docs = buildItemDocs(
+    [store(1, 'A', [mk('7290000000011', 'יוגורט תות'), mk('7290000000028', 'נוזל כלים לימון'), mk('7290000000035', 'במבה מתוקה'), mk('7290000000042', 'חומוס צבר')])],
+    new Map(),
+    { rows: new Map([
+      ['7290000000011', { n: 'יוגורט בטעם תות', nu: nu({}) }],
+      ['7290000000028', { n: 'נוזל כלים', nu: nu({}) }], // cleaning: not food
+      ['7290000000035', { n: 'במבה', nu: nu({ kcal: 2000 }) }], // implausible
+      ['7290000000042', { n: 'שוקולד מריר', nu: nu({}) }], // another product
+    ]), stats },
+  );
+  assert.equal(docs.get('7290000000011')!.nu?.kcal, 100);
+  assert.equal(docs.get('7290000000028')!.nu, undefined);
+  assert.equal(docs.get('7290000000035')!.nu, undefined);
+  assert.equal(docs.get('7290000000042')!.nu, undefined);
+  assert.deepEqual(stats, { used: 1, notFood: 1, implausible: 1, otherProduct: 1 });
+});

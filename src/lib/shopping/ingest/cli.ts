@@ -32,7 +32,7 @@ import { buildItemDocs, buildPromoDocs, buildStoreDocs, diffDocs, israelLocalNow
 import { Throttle, clientFor, errorMessage, type RemoteFile } from './sources.ts';
 import { fetchWoltVenue, type WoltVenueConfig } from './wolt.ts';
 import { pinFilter } from './locate.ts';
-import { RAMI_LEVY_IMG, cachedPhotos, readRamiLevy } from './off.ts';
+import { RAMI_LEVY_IMG, cachedPhotos, readOffNutrition, readRamiLevy } from './off.ts';
 
 const RAW_RETENTION_DAYS = 7;
 const REQUEST_GAP_MS = 1500;
@@ -470,7 +470,17 @@ async function main() {
       }
     }
     log(`photos by barcode: ${photos.size} (Rami Levy + Open Food Facts cache, ${wm.size} from photo-only Wolt venues)`);
-    const items = buildItemDocs(states, photos);
+    // Nutrition per 100 g from the Open Food Facts export (cached by `npm run shopping:photos -- --off`).
+    const nuStats = { used: 0, notFood: 0, implausible: 0, otherProduct: 0 };
+    const nuRows = new Map(Object.entries(readOffNutrition(CACHE)?.rows ?? {}));
+    const items = buildItemDocs(states, photos, { rows: nuRows, stats: nuStats });
+    {
+      const docs = [...items.values()];
+      const sold = (x: (typeof docs)[number]) => Object.keys(x.p).length;
+      const all = docs.reduce((t, x) => t + sold(x), 0);
+      const withNu = docs.filter((x) => x.nu);
+      log(`nutrition: ${withNu.length} items (${Math.round((100 * withNu.reduce((t, x) => t + sold(x), 0)) / Math.max(all, 1))}% weighted by stores) from ${nuRows.size} Open Food Facts rows; dropped — not food ${nuStats.notFood}, implausible ${nuStats.implausible}, another product ${nuStats.otherProduct}`);
+    }
     const promoStats = { droppedCoupons: 0 };
     const promos = buildPromoDocs(states, nowLocal, promoStats);
     // Walking minutes from the nearest pin, for the plan cards (null when unplaced or with no pins).

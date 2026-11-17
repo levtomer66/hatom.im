@@ -21,7 +21,14 @@ import { createInterface } from 'node:readline';
 import { Readable } from 'node:stream';
 import { createGunzip, gunzipSync } from 'node:zlib';
 import { parseArgs } from 'node:util';
-import { RAMI_LEVY_IMG, barcodeKey, readOff, readRamiLevy, writeOff, writeRamiLevy } from './off.ts';
+import { RAMI_LEVY_IMG, barcodeKey, readOff, readOffNutrition, readRamiLevy, writeOff, writeOffNutrition, writeRamiLevy, type OffNutritionRow } from './off.ts';
+import { parseOff } from '../nutrition.ts';
+
+/** The export's columns parseOff reads (per 100 g), plus the product name. */
+const NUTRITION_COLUMNS = [
+  'product_name', 'energy-kcal_100g', 'energy-kj_100g', 'energy_100g', 'proteins_100g', 'carbohydrates_100g', 'sugars_100g',
+  'fat_100g', 'saturated-fat_100g', 'fiber_100g', 'sodium_100g', 'salt_100g',
+];
 
 const UA = 'hatom-shopping-ingest/0.1 (personal price comparison; throttled)';
 const GAP_MS = 1500;
@@ -86,8 +93,9 @@ async function ramiLevy(all: Map<string, { stores: number; photo: boolean }>, ma
 
 async function openFoodFacts(all: Map<string, unknown>) {
   const prev = readOff(CACHE);
-  if (prev && daysSince(prev.at) < OFF_REFRESH_DAYS) {
-    console.log(`Open Food Facts: ${Object.keys(prev.photos).length} photos from ${prev.at} — fresh enough, not refreshed`);
+  const prevNu = readOffNutrition(CACHE);
+  if (prev && prevNu && daysSince(prev.at) < OFF_REFRESH_DAYS && daysSince(prevNu.at) < OFF_REFRESH_DAYS) {
+    console.log(`Open Food Facts: ${Object.keys(prev.photos).length} photos, ${Object.keys(prevNu.rows).length} nutrition rows from ${prev.at} — fresh enough, not refreshed`);
     return;
   }
   const ours = new Map([...all.keys()].map((b) => [barcodeKey(b), b]));
@@ -96,22 +104,31 @@ async function openFoodFacts(all: Map<string, unknown>) {
   if (!res.ok || !res.body) throw new Error(`HTTP ${res.status}`);
   const lines = createInterface({ input: Readable.fromWeb(res.body as never).pipe(createGunzip()), crlfDelay: Infinity });
   const photos: Record<string, string> = {};
-  let cols: { code: number; img: number; small: number } | null = null;
+  const nutrition: Record<string, OffNutritionRow> = {};
+  let cols: { code: number; img: number; small: number; nu: [string, number][] } | null = null;
   let n = 0;
   for await (const line of lines) {
     const f = line.split('\t');
     if (!cols) {
-      cols = { code: f.indexOf('code'), img: f.indexOf('image_url'), small: f.indexOf('image_small_url') };
+      cols = {
+        code: f.indexOf('code'), img: f.indexOf('image_url'), small: f.indexOf('image_small_url'),
+        nu: NUTRITION_COLUMNS.map((c) => [c, f.indexOf(c)] as [string, number]).filter(([, i]) => i >= 0),
+      };
       if (cols.code < 0 || cols.img < 0) throw new Error('unexpected CSV header');
       continue;
     }
     if (++n % 500_000 === 0) console.log(`  ${n} rows, ${Object.keys(photos).length} ours with a photo`);
     const mine = ours.get(barcodeKey(f[cols.code] ?? ''));
     const url = f[cols.img] || f[cols.small];
-    if (mine && url?.startsWith('https://')) photos[mine] = url;
+    if (!mine) continue;
+    if (url?.startsWith('https://')) photos[mine] = url;
+    const row = Object.fromEntries(cols.nu.map(([c, i]) => [c, f[i]]));
+    const nu = parseOff(row);
+    if (nu) nutrition[mine] = { n: String(row.product_name ?? ''), nu };
   }
   writeOff(CACHE, { at: today(), photos });
-  console.log(`Open Food Facts: ${Object.keys(photos).length} of our barcodes have a photo (${n} rows read)`);
+  writeOffNutrition(CACHE, { at: today(), rows: nutrition });
+  console.log(`Open Food Facts: ${Object.keys(photos).length} of our barcodes have a photo, ${Object.keys(nutrition).length} nutrition values (${n} rows read)`);
 }
 
 const all = barcodes();

@@ -13,6 +13,7 @@ import { createHash } from 'node:crypto';
 import { parseFileName, type CanonItem, type CanonPromo, type CanonPromoGroup, type CanonStore } from './normalize.ts';
 import { departmentOf, departmentOfCategory } from './departments.ts';
 import { photoByName } from './photos.ts';
+import { namesAgree, plausible, type Nutrition } from './nutrition.ts';
 import { priceSourceOf, storeId, type PriceSource, type StoreId } from './collections.ts';
 
 export interface StoreState {
@@ -45,6 +46,8 @@ export interface ItemDoc {
    * under another code (photos.ts) — an illustration.
    */
   imgBy?: 'off' | 'name';
+  /** Nutrition per 100 g (nutrition.ts), on food items whose source values pass the checks. */
+  nu?: Nutrition;
 }
 
 export interface PromoGroupDoc {
@@ -113,6 +116,27 @@ function itemDepartment(cats: string[], n: string, names: string[]): string | nu
   return mostCommon(names.map((x) => departmentOf(x) ?? '')) || null;
 }
 
+/** `nu` for a food item with a real barcode whose source row passes the checks. */
+function nutritionFields(input: NutritionInput | undefined, key: string, barcode: boolean, n: string, m: string, d: string | null): { nu?: Nutrition } {
+  const row = barcode ? input?.rows.get(key) : undefined;
+  if (!row) return {};
+  const st = input!.stats;
+  if (d && NOT_FOOD.has(d)) {
+    if (st) st.notFood++;
+    return {};
+  }
+  if (plausible(row.nu) !== null) {
+    if (st) st.implausible++;
+    return {};
+  }
+  if (!namesAgree(n, m, row.n)) {
+    if (st) st.otherProduct++;
+    return {};
+  }
+  if (st) st.used++;
+  return { nu: { ...row.nu, by: 'off' } };
+}
+
 /** A `first` barcode photo, else the priced source's own (Wolt), else any barcode photo. */
 function photoFields(p: BarcodePhoto | undefined, own: string | undefined): { img?: string; imgBy?: 'off' } {
   if (p && (p.first || !own)) return { img: p.img, ...(p.by ? { imgBy: p.by } : {}) };
@@ -140,7 +164,17 @@ export interface BarcodePhoto {
   first?: boolean;
 }
 
-export function buildItemDocs(stores: StoreState[], photos: Map<string, BarcodePhoto> = new Map()): Map<string, ItemDoc> {
+/** Departments that aren't food: no nutrition there. */
+const NOT_FOOD = new Set(['cleaning', 'toiletries', 'paper', 'pets', 'home', 'checkout']);
+
+export interface NutritionInput {
+  /** barcode → the source's product name and its values (Open Food Facts). */
+  rows: Map<string, { n: string; nu: Nutrition }>;
+  /** Filled in: why rows were not used. */
+  stats?: { used: number; notFood: number; implausible: number; otherProduct: number };
+}
+
+export function buildItemDocs(stores: StoreState[], photos: Map<string, BarcodePhoto> = new Map(), nutrition?: NutritionInput): Map<string, ItemDoc> {
   const acc = new Map<string, { names: string[]; makers: string[]; cats: string[]; first: CanonItem; p: Record<string, number>; img?: string }>();
   for (const s of stores) {
     for (const it of s.items) {
@@ -174,6 +208,7 @@ export function buildItemDocs(stores: StoreState[], photos: Map<string, BarcodeP
       ...photoFields(a.first.barcode ? photos.get(key) : undefined, a.img),
       ...(s ? { s } : {}),
       ...(d ? { d } : {}),
+      ...nutritionFields(nutrition, key, a.first.barcode, n, m, d),
     });
   }
   // Items no source photographs borrow a photo from the same product under another code.
