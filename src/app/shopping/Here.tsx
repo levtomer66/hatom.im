@@ -217,7 +217,6 @@ function StoreView({ store, city, tripStores, onOpenTrip, onOpenItem, onAdd, lis
   const [data, setData] = useState<HereResponse | null>(null);
   const [error, setError] = useState(false);
   const [tab, setTab] = useState<Tab>('worth');
-  const [listFilter, setListFilter] = useState<string | null>(null);
   const [showMissing, setShowMissing] = useState(false);
   const [scanning, setScanning] = useState(false);
   const [scanned, setScanned] = useState<string | null>(null);
@@ -246,13 +245,12 @@ function StoreView({ store, city, tripStores, onOpenTrip, onOpenItem, onAdd, lis
   }, [tab, allDeals, store.k, city]);
 
   const rows = useMemo(
-    () => (data ? data.rows.filter((r) => !listFilter || r.listIds.includes(listFilter)) : []),
-    [data, listFilter],
+    () => data?.rows ?? [],
+    [data],
   );
   const groups = useMemo(() => groupHere(rows), [rows]);
   const dealRows = rows.filter((r) => r.here && (r.here.applied.length || r.here.idle.length || r.here.offers.some((o) => o.reason !== 'unclear')));
   const onTrip = tripStores[store.k] ?? 0;
-  const listsWithItems = data?.lists.filter((l) => data.rows.some((r) => r.listIds.includes(l.id))) ?? [];
   // The store's other deals: not the lists' items or the past trips' (shown above them).
   const otherDeals = useMemo(() => {
     if (!allDeals || !data) return null;
@@ -290,19 +288,10 @@ function StoreView({ store, city, tripStores, onOpenTrip, onOpenItem, onAdd, lis
           <p className="sh-error">לא הצלחנו לטעון את המחירים. <button type="button" className="sh-link" onClick={() => setReload((n) => n + 1)}>לנסות שוב</button></p>
         )}
         {!data && !error && <div className="sh-skeleton" aria-label="טוען" />}
-        {data && listsWithItems.length > 1 && (
-          <nav className="sh-scroller sh-here-lists" aria-label="רשימות">
-            <button type="button" className={`sh-chip ${!listFilter ? 'is-on' : ''}`} aria-pressed={!listFilter} onClick={() => setListFilter(null)}>כל הרשימות</button>
-            {listsWithItems.map((l) => (
-              <button key={l.id} type="button" className={`sh-chip ${listFilter === l.id ? 'is-on' : ''}`} aria-pressed={listFilter === l.id}
-                onClick={() => setListFilter(listFilter === l.id ? null : l.id)}>{l.name}</button>
-            ))}
-          </nav>
-        )}
 
         {data && tab === 'worth' && (
           <>
-            {!rows.length && <p className="sh-empty">הרשימות ריקות. אפשר לחפש או לסרוק מוצר ולראות אם כדאי לקנות אותו כאן.</p>}
+            {!rows.length && <p className="sh-empty">הרשימה ריקה. אפשר לחפש או לסרוק מוצר ולראות אם כדאי לקנות אותו כאן.</p>}
             {(['best', 'ok', 'elsewhere'] as const).map((g) => groups[g].length > 0 && (
               <section key={g} className={`sh-dept sh-here-group is-${g}`}>
                 <h3>{GROUP_TITLE[g]} <small>{groups[g].length}</small></h3>

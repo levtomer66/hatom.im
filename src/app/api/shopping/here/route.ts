@@ -9,7 +9,8 @@ import { mergeLists, verdict } from '@/lib/shopping/here';
 import { withManualPrices } from '@/lib/shopping/manual';
 import { getItems, getPromosFor, getStoresFor } from '@/models/ShoppingCatalog';
 import { getManualPrices } from '@/models/ShoppingManualPrice';
-import { getShoppingLists } from '@/models/ShoppingList';
+import { HOME_LIST_ID } from '@/lib/shopping/home';
+import { getHome } from '@/models/ShoppingHome';
 import { getRecentTicked } from '@/models/ShoppingTrip';
 
 /** Past-trip items looked at for "קנית בעבר", and how many of them are shown. */
@@ -17,10 +18,10 @@ const BEFORE_SCAN = 300;
 const BEFORE_SHOWN = 30;
 
 // GET ?store=<store key>&city=<city id> — "אני בסופר": every item on the
-// caller's lists (all of them) priced here and at the city's other physical
+// household's shopping list priced here and at the city's other physical
 // stores, one unit each (1 kg when weighted), deals applied as in the product
 // view, grouped by here.ts' verdict. Plus the items bought on recent trips
-// that are on a deal here now. Read-only: nothing here changes a list.
+// that are on a deal here now. Read-only: nothing here changes the list.
 export async function GET(request: NextRequest) {
   const caller = await requireFeatureCaller(request, 'shopping');
   if (caller instanceof NextResponse) return caller;
@@ -30,14 +31,14 @@ export async function GET(request: NextRequest) {
   if (!Number.isInteger(storeKey)) return NextResponse.json({ error: 'store is required' }, { status: 400 });
 
   try {
-    const [stores, lists] = await Promise.all([getStoresFor(city), getShoppingLists(caller.userEmail)]);
+    const [stores, home] = await Promise.all([getStoresFor(city), getHome()]);
     const physical = stores.filter((s) => s.kind === 'physical' && s.city === city);
     const store = physical.find((s) => s.k === storeKey);
     if (!store) return NextResponse.json({ error: 'No such store in this city' }, { status: 404 });
 
-    const lines = mergeLists(lists);
+    const lines = mergeLists([{ id: HOME_LIST_ID, items: home.list }]);
     const listKeys = new Set(lines.map((l) => l.key));
-    const before = (await getRecentTicked(lists.map((l) => l.id))).filter((k) => !listKeys.has(k)).slice(0, BEFORE_SCAN);
+    const before = (await getRecentTicked([HOME_LIST_ID])).filter((k) => !listKeys.has(k)).slice(0, BEFORE_SCAN);
     const keys = [...listKeys, ...before];
     const [docs, promos] = await Promise.all([getItems(keys), getPromosFor(keys)]);
     const manualKeys = physical.filter((s) => s.source === 'manual').map((s) => s.k);
@@ -95,7 +96,6 @@ export async function GET(request: NextRequest) {
       items: Object.fromEntries(docs.filter((d) => shown.has(d._id)).map((d) => [d._id, {
         name: d.n, manufacturer: d.m, w: d.w, img: d.img ?? null, imgBy: imgByOf(d), d: d.d ?? null,
       }])),
-      lists: lists.map((l) => ({ id: l.id, name: l.name })),
       rows,
       before: deals,
       promos: promoDetails(promos, [

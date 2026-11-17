@@ -305,7 +305,6 @@ export interface HereResponse {
   stores: Record<number, StoreInfo>;
   items: Record<string, { name: string; manufacturer: string; w: boolean; img: string | null; imgBy: ImgBy; d: string | null }>;
   /** The caller's lists (for the filter chips). */
-  lists: { id: string; name: string }[];
   rows: HereRow[];
   /** Not on any list, bought on a recent trip, and on a deal here now (biggest saving first). */
   before: { key: string; here: ItemPrice }[];

@@ -2,16 +2,24 @@ import { NextRequest, NextResponse } from 'next/server';
 import { ObjectId } from 'mongodb';
 import { requireFeatureCaller } from '@/lib/api-caller';
 import { parseTripPatch } from '@/lib/shopping/trips';
-import { getShoppingList } from '@/models/ShoppingList';
+import { HOME_LIST_ID } from '@/lib/shopping/home';
+import { pullBought } from '@/models/ShoppingHome';
 import { changeStops, endTrip, getTrip, setNotThere, setTick } from '@/models/ShoppingTrip';
 
 type Params = { params: Promise<{ id: string }> };
 
-/** The trip, if the caller can see its list (a personal list's trip is a 404 to others). */
-async function visibleTrip(id: string, email: string) {
+/** The trip, if it is on the household list (trips on the old named lists are no longer reachable). */
+async function visibleTrip(id: string) {
   if (!ObjectId.isValid(id)) return null;
   const trip = await getTrip(id);
-  return trip && (await getShoppingList(trip.listId, email)) ? trip : null;
+  return trip && trip.listId === HOME_LIST_ID ? trip : null;
+}
+
+/** Ends the trip and takes what was bought off the list (not-there items stay). */
+async function endAndClear(id: string) {
+  const trip = await endTrip(id);
+  if (trip) await pullBought(trip.ticked, trip.notThere);
+  return trip;
 }
 
 // GET — the trip (polled while the in-store screen is open).
@@ -19,7 +27,7 @@ export async function GET(request: NextRequest, { params }: Params) {
   const caller = await requireFeatureCaller(request, 'shopping');
   if (caller instanceof NextResponse) return caller;
   try {
-    const trip = await visibleTrip((await params).id, caller.userEmail);
+    const trip = await visibleTrip((await params).id);
     return trip ? NextResponse.json(trip) : NextResponse.json({ error: 'Trip not found' }, { status: 404 });
   } catch (error) {
     console.error('Error reading shopping trip:', error);
@@ -43,11 +51,11 @@ export async function PATCH(request: NextRequest, { params }: Params) {
   if (!parsed.ok) return NextResponse.json({ error: parsed.error }, { status: 400 });
   try {
     const { id } = await params;
-    if (!(await visibleTrip(id, caller.userEmail))) return NextResponse.json({ error: 'Trip not found' }, { status: 404 });
+    if (!(await visibleTrip(id))) return NextResponse.json({ error: 'Trip not found' }, { status: 404 });
     const p = parsed.value;
     const trip = 'tick' in p ? await setTick(id, p.tick.key, p.tick.on, caller.userEmail)
       : 'notThere' in p ? await setNotThere(id, p.notThere.key, p.notThere.on)
-        : 'end' in p ? await endTrip(id)
+        : 'end' in p ? await endAndClear(id)
           : await changeStops(id, p);
     return trip ? NextResponse.json(trip) : NextResponse.json({ error: 'Trip already ended, or no such item' }, { status: 409 });
   } catch (error) {
