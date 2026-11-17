@@ -18,7 +18,8 @@
     "test": "node --test \"src/**/*.test.ts\"",
     "prepare": "husky",
     "shopping:ingest": "node --env-file-if-exists=.env.shopping src/lib/shopping/ingest/cli.ts",
-    "shopping:discover": "node src/lib/shopping/ingest/discover.ts"
+    "shopping:discover": "node src/lib/shopping/ingest/discover.ts",
+    "shopping:photos": "node src/lib/shopping/ingest/fetch-photos.ts"
   },
   "dependencies": {
     "@auth/mongodb-adapter": "^3.11.2",

@@ -120,17 +120,29 @@ Shuk HaIr, Zol VeBegadol, Meshnat Yosef 1/2, City Market Shops (empty file).
 
 The price files carry no photos. In order of preference, an item doc's `img` is:
 
-1. **Wolt**: the venue's photo for the barcode (or the venue's own item).
-2. **Open Food Facts** (`imgBy: 'off'`): the front photo by barcode, from the
-   search API's list of products tagged Israel (`/api/v2/search?countries_tags_en=israel&fields=code,image_front_url&page_size=100`,
-   ~9.3k products, ~95 pages). OFF allows ~10 searches and 15 product reads a
-   minute per IP, so items are never looked up one by one; the list is cached
-   in `off/israel-<YYYYMMDD>.json` and refreshed weekly (`ingest/off.ts`).
-   Data is ODbL and photos are CC BY-SA: credit "Open Food Facts" where shown.
-3. **Borrowed by name** (`imgBy: 'name'`, `src/lib/shopping/photos.ts`): loose
+1. **The store's own source**: a priced Wolt venue's photo for the barcode.
+2. **Rami Levy's image CDN**, by barcode: `https://img.rami-levy.co.il/product/<barcode>/small.jpg`
+   (200 = photo, 403 = none; robots.txt `Allow: /product/`). It covers far more
+   than Rami Levy's own range. Link only — the files are never copied.
+3. **A photo-only Wolt venue** (places/wolt.json `photosOnly`, e.g. a Wolt Market
+   dark store), cached per week.
+4. **Open Food Facts** (`imgBy: 'off'`): `image_url` from the monthly CSV export,
+   streamed and filtered to our barcodes (never saved whole). Photos are
+   CC BY-SA: credit "Open Food Facts" where shown.
+5. **Borrowed by name** (`imgBy: 'name'`, `src/lib/shopping/photos.ts`): loose
    produce and other chain-internal codes take the photo of the same product
    under another code — same department, same head word, every word of the
    item in the other name. An illustration, not the exact pack.
+
+Sources 2 and 4 are probed by `npm run shopping:photos` (`ingest/fetch-photos.ts`:
+Rami Levy 1.5 s apart, most widely sold first, misses re-checked after 30
+days; `--off` refreshes OFF at most monthly) into `photos/*.json`; the ingest
+only reads those caches. The evaluation behind this (coverage, terms, what
+was rejected): [shopping-photo-sources.md](shopping-photo-sources.md).
+
+**Wolt's terms** (Israel, §12.3 and §13.6) prohibit scraping and systematic
+retrieval. Both the priced Wolt venues and the photo-only one rely on it.
+Open decision for the owner.
 
 ## File format observations
 

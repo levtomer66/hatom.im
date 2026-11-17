@@ -32,7 +32,7 @@ import { buildItemDocs, buildPromoDocs, buildStoreDocs, diffDocs, israelLocalNow
 import { Throttle, clientFor, errorMessage, type RemoteFile } from './sources.ts';
 import { fetchWoltVenue, type WoltVenueConfig } from './wolt.ts';
 import { pinFilter } from './locate.ts';
-import { offPhotos } from './off.ts';
+import { RAMI_LEVY_IMG, cachedPhotos, readRamiLevy } from './off.ts';
 
 const RAW_RETENTION_DAYS = 7;
 const REQUEST_GAP_MS = 1500;
@@ -444,13 +444,23 @@ async function main() {
       st ? [{ k: keys[storeId(s)], chainId: s.chainId, storeId: s.storeId, items: st.items, promos: st.promos }] : [],
     );
     const nowLocal = israelLocalNow();
-    // Photos by barcode from Open Food Facts (a week-old list is refreshed, ~10 min; --offline only reads it).
-    const offline = Boolean(args.offline);
-    const off = await offPhotos(CACHE, { fetch: !offline, log });
-    log(`Open Food Facts: ${off.size} product photos`);
-    const wm = await woltPhotos(offline);
-    // Wolt's own photo (no credit needed) wins over Open Food Facts's (CC BY-SA, credited).
-    const photos = new Map<string, { img: string; by?: 'off' }>([...[...off].map(([k, img]) => [k, { img, by: 'off' as const }] as const), ...[...wm].map(([k, img]) => [k, { img }] as const)]);
+    // Photos by barcode for items no priced source photographs: Rami Levy's CDN,
+    // then a photo-only Wolt venue, then Open Food Facts (caches filled by
+    // `npm run shopping:photos`; the ingest never fetches them).
+    const photos = cachedPhotos(CACHE);
+    // Rami Levy's CDN has a photo for 99.4% of the barcodes Rami Levy sells (checked
+    // 2026-11-17), so those get its link before they're checked; a checked miss wins.
+    const probed = readRamiLevy(CACHE);
+    const ramiLevy = chainBySlug('rami-levy')!.chainId;
+    for (const st of states) {
+      if (st.chainId !== ramiLevy) continue;
+      for (const it of st.items) {
+        if (it.barcode && /^\d{8,14}$/.test(it.key) && !(it.key in probed) && !photos.has(it.key)) photos.set(it.key, { img: RAMI_LEVY_IMG(it.key) });
+      }
+    }
+    const wm = await woltPhotos(Boolean(args.offline));
+    for (const [k, img] of wm) if (!photos.get(k) || photos.get(k)!.by === 'off') photos.set(k, { img });
+    log(`photos by barcode: ${photos.size} (Rami Levy + Open Food Facts cache, ${wm.size} from photo-only Wolt venues)`);
     const items = buildItemDocs(states, photos);
     const promoStats = { droppedCoupons: 0 };
     const promos = buildPromoDocs(states, nowLocal, promoStats);
