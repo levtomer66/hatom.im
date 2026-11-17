@@ -210,10 +210,13 @@ Built:
 - The bottom bar: **text search** (the main page's search) or a barcode typed
   or scanned; a result shows the verdict card, with the cheaper twin here.
 - Open-trip handoff. Tests in `shopping-here.test.ts`.
+- Ingest: `loc` on every physical store doc (add56df on feature/shopping-ingest,
+  the point the walking time is routed from; online stores `loc: null`).
+  Checked 2026-11-17 with a position 30 m from Victory Florentin: "לפי
+  המרחק ממך", the suggestion "נראה שאת/ה בויקטורי פלורנטין · 30 מ׳ ממך", and
+  both parts of the list by distance.
 
 Not built yet:
-- Ingest: `loc` on store docs (until then the picker sorts by walking time and
-  never suggests "נראה שאת/ה ב…").
 - Shelf-price reports.
 - The twin compares shelf prices, not unit prices: a bigger pack can show as "cheaper".
 
