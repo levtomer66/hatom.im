@@ -302,6 +302,12 @@ body:has(.sh-page) { background: #ffffff; }
   border-radius: var(--sh-r-group);
   background: var(--sh-surface);
 }
+.sh-chip-lock { font-size: 0.75em; opacity: 0.7; }
+.sh-share { display: flex; align-items: flex-start; gap: 0.625rem; margin: 0 0 0.5rem; color: var(--sh-ink); }
+.sh-share input { margin-top: 0.2rem; }
+.sh-share span { display: flex; flex-direction: column; }
+.sh-share small, .sh-share-note { font-size: 0.8125rem; color: var(--sh-muted); }
+.sh-share-note { margin: 0 0 0.5rem; }
 .sh-list-tools { display: flex; flex-wrap: wrap; gap: 0.5rem; padding: 0.5rem 0 0.75rem; }
 .sh-list-tools .sh-btn { display: inline-flex; align-items: center; gap: 0.5rem; }
 .sh-btn--danger { color: var(--sh-miss); }

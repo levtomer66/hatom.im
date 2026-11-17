@@ -304,8 +304,12 @@ Identity = Gmail address. Two roles:
   and unmet basket-minimum promos are returned as `offers`, not applied.
   Description-only deals are not parsed.
 - **UI** at `SHOPPING_BASE_PATH` (`src/lib/shopping/config.ts`; the middleware
-  `matcher` literal must move with it). Lists are shared by everyone holding
-  `shopping`, like calendar events. `/api/shopping/compare` loads only the
+  `matcher` literal must move with it). A list is shared by everyone holding
+  `shopping` or personal to its creator (`shared: false`; lists saved before
+  the field count as shared). The model only reaches lists the caller may
+  see, so a personal list is a 404 to others, and only its creator may change
+  `shared` (`canSee` / `canChangeSharing` in `lists.ts`). New lists start
+  personal; the automatic first list is shared. `/api/shopping/compare` loads only the
   basket items, their promos (`items` index) and the city's stores, then runs
   `rankStores`/`bestSplits` in the request. Physical and online stores are
   ranked separately; stores whose `pricesAt` is null are never shown.

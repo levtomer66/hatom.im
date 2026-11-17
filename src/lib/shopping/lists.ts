@@ -15,7 +15,14 @@ export interface ShoppingList {
   id: string;
   name: string;
   items: ShoppingListItem[];
+  /**
+   * Shared with everyone holding `shopping` (a household list), or personal:
+   * only its creator sees it. Lists saved before this field existed are shared.
+   */
+  shared: boolean;
   createdBy: string;
+  /** Set per request: the caller created it (and so may change `shared`). */
+  mine?: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -23,7 +30,19 @@ export interface ShoppingList {
 export interface ShoppingListPatch {
   name?: string;
   items?: ShoppingListItem[];
+  /** Only the creator may change it. */
+  shared?: boolean;
 }
+
+/** Stored lists without the field were created when every list was shared. */
+export const isShared = (list: { shared?: boolean }) => list.shared !== false;
+
+/** A shared list is for everyone with `shopping`; a personal one only for its creator. */
+export const canSee = (list: { shared?: boolean; createdBy: string }, email: string) =>
+  isShared(list) || list.createdBy === email;
+
+/** Who may make a list shared or personal: its creator only, so nobody hides someone else's list. */
+export const canChangeSharing = (list: { createdBy: string }, email: string) => list.createdBy === email;
 
 export const MAX_LIST_ITEMS = 100;
 export const MAX_QTY = 100;
@@ -65,10 +84,13 @@ function parseItems(v: unknown): Result<ShoppingListItem[]> {
   return { ok: true, value: [...out.values()] };
 }
 
-export function parseListCreate(body: unknown): Result<{ name: string }> {
+/** A new list is personal unless the body says `shared: true`. */
+export function parseListCreate(body: unknown): Result<{ name: string; shared: boolean }> {
   if (!body || typeof body !== 'object') return { ok: false, error: 'body must be an object' };
-  const name = parseName((body as Record<string, unknown>).name);
-  return name.ok ? { ok: true, value: { name: name.value } } : name;
+  const b = body as Record<string, unknown>;
+  if (b.shared !== undefined && typeof b.shared !== 'boolean') return { ok: false, error: 'shared must be a boolean' };
+  const name = parseName(b.name);
+  return name.ok ? { ok: true, value: { name: name.value, shared: b.shared === true } } : name;
 }
 
 export function parseListPatch(body: unknown): Result<ShoppingListPatch> {
@@ -85,7 +107,13 @@ export function parseListPatch(body: unknown): Result<ShoppingListPatch> {
     if (!items.ok) return items;
     patch.items = items.value;
   }
-  if (patch.name === undefined && patch.items === undefined) return { ok: false, error: 'nothing to update' };
+  if (b.shared !== undefined) {
+    if (typeof b.shared !== 'boolean') return { ok: false, error: 'shared must be a boolean' };
+    patch.shared = b.shared;
+  }
+  if (patch.name === undefined && patch.items === undefined && patch.shared === undefined) {
+    return { ok: false, error: 'nothing to update' };
+  }
   return { ok: true, value: patch };
 }
 

@@ -26,7 +26,7 @@
  */
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { FaMinus, FaPlus, FaTrash, FaSearch, FaChevronDown, FaTimes, FaCheck, FaPen, FaShoppingBasket, FaBarcode, FaMapMarkerAlt, FaLocationArrow } from 'react-icons/fa';
+import { FaMinus, FaPlus, FaTrash, FaSearch, FaChevronDown, FaTimes, FaCheck, FaPen, FaShoppingBasket, FaBarcode, FaMapMarkerAlt, FaLocationArrow, FaLock } from 'react-icons/fa';
 import dynamic from 'next/dynamic';
 import Navbar from '@/components/Navbar';
 import { CITIES } from '@/lib/shopping/cities';
@@ -227,7 +227,7 @@ export default function ShoppingPage() {
     (async () => {
       try {
         let all = await api<ShoppingList[]>('/lists');
-        if (!all.length) all = [await api<ShoppingList>('/lists', { method: 'POST', body: JSON.stringify({ name: 'רשימת קניות' }) })];
+        if (!all.length) all = [await api<ShoppingList>('/lists', { method: 'POST', body: JSON.stringify({ name: 'רשימת קניות', shared: true }) })];
         setLists(all);
         const saved = lsGet(LS_LIST);
         setActiveId(all.some((l) => l.id === saved) ? saved : all[0].id);
@@ -348,6 +348,18 @@ export default function ShoppingPage() {
       const created = await api<ShoppingList>('/lists', { method: 'POST', body: JSON.stringify({ name }) });
       setLists((ls) => [created, ...(ls ?? [])]);
       pickList(created.id);
+      setToast('רשימה אישית. אפשר לשתף אותה בעריכה.');
+    } catch {
+      setSaveError(true);
+    }
+  };
+  /** Shared with everyone, or personal (only the creator may switch it). */
+  const setShared = async (shared: boolean) => {
+    if (!list?.mine) return;
+    try {
+      await api(`/lists/${list.id}`, { method: 'PATCH', body: JSON.stringify({ shared }) });
+      setLists((ls) => ls!.map((l) => (l.id === list.id ? { ...l, shared } : l)));
+      setToast(shared ? 'הרשימה משותפת עכשיו לכל מי שיש לו גישה לדף' : 'הרשימה אישית עכשיו, רק לך');
     } catch {
       setSaveError(true);
     }
@@ -372,7 +384,7 @@ export default function ShoppingPage() {
         setLists(rest);
         pickList(rest[0].id);
       } else {
-        const created = await api<ShoppingList>('/lists', { method: 'POST', body: JSON.stringify({ name: 'רשימת קניות' }) });
+        const created = await api<ShoppingList>('/lists', { method: 'POST', body: JSON.stringify({ name: 'רשימת קניות', shared: true }) });
         setLists([created]);
         pickList(created.id);
       }
@@ -449,6 +461,7 @@ export default function ShoppingPage() {
                 <React.Fragment key={l.id}>
                   <button type="button" className={`sh-chip ${l.id === list.id ? 'is-on' : ''}`}
                     aria-pressed={l.id === list.id} onClick={() => pickList(l.id)}>
+                    {!l.shared && <FaLock className="sh-chip-lock" aria-label="אישית" />}
                     {l.name} <small>{l.items.length}</small>
                   </button>
                   {l.id === list.id && (
@@ -554,6 +567,17 @@ export default function ShoppingPage() {
                 <button type="button" className="sh-btn sh-btn--ghost" onClick={renameList}><FaPen aria-hidden /> שינוי שם</button>
                 <button type="button" className="sh-btn sh-btn--ghost sh-btn--danger" onClick={deleteList}><FaTrash aria-hidden /> מחיקת הרשימה</button>
               </div>
+              {list.mine ? (
+                <label className="sh-toggle sh-share">
+                  <input type="checkbox" checked={list.shared} onChange={(e) => setShared(e.target.checked)} />
+                  <span>
+                    רשימה משותפת
+                    <small>{list.shared ? 'כל מי שיש לו גישה לדף רואה ועורך אותה' : 'אישית: רק לך'}</small>
+                  </span>
+                </label>
+              ) : (
+                <p className="sh-share-note">רשימה משותפת. רק החשבון שיצר אותה יכול להפוך אותה לאישית.</p>
+              )}
               {itemCount > 0 && (
               <>
               <ul className="sh-items">
