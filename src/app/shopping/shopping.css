@@ -462,6 +462,7 @@ body:has(.sh-page) { background: #ffffff; }
 .sh-plan-card.is-on .sh-plan-kind { color: var(--sh-accent); }
 .sh-plan-total { font-size: 1.5rem; font-weight: 600; line-height: 1.2; }
 .sh-plan-sub { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.8125rem; color: var(--sh-muted); }
+.sh-walk { white-space: nowrap; color: var(--sh-ink); }
 .sh-plan-note { font-size: 0.8125rem; line-height: 1.35; color: var(--sh-muted); }
 .sh-plan-note.is-good { color: var(--sh-accent); font-weight: 500; }
 .sh-plan-note.is-miss { color: var(--sh-miss); font-weight: 500; }

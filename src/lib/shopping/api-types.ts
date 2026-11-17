@@ -37,6 +37,8 @@ export interface StoreInfo {
   pricesAt: string | null;
   /** Where its prices come from — label every price with it. */
   source: PriceSource;
+  /** Walking minutes from the nearest of the city's pins (ingest), or null (online, unknown). */
+  walkMin: number | null;
 }
 
 /** PUT /api/shopping/manual-prices — set (or, with null, clear) one price at a manual store. */
@@ -97,6 +99,8 @@ export function idleDeals(
 export const storeInfo = (s: StoreDoc): StoreInfo => ({
   k: s.k, chainId: s.chainId, chainName: s.chainName, name: s.name, address: s.address,
   city: s.city, kind: s.kind, pricesAt: s.pricesAt, source: s.source ?? 'official',
+  // Written by the ingest since dcfc209 (feature/shopping-ingest); read here before that type is merged.
+  walkMin: (s as StoreDoc & { walkMin?: number | null }).walkMin ?? null,
 });
 
 export interface ManualPriceRequest {

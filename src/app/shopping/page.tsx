@@ -944,6 +944,9 @@ function PlansView({ result, updating, onStart, tripOpen }: {
         ? `${ils(saving)} פחות מחנות אחת`
         : `לא שווה לפצל: ${saving > 0 ? `רק ${ils(saving)} פחות` : 'לא זול יותר'}`;
   const one = result.stores[oneStore.stops[0].store];
+  // Walking: the one store's minutes; for a split, the stops' minutes from home summed (store-to-store isn't routed).
+  const splitWalk = cheapest?.stops.every((st) => result.stores[st.store]?.walkMin != null)
+    ? cheapest.stops.reduce((m, st) => m + (result.stores[st.store].walkMin ?? 0), 0) : null;
   return (
     <div className="sh-plans">
       {updating && <span className="sh-updating">מעדכן…</span>}
@@ -953,7 +956,11 @@ function PlansView({ result, updating, onStart, tripOpen }: {
           onClick={() => setChoice('cheapest')}>
           <span className="sh-plan-kind">הכי זול</span>
           <b className="sh-plan-total">{cheapest ? ils(cheapest.total) : ils(oneStore.total)}</b>
-          <span className="sh-plan-sub">{cheapest ? `${cheapest.stops.length} חנויות` : storeName(one)}</span>
+          <span className="sh-plan-sub">
+            {cheapest ? `${cheapest.stops.length} חנויות` : storeName(one)}
+            {cheapest && splitWalk != null && <>, כ־{splitWalk} דק׳ הליכה</>}
+            {!cheapest && one?.walkMin != null && <>, {one.walkMin} דק׳ הליכה</>}
+          </span>
           <span className={`sh-plan-note ${cheapest && (splitPays || more > 0) ? 'is-good' : ''}`}>{cheapNote}</span>
         </button>
         <button type="button" role="radio" aria-checked={plan.kind === 'one-store'}
@@ -961,6 +968,7 @@ function PlansView({ result, updating, onStart, tripOpen }: {
           <span className="sh-plan-kind">חנות אחת</span>
           <b className="sh-plan-total">{ils(oneStore.total)}</b>
           <span className="sh-plan-sub">{storeName(one)}</span>
+          {one?.walkMin != null && <span className="sh-plan-sub">{one.walkMin} דק׳ הליכה</span>}
           <span className={`sh-plan-note ${oneStore.missing.length ? 'is-miss' : ''}`}>
             {oneStore.missing.length ? `חסרים ${oneStore.missing.length}` : 'יש בה הכול'}
           </span>
@@ -981,6 +989,7 @@ function PlansView({ result, updating, onStart, tripOpen }: {
             </h3>
             {result.stores[stop.store] && (
               <span className="sh-plan-stop-meta">
+                {result.stores[stop.store].walkMin != null && <span className="sh-walk">{result.stores[stop.store].walkMin} דק׳ הליכה</span>}
                 <SourceBadge store={result.stores[stop.store]} now={result.now} />
                 {cleanAddress(result.stores[stop.store].address) && <span className="sh-addr">{cleanAddress(result.stores[stop.store].address)}</span>}
               </span>
@@ -1071,6 +1080,7 @@ function StoreCard({ basket, result, rank, best, open, toggle }: {
         <span className="sh-store-meta">
           {basket.missing.length > 0 && <span className="sh-badge-miss">חסרים {basket.missing.length}</span>}
           {more > 0 && <span className="sh-more">+{ils(more)}</span>}
+          {store.walkMin != null && <span className="sh-walk">{store.walkMin} דק׳</span>}
           <SourceBadge store={store} now={result.now} />
           {address && <span className="sh-addr">{address}</span>}
         </span>
