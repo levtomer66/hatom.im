@@ -26,7 +26,7 @@
  */
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { FaMinus, FaPlus, FaTrash, FaSearch, FaChevronDown, FaTimes, FaCheck, FaPen, FaShoppingBasket, FaEye, FaBarcode, FaMapMarkerAlt, FaLocationArrow } from 'react-icons/fa';
+import { FaMinus, FaPlus, FaTrash, FaSearch, FaChevronDown, FaTimes, FaCheck, FaPen, FaShoppingBasket, FaBarcode, FaMapMarkerAlt, FaLocationArrow } from 'react-icons/fa';
 import dynamic from 'next/dynamic';
 import Navbar from '@/components/Navbar';
 import { CITIES } from '@/lib/shopping/cities';
@@ -54,7 +54,7 @@ const OFFER_LABEL: Record<Offer['reason'], string> = {
 
 /** Label, explanation and how its date reads, per price source. */
 const SOURCE: Record<PriceSource, { label: string; hint: string; dated: string }> = {
-  official: { label: 'מחיר רשמי', hint: 'מקובץ שקיפות המחירים של הרשת, כלומר מחיר המדף בסניף', dated: 'קובץ מ־' },
+  official: { label: 'מחיר רשמי', hint: 'מקובץ שקיפות המחירים של הרשת, כלומר מחיר המדף בסניף', dated: 'עדכון מ־' },
   wolt: { label: 'וולט', hint: 'מחיר המשלוח בוולט, בדרך כלל גבוה ממחיר המדף', dated: 'נבדק ב־' },
   manual: { label: 'הוזן ידנית', hint: 'מחיר שהקלדנו בעצמנו', dated: 'עודכן ב־' },
 };
@@ -141,6 +141,15 @@ export default function ShoppingPage() {
   /** The product window: an item key or a scanned barcode. */
   const [product, setProduct] = useState<{ key: string; scanned: boolean } | null>(null);
   const [scanning, setScanning] = useState(false);
+  /** Phone width: a product opens inline under its search result instead of a window. */
+  const [narrow, setNarrow] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 699px)');
+    const on = () => setNarrow(mq.matches);
+    on();
+    mq.addEventListener('change', on);
+    return () => mq.removeEventListener('change', on);
+  }, []);
 
   const [clubs, setClubs] = useState(false);
   const [coupons, setCoupons] = useState(false);
@@ -484,7 +493,9 @@ export default function ShoppingPage() {
                   {hits.map((h) => {
                     const inList = qtyOf.get(h.key);
                     return (
-                      <li key={h.key} className={`sh-hit ${inList ? 'is-in' : ''}`}>
+                      <li key={h.key} className={`sh-hit ${inList ? 'is-in' : ''} ${product?.key === h.key ? 'is-open' : ''}`}>
+                        <button type="button" className="sh-hit-main" aria-expanded={narrow ? product?.key === h.key : undefined}
+                          onClick={() => setProduct(product?.key === h.key && narrow ? null : { key: h.key, scanned: false })}>
                           <Thumb src={h.img} size={44} />
                           <span className="sh-hit-name">{h.name}{h.w && <small className="sh-weighed">לפי משקל</small>}</span>
                           <span className="sh-hit-meta">
@@ -492,21 +503,21 @@ export default function ShoppingPage() {
                               <>
                                 <b>{h.minPrice === h.maxPrice ? ils(h.minPrice) : `${ils(h.minPrice)}–${ils(h.maxPrice!)}`}</b>
                                 <span>{h.stores} {h.stores === 1 ? 'סניף' : 'סניפים'}</span>
+                                {h.cheapest && h.stores > 1 && <span className="sh-hit-cheapest">הכי זול ב{h.cheapest.chainName} {h.cheapest.name}</span>}
+                                {h.stores === 1 && h.cheapest && <span className="sh-hit-cheapest">{h.cheapest.chainName} {h.cheapest.name}</span>}
                                 {h.sources.filter((s) => s !== 'official').map((s) => <SourceTag key={s} source={s} />)}
                               </>
                             ) : <span>לא נמכר בעיר</span>}
-                            {h.manufacturer && h.manufacturer !== '---' && h.manufacturer !== 'לא ידוע' && <span>{h.manufacturer}</span>}
                           </span>
-                          <span className="sh-hit-actions">
-                            <button type="button" className="sh-hit-btn" onClick={() => setProduct({ key: h.key, scanned: false })}
-                              aria-label={`מחירים בכל החנויות: ${h.name}`}>
-                              <FaEye aria-hidden />
-                            </button>
-                            <button type="button" className="sh-hit-btn sh-hit-btn--add" onClick={() => addItem(h)}
-                              aria-label={inList ? `עוד אחד לרשימה: ${h.name} (כבר ${qtyLabel(inList, h.w)})` : `הוספה לרשימה: ${h.name}`}>
-                              {inList ? <><FaCheck aria-hidden /> <small>{qtyLabel(inList, h.w)}</small></> : <FaPlus aria-hidden />}
-                            </button>
-                          </span>
+                        </button>
+                        <button type="button" className="sh-hit-btn sh-hit-btn--add" onClick={() => addItem(h)}
+                          aria-label={inList ? `עוד אחד לרשימה: ${h.name} (כבר ${qtyLabel(inList, h.w)})` : `הוספה לרשימה: ${h.name}`}>
+                          {inList ? <><FaCheck aria-hidden /> <small>{qtyLabel(inList, h.w)}</small></> : <FaPlus aria-hidden />}
+                        </button>
+                        {narrow && product?.key === h.key && (
+                          <ProductSheet inline itemKey={h.key} scanned={false} city={city} inList={qtyOf}
+                            onAdd={addItem} onClose={() => setProduct(null)} />
+                        )}
                       </li>
                     );
                   })}
@@ -569,7 +580,7 @@ export default function ShoppingPage() {
           <Scanner onClose={() => setScanning(false)}
             onCode={(code) => { setScanning(false); setProduct({ key: code, scanned: true }); }} />
         )}
-        {product && (
+        {product && !(narrow && hits?.some((h) => h.key === product.key) && !product.scanned) && (
           <ProductSheet itemKey={product.key} scanned={product.scanned} city={city} inList={qtyOf}
             onAdd={addItem} onClose={() => setProduct(null)} />
         )}
@@ -1123,8 +1134,10 @@ function ManualPrices({ store, basket, list, onSaved }: {
 
 // ── one product: every store's price ──
 
-function ProductSheet({ itemKey, scanned, city, inList, onAdd, onClose }: {
+function ProductSheet({ itemKey, scanned, city, inList, onAdd, onClose, inline }: {
   itemKey: string;
+  /** Under its search result (phone) instead of a window over the page. */
+  inline?: boolean;
   /** It came from the camera: say "barcode not found" rather than "product not found". */
   scanned: boolean;
   city: string;
@@ -1152,25 +1165,29 @@ function ProductSheet({ itemKey, scanned, city, inList, onAdd, onClose }: {
     return () => ctl.abort();
   }, [itemKey, city]);
 
+  const panelRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    closeRef.current?.focus();
+    if (!inline) closeRef.current?.focus();
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
     };
     window.addEventListener('keydown', onKey);
+    if (inline) return () => window.removeEventListener('keydown', onKey);
     const prev = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     return () => {
       window.removeEventListener('keydown', onKey);
       document.body.style.overflow = prev;
     };
-  }, [onClose]);
+  }, [onClose, inline]);
+  useEffect(() => {
+    if (inline && state === 'ok') panelRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }, [inline, state]);
 
   const it = data?.item;
   const qty = it ? inList.get(it.key) : undefined;
-  return (
-    <div className="sh-sheet-backdrop" onClick={onClose}>
-      <div className="sh-sheet" role="dialog" aria-modal="true" aria-labelledby="sh-sheet-title" onClick={(e) => e.stopPropagation()}>
+  const body = (
+      <>
         <button ref={closeRef} type="button" className="sh-icon-btn sh-sheet-close" onClick={onClose} aria-label="סגירה"><FaTimes /></button>
         {state === 'loading' && <div className="sh-skeleton" aria-label="טוען" />}
         {state === 'missing' && (
@@ -1207,8 +1224,51 @@ function ProductSheet({ itemKey, scanned, city, inList, onAdd, onClose }: {
             {data.online.length > 0 && <PriceTable title="אונליין" rows={data.online} data={data} />}
           </>
         )}
+      </>
+  );
+  if (inline) {
+    return (
+      <div ref={panelRef} className="sh-sheet sh-sheet--inline" role="region" aria-labelledby="sh-sheet-title">
+        {body}
+      </div>
+    );
+  }
+  return (
+    <div className="sh-sheet-backdrop" onClick={onClose}>
+      <div className="sh-sheet" role="dialog" aria-modal="true" aria-labelledby="sh-sheet-title" onClick={(e) => e.stopPropagation()}>
+        {body}
       </div>
     </div>
+  );
+}
+
+/**
+ * One store's price. Where it came from (source, update time) shows on hover
+ * over the price, or on tap where there's no hover.
+ */
+function PriceRow({ r, best, data }: { r: ItemPrice; best: boolean; data: ItemResponse }) {
+  const [showSrc, setShowSrc] = useState(false);
+  const st = data.stores[r.store];
+  const discounted = r.cost < r.regularUnit;
+  return (
+    <li className={`sh-sheet-row ${best ? 'is-best' : ''} ${showSrc ? 'is-src' : ''}`}>
+      <span className="sh-sheet-store">
+        <b>{st ? <>{st.chainName} <span className="sh-branch">{st.name}</span></> : r.store}</b>
+        {r.applied.map((p) => <small key={p.id} className="sh-promo">{p.description} <small>עד {dayMonth(p.end)}</small></small>)}
+        {/* A chain can publish the same deal twice under two ids; show it once. */}
+        {r.offers.filter((o, j, all) => all.findIndex((x) => x.reason === o.reason && x.description === o.description) === j).map((o) => (
+          <small key={o.id} className="sh-promo is-offer">{OFFER_LABEL[o.reason]}: {o.description}</small>
+        ))}
+      </span>
+      <button type="button" className="sh-price-btn" onClick={() => setShowSrc(!showSrc)} aria-expanded={showSrc}
+        aria-label={`${ils(r.cost)}${st ? `, ${SOURCE[st.source].label}` : ''}`}>
+        <span className="sh-line-price">
+          <b>{ils(r.cost)}</b>
+          {discounted && <s>{ils(r.regularUnit)}</s>}
+        </span>
+        {st && <span className="sh-price-src"><SourceBadge store={st} now={data.now} /></span>}
+      </button>
+    </li>
   );
 }
 
@@ -1218,27 +1278,7 @@ function PriceTable({ title, rows, data, empty }: { title: string; rows: ItemPri
       <h3 className="sh-section-title">{title} <small>{rows.length}</small></h3>
       {!rows.length && empty && <p className="sh-empty">{empty}</p>}
       <ol className="sh-sheet-rows">
-        {rows.map((r, i) => {
-          const st = data.stores[r.store];
-          const discounted = r.cost < r.regularUnit;
-          return (
-            <li key={r.store} className={`sh-sheet-row ${i === 0 ? 'is-best' : ''}`}>
-              <span className="sh-sheet-store">
-                <b>{st ? <>{st.chainName} <span className="sh-branch">{st.name}</span></> : r.store}</b>
-                {st && <SourceBadge store={st} now={data.now} />}
-                {r.applied.map((p) => <small key={p.id} className="sh-promo">{p.description} <small>עד {dayMonth(p.end)}</small></small>)}
-                {/* A chain can publish the same deal twice under two ids; show it once. */}
-                {r.offers.filter((o, j, all) => all.findIndex((x) => x.reason === o.reason && x.description === o.description) === j).map((o) => (
-                  <small key={o.id} className="sh-promo is-offer">{OFFER_LABEL[o.reason]}: {o.description}</small>
-                ))}
-              </span>
-              <span className="sh-line-price">
-                <b>{ils(r.cost)}</b>
-                {discounted && <s>{ils(r.regularUnit)}</s>}
-              </span>
-            </li>
-          );
-        })}
+        {rows.map((r, i) => <PriceRow key={r.store} r={r} best={i === 0} data={data} />)}
       </ol>
     </section>
   );

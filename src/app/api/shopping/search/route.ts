@@ -24,11 +24,14 @@ export async function GET(request: NextRequest) {
 
   try {
     const [docs, stores] = await Promise.all([findItems(terms, barcode), getStoresFor(city)]);
-    const local = stores.filter((s) => s.kind === 'physical').map((s) => ({ k: String(s.k), src: s.source ?? priceSourceOf(s.chainId) }));
+    const local = stores.filter((s) => s.kind === 'physical').map((s) => ({
+      k: String(s.k), src: s.source ?? priceSourceOf(s.chainId), chainName: s.chainName, name: s.name,
+    }));
     const hits: SearchHit[] = docs.map((d) => {
       const selling = local.filter((s) => d.p[s.k] !== undefined);
       const prices = selling.map((s) => d.p[s.k]);
       const sources = [...new Set(selling.map((s) => s.src))];
+      const low = selling.reduce<(typeof selling)[number] | null>((b, s) => (!b || d.p[s.k] < d.p[b.k] ? s : b), null);
       return {
         key: d._id,
         name: d.n,
@@ -38,6 +41,7 @@ export async function GET(request: NextRequest) {
         maxPrice: prices.length ? Math.max(...prices) : null,
         stores: prices.length,
         sources,
+        cheapest: low ? { chainName: low.chainName, name: low.name } : null,
         img: d.img ?? null,
       };
     });

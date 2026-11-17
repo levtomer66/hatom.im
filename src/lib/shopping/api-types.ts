@@ -19,6 +19,8 @@ export interface SearchHit {
   stores: number;
   /** Sources the price range above comes from (empty when not sold in the city). */
   sources: PriceSource[];
+  /** The store with the lowest price (chain and branch), or null when not sold in the city. */
+  cheapest: { chainName: string; name: string } | null;
   /** Product photo link or null; Wolt links take ?w=<px> for a thumbnail. */
   img: string | null;
 }

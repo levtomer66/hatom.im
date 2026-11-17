@@ -682,6 +682,9 @@ body:has(.sh-page) { background: #ffffff; }
   justify-content: center;
   background: rgba(17, 17, 17, 0.45);
 }
+@media (prefers-color-scheme: dark) {
+  .sh-sheet-backdrop { background: rgba(0, 0, 0, 0.7); }
+}
 .sh-sheet {
   position: relative;
   width: 100%;
@@ -722,6 +725,63 @@ body:has(.sh-page) { background: #ffffff; }
 .sh-sheet-store .sh-src-line { font-size: 0.8125rem; color: var(--sh-muted); }
 .sh-sheet-row .sh-line-price b { font-size: 1.125rem; }
 .sh-sheet-row.is-best .sh-line-price b { color: var(--sh-accent); }
+
+/* a result row: the main area opens the product, + adds it */
+.sh-hit { grid-template-columns: minmax(0, 1fr) auto; padding: 0 0.75rem 0 0; gap: 0 0.5rem; }
+.sh-hit-main {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 0.125rem 0.75rem;
+  min-width: 0;
+  padding: 0.625rem 1rem;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+.sh-hit-main:hover, .sh-hit.is-open .sh-hit-main { background: var(--sh-surface); }
+.sh-hit-main > .sh-thumb { grid-column: 1; grid-row: 1 / span 2; }
+.sh-hit-cheapest { min-width: 0; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--sh-accent); }
+.sh-hit > .sh-hit-btn { align-self: center; }
+.sh-hit > .sh-sheet--inline { grid-column: 1 / -1; }
+
+/* the product inline under its result (phone) */
+.sh-sheet--inline {
+  position: relative;
+  max-height: none;
+  margin: 0 0.5rem 0.75rem 0.5rem;
+  padding: 1rem 0.75rem;
+  border: 1px solid var(--sh-line);
+  border-radius: var(--sh-r-group);
+  overflow: visible;
+  animation: sh-pop 0.15s ease-out;
+}
+.sh-sheet--inline .sh-sheet-close { top: 0.25rem; inset-inline-end: 0.25rem; }
+.sh-sheet--inline .sh-sheet-head { margin-bottom: 0.75rem; }
+
+/* a price: its source and update time on hover, or on tap */
+.sh-price-btn {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.25rem;
+  min-height: var(--sh-tap);
+  padding: 0;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: help;
+}
+.sh-price-src { display: none; font-size: 0.75rem; color: var(--sh-muted); white-space: nowrap; }
+.sh-sheet-row.is-src .sh-price-src { display: flex; }
+@media (hover: hover) {
+  .sh-price-btn:hover .sh-price-src, .sh-price-btn:focus-visible .sh-price-src { display: flex; }
+}
 
 /* ── camera scanner ── */
 .sh-scan { position: fixed; inset: 0; z-index: 60; background: #000; color: #fff; }
