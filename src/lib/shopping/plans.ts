@@ -93,3 +93,21 @@ export function choosePlan(baskets: PlanBasket[], keys: string[], maxStores = MA
 /** Is a split worth it next to the best single store? Both totals in agorot, same missing count. */
 export const splitPays = (splitTotal: number, oneStoreTotal: number, minSaving = SPLIT_MIN_SAVING) =>
   oneStoreTotal - splitTotal >= minSaving;
+
+/**
+ * How many stores are worth walking to, given the best plan for each count
+ * (ascending, the one-store plan first). Each extra store must cover more
+ * items or save `minSaving` over the last count taken; otherwise the
+ * shopper stays with fewer stores. 1 when there's nothing to choose from.
+ */
+export function worthCount(
+  options: { count: number; total: number; missing: number }[],
+  minSaving = SPLIT_MIN_SAVING,
+): number {
+  let cur = options[0];
+  if (!cur) return 1;
+  for (const o of options.slice(1)) {
+    if (o.missing < cur.missing || (o.missing === cur.missing && cur.total - o.total >= minSaving)) cur = o;
+  }
+  return cur.count;
+}

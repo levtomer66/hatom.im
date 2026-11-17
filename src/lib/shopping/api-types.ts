@@ -176,12 +176,16 @@ export interface ShoppingPlan {
 
 export interface Plans {
   oneStore: ShoppingPlan | null;
-  /** Null when using more stores doesn't change anything (one store is already cheapest). */
+  /** byCount[worth] when a split is worth it, else the smallest split; null when no split exists. */
   cheapest: ShoppingPlan | null;
   /** oneStore − cheapest, agorot (0 when either is missing). */
   saving: number;
-  /** The split is worth the extra stops: it saves ≥ SPLIT_MIN_SAVING, or covers items the one store lacks. */
+  /** worth > 1. */
   splitPays: boolean;
+  /** The cheapest plan over exactly that many stores; a count that adds no store is missing. */
+  byCount: Partial<Record<number, ShoppingPlan>>;
+  /** Stores worth walking to: each extra one covers more items or saves SPLIT_MIN_SAVING (worthCount). */
+  worth: number;
 }
 
 export interface CompareResponse {

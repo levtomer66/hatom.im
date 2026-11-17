@@ -109,6 +109,8 @@ function nearestCity(p: { lat: number; lng: number }): string | null {
   }
   return best && best.d <= NEAR_CITY_M ? best.id : null;
 }
+/** The store count last picked on the "הכי זול" card. */
+const PLAN_STORES_KEY = 'sh-plan-stores';
 const lsGet = (k: string) => {
   try {
     return localStorage.getItem(k);
@@ -934,38 +936,82 @@ function PlansView({ result, updating, onStart, tripOpen }: {
   onStart: (plan: ShoppingPlan) => void;
   tripOpen: boolean;
 }) {
-  const { oneStore, cheapest, saving, splitPays } = result.plans;
-  const [choice, setChoice] = useState<PlanKind>(splitPays && cheapest ? 'cheapest' : 'one-store');
+  const { oneStore, byCount, worth } = result.plans;
+  const counts = Object.keys(byCount).map(Number).filter((k) => byCount[k]).sort((x, y) => x - y);
+  const [choice, setChoice] = useState<PlanKind>(worth > 1 ? 'cheapest' : 'one-store');
+  // How many stores the "הכי זול" card uses: the one picked by hand last time, else the count worth walking to.
+  const [picked, setPicked] = useState<number | null>(() => Number(lsGet(PLAN_STORES_KEY)) || null);
   if (!oneStore) return null;
+  const count = picked && byCount[picked] ? picked : worth > 1 ? worth : counts[0];
+  const cheapest = count ? byCount[count] ?? null : null;
   const plan = choice === 'cheapest' && cheapest ? cheapest : oneStore;
+  const saving = cheapest ? oneStore.total - cheapest.total : 0;
   const more = cheapest ? oneStore.missing.length - cheapest.missing.length : 0;
+  const pays = !!cheapest && count <= worth;
   const cheapNote = !cheapest
     ? 'חנות אחת כבר הכי זולה'
     : more > 0
       ? `כולל עוד ${more} ${more === 1 ? 'מוצר' : 'מוצרים'} שחסרים בחנות אחת`
-      : splitPays
+      : pays
         ? `${ils(saving)} פחות מחנות אחת`
         : `לא שווה לפצל: ${saving > 0 ? `רק ${ils(saving)} פחות` : 'לא זול יותר'}`;
+  // A count that neither covers more nor costs less than the one below it gets a dimmed chip.
+  const helps = (k: number) => {
+    const p = byCount[k];
+    const q = (k > 2 && byCount[k - 1]) || oneStore;
+    return !!p && (p.missing.length < q.missing.length || p.total < q.total);
+  };
+  const pick = (k: number) => {
+    setPicked(k);
+    setChoice('cheapest');
+    lsSet(PLAN_STORES_KEY, String(k));
+  };
   const one = result.stores[oneStore.stops[0].store];
   // Walking: the one store's minutes; for a split, the stops' minutes from home summed (store-to-store isn't routed).
   const splitWalk = cheapest?.stops.every((st) => result.stores[st.store]?.walkMin != null)
     ? cheapest.stops.reduce((m, st) => m + (result.stores[st.store].walkMin ?? 0), 0) : null;
+  const selectCheapest = () => {
+    if (cheapest) setChoice('cheapest');
+  };
+  const chips = counts.length > 1;
   return (
     <div className="sh-plans">
       {updating && <span className="sh-updating">מעדכן…</span>}
       <div className="sh-plan-cards" role="radiogroup" aria-label="איך לקנות">
-        <button type="button" role="radio" aria-checked={plan.kind === 'cheapest'} disabled={!cheapest}
-          className={`sh-plan-card ${plan.kind === 'cheapest' ? 'is-on' : ''} ${cheapest && !splitPays ? 'is-weak' : ''}`}
-          onClick={() => setChoice('cheapest')}>
+        <div role="radio" aria-checked={plan.kind === 'cheapest'} aria-disabled={!cheapest} tabIndex={cheapest ? 0 : -1}
+          className={`sh-plan-card ${plan.kind === 'cheapest' ? 'is-on' : ''} ${cheapest && !pays && more <= 0 ? 'is-weak' : ''} ${!cheapest ? 'is-off' : ''}`}
+          onClick={selectCheapest}
+          onKeyDown={(e) => {
+            if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) {
+              e.preventDefault();
+              selectCheapest();
+            }
+          }}>
           <span className="sh-plan-kind">הכי זול</span>
           <b className="sh-plan-total">{cheapest ? ils(cheapest.total) : ils(oneStore.total)}</b>
+          {chips && (
+            <span className="sh-plan-counts" role="group" aria-label="עד כמה חנויות">
+              <span>עד</span>
+              {counts.map((k) => (
+                <button key={k} type="button" className={`sh-count ${k === count ? 'is-on' : ''} ${helps(k) ? '' : 'is-flat'}`}
+                  aria-pressed={k === count} title={helps(k) ? `עד ${k} חנויות` : 'לא זול יותר'}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    pick(k);
+                  }}>
+                  {k}
+                </button>
+              ))}
+              <span>חנויות</span>
+            </span>
+          )}
           <span className="sh-plan-sub">
-            {cheapest ? `${cheapest.stops.length} חנויות` : storeName(one)}
-            {cheapest && splitWalk != null && <>, כ־{splitWalk} דק׳ הליכה</>}
+            {cheapest ? (chips ? null : `${cheapest.stops.length} חנויות`) : storeName(one)}
+            {cheapest && splitWalk != null && <>{chips ? '' : ', '}כ־{splitWalk} דק׳ הליכה</>}
             {!cheapest && one?.walkMin != null && <>, {one.walkMin} דק׳ הליכה</>}
           </span>
-          <span className={`sh-plan-note ${cheapest && (splitPays || more > 0) ? 'is-good' : ''}`}>{cheapNote}</span>
-        </button>
+          <span className={`sh-plan-note ${cheapest && (pays || more > 0) ? 'is-good' : ''}`}>{cheapNote}</span>
+        </div>
         <button type="button" role="radio" aria-checked={plan.kind === 'one-store'}
           className={`sh-plan-card ${plan.kind === 'one-store' ? 'is-on' : ''}`} onClick={() => setChoice('one-store')}>
           <span className="sh-plan-kind">חנות אחת</span>

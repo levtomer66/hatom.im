@@ -341,8 +341,11 @@ Identity = Gmail address. Two roles:
   regex search and skips Atlas for 5 minutes. Create the index on a new
   cluster with `npm run shopping:search-index` (`-- --show` to inspect).
 - **Plans and trips** (docs/shopping-in-store-mode.md): the compare route
-  returns `plans` (one store, and the cheapest over ≤ 3 stores via
-  `choosePlan` in `plans.ts`, each stop re-priced; a split pays from ₪15).
+  returns `plans` (one store, and `byCount`: the cheapest over exactly 2
+  and 3 stores via `choosePlan` in `plans.ts`, each stop re-priced).
+  `worthCount` picks the default: each extra store must cover more items or
+  save ₪15 over one store fewer. The "הכי זול" card's 2 · 3 chips switch
+  between them on the client (last pick in localStorage).
   "יוצאים לקניות" starts a trip (`shoppingTrips`, model ShoppingTrip, rules in
   `trips.ts`): one open trip per list, a snapshot of the plan's items with
   department `d`, reachable by whoever can see the list. The in-store screen

@@ -44,3 +44,31 @@ test('a split pays only from ₪15', () => {
   assert.equal(splitPays(10000, 11500), true);
   assert.equal(splitPays(10000, 11499), false);
 });
+
+// ---- how many stores is worth it ----
+
+import { worthCount } from '../shopping/plans.ts';
+
+const opt = (count: number, total: number, missing = 0) => ({ count, total, missing });
+
+test('each extra store must save SPLIT_MIN_SAVING over one store fewer', () => {
+  // two stores save ₪20 over one; the third only ₪2 more → two
+  assert.equal(worthCount([opt(1, 10000), opt(2, 8000), opt(3, 7800)]), 2);
+  // each step saves ₪15 → three
+  assert.equal(worthCount([opt(1, 10000), opt(2, 10000 - SPLIT_MIN_SAVING), opt(3, 10000 - 2 * SPLIT_MIN_SAVING)]), 3);
+  // nothing pays → one
+  assert.equal(worthCount([opt(1, 10000), opt(2, 9990), opt(3, 9980)]), 1);
+});
+
+test('a count that covers more items is worth it whatever the price', () => {
+  assert.equal(worthCount([opt(1, 5000, 2), opt(2, 9000, 0)]), 2);
+  assert.equal(worthCount([opt(1, 5000, 1), opt(2, 5000, 1), opt(3, 9000, 0)]), 3);
+});
+
+test('a skipped count is compared against the last one taken', () => {
+  // three saves ₪16 over one but only ₪1 over two, and two alone doesn't pay → still three
+  assert.equal(worthCount([opt(1, 10000), opt(2, 8500 + 1000), opt(3, 8400)]), 3);
+  // only one and three exist
+  assert.equal(worthCount([opt(1, 10000), opt(3, 8000)]), 3);
+  assert.equal(worthCount([]), 1);
+});

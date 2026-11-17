@@ -4,7 +4,7 @@ import { CITIES } from '@/lib/shopping/cities';
 import { ITEM_OPTIONS_SHOWN, RESULTS_PER_SECTION, SPLITS_SHOWN } from '@/lib/shopping/config';
 import { MAX_LIST_ITEMS, MAX_QTY } from '@/lib/shopping/lists';
 import { bestSplits, priceStore, rankStores, type BasketLine, type PricedItem, type PricingOptions, type StoreBasket } from '@/lib/shopping/pricing';
-import { choosePlan, splitPays } from '@/lib/shopping/plans';
+import { choosePlan, MAX_PLAN_STORES, worthCount } from '@/lib/shopping/plans';
 import type { PromoDoc } from '@/lib/shopping/snapshot';
 import { israelLocalNow } from '@/lib/shopping/snapshot';
 import { idleDeals, imgByOf, promoDetails, storeInfo, type Plans, type ShoppingPlan, type CompareResponse, type ItemBest, type StoreInfo } from '@/lib/shopping/api-types';
@@ -25,8 +25,9 @@ function perItem(lines: BasketLine[], baskets: StoreBasket[]): ItemBest[] {
 }
 
 /**
- * The one-store plan (the ranking's first) and the cheapest plan over at most
- * three stores, each stop re-priced on its own items.
+ * The one-store plan (the ranking's first) and the cheapest plan over exactly
+ * two and three stores, each stop re-priced on its own items. A count that
+ * adds no store over the one below it is left out.
  */
 function buildPlans(
   physical: StoreBasket[],
@@ -39,21 +40,27 @@ function buildPlans(
   const oneStore: ShoppingPlan | null = first
     ? { kind: 'one-store', stops: [{ store: first.store, basket: first }], total: first.total, missing: first.missing }
     : null;
-  const choice = choosePlan(physical, lines.map((l) => l.key));
-  let cheapest: ShoppingPlan | null = null;
-  if (choice && choice.stores.length > 1) {
+  const keys = lines.map((l) => l.key);
+  const byCount: Plans['byCount'] = {};
+  for (let k = 2; k <= MAX_PLAN_STORES; k++) {
+    const choice = choosePlan(physical, keys, k);
+    if (!choice || choice.stores.length !== k) continue;
     const stops = choice.stores.map((store) => ({
       store,
       basket: priceStore(store, lines.filter((l) => choice.assign[l.key] === store), items, promos, opts),
     }));
-    cheapest = { kind: 'cheapest', stops, total: stops.reduce((s, x) => s + x.basket.total, 0), missing: choice.missing };
+    byCount[k] = { kind: 'cheapest', stops, total: stops.reduce((s, x) => s + x.basket.total, 0), missing: choice.missing };
   }
+  const counts = Object.keys(byCount).map(Number).sort((a, b) => a - b);
+  const worth = oneStore
+    ? worthCount([
+      { count: 1, total: oneStore.total, missing: oneStore.missing.length },
+      ...counts.map((k) => ({ count: k, total: byCount[k]!.total, missing: byCount[k]!.missing.length })),
+    ])
+    : 1;
+  const cheapest = (worth > 1 ? byCount[worth] : byCount[counts[0]]) ?? null;
   const saving = oneStore && cheapest ? oneStore.total - cheapest.total : 0;
-  const pays = !!oneStore && !!cheapest && (
-    cheapest.missing.length < oneStore.missing.length
-    || (cheapest.missing.length === oneStore.missing.length && splitPays(cheapest.total, oneStore.total))
-  );
-  return { oneStore, cheapest, saving, splitPays: pays };
+  return { oneStore, cheapest, saving, splitPays: worth > 1, byCount, worth };
 }
 
 function parseBody(body: unknown): { city: string; lines: BasketLine[]; clubs: boolean; coupons: boolean } | string {
@@ -118,7 +125,7 @@ export async function POST(request: NextRequest) {
     const shownBaskets = [
       ...physical.slice(0, RESULTS_PER_SECTION), ...online.slice(0, RESULTS_PER_SECTION), ...manual,
       ...splits.flatMap((s) => s.stores),
-      ...(plans.cheapest?.stops.map((s) => s.basket) ?? []),
+      ...Object.values(plans.byCount).flatMap((p) => p?.stops.map((s) => s.basket) ?? []),
     ];
     const shownLines = shownBaskets.flatMap((b) => b.lines);
     const idle: Record<string, string[]> = {};
