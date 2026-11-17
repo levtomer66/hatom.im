@@ -513,6 +513,7 @@ export default function ShoppingPage() {
       <main className="sh-page">
         <header className="sh-header">
           <h1 className="sh-title">השוואת מחירים</h1>
+          <p className="sh-subtitle">בונים רשימת קניות ורואים באיזו חנות היא הכי זולה. ליד כל מחיר כתוב מאיפה הוא ומאיזה יום.</p>
           {lists && (
             <button type="button" className="sh-btn sh-here-entry" onClick={() => setHere(true)}>
               <FaMapMarkerAlt aria-hidden /> אני בסופר
