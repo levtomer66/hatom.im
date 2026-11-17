@@ -308,6 +308,10 @@ Identity = Gmail address. Two roles:
   biggest saving first, and a unit counts toward one promo only. Club, coupon
   and unmet basket-minimum promos are returned as `offers`, not applied.
   Description-only deals are not parsed.
+- **Departments**: the price files carry no category, so each item doc gets
+  `d` at ingest (`src/lib/shopping/departments.ts`, import-free): Wolt's category
+  path for the barcode first, else keyword rules on the name (longest stem wins).
+  ~78% of items are placed. The in-store mode built on it: `docs/shopping-in-store-mode.md`.
 - **UI** at `SHOPPING_BASE_PATH` (`src/lib/shopping/config.ts`; the middleware
   `matcher` literal must move with it). Lists are shared by everyone holding
   `shopping`, like calendar events. `/api/shopping/compare` loads only the

@@ -11,6 +11,7 @@
 
 import { createHash } from 'node:crypto';
 import { parseFileName, type CanonItem, type CanonPromo, type CanonPromoGroup, type CanonStore } from './normalize.ts';
+import { departmentOf, departmentOfCategory } from './departments.ts';
 import { priceSourceOf, storeId, type PriceSource, type StoreId } from './collections.ts';
 
 export interface StoreState {
@@ -35,6 +36,8 @@ export interface ItemDoc {
   img?: string; // product photo link (omitted when no source has one)
   /** Search text: the other chains' names and makers, " | "-joined (omitted when nothing adds to n/m). */
   s?: string;
+  /** Store department (departments.ts), omitted when nothing places it. */
+  d?: string;
 }
 
 export interface PromoGroupDoc {
@@ -91,6 +94,18 @@ function searchText(n: string, m: string, names: string[], makers: string[]): st
   return out.join(' | ').slice(0, SEARCH_TEXT_MAX);
 }
 
+/**
+ * A source's own category wins (Wolt's, voted across venues), then the item's
+ * most common name, then any other chain's name — the first that a rule places.
+ */
+function itemDepartment(cats: string[], n: string, names: string[]): string | null {
+  const fromCats = mostCommon(cats.map((c) => departmentOfCategory(c) ?? ''));
+  if (fromCats) return fromCats;
+  const direct = departmentOf(n);
+  if (direct) return direct;
+  return mostCommon(names.map((x) => departmentOf(x) ?? '')) || null;
+}
+
 function mostCommon(values: string[]): string {
   const counts = new Map<string, number>();
   for (const v of values) if (v) counts.set(v, (counts.get(v) ?? 0) + 1);
@@ -101,13 +116,14 @@ function mostCommon(values: string[]): string {
 }
 
 export function buildItemDocs(stores: StoreState[]): Map<string, ItemDoc> {
-  const acc = new Map<string, { names: string[]; makers: string[]; first: CanonItem; p: Record<string, number>; img?: string }>();
+  const acc = new Map<string, { names: string[]; makers: string[]; cats: string[]; first: CanonItem; p: Record<string, number>; img?: string }>();
   for (const s of stores) {
     for (const it of s.items) {
       let a = acc.get(it.key);
-      if (!a) acc.set(it.key, (a = { names: [], makers: [], first: it, p: {} }));
+      if (!a) acc.set(it.key, (a = { names: [], makers: [], cats: [], first: it, p: {} }));
       a.names.push(it.name);
       a.makers.push(it.manufacturer);
+      if (it.category) a.cats.push(it.category);
       // The smallest link wins, so the choice doesn't flip between runs (and rewrite the doc).
       if (it.img && (!a.img || it.img < a.img)) a.img = it.img;
       a.p[String(s.k)] = it.priceAgorot;
@@ -119,6 +135,7 @@ export function buildItemDocs(stores: StoreState[]): Map<string, ItemDoc> {
     // The most common real maker; a placeholder only when no chain names one.
     const m = mostCommon(a.makers.map(tidy).filter(realMaker)) || a.first.manufacturer;
     const s = searchText(n, m, a.names, a.makers);
+    const d = itemDepartment(a.cats, n, a.names);
     out.set(key, {
       _id: key,
       n,
@@ -131,6 +148,7 @@ export function buildItemDocs(stores: StoreState[]): Map<string, ItemDoc> {
       p: a.p,
       ...(a.img ? { img: a.img } : {}),
       ...(s ? { s } : {}),
+      ...(d ? { d } : {}),
     });
   }
   return out;

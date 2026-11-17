@@ -25,6 +25,8 @@ export interface WoltItem {
   sell_by_weight_config?: { price_per_kg?: number | null } | null;
   disabled_info?: unknown;
   images?: { url?: string }[];
+  /** Set by the fetcher, not Wolt: the item's category path ("פירות וירקות / ירקות"). */
+  category?: string;
 }
 
 export interface WoltCategory {
@@ -33,16 +35,20 @@ export interface WoltCategory {
   subcategories?: WoltCategory[];
 }
 
-/** Slugs whose items must be fetched: leaf categories (a parent lists no items of its own). */
-export function leafCategorySlugs(categories: WoltCategory[]): string[] {
-  const out: string[] = [];
-  const walk = (c: WoltCategory) => {
-    if (c.subcategories?.length) c.subcategories.forEach(walk);
-    else out.push(c.slug);
+/** Leaf categories (a parent lists no items of its own), each with its name path from the top. */
+export function leafCategories(categories: WoltCategory[]): { slug: string; path: string }[] {
+  const out = new Map<string, string>();
+  const walk = (c: WoltCategory, parents: string[]) => {
+    const path = [...parents, c.name.trim()];
+    if (c.subcategories?.length) c.subcategories.forEach((s) => walk(s, path));
+    else if (!out.has(c.slug)) out.set(c.slug, path.join(' / '));
   };
-  categories.forEach(walk);
-  return [...new Set(out)];
+  categories.forEach((c) => walk(c, []));
+  return [...out].map(([slug, path]) => ({ slug, path }));
 }
+
+/** Slugs whose items must be fetched: leaf categories. */
+export const leafCategorySlugs = (categories: WoltCategory[]): string[] => leafCategories(categories).map((c) => c.slug);
 
 /** "07290000497044" → "7290000497044": Wolt sends GTIN-14 with a leading zero. */
 export function woltBarcode(gtin: string | null | undefined): string | null {
@@ -92,6 +98,7 @@ export function woltItems(venueSlug: string, items: WoltItem[]): CanonItem[] {
       weighted: perKg !== null,
       priceAgorot,
       ...(woltImage(it) ? { img: woltImage(it) } : {}),
+      ...(it.category ? { category: it.category } : {}),
     });
   }
   return [...out.values()];

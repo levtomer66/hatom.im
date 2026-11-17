@@ -6,7 +6,7 @@
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { CanonItem } from '../normalize.ts';
-import { leafCategorySlugs, woltItems, type WoltCategory, type WoltItem } from '../wolt.ts';
+import { leafCategories, woltItems, type WoltCategory, type WoltItem } from '../wolt.ts';
 import type { Throttle } from './sources.ts';
 
 const API = 'https://consumer-api.wolt.com';
@@ -58,12 +58,12 @@ export async function fetchWoltVenue(slug: string, rawDir: string, day: string, 
   const base = `/consumer-api/consumer-assortment/v1/venues/slug/${slug}/assortment`;
   const assortment = await get<Assortment>('assortment', `${base}?language=he`);
   const raw: WoltItem[] = [];
-  for (const cat of leafCategorySlugs(assortment.categories ?? [])) {
+  for (const { slug: cat, path } of leafCategories(assortment.categories ?? [])) {
     let token: string | null = null;
     for (let p = 1; p <= MAX_PAGES; p++) {
       const q = new URLSearchParams({ language: 'he', ...(token ? { page_token: token } : {}) });
       const r: CategoryPage = await get<CategoryPage>(`cat-${cat}-p${p}`, `${base}/categories/slug/${cat}?${q}`);
-      raw.push(...(r.items ?? []));
+      raw.push(...(r.items ?? []).map((it) => ({ ...it, category: path })));
       token = r.metadata?.next_page_token ?? null;
       if (!token) break;
     }

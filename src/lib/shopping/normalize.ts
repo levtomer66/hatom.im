@@ -30,6 +30,8 @@ export interface CanonItem {
   priceAgorot: number;
   /** Product photo link, when a source has one (Wolt does; price files never). */
   img?: string;
+  /** The source's category path, when it has one (Wolt does; price files never). */
+  category?: string;
 }
 
 export interface CanonPromoGroup {
