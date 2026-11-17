@@ -243,3 +243,54 @@ export interface ItemResponse {
   /** Terms of every deal named above, by promo id. */
   promos: Record<string, PromoDetail>;
 }
+
+// ── "אני בחנות" (docs/shopping-here-mode.md) ──
+
+/** A store for the "אני בחנות" picker. */
+export interface HereStore extends StoreInfo {
+  /** Where the store is, when the ingest geocoded it (`loc` on the store doc); null until then. */
+  loc: { lat: number; lng: number } | null;
+}
+
+/** GET /api/shopping/here/stores?city=<city id> — the city's physical stores, for the picker (sorted on the device). */
+export interface HereStoresResponse {
+  now: string;
+  stores: HereStore[];
+}
+
+/** One list item at the chosen store (here.ts groups them). */
+export interface HereRow {
+  key: string;
+  /** The largest quantity any list wants (units, or kg when weighted). */
+  qty: number;
+  /** Lists it's on. */
+  listIds: string[];
+  /** One unit's price here (1 kg when weighted), deals applied, or null when the store doesn't sell it. */
+  here: ItemPrice | null;
+  /** The cheapest physical store's price for one unit (may be this store), or null when none sells it. */
+  best: ItemPrice | null;
+  group: 'best' | 'ok' | 'elsewhere' | 'missing';
+  /** Agorot the cheapest store saves on `qty`; 0 in 'best' and 'missing'. */
+  saving: number;
+}
+
+/**
+ * GET /api/shopping/here?store=<store key>&city=<city id> — every item on the
+ * caller's lists priced here and at the city's other physical stores, and the
+ * items bought on past trips that are on a deal here now.
+ */
+export interface HereResponse {
+  now: string;
+  city: string;
+  store: StoreInfo;
+  /** Every store named in `rows`. */
+  stores: Record<number, StoreInfo>;
+  items: Record<string, { name: string; manufacturer: string; w: boolean; img: string | null; imgBy: ImgBy; d: string | null }>;
+  /** The caller's lists (for the filter chips). */
+  lists: { id: string; name: string }[];
+  rows: HereRow[];
+  /** Not on any list, bought on a recent trip, and on a deal here now (biggest saving first). */
+  before: { key: string; here: ItemPrice }[];
+  /** Terms of every deal named above, by promo id. */
+  promos: Record<string, PromoDetail>;
+}

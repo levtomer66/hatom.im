@@ -26,7 +26,7 @@
  */
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { FaMinus, FaPlus, FaTrash, FaSearch, FaChevronDown, FaTimes, FaCheck, FaPen, FaShoppingBasket, FaBarcode, FaMapMarkerAlt, FaLocationArrow, FaLock, FaShoppingCart, FaArrowRight, FaEllipsisH } from 'react-icons/fa';
+import { FaMinus, FaPlus, FaTrash, FaSearch, FaChevronDown, FaTimes, FaCheck, FaPen, FaBarcode, FaMapMarkerAlt, FaLocationArrow, FaLock, FaShoppingCart, FaArrowRight, FaEllipsisH } from 'react-icons/fa';
 import dynamic from 'next/dynamic';
 import Navbar from '@/components/Navbar';
 import { CITIES } from '@/lib/shopping/cities';
@@ -36,13 +36,11 @@ import { normalizeQty, type ShoppingList, type ShoppingListItem } from '@/lib/sh
 import type { CompareResponse, ShoppingPlan, ItemBest, ItemPrice, ItemResponse, ManualPriceResponse, PriceSource, PromoDetail, SearchHit, StoreInfo } from '@/lib/shopping/api-types';
 import type { LineResult, Offer, PromoRef, StoreBasket } from '@/lib/shopping/pricing';
 import { dealNudge, groupByDepartment, progress, withPending, type PlanKind, type Trip, type TripCreate, type TripItem } from '@/lib/shopping/trips';
+import { cleanAddress, dayMonth, ils, qtyLabel, SaleLabel, storeName, Thumb } from './ui';
+import Here from './Here';
 
-const money = new Intl.NumberFormat('he-IL', { style: 'currency', currency: 'ILS', minimumFractionDigits: 2 });
-const ils = (agorot: number) => money.format(agorot / 100);
 /** "2026-11-28T23:59" → "28.11" */
-const dayMonth = (local: string) => `${Number(local.slice(8, 10))}.${Number(local.slice(5, 7))}`;
 const stamp = (local: string) => `${dayMonth(local)} ${local.slice(11, 16)}`;
-const qtyLabel = (qty: number, w: boolean) => (w ? `${qty} ק״ג` : `×${qty}`);
 /** Whole days between two Israel-local stamps (date part only). */
 const daysBetween = (a: string, b: string) =>
   Math.round((Date.parse(b.slice(0, 10)) - Date.parse(a.slice(0, 10))) / 86_400_000);
@@ -167,6 +165,8 @@ export default function ShoppingPage() {
   /** The active list's open trip, and whether its in-store screen is showing. */
   const [trip, setTrip] = useState<Trip | null>(null);
   const [inStore, setInStore] = useState(false);
+  /** The "אני בחנות" screen. */
+  const [here, setHere] = useState(false);
   /** The results under the search box: hidden by a click elsewhere, back on focus (same query). */
   const [hitsOpen, setHitsOpen] = useState(true);
   /** Phone width: a product opens inline under its search result instead of a window. */
@@ -513,6 +513,11 @@ export default function ShoppingPage() {
         <header className="sh-header">
           <h1 className="sh-title">השוואת מחירים</h1>
           <p className="sh-subtitle">בונים רשימת קניות ורואים באיזו חנות היא הכי זולה. ליד כל מחיר כתוב מאיפה הוא ומאיזה יום.</p>
+          {lists && (
+            <button type="button" className="sh-btn sh-here-entry" onClick={() => setHere(true)}>
+              <FaMapMarkerAlt aria-hidden /> אני בחנות
+            </button>
+          )}
         </header>
 
         {loadError && <p className="sh-error">לא הצלחנו לטעון את הרשימות. נסו לרענן.</p>}
@@ -703,7 +708,13 @@ export default function ShoppingPage() {
           <Scanner onClose={() => setScanning(false)}
             onCode={(code) => { setScanning(false); setProduct({ key: code, scanned: true }); }} />
         )}
-        {product && !(narrow && hits?.some((h) => h.key === product.key) && !product.scanned) && (
+        {here && (
+          <Here city={city} listName={list?.name ?? null} onAdd={addItem} onClose={() => setHere(false)}
+            onOpenItem={(key, scanned) => setProduct({ key, scanned })}
+            tripStores={trip && !trip.endedAt ? Object.fromEntries(trip.stops.map((st) => [st.store, st.items.length])) : {}}
+            onOpenTrip={() => { setHere(false); setInStore(true); }} />
+        )}
+        {product && (here || !(narrow && hits?.some((h) => h.key === product.key) && !product.scanned)) && (
           <ProductSheet itemKey={product.key} scanned={product.scanned} city={city} inList={qtyOf}
             onAdd={addItem} onClose={() => setProduct(null)} />
         )}
@@ -1081,17 +1092,7 @@ const realMaker = (m: string | null | undefined) => {
   return !t || /^(-+|לא ידוע|לא\s*ידוע|כללי|unknown|n\/a)$/i.test(t) ? null : t;
 };
 
-const storeName = (s: StoreInfo | undefined) => (s ? `${s.chainName} ${s.name}` : '?');
 
-/**
- * The street part of an official address. Some files append notes
- * ("הרצל 91,עובר להרצל 114)"), so keep the text before the first comma or
- * parenthesis.
- */
-const cleanAddress = (a: string | null | undefined) => {
-  const t = (a ?? '').split(/[,(]/)[0].replace(/[()]/g, '').trim();
-  return /^(unknown|לא ידוע|-+|0)$/i.test(t) ? '' : t; // placeholders some files use
-};
 
 /** The small line next to the city name. */
 const LOC_NOTE: Record<LocState | 'manual', string> = {
@@ -1287,26 +1288,6 @@ function CheapestEach({ result, single }: { result: CompareResponse; single: Sto
 }
 
 // ── product photos ──
-
-/** Wolt's image proxy resizes on `?w=`; the menu-image CDN has no resize, so it's shown small. */
-const sized = (src: string, px: number) =>
-  src.startsWith('https://imageproxy.wolt.com/') ? `${src}${src.includes('?') ? '&' : '?'}w=${px * 2}` : src;
-
-/** A product photo, or a quiet basket mark when there's none (most items) or it fails to load. */
-/** `by: 'name'` = a photo borrowed from a same-named product: dashed frame, "תמונה להמחשה" on hover. */
-function Thumb({ src, size, by }: { src: string | null | undefined; size: number; by?: string | null }) {
-  const [failed, setFailed] = useState(false);
-  const box = { width: size, height: size };
-  if (!src || failed) {
-    return <span className="sh-thumb is-empty" style={box} aria-hidden><FaShoppingBasket /></span>;
-  }
-  return (
-    // eslint-disable-next-line @next/next/no-img-element -- plain <img>: external photos, no optimizer
-    <img className={by === 'name' ? 'sh-thumb is-illus' : 'sh-thumb'} src={sized(src, size)}
-             title={by === 'name' ? 'תמונה להמחשה' : undefined} width={size} height={size} style={box}
-      alt="" loading="lazy" decoding="async" onError={() => setFailed(true)} />
-  );
-}
 
 // ── stores priced by hand ──
 
@@ -1604,18 +1585,6 @@ function PriceReveal({ label, pop, children }: { label: string; pop: React.React
 /** Untriggered deals as refs for DealInfo (their text is in the details map). */
 function idleRefs(ids: string[], promos: Record<string, PromoDetail> | undefined): PromoRef[] {
   return ids.flatMap((id) => (promos?.[id] ? [{ id, description: promos[id].description, end: promos[id].end }] : []));
-}
-
-/**
- * A small mark beside a price saying a deal is in play: "מבצע" when it lowers
- * this price, "מבצע בכמות" when buying more would trigger one, "מבצע מותנה"
- * for a club, coupon or basket-minimum deal. Its terms show on hover/tap.
- */
-function SaleLabel({ applied, idle, offers }: { applied: boolean; idle: boolean; offers: boolean }) {
-  if (applied) return <span className="sh-sale is-on">מבצע</span>;
-  if (idle) return <span className="sh-sale">מבצע בכמות</span>;
-  if (offers) return <span className="sh-sale">מבצע מותנה</span>;
-  return null;
 }
 
 /** The terms of each deal: dates, basket minimum, limit, club or coupon, the chain's remarks. */

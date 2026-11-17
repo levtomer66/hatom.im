@@ -1114,6 +1114,88 @@ body:has(.sh-page) { background: #ffffff; }
 .sh-end-actions .sh-btn--primary { margin: 0; }
 .sh-instore-missing { margin-top: 1rem; font-size: 0.875rem; color: var(--sh-muted); }
 
+/* ── "אני בחנות" (Here.tsx) ──
+   Same frame as the trip screen, one layer lower so the product window (115)
+   and the scanner (125) open over it. */
+.sh-here-entry { display: inline-flex; align-items: center; gap: 0.5rem; margin-top: 0.75rem; }
+.sh-here-entry svg { color: var(--sh-accent); }
+.sh-instore.sh-here { z-index: 112; }
+.sh-here-body { padding-bottom: calc(5.5rem + env(safe-area-inset-bottom)); }
+.sh-here-near { margin-top: 0.5rem; }
+.sh-here-filter { margin: 0.5rem 0; min-height: var(--sh-tap); }
+.sh-here-stores { margin: 0; padding: 0; list-style: none; }
+.sh-here-store {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  width: 100%;
+  min-height: 60px;
+  padding: 0.5rem 0;
+  border: none;
+  border-bottom: 1px solid var(--sh-line);
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+.sh-here-store:hover { background: var(--sh-surface); }
+.sh-here-dist { display: flex; flex: none; flex-direction: column; align-items: flex-end; font-size: 0.9375rem; color: var(--sh-muted); white-space: nowrap; }
+.sh-here-dist small { font-size: 0.75rem; }
+.sh-here-lists { margin: 0.5rem 0 0; flex-wrap: nowrap; overflow-x: auto; }
+.sh-here-lists .sh-chip { min-height: 36px; font-size: 0.875rem; }
+.sh-tick.sh-here-row { grid-template-columns: auto minmax(0, 1fr) auto; font-size: 1rem; }
+.sh-here-qty { font-size: 0.8125rem; color: var(--sh-muted); }
+.sh-here-price { display: flex; flex-direction: column; align-items: flex-end; gap: 0.125rem; white-space: nowrap; }
+.sh-here-price b { font-weight: 600; }
+.sh-here-price s { font-size: 0.8125rem; color: var(--sh-muted); }
+.sh-here-group.is-best h3 { color: var(--sh-accent); }
+.sh-here-row.is-elsewhere .sh-tick-name > small { color: var(--sh-miss); }
+.sh-here-row.is-missing { opacity: 0.7; }
+.sh-here-fold { display: inline-flex; align-items: center; gap: 0.375rem; padding: 0; border: none; background: none; color: inherit; font: inherit; cursor: pointer; }
+.sh-here-fold svg { transition: transform 0.15s; }
+.sh-here-fold svg.is-open { transform: rotate(180deg); }
+.sh-here-deal { position: relative; }
+.sh-here-deal:has(.sh-here-add) .sh-tick { padding-inline-end: 2.75rem; }
+.sh-here-add { position: absolute; top: 0.5rem; inset-inline-end: -0.5rem; color: var(--sh-accent); }
+.sh-here-gap { color: var(--sh-accent); font-weight: 500; }
+.sh-here-scan {
+  position: absolute;
+  inset-inline-start: 50%;
+  bottom: calc(1rem + env(safe-area-inset-bottom));
+  transform: translateX(50%);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 56px;
+  padding: 0 1.5rem;
+  border: none;
+  border-radius: 28px;
+  background: var(--sh-action);
+  color: var(--sh-action-ink);
+  font: inherit;
+  font-size: 1.0625rem;
+  font-weight: 600;
+  box-shadow: 0 6px 20px rgba(17, 17, 17, 0.25);
+  cursor: pointer;
+}
+.sh-here-scan:active { transform: translateX(50%) scale(0.97); }
+.sh-here-verdict { padding-top: 1rem; }
+.sh-here-verdict-skel { height: 8rem; }
+.sh-here-verdict-head { display: flex; align-items: flex-start; gap: 0.75rem; padding-inline-end: 2.5rem; }
+.sh-here-verdict-item { margin: 0 0 0.25rem; font-size: 0.875rem; }
+.sh-here-verdict-title { margin: 0; font-size: 1.375rem; }
+.sh-here-verdict-title.is-best { color: var(--sh-accent); }
+.sh-here-verdict-title.is-elsewhere { color: var(--sh-miss); }
+.sh-here-verdict-price { margin: 0.75rem 0 0; font-size: 1.0625rem; }
+.sh-here-verdict-price b { font-size: 1.5rem; font-weight: 600; }
+.sh-here-verdict-price s, .sh-here-verdict-price small { color: var(--sh-muted); font-size: 0.875rem; }
+.sh-here-verdict-why { margin: 0.25rem 0 0; color: var(--sh-ink); }
+.sh-here-twin { margin: 0.5rem 0 0; padding: 0.5rem 0.75rem; border-radius: var(--sh-r-ctl); background: var(--sh-accent-soft); font-size: 0.9375rem; }
+.sh-here-verdict-more { display: flex; gap: 0.5rem; }
+.sh-here-verdict-more .sh-btn { flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 0.375rem; }
+
 @media (prefers-reduced-motion: reduce) {
   .sh-sheet { animation: none; }
   .sh-spinner, .sh-toast { animation: none; }

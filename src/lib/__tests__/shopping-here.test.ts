@@ -1,0 +1,114 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import {
+  dealGap, distanceLabel, endsLabel, groupHere, isTwin, HERE_WORTH_WALK, mergeLists, metresBetween, nearbyStore, sortStores, tieOf, verdict,
+  type HereRow, type HereStore,
+} from '../shopping/here.ts';
+
+test('verdict: not sold here', () => {
+  assert.deepEqual(verdict(null, 500), { group: 'missing', saving: 0 });
+});
+
+test('verdict: cheapest, or nobody else sells it', () => {
+  assert.deepEqual(verdict(500, 500), { group: 'best', saving: 0 });
+  assert.deepEqual(verdict(500, null), { group: 'best', saving: 0 });
+});
+
+test('verdict: within max(₪0.50, 3%) of the cheapest counts as the cheapest', () => {
+  assert.equal(tieOf(1000), 50); // 3% = 30 < 50
+  assert.equal(tieOf(5000), 150); // 3% of ₪50
+  assert.equal(verdict(1050, 1000).group, 'best');
+  assert.equal(verdict(1051, 1000).group, 'ok');
+  assert.equal(verdict(5150, 5000).group, 'best');
+  assert.equal(verdict(5151, 5000).group, 'ok');
+});
+
+test('verdict: ₪3 saving on the list quantity is worth the walk', () => {
+  assert.deepEqual(verdict(1200, 1000, 1), { group: 'ok', saving: 200 });
+  assert.deepEqual(verdict(1200, 1000, 2), { group: 'elsewhere', saving: 400 });
+  assert.equal(verdict(1000 + HERE_WORTH_WALK, 1000).group, 'elsewhere');
+  // Weighted: 1.5 kg at ₪2/kg more = ₪3
+  assert.deepEqual(verdict(1200, 1000, 1.5), { group: 'elsewhere', saving: 300 });
+});
+
+const row = (key: string, group: HereRow['group'], saving: number): HereRow =>
+  ({ key, qty: 1, listIds: ['l'], here: null, best: null, group, saving });
+
+test('groupHere: groups, biggest saving first, then by key', () => {
+  const g = groupHere([row('b', 'ok', 100), row('a', 'ok', 100), row('c', 'ok', 250), row('d', 'best', 0), row('e', 'missing', 0)]);
+  assert.deepEqual(g.ok.map((r) => r.key), ['c', 'a', 'b']);
+  assert.deepEqual(g.best.map((r) => r.key), ['d']);
+  assert.deepEqual(g.elsewhere, []);
+  assert.deepEqual(g.missing.map((r) => r.key), ['e']);
+});
+
+test('mergeLists: each item once, largest quantity, every list', () => {
+  const merged = mergeLists([
+    { id: 'a', items: [{ key: 'milk', qty: 2 }, { key: 'eggs', qty: 1 }] },
+    { id: 'b', items: [{ key: 'milk', qty: 3 }] },
+  ]);
+  assert.deepEqual(merged, [
+    { key: 'milk', qty: 3, listIds: ['a', 'b'] },
+    { key: 'eggs', qty: 1, listIds: ['a'] },
+  ]);
+});
+
+const store = (k: number, loc: HereStore['loc'], walkMin: number | null, name = `s${k}`): HereStore => ({
+  k, chainId: 'c', chainName: 'רשת', name, address: '', city: 'tlv', kind: 'physical', pricesAt: null, source: 'official', walkMin, loc,
+});
+
+test('metresBetween: about 111 km per degree of latitude', () => {
+  const d = metresBetween({ lat: 32, lng: 34.8 }, { lat: 33, lng: 34.8 });
+  assert.ok(Math.abs(d - 111_195) < 200, String(d));
+});
+
+test('sortStores: by distance, then stores without one by walking time', () => {
+  const me = { lat: 32.0853, lng: 34.7818 };
+  const near = store(1, { lat: 32.0855, lng: 34.7818 }, 9);
+  const far = store(2, { lat: 32.0953, lng: 34.7818 }, 2);
+  const noLoc = store(3, null, 1);
+  const noLocSlow = store(4, null, 7);
+  const sorted = sortStores([noLocSlow, far, noLoc, near], me);
+  assert.deepEqual(sorted.map((s) => s.k), [1, 2, 3, 4]);
+  assert.ok(sorted[0].distM! < 50);
+  assert.equal(sorted[2].distM, null);
+});
+
+test('sortStores: without a position, by walking time then name', () => {
+  const sorted = sortStores([store(1, null, 5, 'ב'), store(2, null, null, 'א'), store(3, null, 5, 'א')], null);
+  assert.deepEqual(sorted.map((s) => s.k), [3, 1, 2]);
+});
+
+test('nearbyStore: only within 80 m', () => {
+  assert.equal(nearbyStore([{ distM: 60 }])?.distM, 60);
+  assert.equal(nearbyStore([{ distM: 120 }]), null);
+  assert.equal(nearbyStore([{ distM: null }]), null);
+  assert.equal(nearbyStore([]), null);
+});
+
+test('distanceLabel', () => {
+  assert.equal(distanceLabel(4), '10 מ׳');
+  assert.equal(distanceLabel(123), '120 מ׳');
+  assert.equal(distanceLabel(1430), '1.4 ק״מ');
+});
+
+test('dealGap: how many more units reach a multi-buy', () => {
+  assert.equal(dealGap(3, 2, false), 1);
+  assert.equal(dealGap(3, 3, false), null);
+  assert.equal(dealGap(1, 1, false), null);
+  assert.equal(dealGap(null, 1, false), null);
+  assert.equal(dealGap(10, 1, false), null); // more than 5
+  assert.equal(dealGap(2, 0.5, true), null); // weighed
+});
+
+test('endsLabel: today, tomorrow (across a month), or the date', () => {
+  assert.equal(endsLabel('2026-11-17T23:59', '2026-11-17T09:00'), 'נגמר היום');
+  assert.equal(endsLabel('2026-12-01T00:00', '2026-11-30T21:00'), 'נגמר מחר');
+  assert.equal(endsLabel('2026-11-24T23:59', '2026-11-17T09:00'), 'עד 24.11');
+});
+
+test('isTwin: a shared word that is not the brand', () => {
+  assert.equal(isTwin('סנו רב מגבת גמבו', 'סנו', 'נוזל לניקוי כלים היפואלרגני סנו'), false);
+  assert.equal(isTwin('סנו רב מגבת גמבו', 'סנו', 'מגבת נייר לבנה 6 גלילים'), true);
+  assert.equal(isTwin('ריבת תות 340 גרם', 'יכין', 'ריבת תות יכין'), true);
+});

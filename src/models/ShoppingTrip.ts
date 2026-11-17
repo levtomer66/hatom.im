@@ -108,3 +108,18 @@ export async function endTrip(id: string): Promise<Trip | null> {
   );
   return doc ? docToTrip(doc) : null;
 }
+
+/**
+ * Item keys bought on the lists' recent trips (ticked), most recent trip
+ * first, for "קנית בעבר" in "אני בחנות". Reads only `ticked` of the last
+ * `trips` trips.
+ */
+export async function getRecentTicked(listIds: string[], trips = 20): Promise<string[]> {
+  if (!listIds.length) return [];
+  const docs = await (await getCollection())
+    .find({ listId: { $in: listIds } }, { projection: { ticked: 1 } })
+    .sort({ startedAt: -1 })
+    .limit(trips)
+    .toArray();
+  return [...new Set(docs.flatMap((d) => d.ticked ?? []))];
+}
