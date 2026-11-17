@@ -360,7 +360,8 @@ Identity = Gmail address. Two roles:
   is in the header comment of `src/app/shopping/page.tsx`.
 - **One product** (`GET /api/shopping/item?key&city`, the eye button and the
   camera scanner): one unit priced at every store in the city with promos,
-  manual prices included. A scanned code is tried as-is and without leading
+  manual prices included. A multi-buy one unit doesn't reach ("2 ב-10") shows
+  beside it per unit (`multiBuyUnit`), as the store's deals list does. A scanned code is tried as-is and without leading
   zeros. `Scanner.tsx` uses the native `BarcodeDetector` and lazy-loads
   `@zxing/browser` only where there isn't one (iPhone Safari); it needs https
   or localhost.
