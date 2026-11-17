@@ -338,6 +338,8 @@ export interface StoreDoc {
   source: PriceSource;
   /** Routed walking minutes from the nearest pin (physical stores; null when unknown or online). */
   walkMin: number | null;
+  /** Where the store is (5 decimals ≈ 1 m), for sorting by distance; null when unknown or online. */
+  loc: { lat: number; lng: number } | null;
 }
 
 export interface StoreInput extends CanonStore {
@@ -347,6 +349,7 @@ export interface StoreInput extends CanonStore {
   priceFile: string | null;
   promoFile: string | null;
   walkMin?: number | null;
+  loc?: { lat: number; lng: number } | null;
 }
 
 /** "202611150040" → "2026-11-15T00:40". */
@@ -367,6 +370,7 @@ export function buildStoreDocs(stores: StoreInput[], keys: Record<string, number
         priceFile: s.priceFile, promoFile: s.promoFile, pricesAt: stampToLocal(s.priceFile), promosAt: stampToLocal(s.promoFile),
         source: priceSourceOf(s.chainId),
         walkMin: s.walkMin ?? null,
+        loc: s.loc ? { lat: +s.loc.lat.toFixed(5), lng: +s.loc.lng.toFixed(5) } : null,
       }];
     }),
   );

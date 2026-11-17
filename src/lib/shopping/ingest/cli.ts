@@ -466,15 +466,17 @@ async function main() {
     const promos = buildPromoDocs(states, nowLocal, promoStats);
     // Walking minutes from the nearest pin, for the plan cards (null when unplaced or with no pins).
     const walk = new Map<string, number | null>();
+    const where = new Map<string, { lat: number; lng: number }>();
     if (PINS) {
       for (const { s } of loaded) {
         if (s.kind !== 'physical') continue;
         const at = s.at ?? (await PINS.pointOf(s));
+        if (at) where.set(storeId(s), at);
         walk.set(storeId(s), at ? await PINS.walkMinutes(s.cityId, at) : null);
       }
     }
     const storeDocs = buildStoreDocs(
-      loaded.map(({ s, st }) => ({ ...s, priceFile: st?.priceFile ?? null, promoFile: st?.promoFile ?? null, walkMin: walk.get(storeId(s)) ?? null })),
+      loaded.map(({ s, st }) => ({ ...s, priceFile: st?.priceFile ?? null, promoFile: st?.promoFile ?? null, walkMin: walk.get(storeId(s)) ?? null, loc: where.get(storeId(s)) ?? null })),
       keys,
     );
     const chainDocs = new Map(CHAINS.map((c) => [c.chainId, { _id: c.chainId, slug: c.slug, name: c.name }]));
