@@ -134,3 +134,11 @@ export async function getItemsAt(keys: string[], store: number): Promise<ItemDoc
     .project<ItemDoc>({ n: 1, m: 1, w: 1, img: 1, imgBy: 1, d: 1, [sk]: 1 })
     .toArray();
 }
+
+/** Department and photo per item key, without the price map (for My items). */
+export async function getItemMeta(keys: string[]): Promise<Record<string, { d?: string; img?: string; imgBy?: ItemDoc['imgBy'] }>> {
+  if (!keys.length) return {};
+  const docs = await (await getDb()).collection<ItemDoc>(COLLECTIONS.items)
+    .find({ _id: { $in: keys } }, { projection: { d: 1, img: 1, imgBy: 1 } }).toArray();
+  return Object.fromEntries(docs.map((x) => [x._id, { ...(x.d ? { d: x.d } : {}), ...(x.img ? { img: x.img, ...(x.imgBy ? { imgBy: x.imgBy } : {}) } : {}) }]));
+}

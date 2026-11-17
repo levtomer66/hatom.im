@@ -57,3 +57,9 @@ export async function deleteShoppingList(id: string, email: string): Promise<boo
   const result = await (await getCollection()).deleteOne({ _id: new ObjectId(id), ...visibleTo(email) });
   return result.deletedCount === 1;
 }
+
+/** Every old named list, for the one-time move to My items (src/models/ShoppingHome.ts). */
+export async function getAllShoppingListsForMigration(): Promise<{ items: ShoppingList['items']; createdBy: string; updatedAt: string }[]> {
+  const docs = await (await getCollection()).find({}, { projection: { items: 1, createdBy: 1, updatedAt: 1 } }).toArray();
+  return docs.map((d) => ({ items: d.items ?? [], createdBy: d.createdBy, updatedAt: d.updatedAt }));
+}
