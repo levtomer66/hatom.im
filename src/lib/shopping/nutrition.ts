@@ -213,3 +213,21 @@ export function listNutrition(
   const top = Object.fromEntries(HERO_NUTRIENTS.map((k) => [k, parts[k].sort((a, b) => b.amount - a.amount).slice(0, 3)])) as ListNutrition['top'];
   return { totals, covered, of, top, red, missing };
 }
+
+/** Protein grams the price-per-protein measure is quoted for ("₪0.42 ל־10 ג׳ חלבון"). */
+export const PROTEIN_PER = 10;
+/** Below this much protein per 100 g the measure says nothing useful (soft drinks, sweets). */
+export const MIN_PROTEIN = 2;
+
+/**
+ * What PROTEIN_PER grams of protein cost, in agorot: `cost` buys one pack
+ * (1 kg when weighed); its protein is the per-100 value × pack grams.
+ * Null without protein, a known pack size or a price.
+ */
+export function proteinPrice(cost: number | null, nu: Nutrition | null, pack: number | null, w: boolean): number | null {
+  if (cost === null || cost <= 0 || !nu || nu.p === null || nu.p < MIN_PROTEIN) return null;
+  const grams = w ? 1000 : pack;
+  if (!grams) return null;
+  const protein = (nu.p * grams) / 100;
+  return Math.round((cost * PROTEIN_PER) / protein);
+}

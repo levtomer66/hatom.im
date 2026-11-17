@@ -1531,9 +1531,10 @@ function ProductSheet({ itemKey, scanned, city, inList, onAdd, onClose, inline }
             <button type="button" className="sh-btn sh-btn--primary" onClick={() => onAdd(it)}>
               {qty ? <>עוד אחד לרשימה <small>כבר {qtyLabel(qty, it.w)}</small></> : <><FaPlus aria-hidden /> הוספה לרשימה</>}
             </button>
+            <NutritionPanel item={it}
+              best={data.physical[0] ? { cost: data.physical[0].cost, store: storeName(data.stores[data.physical[0].store]) } : null} />
             <PriceTable title="בחנויות בעיר" rows={data.physical} data={data} empty="לא נמכר בחנויות בעיר." />
             {data.online.length > 0 && <PriceTable title="אונליין" rows={data.online} data={data} />}
-            <NutritionPanel item={it} />
           </>
         )}
       </>

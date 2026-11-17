@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  isLiquid, listNutrition, namesAgree, nutritionOf, packGrams, parseOff, plausible, redLabels, type Nutrition,
+  isLiquid, listNutrition, namesAgree, nutritionOf, packGrams, parseOff, plausible, proteinPrice, redLabels, type Nutrition,
 } from '../shopping/nutrition.ts';
 
 const nu = (o: Partial<Nutrition>): Nutrition => ({ kcal: null, p: null, c: null, s: null, f: null, sf: null, fib: null, na: null, by: 'off', ...o });
@@ -76,4 +76,15 @@ test('nutritionOf: reads a doc\'s nu, null when empty or absent', () => {
   assert.equal(nutritionOf({}), null);
   assert.equal(nutritionOf({ nu: { by: 'off' } }), null);
   assert.deepEqual(nutritionOf({ nu: { kcal: 60, p: 3.3, by: 'moh' } }), nu({ kcal: 60, p: 3.3, by: 'moh' }));
+});
+
+test('proteinPrice: agorot for 10 g of protein, from one pack\'s (or 1 kg\'s) price', () => {
+  // Cottage 5%, 250 g at ₪6.90: 11 g protein per 100 g → 27.5 g a tub → ₪2.51 per 10 g.
+  assert.equal(proteinPrice(690, nu({ p: 11 }), 250, false), 251);
+  // Chicken breast by weight, ₪39.90 a kg, 23 g per 100 g → 230 g a kg → ₪1.73 per 10 g.
+  assert.equal(proteinPrice(3990, nu({ p: 23 }), null, true), 173);
+  assert.equal(proteinPrice(690, nu({ p: 1.5 }), 250, false), null); // too little protein to say
+  assert.equal(proteinPrice(690, nu({ p: 11 }), null, false), null); // no pack size
+  assert.equal(proteinPrice(null, nu({ p: 11 }), 250, false), null);
+  assert.equal(proteinPrice(690, null, 250, false), null);
 });
