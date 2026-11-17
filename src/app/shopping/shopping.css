@@ -339,10 +339,10 @@ body:has(.sh-page) { background: #ffffff; }
   position: absolute; inset-inline-end: 14px; top: 50%; width: 6px; height: 46px; translate: 0 -50%;
   border-radius: 3px; background: linear-gradient(90deg, var(--fr-handle), #c9d7f6);
 }
-.sh-fridge-icon { flex: none; font-size: 1.75rem; color: var(--fr-frost); }
-.sh-fridge-text { display: flex; flex-direction: column; gap: 0.125rem; }
-.sh-fridge-text b { font-size: 1.25rem; font-weight: 700; }
-.sh-fridge-text small { font-size: 0.9375rem; opacity: 0.8; }
+.sh-fridge-icon { flex: none; font-size: 2.25rem; color: var(--fr-frost); stroke-width: 1.75; }
+.sh-fridge-text { display: flex; flex-direction: column; gap: 0; }
+.sh-fridge-text b { font-size: 1.625rem; font-weight: 700; line-height: 1.15; letter-spacing: -0.01em; }
+.sh-fridge-text small { font-size: 0.875rem; font-weight: 500; opacity: 0.75; }
 @media (prefers-color-scheme: dark) {
   .sh-fridge {
     --fr-door: #162040; --fr-edge: #2a3b6e; --fr-handle: #4f66a8; --fr-ink: #e6ecff; --fr-frost: #8aa7ff;

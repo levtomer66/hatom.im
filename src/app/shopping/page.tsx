@@ -26,7 +26,8 @@
  */
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { FaMinus, FaPlus, FaTrash, FaSearch, FaChevronDown, FaTimes, FaCheck, FaBarcode, FaMapMarkerAlt, FaLocationArrow, FaShoppingCart, FaArrowRight, FaEllipsisH, FaSnowflake, FaListUl } from 'react-icons/fa';
+import { FaMinus, FaPlus, FaTrash, FaSearch, FaChevronDown, FaTimes, FaCheck, FaBarcode, FaMapMarkerAlt, FaLocationArrow, FaShoppingCart, FaArrowRight, FaEllipsisH, FaListUl } from 'react-icons/fa';
+import { LuRefrigerator } from 'react-icons/lu';
 import dynamic from 'next/dynamic';
 import Navbar from '@/components/Navbar';
 import { CITIES } from '@/lib/shopping/cities';
@@ -634,10 +635,10 @@ export default function ShoppingPage() {
             {home.items.length > 0 && (
               <button type="button" className="sh-fridge" onClick={() => { void flushSaves(); setMissingOpen(true); }}>
                 <span className="sh-fridge-handle" aria-hidden />
-                <FaSnowflake className="sh-fridge-icon" aria-hidden />
+                <LuRefrigerator className="sh-fridge-icon" aria-hidden />
                 <span className="sh-fridge-text">
+                  <small>לך למקרר ותבדוק</small>
                   <b>מה חסר?</b>
-                  <small>לך למקרר ותבדוק מה חסר?</small>
                 </span>
               </button>
             )}
