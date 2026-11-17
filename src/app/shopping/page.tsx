@@ -63,6 +63,26 @@ const SOURCE: Record<PriceSource, { label: string; hint: string; dated: string }
 const OLD_DAYS = 2;
 
 const LS_LIST = 'shopping:list';
+/** Offline copies: the lists, each list's open trip, and each trip's unsent ticks. */
+const LS_LISTS_CACHE = 'shopping:lists-cache';
+const lsTrip = (listId: string) => `shopping:trip:${listId}`;
+const lsQueue = (tripId: string) => `shopping:trip-queue:${tripId}`;
+const lsJson = <T,>(k: string): T | null => {
+  try {
+    return JSON.parse(lsGet(k) ?? 'null') as T | null;
+  } catch {
+    return null;
+  }
+};
+const lsDel = (k: string) => {
+  try {
+    localStorage.removeItem(k);
+  } catch {
+    /* private mode */
+  }
+};
+/** No connection, as opposed to the server saying no (api() throws Error(status) then). */
+const isNetworkError = (e: unknown) => e instanceof TypeError || (typeof navigator !== 'undefined' && !navigator.onLine);
 const LS_CITY = 'shopping:city';
 /** 'manual' once someone picks a city by hand; then we stop detecting. */
 const LS_CITY_MODE = 'shopping:city-mode';
@@ -233,10 +253,20 @@ export default function ShoppingPage() {
         let all = await api<ShoppingList[]>('/lists');
         if (!all.length) all = [await api<ShoppingList>('/lists', { method: 'POST', body: JSON.stringify({ name: 'רשימת קניות', shared: true }) })];
         setLists(all);
+        lsSet(LS_LISTS_CACHE, JSON.stringify(all));
         const saved = lsGet(LS_LIST);
         setActiveId(all.some((l) => l.id === saved) ? saved : all[0].id);
-      } catch {
-        setLoadError(true);
+      } catch (e) {
+        // In the store without signal: the last lists seen on this phone, so an open trip still opens.
+        const cached = isNetworkError(e) ? lsJson<ShoppingList[]>(LS_LISTS_CACHE) : null;
+        if (cached?.length) {
+          setLists(cached);
+          const saved = lsGet(LS_LIST);
+          setActiveId(cached.some((l) => l.id === saved) ? saved : cached[0].id);
+          setToast('אין חיבור. מוצגים הנתונים האחרונים מהטלפון.');
+        } else {
+          setLoadError(true);
+        }
       }
     })();
   }, []);
@@ -344,9 +374,17 @@ export default function ShoppingPage() {
   useEffect(() => {
     if (!activeId) return;
     let live = true;
-    api<Trip | null>(`/trips?listId=${activeId}`).then((t) => { if (live) setTrip(t); }).catch(() => {});
+    api<Trip | null>(`/trips?listId=${activeId}`)
+      .then((t) => { if (live) setTrip(t); })
+      .catch((e) => { if (live && isNetworkError(e)) setTrip(lsJson<Trip>(lsTrip(activeId))); });
     return () => { live = false; };
   }, [activeId]);
+
+  useEffect(() => {
+    if (!activeId) return;
+    if (trip && !trip.endedAt) lsSet(lsTrip(activeId), JSON.stringify(trip));
+    else lsDel(lsTrip(activeId));
+  }, [trip, activeId]);
 
   /** Start a trip on the chosen plan, or join the list's open one. */
   const startTrip = async (plan: ShoppingPlan) => {
@@ -1617,28 +1655,117 @@ function InStore({ trip, onTrip, onClose, onEnded }: {
   }, []);
 
   // Taps not answered yet: item key → [the state it set, its sequence number].
+  // Taps made without signal wait in a queue on the phone (and stay pending)
+  // until they can be sent.
   const pending = useRef(new Map<string, [boolean, number]>());
   const seq = useRef(0);
+  const queue = useRef<{ key: string; on: boolean; n: number }[]>([]);
+  const [offline, setOffline] = useState(false);
+  const saveQueue = () => {
+    if (queue.current.length) lsSet(lsQueue(trip.id), JSON.stringify(queue.current));
+    else lsDel(lsQueue(trip.id));
+  };
+  useEffect(() => {
+    // Ticks left unsent from an earlier visit.
+    const saved = lsJson<{ key: string; on: boolean; n: number }[]>(lsQueue(trip.id)) ?? [];
+    queue.current = saved;
+    for (const op of saved) {
+      seq.current = Math.max(seq.current, op.n);
+      pending.current.set(op.key, [op.on, op.n]);
+    }
+    if (saved.length) setOffline(true);
+  }, [trip.id]);
   const pendingStates = () => new Map([...pending.current].map(([k, [on]]) => [k, on]));
   /** Adopt a trip from the server, keeping the taps still in flight. */
   const adopt = useCallback((t: Trip) => onTrip({ ...t, ticked: withPending(t.ticked, pendingStates()) }), [onTrip]);
+
+  const send = (key: string, on: boolean) =>
+    api<Trip>(`/trips/${trip.id}`, { method: 'PATCH', body: JSON.stringify({ tick: { key, on } }) });
+  const settle = (key: string, n: number) => {
+    if (pending.current.get(key)?.[1] === n) pending.current.delete(key);
+  };
+
+  /** Send the queued ticks in order; stop at the first that still can't get through. */
+  const flush = useCallback(async () => {
+    while (queue.current.length) {
+      const op = queue.current[0];
+      try {
+        const res = await send(op.key, op.on);
+        queue.current.shift();
+        settle(op.key, op.n);
+        adopt(res);
+      } catch (e) {
+        if (isNetworkError(e)) break;
+        queue.current.shift(); // the server refused it (trip ended, item gone): drop it
+        settle(op.key, op.n);
+      }
+      saveQueue();
+    }
+    setOffline(queue.current.length > 0);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- refs and stable helpers
+  }, [adopt, trip.id]);
 
   const tick = async (key: string) => {
     const on = !ticked.has(key);
     const n = ++seq.current;
     pending.current.set(key, [on, n]);
     onTrip((t) => t && { ...t, ticked: withPending(t.ticked, pendingStates()) });
+    if (queue.current.length) {
+      // Already offline: keep the order, queue behind the others.
+      queue.current.push({ key, on, n });
+      saveQueue();
+      return void flush();
+    }
     try {
-      const res = await api<Trip>(`/trips/${trip.id}`, { method: 'PATCH', body: JSON.stringify({ tick: { key, on } }) });
-      if (pending.current.get(key)?.[1] === n) pending.current.delete(key);
+      const res = await send(key, on);
+      settle(key, n);
       adopt(res);
       setError(false);
-    } catch {
-      if (pending.current.get(key)?.[1] === n) pending.current.delete(key);
+    } catch (e) {
+      if (isNetworkError(e)) {
+        queue.current.push({ key, on, n });
+        saveQueue();
+        setOffline(true);
+        return;
+      }
+      settle(key, n);
       onTrip((t) => t && { ...t, ticked: on ? t.ticked.filter((k) => k !== key) : [...new Set([...t.ticked, key])] });
       setError(true);
     }
   };
+
+  const endedRef = useRef(onEnded);
+  endedRef.current = onEnded;
+
+  // Shopping together: while this screen is open and in view, read the trip
+  // every 5 s (others' ticks, or the trip ended elsewhere), sending queued
+  // ticks first. Back online sends them at once.
+  useEffect(() => {
+    let stop = false;
+    const poll = async () => {
+      if (stop || document.visibilityState !== 'visible') return;
+      await flush();
+      if (queue.current.length) return;
+      try {
+        const t = await api<Trip>(`/trips/${trip.id}`);
+        if (stop) return;
+        if (t.endedAt) return endedRef.current();
+        adopt(t);
+      } catch (e) {
+        if (!isNetworkError(e) && !stop) endedRef.current(); // 404: ended and gone, or no longer visible
+      }
+    };
+    const timer = window.setInterval(poll, 5000);
+    const onOnline = () => { void poll(); };
+    window.addEventListener('online', onOnline);
+    document.addEventListener('visibilitychange', onOnline);
+    return () => {
+      stop = true;
+      window.clearInterval(timer);
+      window.removeEventListener('online', onOnline);
+      document.removeEventListener('visibilitychange', onOnline);
+    };
+  }, [trip.id, flush, adopt]);
   const end = async () => {
     if (!window.confirm('לסיים את הקנייה?')) return;
     try {
@@ -1673,7 +1800,8 @@ function InStore({ trip, onTrip, onClose, onEnded }: {
           })}
         </div>
       )}
-      {error && <p className="sh-error sh-instore-error">השינוי לא נשמר. בדקו את החיבור.</p>}
+      {offline && <p className="sh-instore-offline" role="status">אין חיבור. הסימונים נשמרים בטלפון וישלחו כשהחיבור יחזור.</p>}
+      {error && !offline && <p className="sh-error sh-instore-error">השינוי לא נשמר. נסו שוב.</p>}
       <div className="sh-instore-body">
         {trip.stops.length > 1 && <p className="sh-instore-store">{stop.storeName}</p>}
         {groups.map((g) => (

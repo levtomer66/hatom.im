@@ -983,6 +983,7 @@ body:has(.sh-page) { background: #ffffff; }
 .sh-instore-bar span { display: block; height: 100%; background: var(--sh-accent); transition: width 0.2s; }
 .sh-seg.sh-instore-tabs { margin: 0.5rem 0.75rem 0; }
 .sh-instore-error { margin: 0.5rem 1rem 0; }
+.sh-instore-offline { margin: 0.5rem 0.75rem 0; padding: 0.5rem 0.75rem; border-radius: var(--sh-r-ctl); background: var(--sh-surface); font-size: 0.875rem; color: var(--sh-ink); }
 .sh-instore-body {
   flex: 1;
   overflow-y: auto;
