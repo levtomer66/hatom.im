@@ -23,7 +23,7 @@ import { join } from 'node:path';
 import { gunzipSync, gzipSync } from 'node:zlib';
 import { parseArgs } from 'node:util';
 import { BSON, MongoClient, type AnyBulkWriteOperation, type Db, type Document } from 'mongodb';
-import { CHAINS, chainBySlug, type ChainConfig } from '../chains.ts';
+import { CHAINS, chainBySlug, keepOnlineStore, type ChainConfig } from '../chains.ts';
 import { COLLECTIONS, SNAPSHOT_COLLECTIONS, storeId, type StoreId } from '../collections.ts';
 import { CITIES, cityOf } from '../cities.ts';
 import { decodeXmlBytes, isGzip } from '../xml.ts';
@@ -161,8 +161,8 @@ async function ingestChain(chain: ChainConfig, cityIds: Set<string>, maxStores: 
   let targets: StoreRecord[] = parsed.stores
     .filter((s) => !seen.has(s.storeId) && !!seen.add(s.storeId))
     .map((s) => ({ ...s, chainSlug: chain.slug, chainName: chain.name, cityId: cityOf(s) }))
-    // Online stores are kept whatever their city and listed separately (kind: 'online').
-    .filter((s) => s.kind === 'online' || (s.cityId !== null && cityIds.has(s.cityId)));
+    // Online stores are listed separately (kind: 'online'): those serving the target cities (chains.ts).
+    .filter((s) => (s.kind === 'online' ? keepOnlineStore(chain, s.storeId, s.cityId) : s.cityId !== null && cityIds.has(s.cityId)));
   if (PINS) {
     const near = await PINS.keep(targets, warn);
     const before = targets.length;
@@ -379,6 +379,10 @@ async function main() {
       }
     }
     for (const s of fresh) registry[storeId(s)] = s;
+    // Online stores left from before the per-chain list (chains.ts onlineStores).
+    for (const s of Object.values(registry)) {
+      if (s.kind === 'online' && !keepOnlineStore(chainBySlug(s.chainSlug), s.storeId, s.cityId)) delete registry[storeId(s)];
+    }
     // Stores of chains not run this time (or an --offline run) are held to the pins too.
     if (PINS) {
       const others = Object.values(registry).filter((s) => s.chainSlug !== 'wolt' && s.chainSlug !== 'manual');
