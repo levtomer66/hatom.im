@@ -29,9 +29,8 @@ const money = new Intl.NumberFormat('he-IL', { style: 'currency', currency: 'ILS
 
 /**
  * "ערכים תזונתיים", collapsed at the top of the product window. Under the
- * title, even when closed: one tile, "שקל לחלבון" — the average cost of
- * 1 g of protein at the cheapest store — nothing else; opened, it leads the
- * nutrient tiles. Opened: the red-label marks, a toggle between per 100 g (ml)
+ * title only, until opened; then "שקל לחלבון" — the average cost of 1 g
+ * of protein at the cheapest store — leads the nutrient tiles. Opened: the red-label marks, a toggle between per 100 g (ml)
  * and the whole pack, one tile per nutrient, the source, and a reminder that
  * the package is what counts.
  */
@@ -72,7 +71,6 @@ export function NutritionPanel({ item, best }: {
         <span className="sh-section-title">ערכים תזונתיים</span>
         <FaChevronDown aria-hidden className={open ? 'is-open' : ''} />
       </button>
-      {!open && proteinTile && <ul className="sh-nu-tiles">{proteinTile}</ul>}
       {open && (
         <>
           <div className="sh-nu-head">
