@@ -26,7 +26,7 @@
  */
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { FaMinus, FaPlus, FaTrash, FaSearch, FaChevronDown, FaTimes, FaCheck, FaBarcode, FaMapMarkerAlt, FaLocationArrow, FaShoppingCart, FaArrowRight, FaEllipsisH } from 'react-icons/fa';
+import { FaMinus, FaPlus, FaTrash, FaSearch, FaChevronDown, FaTimes, FaCheck, FaBarcode, FaMapMarkerAlt, FaLocationArrow, FaShoppingCart, FaArrowRight, FaEllipsisH, FaSnowflake, FaListUl } from 'react-icons/fa';
 import dynamic from 'next/dynamic';
 import Navbar from '@/components/Navbar';
 import { CITIES } from '@/lib/shopping/cities';
@@ -39,7 +39,7 @@ import type { LineResult, Offer, PromoRef, StoreBasket } from '@/lib/shopping/pr
 import { dealNudge, groupByDepartment, progress, withPending, type PlanKind, type Trip, type TripCreate, type TripItem } from '@/lib/shopping/trips';
 import { cleanAddress, dayMonth, ils, MultiStar, multiNote, photoBroken, qtyLabel, SaleLabel, storeName, Thumb } from './ui';
 import Here from './Here';
-import MyItems from './MyItems';
+import MyItemsSheet from './MyItems';
 import Missing from './Missing';
 import { api, loadHome, saveHome, type HomeView } from './home-client';
 import { NutritionHero, NutritionPanel, SettingsMenu } from './Nutrition';
@@ -148,6 +148,8 @@ export default function ShoppingPage() {
   const [home, setHome] = useState<HomeView | null>(null);
   /** The "מה חסר?" sheet. */
   const [missingOpen, setMissingOpen] = useState(false);
+  /** The "המוצרים שלי" sheet. */
+  const [myItemsOpen, setMyItemsOpen] = useState(false);
   const [city, setCity] = useState<string>(CITIES[0].id);
   const [cityMode, setCityMode] = useState<'auto' | 'manual'>('auto');
   const [loc, setLoc] = useState<LocState>('idle');
@@ -529,14 +531,8 @@ export default function ShoppingPage() {
     <>
       <Navbar />
       <main className="sh-page">
-        <header className="sh-header">
-          <SettingsMenu settings={settings} onChange={changeSettings} />
-          <h1 className="sh-title">כיף לי בסופר</h1>
-          {home && (
-            <button type="button" className="sh-btn sh-here-entry" onClick={() => setHere(true)}>
-              <FaMapMarkerAlt aria-hidden /> אני בסופר
-            </button>
-          )}
+        <header className="sh-home-head">
+          <h1 className="sh-logo">כיף לי <span>בסופר</span></h1>
         </header>
 
         {loadError && <p className="sh-error">לא הצלחנו לטעון את המוצרים והרשימה. נסו לרענן.</p>}
@@ -554,36 +550,6 @@ export default function ShoppingPage() {
                 <span className="sh-resume-go">להמשיך</span>
               </button>
             )}
-            {settings?.nutritionHero && (
-              <NutritionHero lines={list.items.map((i) => ({ key: i.key, qty: i.qty, name: i.name }))} />
-            )}
-
-            <div className="sh-loc">
-              <FaMapMarkerAlt aria-hidden />
-              <span>
-                <b>{CITIES.find((c) => c.id === city)?.name}</b>
-                <small>{LOC_NOTE[cityMode === 'manual' ? 'manual' : loc]}</small>
-              </span>
-              <button type="button" className="sh-link sh-loc-change" onClick={() => setPickingCity(!pickingCity)}
-                aria-expanded={pickingCity} aria-controls="sh-loc-pick">
-                {pickingCity ? 'סגירה' : 'שינוי'}
-              </button>
-            </div>
-            {pickingCity && (
-              <div className="sh-loc-pick" id="sh-loc-pick" role="radiogroup" aria-label="עיר">
-                <button type="button" className={`sh-chip ${cityMode === 'auto' ? 'is-on' : ''}`} onClick={useMyLocation}
-                  role="radio" aria-checked={cityMode === 'auto'}>
-                  <FaLocationArrow aria-hidden /> לפי המיקום
-                </button>
-                {CITIES.map((c) => (
-                  <button key={c.id} type="button" role="radio" aria-checked={cityMode === 'manual' && city === c.id}
-                    className={`sh-chip ${cityMode === 'manual' && city === c.id ? 'is-on' : ''}`} onClick={() => pickCity(c.id)}>
-                    {c.name}
-                  </button>
-                ))}
-              </div>
-            )}
-
             <section className="sh-search">
               <label className="sh-search-box">
                 <FaSearch aria-hidden />
@@ -646,11 +612,24 @@ export default function ShoppingPage() {
             </section>
 
             {saveError && <p className="sh-error">לא נשמר, נסו שוב</p>}
-            <MyItems items={home.items} meta={home.meta} onChange={setMyItems} startOpen={!home.items.length} />
-            <button type="button" className="sh-btn sh-btn--primary sh-missing-entry" onClick={() => { void flushSaves(); setMissingOpen(true); }}>
-              מה חסר?
-            </button>
-            {!itemCount && <p className="sh-empty">הרשימה ריקה. לחצו ״מה חסר?״ כדי לבחור מהמוצרים שלי.</p>}
+            <div className="sh-home-actions">
+              <button type="button" className="sh-btn sh-home-btn" onClick={() => setMyItemsOpen(true)}>
+                <FaListUl aria-hidden /> המוצרים שלי {home.items.length > 0 && <small>{home.items.length}</small>}
+              </button>
+              <button type="button" className="sh-btn sh-home-btn" onClick={() => setHere(true)}>
+                <FaMapMarkerAlt aria-hidden /> אני בסופר
+              </button>
+            </div>
+            {home.items.length > 0 && (
+              <button type="button" className="sh-fridge" onClick={() => { void flushSaves(); setMissingOpen(true); }}>
+                <span className="sh-fridge-handle" aria-hidden />
+                <FaSnowflake className="sh-fridge-icon" aria-hidden />
+                <span className="sh-fridge-text">
+                  <b>מה חסר?</b>
+                  <small>לך למקרר ותבדוק מה חסר?</small>
+                </span>
+              </button>
+            )}
             {itemCount > 0 && (
             <section className="sh-card" id="sh-list-body" aria-label="רשימת הקניות">
               <div className="sh-list-head">
@@ -694,6 +673,35 @@ export default function ShoppingPage() {
                 <button type="button" className="sh-link" onClick={() => setCompareError(false)}>לנסות שוב</button>
               </p>
             )}
+
+            <footer className="sh-home-foot">
+              <div className="sh-loc">
+                <FaMapMarkerAlt aria-hidden />
+                <span>
+                  <b>{CITIES.find((c) => c.id === city)?.name}</b>
+                  <small>{LOC_NOTE[cityMode === 'manual' ? 'manual' : loc]}</small>
+                </span>
+                <button type="button" className="sh-link sh-loc-change" onClick={() => setPickingCity(!pickingCity)}
+                  aria-expanded={pickingCity} aria-controls="sh-loc-pick">
+                  {pickingCity ? 'סגירה' : 'שינוי'}
+                </button>
+              </div>
+              {pickingCity && (
+                <div className="sh-loc-pick" id="sh-loc-pick" role="radiogroup" aria-label="עיר">
+                  <button type="button" className={`sh-chip ${cityMode === 'auto' ? 'is-on' : ''}`} onClick={useMyLocation}
+                    role="radio" aria-checked={cityMode === 'auto'}>
+                    <FaLocationArrow aria-hidden /> לפי המיקום
+                  </button>
+                  {CITIES.map((c) => (
+                    <button key={c.id} type="button" role="radio" aria-checked={cityMode === 'manual' && city === c.id}
+                      className={`sh-chip ${cityMode === 'manual' && city === c.id ? 'is-on' : ''}`} onClick={() => pickCity(c.id)}>
+                      {c.name}
+                    </button>
+                  ))}
+                </div>
+              )}
+              <SettingsMenu settings={settings} onChange={changeSettings} />
+            </footer>
           </>
         )}
         {(hits?.some((h) => h.img && h.imgBy === 'off') || Object.values(result?.items ?? {}).some((i) => i.img && i.imgBy === 'off')) && (
@@ -722,6 +730,13 @@ export default function ShoppingPage() {
               // Ending took what was bought off the list.
               void refreshHome();
             }} />
+        )}
+        {myItemsOpen && home && (
+          <MyItemsSheet items={home.items} meta={home.meta} onChange={setMyItems} onClose={() => setMyItemsOpen(false)}>
+            {settings?.nutritionHero && home.list.length > 0 && (
+              <NutritionHero lines={home.list.map((i) => ({ key: i.key, qty: i.qty, name: i.name }))} />
+            )}
+          </MyItemsSheet>
         )}
         {missingOpen && home && (
           <Missing items={home.items} list={home.list} meta={home.meta} city={city} onSaveItem={saveItemNow}

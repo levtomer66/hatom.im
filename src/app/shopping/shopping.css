@@ -302,18 +302,59 @@ body:has(.sh-page) { background: #ffffff; }
   border-radius: var(--sh-r-group);
   background: var(--sh-surface);
 }
-/* ── My items, "מה חסר?" and the list ── */
-.sh-myitems { padding-block: 0; }
-.sh-myitems-head {
-  display: flex; align-items: center; justify-content: space-between; width: 100%;
-  min-height: var(--sh-tap); padding: 0.5rem 0; border: 0; background: none;
-  color: var(--sh-ink); font: inherit; font-weight: 600; cursor: pointer;
+/* ── the home view: logo, search, two buttons; location and settings at the foot ── */
+.sh-home-head { margin: 2.5rem 0 1.5rem; text-align: center; }
+.sh-logo { margin: 0; font-size: 2.25rem; font-weight: 700; letter-spacing: -0.02em; line-height: 1.1; }
+.sh-logo span { color: var(--sh-accent); }
+.sh-home-actions { display: flex; justify-content: center; gap: 0.75rem; margin: 1rem 0 1.5rem; }
+.sh-home-btn { display: inline-flex; align-items: center; gap: 0.5rem; padding-inline: 1.125rem; border-radius: 999px; }
+.sh-home-btn svg { color: var(--sh-accent); }
+.sh-home-btn small { min-width: 1.5em; padding: 0 0.4em; border-radius: 999px; background: var(--sh-accent-soft); color: var(--sh-accent); font-size: 0.75rem; font-weight: 600; text-align: center; }
+.sh-home-foot {
+  position: relative; display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem;
+  margin-top: 2.5rem; padding-top: 0.75rem; border-top: 1px solid var(--sh-line);
 }
-.sh-myitems-head small { font-weight: 400; color: var(--sh-muted); }
-.sh-myitems-head svg { transition: transform 0.15s; }
-.sh-myitems-head svg.is-open { transform: rotate(180deg); }
+.sh-home-foot .sh-loc { flex: 1; min-width: 0; margin: 0; }
+.sh-home-foot .sh-loc-pick { flex-basis: 100%; order: 3; margin: 0.25rem 0 0; }
+.sh-home-foot .sh-settings { position: relative; top: auto; inset-inline-end: auto; }
+.sh-home-foot .sh-settings-pop { top: auto; bottom: calc(100% + 4px); }
+
+/* "מה חסר?": a fridge door — a cold panel, a handle on the hinge side, frost in the corner */
+.sh-fridge {
+  --fr-door: #eef4ff; --fr-edge: #cddcfb; --fr-handle: #9fb7ec; --fr-ink: #10265e; --fr-frost: #6f90e0;
+  position: relative; display: flex; align-items: center; gap: 1rem; width: 100%;
+  min-height: 92px; margin: 0 0 1.5rem; padding: 1.125rem 1.25rem; padding-inline-end: 2.5rem;
+  border: 1px solid var(--fr-edge); border-radius: 22px;
+  background: linear-gradient(160deg, #ffffff 0%, var(--fr-door) 55%, #e2ebfd 100%);
+  box-shadow: inset 0 1px 0 #ffffff, 0 8px 20px -14px rgba(26, 75, 224, 0.45);
+  color: var(--fr-ink); font: inherit; text-align: start; cursor: pointer; overflow: hidden;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.sh-fridge::after { /* the door seal */
+  content: ""; position: absolute; inset: 6px; border-radius: 17px; border: 1px dashed var(--fr-edge); pointer-events: none;
+}
+.sh-fridge:hover { transform: translateY(-1px); box-shadow: inset 0 1px 0 #ffffff, 0 12px 26px -14px rgba(26, 75, 224, 0.55); }
+.sh-fridge:active { transform: translateY(0) scale(0.99); }
+.sh-fridge-handle {
+  position: absolute; inset-inline-end: 14px; top: 50%; width: 6px; height: 46px; translate: 0 -50%;
+  border-radius: 3px; background: linear-gradient(90deg, var(--fr-handle), #c9d7f6);
+}
+.sh-fridge-icon { flex: none; font-size: 1.75rem; color: var(--fr-frost); }
+.sh-fridge-text { display: flex; flex-direction: column; gap: 0.125rem; }
+.sh-fridge-text b { font-size: 1.25rem; font-weight: 700; }
+.sh-fridge-text small { font-size: 0.9375rem; opacity: 0.8; }
+@media (prefers-color-scheme: dark) {
+  .sh-fridge {
+    --fr-door: #162040; --fr-edge: #2a3b6e; --fr-handle: #4f66a8; --fr-ink: #e6ecff; --fr-frost: #8aa7ff;
+    background: linear-gradient(160deg, #1d2a52 0%, var(--fr-door) 55%, #111a35 100%);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 8px 20px -14px rgba(0, 0, 0, 0.8);
+  }
+  .sh-fridge-handle { background: linear-gradient(90deg, var(--fr-handle), #34467e); }
+}
+@media (prefers-reduced-motion: reduce) { .sh-fridge { transition: none; } .sh-fridge:hover { transform: none; } }
+
+.sh-myitems .sh-h2 { margin: 0 0 0.75rem; padding-inline-end: 2.5rem; }
 .sh-myitems-remove { color: var(--sh-muted); }
-.sh-missing-entry { width: 100%; margin: 0 0 1.25rem; min-height: 52px; font-size: 1.0625rem; }
 .sh-list-head { display: flex; align-items: center; gap: 0.5rem; padding: 0.75rem 0 0.5rem; }
 .sh-list-head .sh-btn { display: inline-flex; align-items: center; gap: 0.5rem; }
 .sh-missing .sh-h2 { margin: 0 0 0.75rem; padding-inline-end: 2.5rem; }
