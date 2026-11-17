@@ -84,6 +84,25 @@ export async function searchItemsAtlas(q: string): Promise<ItemDoc[] | null> {
   }
 }
 
+/**
+ * For "לא היה": items the store sells, in the same department (when known),
+ * whose name has one of `words`; cheapest first, at most 5.
+ */
+export async function findAlternatives(store: number, d: string | null, words: string[], exclude: string) {
+  const esc = (w: string) => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const sk = `p.${store}`;
+  const docs = await (await getDb())
+    .collection<ItemDoc>(COLLECTIONS.items)
+    .find({ [sk]: { $exists: true }, _id: { $ne: exclude }, ...(d ? { d } : {}), n: { $regex: words.map(esc).join('|') } })
+    .project<ItemDoc>({ n: 1, w: 1, img: 1, d: 1, [sk]: 1 })
+    .limit(200)
+    .toArray();
+  return docs
+    .map((x) => ({ key: x._id, name: x.n, w: x.w, img: x.img ?? null, d: x.d ?? null, price: x.p[String(store)] }))
+    .sort((a, b) => a.price - b.price)
+    .slice(0, 5);
+}
+
 export async function getItems(keys: string[]): Promise<ItemDoc[]> {
   return (await getDb()).collection<ItemDoc>(COLLECTIONS.items).find({ _id: { $in: keys } }).toArray();
 }

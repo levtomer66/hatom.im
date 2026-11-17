@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { groupByDepartment, parseTripCreate, parseTripPatch, progress, withPending, type TripItem } from '../shopping/trips.ts';
+import { applyStopsChange, dealNudge, groupByDepartment, parseTripCreate, parseTripPatch, progress, withPending, type TripItem } from '../shopping/trips.ts';
 import { DEPARTMENTS } from '../shopping/departments.ts';
 
 const item = (key: string, d: string | null, cost = 100): TripItem => ({ key, name: key, qty: 1, w: false, cost, d, img: null });
@@ -55,4 +55,41 @@ test('taps still in flight win over the server\'s older answer', () => {
   // An untick in flight hides a tick the server still reports.
   assert.deepEqual(withPending(['a', 'b'], new Map([['a', false]])), ['b']);
   assert.deepEqual(withPending(['a'], new Map()), ['a']);
+});
+
+const stops = () => [
+  { store: 1, storeName: 'A', items: [item('a', null, 300), item('b', null, 200)] },
+  { store: 2, storeName: 'B', items: [item('c', null, 500)] },
+];
+
+test('"לא היה": swap, move to another stop, change quantity', () => {
+  const swapped = applyStopsChange(stops(), { replace: { key: 'a', item: item('z', null, 250) } })!;
+  assert.deepEqual(swapped[0].items.map((i) => i.key), ['z', 'b']);
+  assert.equal(applyStopsChange(stops(), { replace: { key: 'a', item: item('c', null, 1) } }), null); // already on the trip
+  const moved = applyStopsChange(stops(), { move: { key: 'b', toStore: 2 } })!;
+  assert.deepEqual(moved.map((s) => s.items.map((i) => i.key)), [['a'], ['c', 'b']]);
+  assert.equal(applyStopsChange(stops(), { move: { key: 'b', toStore: 9 } }), null);
+  const more = applyStopsChange(stops(), { qty: { key: 'a', qty: 3 } })!;
+  assert.deepEqual([more[0].items[0].qty, more[0].items[0].cost], [3, 900]);
+  assert.equal(applyStopsChange(stops(), { qty: { key: 'nope', qty: 2 } }), null);
+});
+
+test('items marked "לא היה" leave the progress', () => {
+  const p = progress({ estimate: 1000, ticked: ['a'], notThere: ['c'], stops: stops() });
+  assert.deepEqual(p, { done: 300, total: 500, count: 1, of: 2 });
+});
+
+test('deal nudge only when the deal needs a few more units', () => {
+  const it = { ...item('a', null), qty: 2, deal: { text: '3ב20', minQty: 3 } };
+  assert.deepEqual(dealNudge(it), { text: '3ב20', add: 1 });
+  assert.equal(dealNudge({ ...it, qty: 3 }), null);
+  assert.equal(dealNudge({ ...it, deal: { text: 'x', minQty: 20 } }), null); // too many to suggest
+  assert.equal(dealNudge({ ...it, w: true }), null);
+});
+
+test('patch shapes for the new actions', () => {
+  assert.equal(parseTripPatch({ notThere: { key: 'a', on: true } }).ok, true);
+  assert.equal(parseTripPatch({ move: { key: 'a', toStore: 2 } }).ok, true);
+  assert.equal(parseTripPatch({ qty: { key: 'a', qty: 0 } }).ok, false);
+  assert.equal(parseTripPatch({ replace: { key: 'a', item: { key: 'z' } } }).ok, false);
 });

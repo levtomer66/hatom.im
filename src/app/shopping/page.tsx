@@ -26,7 +26,7 @@
  */
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { FaMinus, FaPlus, FaTrash, FaSearch, FaChevronDown, FaTimes, FaCheck, FaPen, FaShoppingBasket, FaBarcode, FaMapMarkerAlt, FaLocationArrow, FaLock, FaShoppingCart, FaArrowRight } from 'react-icons/fa';
+import { FaMinus, FaPlus, FaTrash, FaSearch, FaChevronDown, FaTimes, FaCheck, FaPen, FaShoppingBasket, FaBarcode, FaMapMarkerAlt, FaLocationArrow, FaLock, FaShoppingCart, FaArrowRight, FaEllipsisH } from 'react-icons/fa';
 import dynamic from 'next/dynamic';
 import Navbar from '@/components/Navbar';
 import { CITIES } from '@/lib/shopping/cities';
@@ -35,7 +35,7 @@ import { SHOPPING_API_PATH } from '@/lib/shopping/config';
 import { normalizeQty, type ShoppingList, type ShoppingListItem } from '@/lib/shopping/lists';
 import type { CompareResponse, ShoppingPlan, ItemBest, ItemPrice, ItemResponse, ManualPriceResponse, PriceSource, PromoDetail, SearchHit, StoreInfo } from '@/lib/shopping/api-types';
 import type { LineResult, Offer, PromoRef, StoreBasket } from '@/lib/shopping/pricing';
-import { groupByDepartment, progress, withPending, type PlanKind, type Trip, type TripCreate } from '@/lib/shopping/trips';
+import { dealNudge, groupByDepartment, progress, withPending, type PlanKind, type Trip, type TripCreate, type TripItem } from '@/lib/shopping/trips';
 
 const money = new Intl.NumberFormat('he-IL', { style: 'currency', currency: 'ILS', minimumFractionDigits: 2 });
 const ils = (agorot: number) => money.format(agorot / 100);
@@ -1603,7 +1603,12 @@ function tripSnapshot(result: CompareResponse, plan: ShoppingPlan, listId: strin
       storeName: storeName(result.stores[s.store]),
       items: s.basket.lines.filter((l) => l.available).map((l) => {
         const it = result.items[l.key];
-        return { key: l.key, name: it?.name ?? l.key, qty: l.qty, w: it?.w ?? false, cost: l.cost, d: it?.d ?? null, img: it?.img ?? null };
+        // A deal this quantity doesn't reach yet, for the in-store "add one more?" nudge.
+        const idle = (result.idle?.[`${s.store}|${l.key}`] ?? []).map((id) => result.promos?.[id]).find((p) => p?.minQty && p.minQty > l.qty);
+        return {
+          key: l.key, name: it?.name ?? l.key, qty: l.qty, w: it?.w ?? false, cost: l.cost, d: it?.d ?? null, img: it?.img ?? null,
+          deal: idle ? { text: idle.description, minQty: idle.minQty! } : null,
+        };
       }),
     })),
     missing: plan.missing.map((k) => ({ key: k, name: result.items[k]?.name ?? k })),
@@ -1643,9 +1648,14 @@ function InStore({ trip, onTrip, onClose, onEnded }: {
   useWakeLock();
   const [stopIdx, setStopIdx] = useState(0);
   const [error, setError] = useState(false);
+  /** The row whose "לא היה" options are open, and the end-of-trip form. */
+  const [menuFor, setMenuFor] = useState<string | null>(null);
+  const [ending, setEnding] = useState(false);
   const ticked = new Set(trip.ticked);
+  const gone = new Set(trip.notThere ?? []);
   const stop = trip.stops[Math.min(stopIdx, trip.stops.length - 1)];
-  const groups = groupByDepartment(stop.items, ticked);
+  // Ticked and "לא היה" items both sink to the bottom of their department.
+  const groups = groupByDepartment(stop.items, new Set([...ticked, ...gone]));
   const prog = progress(trip);
 
   useEffect(() => {
@@ -1766,10 +1776,19 @@ function InStore({ trip, onTrip, onClose, onEnded }: {
       document.removeEventListener('visibilitychange', onOnline);
     };
   }, [trip.id, flush, adopt]);
-  const end = async () => {
-    if (!window.confirm('לסיים את הקנייה?')) return;
+  /** A change other than a tick ("לא היה", swap, move, +1): needs a connection, applied from the server's answer. */
+  const change = async (body: Record<string, unknown>) => {
     try {
-      await api(`/trips/${trip.id}`, { method: 'PATCH', body: JSON.stringify({ end: {} }) });
+      adopt(await api<Trip>(`/trips/${trip.id}`, { method: 'PATCH', body: JSON.stringify(body) }));
+      setMenuFor(null);
+      setError(false);
+    } catch {
+      setError(true);
+    }
+  };
+  const end = async (paid: number | null) => {
+    try {
+      await api(`/trips/${trip.id}`, { method: 'PATCH', body: JSON.stringify({ end: { paid } }) });
       onEnded();
     } catch {
       setError(true);
@@ -1784,7 +1803,7 @@ function InStore({ trip, onTrip, onClose, onEnded }: {
           <b>{trip.stops.length > 1 ? 'הכי זול' : stop.storeName}</b>
           <small>{ils(prog.done)} מתוך {ils(prog.total)} · {prog.count}/{prog.of}</small>
         </div>
-        <button type="button" className="sh-btn sh-btn--ghost" onClick={end}>סיום קנייה</button>
+        <button type="button" className="sh-btn sh-btn--ghost" onClick={() => setEnding(true)}>סיום קנייה</button>
       </header>
       <div className="sh-instore-bar" aria-hidden><span style={{ width: `${prog.of ? (100 * prog.count) / prog.of : 0}%` }} /></div>
       {trip.stops.length > 1 && (
@@ -1810,14 +1829,29 @@ function InStore({ trip, onTrip, onClose, onEnded }: {
             <ul>
               {g.items.map((it) => {
                 const done = ticked.has(it.key);
+                const missing = gone.has(it.key);
+                const nudge = !done && !missing ? dealNudge(it) : null;
                 return (
-                  <li key={it.key}>
-                    <button type="button" className={`sh-tick ${done ? 'is-done' : ''}`} onClick={() => tick(it.key)} aria-pressed={done}>
+                  <li key={it.key} className={`sh-tick-row ${missing ? 'is-gone' : ''}`}>
+                    <button type="button" className={`sh-tick ${done ? 'is-done' : ''}`} onClick={() => tick(it.key)} aria-pressed={done} disabled={missing}>
                       <span className="sh-tick-box" aria-hidden>{done && <FaCheck />}</span>
                       <Thumb src={it.img} size={40} />
-                      <span className="sh-tick-name">{it.name}<small>{qtyLabel(it.qty, it.w)}</small></span>
+                      <span className="sh-tick-name">{it.name}<small>{missing ? 'לא היה' : qtyLabel(it.qty, it.w)}</small></span>
                       <span className="sh-tick-cost">{ils(it.cost)}</span>
                     </button>
+                    {!done && (
+                      <button type="button" className="sh-icon-btn sh-tick-more" onClick={() => setMenuFor(menuFor === it.key ? null : it.key)}
+                        aria-expanded={menuFor === it.key} aria-label={`לא היה, או אפשרויות: ${it.name}`}><FaEllipsisH /></button>
+                    )}
+                    {nudge && (
+                      <p className="sh-nudge">
+                        <span>מבצע {nudge.text}: יש לך {it.qty}, להוסיף עוד {nudge.add === 1 ? 'אחד' : nudge.add}?</span>
+                        <button type="button" className="sh-btn sh-btn--ghost" onClick={() => change({ qty: { key: it.key, qty: it.qty + nudge.add } })}>+{nudge.add}</button>
+                      </p>
+                    )}
+                    {menuFor === it.key && (
+                      <NotThere item={it} stop={stop} trip={trip} missing={missing} onChange={change} />
+                    )}
                   </li>
                 );
               })}
@@ -1827,6 +1861,85 @@ function InStore({ trip, onTrip, onClose, onEnded }: {
         {trip.missing.length > 0 && stopIdx === trip.stops.length - 1 && (
           <p className="sh-instore-missing">לא בתוכנית: {trip.missing.map((m) => m.name).join(', ')}</p>
         )}
+      </div>
+      {ending && <EndTrip estimate={prog.total} onEnd={end} onCancel={() => setEnding(false)} />}
+    </div>
+  );
+}
+
+/**
+ * "לא היה": the cheapest similar items in the same department at this store
+ * (tap one to swap it in), another stop of the plan, or skip the item.
+ */
+function NotThere({ item, stop, trip, missing, onChange }: {
+  item: TripItem;
+  stop: Trip['stops'][number];
+  trip: Trip;
+  missing: boolean;
+  onChange: (body: Record<string, unknown>) => void;
+}) {
+  const [alts, setAlts] = useState<{ key: string; name: string; w: boolean; img: string | null; d: string | null; price: number }[] | null>(null);
+  useEffect(() => {
+    const ctl = new AbortController();
+    fetch(`${SHOPPING_API_PATH}/alternatives?key=${encodeURIComponent(item.key)}&store=${stop.store}`, { signal: ctl.signal })
+      .then((r) => (r.ok ? r.json() : []))
+      .then(setAlts)
+      .catch(() => setAlts([]));
+    return () => ctl.abort();
+  }, [item.key, stop.store]);
+  const onTrip = new Set(trip.stops.flatMap((s) => s.items.map((i) => i.key)));
+  const others = trip.stops.filter((s) => s.store !== stop.store);
+  return (
+    <div className="sh-notthere">
+      {missing ? (
+        <button type="button" className="sh-btn sh-btn--ghost" onClick={() => onChange({ notThere: { key: item.key, on: false } })}>בכל זאת היה</button>
+      ) : (
+        <>
+          <p className="sh-notthere-title">לא היה כאן? במקום:</p>
+          {alts === null && <p className="sh-muted">מחפש דומים…</p>}
+          {alts?.filter((a) => !onTrip.has(a.key)).map((a) => (
+            <button key={a.key} type="button" className="sh-alt" onClick={() => onChange({
+              // Same kind (both by weight, or both units): same quantity; otherwise one unit, or 1 kg.
+              replace: { key: item.key, item: (() => {
+                const qty = a.w === item.w ? item.qty : 1;
+                return { key: a.key, name: a.name, qty, w: a.w, cost: Math.round(a.price * qty), d: a.d, img: a.img };
+              })() },
+            })}>
+              <Thumb src={a.img} size={32} />
+              <span>{a.name}</span>
+              <b>{ils(a.price)}</b>
+            </button>
+          ))}
+          {alts?.length === 0 && <p className="sh-muted">לא מצאנו מוצר דומה בחנות הזאת.</p>}
+          {others.map((o) => (
+            <button key={o.store} type="button" className="sh-btn sh-btn--ghost" onClick={() => onChange({ move: { key: item.key, toStore: o.store } })}>
+              לקנות ב{o.storeName}
+            </button>
+          ))}
+          <button type="button" className="sh-btn sh-btn--ghost" onClick={() => onChange({ notThere: { key: item.key, on: true } })}>לדלג, לא היה</button>
+        </>
+      )}
+    </div>
+  );
+}
+
+/** End of trip: the estimate, and optionally what was actually paid. */
+function EndTrip({ estimate, onEnd, onCancel }: { estimate: number; onEnd: (paid: number | null) => void; onCancel: () => void }) {
+  const [paid, setPaid] = useState('');
+  const agorot = parseAgorot(paid);
+  return (
+    <div className="sh-end" role="dialog" aria-label="סיום קנייה">
+      <p className="sh-end-title">{ils(estimate)} נאמד. כמה שילמת?</p>
+      <label className="sh-money-input sh-end-input">
+        <input type="text" inputMode="decimal" value={paid} onChange={(e) => setPaid(e.target.value)} placeholder="לא חובה" aria-label="כמה שילמת" />
+        <span aria-hidden>₪</span>
+      </label>
+      {agorot !== null && agorot !== undefined && agorot !== estimate && (
+        <p className="sh-muted">{agorot < estimate ? `${ils(estimate - agorot)} פחות מהאומדן` : `${ils(agorot - estimate)} יותר מהאומדן`}</p>
+      )}
+      <div className="sh-end-actions">
+        <button type="button" className="sh-btn sh-btn--primary" disabled={agorot === undefined} onClick={() => onEnd(agorot ?? null)}>סיום הקנייה</button>
+        <button type="button" className="sh-btn sh-btn--ghost" onClick={onCancel}>עוד לא</button>
       </div>
     </div>
   );

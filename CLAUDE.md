@@ -340,6 +340,16 @@ Identity = Gmail address. Two roles:
   Where `$search` fails (Docker Mongo, index missing) it falls back to the
   regex search and skips Atlas for 5 minutes. Create the index on a new
   cluster with `npm run shopping:search-index` (`-- --show` to inspect).
+- **Plans and trips** (docs/shopping-in-store-mode.md): the compare route
+  returns `plans` (one store, and the cheapest over ≤ 3 stores via
+  `choosePlan` in `plans.ts`, each stop re-priced; a split pays from ₪15).
+  "יוצאים לקניות" starts a trip (`shoppingTrips`, model ShoppingTrip, rules in
+  `trips.ts`): one open trip per list, a snapshot of the plan's items with
+  department `d`, reachable by whoever can see the list. The in-store screen
+  polls every 5 s while visible; ticks made offline wait in localStorage and
+  `withPending` keeps unanswered taps from being undone. Swaps and moves
+  rewrite `stops` with a `rev` check. "לא היה" suggestions come from
+  `/api/shopping/alternatives` (same department, shared word, cheapest).
   Neighbourhood shops are priced by hand in <ManualPrices> (one PUT to
   `/api/shopping/manual-prices` per field, then a re-compare); the contract
   is in the header comment of `src/app/shopping/page.tsx`.

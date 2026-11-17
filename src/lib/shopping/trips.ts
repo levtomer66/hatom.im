@@ -18,6 +18,8 @@ export interface TripItem {
   /** Department id (departments.ts), or null: shown under "אחר". */
   d: string | null;
   img: string | null;
+  /** A deal this quantity doesn't reach yet ("3ב20" from 3 units), for the in-store nudge. */
+  deal?: { text: string; minQty: number } | null;
 }
 
 export interface TripStop {
@@ -38,6 +40,8 @@ export interface Trip {
   estimate: number;
   /** Item keys ticked so far (anyone on the trip). */
   ticked: string[];
+  /** Item keys marked "לא היה" (not on the shelf); they don't count toward progress. */
+  notThere: string[];
   startedBy: string;
   startedAt: string;
   endedAt: string | null;
@@ -49,6 +53,13 @@ export type TripCreate = Pick<Trip, 'listId' | 'plan' | 'city' | 'stops' | 'miss
 
 export type TripPatch =
   | { tick: { key: string; on: boolean } }
+  | { notThere: { key: string; on: boolean } }
+  /** Swap an item for another product (the "לא היה" suggestion). */
+  | { replace: { key: string; item: TripItem } }
+  /** Buy an item at another stop of the plan instead. */
+  | { move: { key: string; toStore: number } }
+  /** Change an item's quantity (the deal nudge's "+1"); its cost scales with it. */
+  | { qty: { key: string; qty: number } }
   | { end: { paid: number | null } };
 
 const MAX_STOPS = 3;
@@ -66,7 +77,10 @@ function parseItem(raw: unknown): TripItem | null {
   if (!isAgorot(r.cost)) return null;
   const d = typeof r.d === 'string' && r.d.length <= 40 ? r.d : null;
   const img = typeof r.img === 'string' && r.img.startsWith('https://') && r.img.length <= 500 ? r.img : null;
-  return { key: r.key, name: r.name, qty: r.qty, w: r.w === true, cost: r.cost, d, img };
+  const dl = r.deal as Record<string, unknown> | null | undefined;
+  const deal = dl && isStr(dl.text) && typeof dl.minQty === 'number' && dl.minQty > 0 && dl.minQty <= 100
+    ? { text: dl.text, minQty: dl.minQty } : null;
+  return { key: r.key, name: r.name, qty: r.qty, w: r.w === true, cost: r.cost, d, img, deal };
 }
 
 export function parseTripCreate(body: unknown): Result<TripCreate> {
@@ -106,6 +120,27 @@ export function parseTripPatch(body: unknown): Result<TripPatch> {
     const t = b.tick as Record<string, unknown>;
     if (!isStr(t.key, 60) || typeof t.on !== 'boolean') return { ok: false, error: 'tick needs key and on' };
     return { ok: true, value: { tick: { key: t.key, on: t.on } } };
+  }
+  if (b.notThere && typeof b.notThere === 'object') {
+    const t = b.notThere as Record<string, unknown>;
+    if (!isStr(t.key, 60) || typeof t.on !== 'boolean') return { ok: false, error: 'notThere needs key and on' };
+    return { ok: true, value: { notThere: { key: t.key, on: t.on } } };
+  }
+  if (b.replace && typeof b.replace === 'object') {
+    const t = b.replace as Record<string, unknown>;
+    const item = parseItem(t.item);
+    if (!isStr(t.key, 60) || !item) return { ok: false, error: 'replace needs key and a valid item' };
+    return { ok: true, value: { replace: { key: t.key, item } } };
+  }
+  if (b.move && typeof b.move === 'object') {
+    const t = b.move as Record<string, unknown>;
+    if (!isStr(t.key, 60) || !Number.isInteger(t.toStore)) return { ok: false, error: 'move needs key and toStore' };
+    return { ok: true, value: { move: { key: t.key, toStore: t.toStore as number } } };
+  }
+  if (b.qty && typeof b.qty === 'object') {
+    const t = b.qty as Record<string, unknown>;
+    if (!isStr(t.key, 60) || typeof t.qty !== 'number' || !(t.qty > 0) || t.qty > 100) return { ok: false, error: 'qty needs key and 0 < qty ≤ 100' };
+    return { ok: true, value: { qty: { key: t.key, qty: t.qty } } };
   }
   if (b.end && typeof b.end === 'object') {
     const paid = (b.end as Record<string, unknown>).paid;
@@ -150,12 +185,13 @@ export function groupByDepartment(items: TripItem[], ticked: Set<string>): Depar
 }
 
 /** "₪84 מתוך ₪132": the ticked items' estimated cost against the trip's estimate. */
-export function progress(trip: Pick<Trip, 'stops' | 'ticked' | 'estimate'>): { done: number; total: number; count: number; of: number } {
+export function progress(trip: Pick<Trip, 'stops' | 'ticked' | 'estimate'> & { notThere?: string[] }): { done: number; total: number; count: number; of: number } {
   const ticked = new Set(trip.ticked);
-  const all = trip.stops.flatMap((s) => s.items);
+  const gone = new Set(trip.notThere ?? []);
+  const all = trip.stops.flatMap((s) => s.items).filter((i) => !gone.has(i.key));
   return {
     done: all.filter((i) => ticked.has(i.key)).reduce((s, i) => s + i.cost, 0),
-    total: trip.estimate,
+    total: all.reduce((s, i) => s + i.cost, 0) || trip.estimate,
     count: all.filter((i) => ticked.has(i.key)).length,
     of: all.length,
   };
@@ -173,4 +209,39 @@ export function withPending(ticked: string[], pending: Map<string, boolean>): st
     else out.delete(key);
   }
   return [...out];
+}
+
+/**
+ * A trip's stops after a "לא היה" swap, a move to another stop or a quantity
+ * change. Returns null when the change doesn't apply (no such item, the
+ * target stop missing, the new product already on the trip).
+ */
+export function applyStopsChange(stops: TripStop[], p: Extract<TripPatch, { replace: unknown } | { move: unknown } | { qty: unknown }>): TripStop[] | null {
+  const key = 'replace' in p ? p.replace.key : 'move' in p ? p.move.key : p.qty.key;
+  const from = stops.findIndex((s) => s.items.some((i) => i.key === key));
+  if (from < 0) return null;
+  const item = stops[from].items.find((i) => i.key === key)!;
+  if ('replace' in p) {
+    if (stops.some((s) => s.items.some((i) => i.key === p.replace.item.key))) return null;
+    return stops.map((s, i) => (i === from ? { ...s, items: s.items.map((x) => (x.key === key ? p.replace.item : x)) } : s));
+  }
+  if ('move' in p) {
+    const to = stops.findIndex((s) => s.store === p.move.toStore);
+    if (to < 0 || to === from) return null;
+    return stops.map((s, i) => (
+      i === from ? { ...s, items: s.items.filter((x) => x.key !== key) }
+        : i === to ? { ...s, items: [...s.items, item] }
+          : s
+    ));
+  }
+  const unit = item.qty ? item.cost / item.qty : item.cost;
+  const changed = { ...item, qty: p.qty.qty, cost: Math.round(unit * p.qty.qty) };
+  return stops.map((s, i) => (i === from ? { ...s, items: s.items.map((x) => (x.key === key ? changed : x)) } : s));
+}
+
+/** The deal nudge for an item, if its deal needs more than it has: "יש לך 2, להוסיף עוד אחד?". */
+export function dealNudge(item: TripItem): { text: string; add: number } | null {
+  if (!item.deal || item.w) return null;
+  const add = item.deal.minQty - item.qty;
+  return add > 0 && add <= 5 ? { text: item.deal.text, add } : null;
 }
