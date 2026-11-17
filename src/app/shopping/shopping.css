@@ -1289,6 +1289,10 @@ body:has(.sh-page) { background: #ffffff; }
 .sh-nu-tile.is-red b { color: var(--sh-miss); }
 .sh-nu-tile.is-price { border: 1px solid var(--sh-accent); background: var(--sh-accent-soft); }
 .sh-nu-tile.is-price b { font-size: 1.125rem; }
+.sh-nu-tile.is-price span { font-weight: 600; }
+.sh-nu-tile.is-price.is-meh, .sh-nu-tile.is-price.is-bad { border-color: var(--sh-line); background: var(--sh-surface); }
+.sh-nu-tile.is-price.is-meh b, .sh-nu-tile.is-price.is-meh span { color: var(--sh-ink); }
+.sh-nu-tile.is-price.is-bad b, .sh-nu-tile.is-price.is-bad span { color: var(--sh-miss); }
 .sh-nu-source { margin: 0.5rem 0 0; font-size: 0.75rem; color: var(--sh-muted); }
 .sh-nu-source a { color: inherit; text-decoration: underline; text-underline-offset: 3px; }
 

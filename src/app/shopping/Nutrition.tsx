@@ -10,7 +10,7 @@ import { FaCog, FaChevronDown } from 'react-icons/fa';
 import { SHOPPING_API_PATH } from '@/lib/shopping/config';
 import type { ItemResponse, NutritionResponse, ShoppingSettings } from '@/lib/shopping/api-types';
 import {
-  forGrams, HERO_NUTRIENTS, isFood, listNutrition, NUTRIENT_INFO, NUTRIENTS, proteinCost, RED_LABEL_TEXT, redLabels,
+  forGrams, HERO_NUTRIENTS, isFood, listNutrition, NUTRIENT_INFO, NUTRIENTS, proteinGramCost, proteinValue, RED_LABEL_TEXT, redLabels,
   type HeroNutrient, type Nutrition,
 } from '@/lib/shopping/nutrition';
 
@@ -29,9 +29,9 @@ const money = new Intl.NumberFormat('he-IL', { style: 'currency', currency: 'ILS
 
 /**
  * "ערכים תזונתיים", collapsed at the top of the product window. Under the
- * title, even when closed: one tile, the price of the shown amount (100 g,
- * or the pack when toggled) at the cheapest store and the protein in it —
- * nothing else; opened, it leads the nutrient tiles. Opened: the red-label marks, a toggle between per 100 g (ml)
+ * title, even when closed: one tile, "שקל לחלבון" — the average cost of
+ * 1 g of protein at the cheapest store — nothing else; opened, it leads the
+ * nutrient tiles. Opened: the red-label marks, a toggle between per 100 g (ml)
  * and the whole pack, one tile per nutrient, the source, and a reminder that
  * the package is what counts.
  */
@@ -56,13 +56,14 @@ export function NutritionPanel({ item, best }: {
   const grams = perPack && item.pack ? item.pack : 100;
   const red = redLabels(nu, item.liquid, item.d);
   const shown = NUTRIENTS.filter((k) => nu[k] !== null);
-  // What the shown amount (100 g or the pack) costs at the cheapest store, and the protein in it.
-  const pc = best ? proteinCost(best.cost, nu, item.pack, item.w, grams) : null;
-  const proteinTile = pc && best ? (
-    <li className="sh-nu-tile is-price" title={`במחיר הזול ביותר: ${best.store}${item.w ? ', לפי מחיר לק״ג' : ''}`}>
-      <b>{money.format(pc.agorot / 100)}</b>
-      <small>ל־{fmt(pc.protein, 1)} גרם</small>
-      <span>חלבון</span>
+  // "שקל לחלבון": the average cost of 1 g of protein at the cheapest store (the same per 100 g or per pack).
+  const perGram = best ? proteinGramCost(best.cost, nu, item.pack, item.w) : null;
+  const value = perGram !== null ? proteinValue(perGram) : null;
+  const proteinTile = perGram !== null && value && best ? (
+    <li className={`sh-nu-tile is-price is-${value.tone}`} title={`עלות ממוצעת ל־1 גרם חלבון, במחיר הזול ביותר: ${best.store}${item.w ? ', לפי מחיר לק״ג' : ''}`}>
+      <b>{money.format(perGram / 100)}</b>
+      <small>ל־1 גרם חלבון</small>
+      <span>{value.label}</span>
     </li>
   ) : null;
   return (

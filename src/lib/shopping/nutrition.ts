@@ -218,17 +218,29 @@ export function listNutrition(
 export const MIN_PROTEIN = 2;
 
 /**
- * The price of `grams` of the product and the protein in them, so the
- * protein tile follows the "ל־100 גרם | לאריזה" toggle: "₪6.67 ל־10 גרם
- * חלבון" per 100 g of Bamba nougat, "₪4.00 ל־6 גרם" for its 60 g pack.
- * `cost` buys one pack (1 kg when weighed). Null without protein, a pack
- * size or a price.
+ * "שקל לחלבון": the average cost of 1 g of protein, in agorot (not rounded)
+ * — one pack's price (1 kg's when weighed) over the protein in it. The same
+ * whether you look per 100 g or per pack. Tara cottage 5%, 250 g at ₪6.90
+ * with 25.3 g protein → 27.3 agorot. Null without protein, a pack size or a price.
  */
-export function proteinCost(
-  cost: number | null, nu: Nutrition | null, pack: number | null, w: boolean, grams: number,
-): { agorot: number; protein: number } | null {
-  if (cost === null || cost <= 0 || !nu || nu.p === null || nu.p < MIN_PROTEIN || grams <= 0) return null;
-  const packGrams = w ? 1000 : pack;
-  if (!packGrams) return null;
-  return { agorot: Math.round((cost * grams) / packGrams), protein: (nu.p * grams) / 100 };
+export function proteinGramCost(cost: number | null, nu: Nutrition | null, pack: number | null, w: boolean): number | null {
+  if (cost === null || cost <= 0 || !nu || nu.p === null || nu.p < MIN_PROTEIN) return null;
+  const grams = w ? 1000 : pack;
+  if (!grams) return null;
+  return cost / ((nu.p * grams) / 100);
 }
+
+/**
+ * How good a deal a protein cost per gram is (agorot), in the owner's bands
+ * (2026-11-17): chicken breast and protein powder ₪0.13–0.18 very good, tuna
+ * and cottage ₪0.22–0.30 good, protein puddings ₪0.30–0.40 pricey, protein
+ * bars ₪0.55–0.80 expensive.
+ */
+export const PROTEIN_VALUE = [
+  { upTo: 20, label: 'משתלם מאוד', tone: 'great' },
+  { upTo: 30, label: 'משתלם', tone: 'good' },
+  { upTo: 50, label: 'יקר יחסית', tone: 'meh' },
+  { upTo: Infinity, label: 'יקר', tone: 'bad' },
+] as const;
+
+export const proteinValue = (agorotPerGram: number) => PROTEIN_VALUE.find((b) => agorotPerGram <= b.upTo)!;
