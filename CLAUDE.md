@@ -20,7 +20,7 @@ several independent features under separate routes:
 | `/birthday-quiz`   | Host-driven Hebrew family quiz (permission `birthday-quiz`). Questions + pure reducer in `src/lib/birthday-quiz.ts`. |
 | `/laundry`         | Step-by-step laundry guide for our LG washer (permission `laundry`). Loads, doses + step builder in `src/lib/laundry.ts`; photos in `public/laundry/`. |
 | `/calendar`        | Milestones calendar: birthdays, anniversaries, one-off events (permission `calendar`). Mongo `calendarEvents`; date math in `src/lib/calendar.ts`. |
-| `/shopping`        | Grocery price comparison across chains (permission `shopping`). Shared lists in Mongo `shoppingLists`; price data written by a local ingest job. |
+| `/shopping`        | Grocery price comparison across chains (permission `shopping`). Household My items + one list in Mongo `shoppingHome`; price data written by a local ingest job. |
 
 Default branch is `main`. Pushes to `main` auto-deploy to Production via
 Vercel's GitHub integration. There is no separate `master` branch.
@@ -325,12 +325,16 @@ Identity = Gmail address. Two roles:
   take a free-text product (best search match, runner-ups named) and an
   optional `city` that falls back to the user's saved `settings.city`.
 - **UI** at `SHOPPING_BASE_PATH` (`src/lib/shopping/config.ts`; the middleware
-  `matcher` literal must move with it). A list is shared by everyone holding
-  `shopping` or personal to its creator (`shared: false`; lists saved before
-  the field count as shared). The model only reaches lists the caller may
-  see, so a personal list is a 404 to others, and only its creator may change
-  `shared` (`canSee` / `canChangeSharing` in `lists.ts`). New lists start
-  personal; the automatic first list is shared. `/api/shopping/compare` loads only the
+  `matcher` literal must move with it). There are no named lists: one
+  household doc (`shoppingHome`, `_id: 'home'`, model `src/models/ShoppingHome.ts`,
+  pure rules in `src/lib/shopping/home.ts`) holds **My items** (usual products
+  with a usual quantity; search, scan and the product window save there) and
+  the **one shopping list**, filled from My items by "מה חסר?". Everyone with
+  `shopping` shares both. Ending a trip `$pull`s the ticked lines (not-there
+  ones stay); every trip has `listId: 'home'`. The doc is built once from the
+  old `shoppingLists` (left untouched, read only by that migration).
+  Spec: `docs/superpowers/specs/2026-11-18-shopping-my-items-design.md`.
+  `/api/shopping/compare` loads only the
   basket items, their promos (`items` index) and the city's stores, then runs
   `rankStores`/`bestSplits` in the request. Physical and online stores are
   ranked separately; stores whose `pricesAt` is null are never shown.
