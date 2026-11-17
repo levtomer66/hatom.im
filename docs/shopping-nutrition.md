@@ -19,8 +19,10 @@ research: 33/100 top items with a front image; the API search loop fails).
 | | |
 |---|---|
 | Dataset | data.gov.il `nutrition-database`, "מאגר התזונה הלאומי הישראלי", Ministry of Health (Nutrition Department) |
-| Licence | "Other (Open)" on data.gov.il. **To do:** read the dataset page's terms for attribution wording; credit "משרד הבריאות – מאגר התזונה הלאומי" where values are shown |
-| Foods | `moh_mitzrachim.csv`: **4,624 foods**, values **per 100 g**, 74 nutrients, an update date per row (`tarich_idkun`). Dataset last modified 2023-03 |
+| Licence | "Other (Open)" = data.gov.il's site licence (terms of use, updated 2025-08-30): free, commercial use allowed, **the source must be named** ("עליך לציין את מקור המידע", no fixed wording), no implying state endorsement. Credit line: "מקור: משרד הבריאות, מאגר התזונה הלאומי (data.gov.il)" |
+| Foods | `moh_mitzrachim.csv`: **4,624 foods**, values **per 100 g**, 74 nutrients, an update date per row (`tarich_idkun`). File last modified 2022-10-26 |
+| Access | The CSV download URLs answer **403** to scripts (CloudFront). The data.gov.il **datastore API** serves the same tables: `datastore_search?resource_id=…&limit=5000&offset=…` (foods `c3cb0630-…`, unit weights `755d28c0-…`, units `98fb46fe-…`). Use the API; never work around the 403 |
+| `makor` | Source per row: 3 = manufacturer label (1,257), 1 = generic foods (1,130; the dataset names USDA among its sources), 2 = manufacturer (533), 4 = home recipes (1,401, skip), null = "FFQ-…" survey groups (skip) |
 | Units | `moh_yehidot_mida_lemitzrachim.csv`: 19,024 rows (food code × measure → grams), e.g. "יחידה בינונית", "כוס"; measure names in `moh_yehidot_mida.csv` (108 measures) |
 | Recipes | `moh_matkonim_*.csv`, ~1,400 cooked dishes. Not needed |
 | Barcodes | **None.** Matching is by name and maker |
@@ -90,12 +92,13 @@ In `ProductSheet`, under the prices, a section **"ערכים תזונתיים"**
   resort, from the same sheet.
 - Credit line as above.
 
-**Layout inspiration (to do).** The owner asked to model the table and the
-multipack display on how existing sites show it. A fetch of Open Food Facts,
-Rami Levy and Yochananof product pages returned nothing (pages are rendered by
-JavaScript or the host failed), so this needs a look in a real browser:
-2–3 Israeli grocery sites and OFF, screenshots into this doc, then settle the
-columns above.
+**Layout, as Rami Levy shows it** (looked at in a browser, 2026-11-17, במבה
+80 g): a collapsed "סימון תזונתי" section under the ingredients, with a
+"ל-100 גרם | למנה" toggle (the serving, 25 g, from the label's "מידע נוסף") and
+one tile per nutrient: a big number, its unit, then the name (534 קלוריות, 30 גרם
+שומנים, 3.9 גרם רוויות…), scrolling sideways. Below: a note that the package's
+label wins over the site. Take: the toggle (per 100 g / per unit or pack) instead
+of three columns, and tiles in the hero's style; keep the "the package wins" line.
 
 ## Red-label thresholds (Israeli front-of-package warning)
 
@@ -106,14 +109,23 @@ The regulation's **stage 2, in force since 1 January 2021**:
 | Solid (g) | > 400 mg | > 10 g | > 4 g |
 | Liquid (ml) | > 300 mg | > 5 g | > 3 g |
 
-Sources: the solid values agree in Campden BRI's summary and Gillon-Keren et
-al., *Nutrients* 2020;12(6):1875 (PMC7353345, Appendix B). The **liquid values
-come from that paper alone** and must be checked against the regulation text
-(תקנות בריאות העם (מזון) (סימון תזונתי), § 5) before shipping. Exempt from the
-label on packages: non-prepacked food (produce, loose meat) and packages under
-25 cm²; our chips skip `generic` produce matches. Constants in
-`nutrition.ts`, `RED_LABEL = { solid: {...}, liquid: {...} }`. Liquid = the
-item's unit is מ״ל/ליטר.
+Source: the regulation itself, **תקנות הגנה על בריאות הציבור (מזון) (סימון
+תזונתי), התשע״ח–2017, תקנה 5** (read from its full text on Hebrew
+Wikisource, 2026-11-17); the label is due "בכמות העולה על" the threshold,
+i.e. strictly above. Stage 1 (2020) was 500 mg / 13.5 g / 5 g for solids.
+- "Liquid" isn't defined; "מזון מוצק" includes semi-solid and viscous food, so
+  only drinks count as liquid. Ours: liquid = unit מ״ל/ליטר and department
+  `drinks`; everything else solid.
+- No red label (תקנה 6): single-ingredient foods (plain milk, flour, rice…),
+  alcohol, salt, spice blends, plant oils (palm and coconut oil still get it),
+  infant formula, packs whose front is ≤ 25 cm². Outside the rules entirely:
+  fresh produce, unprocessed meat, eggs, water, coffee, tea, spices.
+  So the chips never show on `generic` matches, drinks of alcohol, or the
+  departments `produce`, `coffee`, and single-word staples. Amendments after
+  2021 not checked.
+
+Constants in `nutrition.ts`: `RED_LABEL = { solid: { na: 400, s: 10, sf: 4 },
+liquid: { na: 300, s: 5, sf: 3 } }`.
 
 ## Part 2: the list's nutrition hero (hidden by default)
 
@@ -202,9 +214,9 @@ No separate command; nutrition is a step of `npm run shopping:ingest`:
    Atlas build. Not Open Food Facts.
 2. **Hero totals**: calories, protein, sugar, sodium.
 3. **No "household days"** estimate.
-4. **Multipacks / per-unit display**: model on existing sites (to do, above).
-5. **Red-label thresholds**: checked against the regulation (above); liquids
-   still need the regulation text.
+4. **Multipacks / per-unit display**: model on existing sites — Rami Levy's
+   toggle and tiles (above).
+5. **Red-label thresholds**: checked against the regulation text (above).
 6. **Hero hidden** behind a top settings gear, as in the workout app.
 
 ## Still open
@@ -216,12 +228,37 @@ No separate command; nutrition is a step of `npm run shopping:ingest`:
    Show the row's date in the sheet, or only the source?
 3. Show a 🔴 chip in search results, or only in the sheet?
 
+## Spike results (2026-11-17)
+
+A first matcher (name words + maker groups, `makor` 4 and FFQ rows left out,
+the item's first word must match, numbers like "3%" must agree) on the local
+data:
+
+| Sample | Food items | Matched | Wrong among matched (by hand) |
+|---|---|---|---|
+| 300 items sold in the most stores | 248 | **62 (25%)** | ~6 (≈10%) |
+| 300 random items sold in 3+ stores | 193 | 11 (6%) | — |
+
+- **Right**: Bamba, Bissli, Apropo, Dubonim, Cow chocolate, cottage by fat %,
+  sour cream 15%, Coca-Cola, Telma cereals, Knorr soups, Lurpak, Osem's
+  cream crackers.
+- **Wrong** (the shape of the errors): a name word shared across categories —
+  "שוקו יטבתה" → a "שוקו" ice-pop, "חלב מועשר 1%" → Cow *milk* chocolate,
+  "טעמי" → Actimel ("בטעמים"), "משקה פרו קפה" → iced-coffee powder.
+- **Missed**: whatever isn't in a 2022 table (newer products, imports such as
+  Kinder, Milka, Oreo, Barilla), and plain staples whose MoH row is generic
+  ("לחם אחיד, כהה, פרוס", raw vegetables) — the matcher doesn't do generic
+  matches yet.
+
+Reading: brand matching alone gives values for about a quarter of the
+everyday food items, at roughly 90% precision as it stands. A department
+check (a "שוקו" in `dairy` can't be an ice-pop in `frozen`) and generic
+matches for produce and staples are the obvious next gains; "לא המוצר הנכון?"
+covers the rest by hand.
+
 ## Order of work
 
-1. **Spike**: download the CSVs, build `nutrition-match.ts` against ~200 of our
-   most-sold items, and write brand / generic / none rates here. Confirm the
-   licence wording and the liquid thresholds in the regulation text. Look at
-   2–3 sites' nutrition tables in a browser.
+1. ~~Spike~~ (above).
 2. Ingest step: fetch, match, `nu`, `shoppingNutritionFoods`, coverage log.
 3. Product view section (per 100 / unit / pack, chips, credit).
 4. Settings gear + `shoppingUserSettings`; the list hero.
