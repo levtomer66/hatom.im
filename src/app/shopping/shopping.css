@@ -1256,6 +1256,11 @@ body:has(.sh-page) { background: #ffffff; }
   cursor: pointer;
 }
 .sh-nu-fold .sh-section-title { margin: 0; }
+.sh-nu-fold-title { display: inline-flex; align-items: center; gap: 0.5rem; }
+.sh-nu-dot { width: 0.625rem; height: 0.625rem; border-radius: 50%; flex: none; }
+.sh-nu-dot.is-green { background: #2e9d5b; }
+.sh-nu-dot.is-yellow { background: #e0a400; }
+.sh-nu-dot.is-red { background: var(--sh-miss); }
 .sh-nu-fold svg { color: var(--sh-muted); transition: transform 0.15s; }
 .sh-nu-fold svg.is-open { transform: rotate(180deg); }
 .sh-nu-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.5rem; }

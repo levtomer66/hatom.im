@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  isLiquid, listNutrition, namesAgree, nutritionOf, packGrams, parseOff, plausible, proteinGramCost, proteinValue, redLabels, type Nutrition,
+  isLiquid, listNutrition, namesAgree, nutritionGrade, nutritionOf, packGrams, parseOff, plausible, proteinGramCost, proteinValue, redLabels, type Nutrition,
 } from '../shopping/nutrition.ts';
 
 const nu = (o: Partial<Nutrition>): Nutrition => ({ kcal: null, p: null, c: null, s: null, f: null, sf: null, fib: null, na: null, by: 'off', ...o });
@@ -97,4 +97,11 @@ test('proteinValue: the owner\'s bands, from very good to expensive', () => {
   assert.equal(proteinValue(27.3).label, 'משתלם'); // cottage
   assert.equal(proteinValue(35).label, 'יקר יחסית'); // protein pudding
   assert.equal(proteinValue(66.7).label, 'יקר'); // Bamba nougat
+});
+
+test('nutritionGrade: green without red labels, yellow with one, red with more', () => {
+  assert.equal(nutritionGrade(nu({ na: 50, s: 4.6, sf: 2 }), false, 'dairy').tone, 'green'); // milk-like
+  assert.deepEqual(nutritionGrade(nu({ na: 700, s: 3.5, sf: 2 }), false, 'snacks'), { tone: 'yellow', text: 'סימון אדום אחד: נתרן' }); // Bissli
+  assert.equal(nutritionGrade(nu({ na: 200, s: 26, sf: 5.2 }), false, 'snacks').tone, 'red'); // Bamba nougat
+  assert.equal(nutritionGrade(nu({ s: 20 }), false, 'produce').tone, 'green');
 });

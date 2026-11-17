@@ -10,7 +10,7 @@ import { FaCog, FaChevronDown } from 'react-icons/fa';
 import { SHOPPING_API_PATH } from '@/lib/shopping/config';
 import type { ItemResponse, NutritionResponse, ShoppingSettings } from '@/lib/shopping/api-types';
 import {
-  forGrams, HERO_NUTRIENTS, isFood, listNutrition, NUTRIENT_INFO, NUTRIENTS, proteinGramCost, proteinValue, RED_LABEL_TEXT, redLabels,
+  forGrams, HERO_NUTRIENTS, isFood, listNutrition, NUTRIENT_INFO, NUTRIENTS, nutritionGrade, proteinGramCost, proteinValue, RED_LABEL_TEXT, redLabels,
   type HeroNutrient, type Nutrition,
 } from '@/lib/shopping/nutrition';
 
@@ -54,6 +54,7 @@ export function NutritionPanel({ item, best }: {
   }
   const grams = perPack && item.pack ? item.pack : 100;
   const red = redLabels(nu, item.liquid, item.d);
+  const grade = nutritionGrade(nu, item.liquid, item.d);
   const shown = NUTRIENTS.filter((k) => nu[k] !== null);
   // "שקל לחלבון": the average cost of 1 g of protein at the cheapest store (the same per 100 g or per pack).
   const perGram = best ? proteinGramCost(best.cost, nu, item.pack, item.w) : null;
@@ -68,7 +69,10 @@ export function NutritionPanel({ item, best }: {
   return (
     <section className={`sh-sheet-section sh-nu ${open ? 'is-open' : ''}`} aria-label="ערכים תזונתיים">
       <button type="button" className="sh-nu-fold" onClick={() => setOpen(!open)} aria-expanded={open}>
-        <span className="sh-section-title">ערכים תזונתיים</span>
+        <span className="sh-nu-fold-title">
+          <span className="sh-section-title">ערכים תזונתיים</span>
+          <span className={`sh-nu-dot is-${grade.tone}`} role="img" aria-label={grade.text} title={grade.text} />
+        </span>
         <FaChevronDown aria-hidden className={open ? 'is-open' : ''} />
       </button>
       {open && (

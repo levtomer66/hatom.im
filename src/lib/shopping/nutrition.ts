@@ -244,3 +244,15 @@ export const PROTEIN_VALUE = [
 ] as const;
 
 export const proteinValue = (agorotPerGram: number) => PROTEIN_VALUE.find((b) => agorotPerGram <= b.upTo)!;
+
+/**
+ * A one-glance summary next to "ערכים תזונתיים": green with no red label,
+ * yellow with one, red with two or three (sodium, sugar, saturated fat by
+ * תקנה 5). Departments the label never applies to (produce…) are green.
+ */
+export function nutritionGrade(nu: Nutrition, liquid: boolean, d: string | null | undefined): { tone: 'green' | 'yellow' | 'red'; text: string } {
+  const red = redLabels(nu, liquid, d);
+  if (!red.length) return { tone: 'green', text: 'בלי סימון אדום' };
+  const names = red.map((k) => RED_LABEL_TEXT[k]).join(', ');
+  return red.length === 1 ? { tone: 'yellow', text: `סימון אדום אחד: ${names}` } : { tone: 'red', text: `${red.length} סימונים אדומים: ${names}` };
+}
