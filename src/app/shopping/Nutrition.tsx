@@ -29,8 +29,8 @@ const money = new Intl.NumberFormat('he-IL', { style: 'currency', currency: 'ILS
 
 /**
  * "ערכים תזונתיים", collapsed at the top of the product window. Under the
- * title, even when closed: what 10 g of protein cost at the cheapest store —
- * nothing else. Opened: the red-label marks, a toggle between per 100 g (ml)
+ * title, even when closed: one tile, what 10 g of protein cost at the
+ * cheapest store — nothing else; opened, it leads the nutrient tiles. Opened: the red-label marks, a toggle between per 100 g (ml)
  * and the whole pack, one tile per nutrient, the source, and a reminder that
  * the package is what counts.
  */
@@ -48,7 +48,7 @@ export function NutritionPanel({ item, best }: {
     return (
       <section className="sh-sheet-section sh-nu">
         <h3 className="sh-section-title">ערכים תזונתיים</h3>
-        <p className="sh-nu-summary sh-muted">אין לנו עדיין ערכים תזונתיים למוצר הזה.</p>
+        <p className="sh-empty">אין לנו עדיין ערכים תזונתיים למוצר הזה.</p>
       </section>
     );
   }
@@ -56,20 +56,21 @@ export function NutritionPanel({ item, best }: {
   const red = redLabels(nu, item.liquid, item.d);
   const shown = NUTRIENTS.filter((k) => nu[k] !== null);
   const perProtein = best ? proteinPrice(best.cost, nu, item.pack, item.w) : null;
+  // What 10 g of protein cost at the cheapest store, as a tile like the nutrients'.
+  const proteinTile = perProtein !== null && best ? (
+    <li className="sh-nu-tile is-price" title={`במחיר הזול ביותר: ${best.store}${item.w ? ', לפי מחיר לק״ג' : ''}`}>
+      <b>{money.format(perProtein / 100)}</b>
+      <small>ל־{PROTEIN_PER} גרם</small>
+      <span>חלבון</span>
+    </li>
+  ) : null;
   return (
     <section className={`sh-sheet-section sh-nu ${open ? 'is-open' : ''}`} aria-label="ערכים תזונתיים">
       <button type="button" className="sh-nu-fold" onClick={() => setOpen(!open)} aria-expanded={open}>
         <span className="sh-section-title">ערכים תזונתיים</span>
         <FaChevronDown aria-hidden className={open ? 'is-open' : ''} />
       </button>
-      {perProtein !== null && best && (
-        <p className="sh-nu-summary">
-          <span className="sh-nu-protein">
-            <b>{money.format(perProtein / 100)}</b> ל־{PROTEIN_PER} גרם חלבון
-            <small> · ב{best.store}{item.w ? ', לפי מחיר לק״ג' : ''}</small>
-          </span>
-        </p>
-      )}
+      {!open && proteinTile && <ul className="sh-nu-tiles">{proteinTile}</ul>}
       {open && (
         <>
           <div className="sh-nu-head">
@@ -88,6 +89,7 @@ export function NutritionPanel({ item, best }: {
             </p>
           )}
           <ul className="sh-nu-tiles">
+            {proteinTile}
             {shown.map((k) => {
               const info = NUTRIENT_INFO[k];
               const v = forGrams(nu[k], grams)!;
