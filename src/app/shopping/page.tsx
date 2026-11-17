@@ -36,7 +36,7 @@ import { normalizeQty, type ShoppingList, type ShoppingListItem } from '@/lib/sh
 import type { CompareResponse, ShoppingPlan, ItemBest, ItemPrice, ItemResponse, ManualPriceResponse, PriceSource, PromoDetail, SearchHit, StoreInfo } from '@/lib/shopping/api-types';
 import type { LineResult, Offer, PromoRef, StoreBasket } from '@/lib/shopping/pricing';
 import { dealNudge, groupByDepartment, progress, withPending, type PlanKind, type Trip, type TripCreate, type TripItem } from '@/lib/shopping/trips';
-import { cleanAddress, dayMonth, ils, MultiStar, multiNote, qtyLabel, SaleLabel, storeName, Thumb } from './ui';
+import { cleanAddress, dayMonth, ils, MultiStar, multiNote, photoBroken, qtyLabel, SaleLabel, storeName, Thumb } from './ui';
 import Here from './Here';
 
 /** "2026-11-28T23:59" → "28.11" */
@@ -1433,6 +1433,8 @@ function ProductSheet({ itemKey, scanned, city, inList, onAdd, onClose, inline }
 }) {
   const [data, setData] = useState<ItemResponse | null>(null);
   const [state, setState] = useState<'loading' | 'ok' | 'missing' | 'error'>('loading');
+  /** The photo link that failed to load (its credit hides with it). */
+  const [photoFailed, setPhotoFailed] = useState<string | null>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
@@ -1471,6 +1473,7 @@ function ProductSheet({ itemKey, scanned, city, inList, onAdd, onClose, inline }
   }, [inline, state]);
 
   const it = data?.item;
+  const showPhoto = !!it?.img && it.img !== photoFailed && !photoBroken(it.img);
   const qty = it ? inList.get(it.key) : undefined;
   const body = (
       <>
@@ -1494,9 +1497,10 @@ function ProductSheet({ itemKey, scanned, city, inList, onAdd, onClose, inline }
           <>
             <div className="sh-sheet-head">
               <div className="sh-sheet-photo">
-                <Thumb src={it.img} size={88} by={it.imgBy} />
-                {it.img && it.imgBy === 'off' && <OffCredit barcode={it.barcode ? it.key : null} />}
-                {it.img && it.imgBy === 'name' && <span className="sh-photo-credit is-plain">תמונה להמחשה</span>}
+                <Thumb src={it.img} size={88} by={it.imgBy} onFail={() => setPhotoFailed(it.img)} />
+                {/* The credit goes with the photo: hidden when it doesn't load. */}
+                {showPhoto && it.imgBy === 'off' && <OffCredit barcode={it.barcode ? it.key : null} />}
+                {showPhoto && it.imgBy === 'name' && <span className="sh-photo-credit is-plain">תמונה להמחשה</span>}
               </div>
               <div>
                 <h2 id="sh-sheet-title" className="sh-sheet-title">{it.name}</h2>

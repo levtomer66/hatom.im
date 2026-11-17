@@ -28,19 +28,39 @@ export const cleanAddress = (a: string | null | undefined) => {
 const sized = (src: string, px: number) =>
   src.startsWith('https://imageproxy.wolt.com/') ? `${src}${src.includes('?') ? '&' : '?'}w=${px * 2}` : src;
 
-/** A product photo, or a quiet basket mark when there's none (most items) or it fails to load. */
-/** `by: 'name'` = a photo borrowed from a same-named product: dashed frame, "תמונה להמחשה" on hover. */
-export function Thumb({ src, size, by }: { src: string | null | undefined; size: number; by?: string | null }) {
-  const [failed, setFailed] = useState(false);
+/**
+ * Photo links that failed to load this visit (the ingest's assumed Rami Levy
+ * CDN links 403 for ~9% of barcodes): shown as no photo everywhere after
+ * that, never requested again.
+ */
+const broken = new Set<string>();
+/** Whether a photo link is known not to load. */
+export const photoBroken = (src: string | null | undefined) => !src || broken.has(src);
+
+/**
+ * A product photo, or a quiet basket mark when there's none (most items) or
+ * it fails to load (no broken-image icon, same box, no retry). `onFail` lets
+ * a caller hide what belongs to the photo (its credit).
+ * `by: 'name'` = a photo borrowed from a same-named product: dashed frame, "תמונה להמחשה" on hover.
+ */
+export function Thumb({ src, size, by, onFail }: {
+  src: string | null | undefined; size: number; by?: string | null; onFail?: () => void;
+}) {
+  // The link that failed, so a reused Thumb showing another product tries that one.
+  const [failed, setFailed] = useState<string | null>(null);
   const box = { width: size, height: size };
-  if (!src || failed) {
+  if (!src || failed === src || broken.has(src)) {
     return <span className="sh-thumb is-empty" style={box} aria-hidden><FaShoppingBasket /></span>;
   }
   return (
     // eslint-disable-next-line @next/next/no-img-element -- plain <img>: external photos, no optimizer
     <img className={by === 'name' ? 'sh-thumb is-illus' : 'sh-thumb'} src={sized(src, size)}
              title={by === 'name' ? 'תמונה להמחשה' : undefined} width={size} height={size} style={box}
-      alt="" loading="lazy" decoding="async" onError={() => setFailed(true)} />
+      alt="" loading="lazy" decoding="async" onError={() => {
+        broken.add(src);
+        setFailed(src);
+        onFail?.();
+      }} />
   );
 }
 
