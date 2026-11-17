@@ -123,6 +123,12 @@ export function addToList(list: ListLine[], lines: ListLine[]): ListLine[] {
   return out;
 }
 
+/** Lines in `after` whose key wasn't on `before` — what an add actually put on the list. */
+export function linesAdded(before: ListLine[], after: ListLine[]): ListLine[] {
+  const had = new Set(before.map((l) => l.key));
+  return after.filter((l) => !had.has(l.key));
+}
+
 /** After a trip: drop what was ticked, unless it was also marked not there. */
 export function removeBought(list: ListLine[], ticked: string[], notThere: string[]): ListLine[] {
   const gone = new Set(ticked.filter((k) => !notThere.includes(k)));

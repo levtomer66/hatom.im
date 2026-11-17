@@ -7,7 +7,7 @@
 // can correct. Server-only; the queries are the page's (service.ts).
 
 import { CITIES } from '@/lib/shopping/cities';
-import { MAX_LIST_ITEMS, MAX_QTY, normalizeQty, type ListLine } from '@/lib/shopping/home';
+import { MAX_LIST_ITEMS, MAX_QTY, linesAdded, normalizeQty, type ListLine } from '@/lib/shopping/home';
 import type { SearchHit, StoreInfo } from '@/lib/shopping/api-types';
 import { compareBasket, itemPrices, searchProducts } from '@/lib/shopping/service';
 import { ensureMyItems, getHome, setList } from '@/models/ShoppingHome';
@@ -265,7 +265,8 @@ export const SHOPPING_TOOLS: ShoppingTool[] = [
         }
       }
       await setList(items);
-      await ensureMyItems(items, caller.userEmail);
+      // Only the products this call put on the list: a line already there may have been removed from My items on purpose.
+      await ensureMyItems(linesAdded(list.items, items), caller.userEmail);
       return [`The list (${items.length} items):`, ...report].join('\n');
     },
   },

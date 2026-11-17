@@ -262,10 +262,7 @@ export default function ShoppingPage() {
     else detectCity();
     if (savedCity && CITIES.some((c) => c.id === savedCity)) setCity(savedCity);
     loadHome()
-      .then((h) => {
-        setHome(h);
-        lsSet(LS_HOME_CACHE, JSON.stringify(h));
-      })
+      .then(setHome)
       .catch((e) => {
         // In the store without signal: the last copy seen on this phone, so an open trip still opens.
         const cached = isNetworkError(e) ? lsJson<HomeView>(LS_HOME_CACHE) : null;
@@ -287,31 +284,77 @@ export default function ShoppingPage() {
     return () => clearTimeout(t);
   }, [toast]);
 
+  // The offline copy follows every change, so a phone without signal opens what it last showed.
+  useEffect(() => {
+    if (home) lsSet(LS_HOME_CACHE, JSON.stringify(home));
+  }, [home]);
+
   // ── save, debounced: the list and My items each have their own timer ──
-  const timers = useRef<{ list?: ReturnType<typeof setTimeout>; items?: ReturnType<typeof setTimeout> }>({});
-  const save = useCallback((field: 'list' | 'items', value: ListLine[] | MyItem[]) => {
+  // Saves replace the whole array, so the page must never save a copy older
+  // than the server's: pending saves are sent before any server copy is
+  // adopted, and the page reloads when it comes back into view or online
+  // (the other phone, or a trip that ended, may have changed the list).
+  type Field = 'list' | 'items';
+  const timers = useRef<Partial<Record<Field, ReturnType<typeof setTimeout>>>>({});
+  const pendingSave = useRef<{ list?: ListLine[]; items?: MyItem[] }>({});
+  const sendSave = useCallback(async (field: Field) => {
     clearTimeout(timers.current[field]);
-    timers.current[field] = setTimeout(async () => {
-      try {
-        const res = await saveHome({ [field]: value });
-        // Only the looked-up photos and departments: local edits made since stay.
-        setHome((h) => (h ? { ...h, meta: { ...h.meta, ...res.meta } } : res));
-        setSaveError(false);
-      } catch {
-        setSaveError(true);
-      }
-    }, 600);
+    const value = pendingSave.current[field];
+    if (!value) return;
+    delete pendingSave.current[field];
+    try {
+      const res = await saveHome({ [field]: value });
+      // Only the looked-up photos and departments: local edits made since stay.
+      setHome((h) => (h ? { ...h, meta: { ...h.meta, ...res.meta } } : res));
+      setSaveError(false);
+    } catch {
+      setSaveError(true);
+    }
   }, []);
+  const save = useCallback((field: Field, value: ListLine[] | MyItem[]) => {
+    clearTimeout(timers.current[field]);
+    (pendingSave.current as Record<Field, unknown>)[field] = value;
+    timers.current[field] = setTimeout(() => void sendSave(field), 600);
+  }, [sendSave]);
+  /** Send what's waiting to be saved, now. */
+  const flushSaves = useCallback(() => Promise.all([sendSave('list'), sendSave('items')]), [sendSave]);
+  /** The server's copy, after this page's own pending saves have reached it. */
+  const refreshHome = useCallback(async () => {
+    await flushSaves();
+    try {
+      const fresh = await loadHome();
+      // An edit made while loading wins: it saves after this and the next refresh syncs.
+      if (pendingSave.current.list || pendingSave.current.items) return;
+      setHome(fresh);
+    } catch {
+      /* offline: keep what's on screen */
+    }
+  }, [flushSaves]);
+  useEffect(() => {
+    const onBack = () => { if (document.visibilityState === 'visible') void refreshHome(); };
+    document.addEventListener('visibilitychange', onBack);
+    window.addEventListener('online', onBack);
+    return () => {
+      document.removeEventListener('visibilitychange', onBack);
+      window.removeEventListener('online', onBack);
+    };
+  }, [refreshHome]);
+  // The latest state, so an edit queues its save at once (not inside a state updater, which runs later).
+  const homeRef = useRef(home);
+  homeRef.current = home;
   const setListLines = useCallback((fn: (lines: ListLine[]) => ListLine[]) => {
-    setHome((h) => {
-      if (!h) return h;
-      const next = fn(h.list);
-      save('list', next);
-      return { ...h, list: next };
-    });
+    const h = homeRef.current;
+    if (!h) return;
+    const next = fn(h.list);
+    homeRef.current = { ...h, list: next };
+    setHome(homeRef.current);
+    save('list', next);
   }, [save]);
   const setMyItems = useCallback((items: MyItem[]) => {
-    setHome((h) => (h ? { ...h, items } : h));
+    const h = homeRef.current;
+    if (!h) return;
+    homeRef.current = { ...h, items };
+    setHome(homeRef.current);
     save('items', items);
   }, [save]);
 
@@ -335,6 +378,7 @@ export default function ShoppingPage() {
     if (!home || saved.has(h.key)) return;
     const items = [...home.items, { key: h.key, name: h.name, w: h.w, qty: 1, addedBy: '', addedAt: '' }];
     clearTimeout(timers.current.items);
+    delete pendingSave.current.items;
     const res = await saveHome({ items });
     setHome((hh) => (hh ? { ...hh, items: res.items, meta: { ...hh.meta, ...res.meta } } : res));
   };
@@ -603,7 +647,7 @@ export default function ShoppingPage() {
 
             {saveError && <p className="sh-error">לא נשמר, נסו שוב</p>}
             <MyItems items={home.items} meta={home.meta} onChange={setMyItems} startOpen={!home.items.length} />
-            <button type="button" className="sh-btn sh-btn--primary sh-missing-entry" onClick={() => setMissingOpen(true)}>
+            <button type="button" className="sh-btn sh-btn--primary sh-missing-entry" onClick={() => { void flushSaves(); setMissingOpen(true); }}>
               מה חסר?
             </button>
             {!itemCount && <p className="sh-empty">הרשימה ריקה. לחצו ״מה חסר?״ כדי לבחור מהמוצרים שלי.</p>}
@@ -676,7 +720,7 @@ export default function ShoppingPage() {
               setInStore(false);
               setToast('הקנייה הסתיימה');
               // Ending took what was bought off the list.
-              loadHome().then(setHome).catch(() => {});
+              void refreshHome();
             }} />
         )}
         {missingOpen && home && (
@@ -1808,6 +1852,12 @@ function InStore({ trip, onTrip, onClose, onEnded }: {
     }
   };
   const end = async () => {
+    // Ending takes the ticked items off the list, so the server needs every tick first.
+    await flush();
+    if (queue.current.length) {
+      setOffline(true); // its banner says the ticks wait for a connection; end again once they're sent
+      return;
+    }
     try {
       await api(`/trips/${trip.id}`, { method: 'PATCH', body: JSON.stringify({ end: true }) });
       onEnded();

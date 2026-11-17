@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  addToList, homeFromLists, parseList, parseMyItems, parsePicks, pickMissing, removeBought,
+  addToList, homeFromLists, linesAdded, parseList, parseMyItems, parsePicks, pickMissing, removeBought,
   type ListLine, type MyItem,
 } from '../shopping/home.ts';
 
@@ -73,4 +73,11 @@ test('homeFromLists dedupes, keeps max qty and the latest name', () => {
   assert.equal(one.qty, 3);
   assert.equal(one.name, 'חדש');
   assert.equal(one.addedBy, 'n@x');
+});
+
+test('linesAdded returns only keys new to the list, not lines already there', () => {
+  // A line already on the list (maybe removed from My items on purpose) must not come back as a My item.
+  const before = [line('1'), line('2')];
+  const after = [line('1', 3), line('2'), line('5', 2)];
+  assert.deepEqual(linesAdded(before, after).map((l) => [l.key, l.qty]), [['5', 2]]);
 });
