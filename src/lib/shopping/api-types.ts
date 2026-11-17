@@ -170,7 +170,8 @@ export interface CompareResponse {
   now: string;
   city: string;
   stores: Record<number, StoreInfo>;
-  items: Record<string, { name: string; manufacturer: string; w: boolean; img: string | null }>;
+  /** `d`: department id (departments.ts) when known. */
+  items: Record<string, { name: string; manufacturer: string; w: boolean; img: string | null; d?: string | null }>;
   /** Physical stores in the city, cheapest first. */
   physical: StoreBasket[];
   /** Online stores, cheapest first. */

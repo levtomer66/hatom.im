@@ -134,7 +134,7 @@ export async function POST(request: NextRequest) {
       now,
       city: req.city,
       stores: Object.fromEntries(stores.map((s): [number, StoreInfo] => [s.k, storeInfo(s)])),
-      items: Object.fromEntries(itemDocs.map((d) => [d._id, { name: d.n, manufacturer: d.m, w: d.w, img: d.img ?? null }])),
+      items: Object.fromEntries(itemDocs.map((d) => [d._id, { name: d.n, manufacturer: d.m, w: d.w, img: d.img ?? null, d: d.d ?? null }])),
       physical: physical.slice(0, RESULTS_PER_SECTION),
       online: online.slice(0, RESULTS_PER_SECTION),
       manual,

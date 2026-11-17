@@ -26,15 +26,16 @@
  */
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { FaMinus, FaPlus, FaTrash, FaSearch, FaChevronDown, FaTimes, FaCheck, FaPen, FaShoppingBasket, FaBarcode, FaMapMarkerAlt, FaLocationArrow, FaLock } from 'react-icons/fa';
+import { FaMinus, FaPlus, FaTrash, FaSearch, FaChevronDown, FaTimes, FaCheck, FaPen, FaShoppingBasket, FaBarcode, FaMapMarkerAlt, FaLocationArrow, FaLock, FaShoppingCart, FaArrowRight } from 'react-icons/fa';
 import dynamic from 'next/dynamic';
 import Navbar from '@/components/Navbar';
 import { CITIES } from '@/lib/shopping/cities';
 import { distanceM } from '@/lib/shopping/places';
 import { SHOPPING_API_PATH } from '@/lib/shopping/config';
 import { normalizeQty, type ShoppingList, type ShoppingListItem } from '@/lib/shopping/lists';
-import type { CompareResponse, ItemBest, ItemPrice, ItemResponse, ManualPriceResponse, PriceSource, PromoDetail, SearchHit, StoreInfo } from '@/lib/shopping/api-types';
+import type { CompareResponse, ShoppingPlan, ItemBest, ItemPrice, ItemResponse, ManualPriceResponse, PriceSource, PromoDetail, SearchHit, StoreInfo } from '@/lib/shopping/api-types';
 import type { LineResult, Offer, PromoRef, StoreBasket } from '@/lib/shopping/pricing';
+import { groupByDepartment, progress, withPending, type PlanKind, type Trip, type TripCreate } from '@/lib/shopping/trips';
 
 const money = new Intl.NumberFormat('he-IL', { style: 'currency', currency: 'ILS', minimumFractionDigits: 2 });
 const ils = (agorot: number) => money.format(agorot / 100);
@@ -141,6 +142,9 @@ export default function ShoppingPage() {
   /** The product window: an item key or a scanned barcode. */
   const [product, setProduct] = useState<{ key: string; scanned: boolean } | null>(null);
   const [scanning, setScanning] = useState(false);
+  /** The active list's open trip, and whether its in-store screen is showing. */
+  const [trip, setTrip] = useState<Trip | null>(null);
+  const [inStore, setInStore] = useState(false);
   /** The results under the search box: hidden by a click elsewhere, back on focus (same query). */
   const [hitsOpen, setHitsOpen] = useState(true);
   /** Phone width: a product opens inline under its search result instead of a window. */
@@ -337,6 +341,26 @@ export default function ShoppingPage() {
   }, [query, city]);
 
   // ── lists ──
+  useEffect(() => {
+    if (!activeId) return;
+    let live = true;
+    api<Trip | null>(`/trips?listId=${activeId}`).then((t) => { if (live) setTrip(t); }).catch(() => {});
+    return () => { live = false; };
+  }, [activeId]);
+
+  /** Start a trip on the chosen plan, or join the list's open one. */
+  const startTrip = async (plan: ShoppingPlan) => {
+    if (!list || !result) return;
+    if (trip) return setInStore(true);
+    try {
+      const t = await api<Trip>('/trips', { method: 'POST', body: JSON.stringify(tripSnapshot(result, plan, list.id, city)) });
+      setTrip(t);
+      setInStore(true);
+    } catch {
+      setToast('לא הצלחנו להתחיל את הקנייה. נסו שוב.');
+    }
+  };
+
   const pickList = (id: string) => {
     setActiveId(id);
     setResult(null);
@@ -456,6 +480,16 @@ export default function ShoppingPage() {
 
         {lists && list && (
           <>
+            {trip && !inStore && (
+              <button type="button" className="sh-resume" onClick={() => setInStore(true)}>
+                <FaShoppingCart aria-hidden />
+                <span>
+                  <b>קנייה בתהליך</b>
+                  <small>{progress(trip).count} מתוך {progress(trip).of} מוצרים, {trip.stops.map((st) => st.storeName).join(', ')}</small>
+                </span>
+                <span className="sh-resume-go">להמשיך</span>
+              </button>
+            )}
             <nav className="sh-scroller" aria-label="רשימות">
               {lists.map((l) => (
                 <React.Fragment key={l.id}>
@@ -610,7 +644,7 @@ export default function ShoppingPage() {
 
             {result && (
               <Results ref={resultsRef} result={result} list={list} updating={stale || comparing} tab={tab} setTab={setTab} open={open} setOpen={setOpen}
-                onPricesSaved={() => compare()} />
+                onPricesSaved={() => compare()} onStartTrip={startTrip} tripOpen={!!trip} />
             )}
             {!result && hasItems && !compareError && <div className="sh-skeleton" aria-label="משווה מחירים" />}
             {compareError && (
@@ -628,6 +662,10 @@ export default function ShoppingPage() {
         {product && !(narrow && hits?.some((h) => h.key === product.key) && !product.scanned) && (
           <ProductSheet itemKey={product.key} scanned={product.scanned} city={city} inList={qtyOf}
             onAdd={addItem} onClose={() => setProduct(null)} />
+        )}
+        {trip && inStore && (
+          <InStore trip={trip} onTrip={setTrip} onClose={() => setInStore(false)}
+            onEnded={() => { setTrip(null); setInStore(false); setToast('הקנייה הסתיימה'); }} />
         )}
         {toast && <div className="sh-toast" role="status">{toast}</div>}
       </main>
@@ -669,7 +707,9 @@ const Results = React.forwardRef<HTMLElement, {
   setOpen: (k: string | null) => void;
   /** A manual price was saved: re-price the list. */
   onPricesSaved: () => void;
-}>(function Results({ result, list, updating, tab, setTab, open, setOpen, onPricesSaved }, ref) {
+  onStartTrip: (plan: ShoppingPlan) => void;
+  tripOpen: boolean;
+}>(function Results({ result, list, updating, tab, setTab, open, setOpen, onPricesSaved, onStartTrip, tripOpen }, ref) {
   const complete = result.physical.filter((b) => !b.missing.length);
   const best = complete[0];
   const closest = result.physical[0];
@@ -692,7 +732,7 @@ const Results = React.forwardRef<HTMLElement, {
 
   return (
     <section ref={ref} className={`sh-results ${updating ? 'is-updating' : ''}`} aria-live="polite" aria-busy={updating}>
-      {hasPlans && <PlansView key={result.city} result={result} updating={updating} />}
+      {hasPlans && <PlansView key={result.city} result={result} updating={updating} onStart={onStartTrip} tripOpen={tripOpen} />}
       {hasPlans && (
         <button type="button" className="sh-all-toggle" onClick={() => setShowAll(!showAll)} aria-expanded={showAll}>
           {showAll ? 'הסתרת כל החנויות' : 'כל החנויות והשוואה מפורטת'}
@@ -841,15 +881,18 @@ const Results = React.forwardRef<HTMLElement, {
 
 // ── plans: how to shop the list ──
 
-type PlanKind = 'cheapest' | 'one-store';
-
 /**
  * The two ways to shop the list, as cards: "הכי זול" (each item at its
  * cheapest store, up to three stores) and "חנות אחת". The split is only
  * offered as the default when it saves at least ₪15 or covers more items.
  * Below the cards, the chosen plan: its stops and what to buy at each.
  */
-function PlansView({ result, updating }: { result: CompareResponse; updating: boolean }) {
+function PlansView({ result, updating, onStart, tripOpen }: {
+  result: CompareResponse;
+  updating: boolean;
+  onStart: (plan: ShoppingPlan) => void;
+  tripOpen: boolean;
+}) {
   const { oneStore, cheapest, saving, splitPays } = result.plans;
   const [choice, setChoice] = useState<PlanKind>(splitPays && cheapest ? 'cheapest' : 'one-store');
   if (!oneStore) return null;
@@ -885,6 +928,10 @@ function PlansView({ result, updating }: { result: CompareResponse; updating: bo
           </span>
         </button>
       </div>
+
+      <button type="button" className="sh-btn sh-btn--primary sh-go" onClick={() => onStart(plan)}>
+        <FaShoppingCart aria-hidden /> {tripOpen ? 'להמשיך בקנייה' : 'יוצאים לקניות'}
+      </button>
 
       <div className="sh-plan-detail">
         {plan.stops.map((stop, i) => (
@@ -1502,5 +1549,157 @@ function PriceTable({ title, rows, data, empty }: { title: string; rows: ItemPri
         {rows.map((r, i) => <PriceRow key={r.store} r={r} best={i === 0} data={data} />)}
       </ol>
     </section>
+  );
+}
+
+// ── a trip: the plan taken into the store ──
+
+/** What a trip keeps of the plan: each stop's items with name, quantity, estimated cost and department. */
+function tripSnapshot(result: CompareResponse, plan: ShoppingPlan, listId: string, city: string): TripCreate {
+  return {
+    listId,
+    plan: plan.kind as PlanKind,
+    city,
+    stops: plan.stops.map((s) => ({
+      store: s.store,
+      storeName: storeName(result.stores[s.store]),
+      items: s.basket.lines.filter((l) => l.available).map((l) => {
+        const it = result.items[l.key];
+        return { key: l.key, name: it?.name ?? l.key, qty: l.qty, w: it?.w ?? false, cost: l.cost, d: it?.d ?? null, img: it?.img ?? null };
+      }),
+    })),
+    missing: plan.missing.map((k) => ({ key: k, name: result.items[k]?.name ?? k })),
+    estimate: plan.total,
+  };
+}
+
+/** Keep the phone's screen on while the in-store screen is open (where the browser allows it). */
+function useWakeLock() {
+  useEffect(() => {
+    type Sentinel = { release: () => Promise<void> };
+    const wl = (navigator as unknown as { wakeLock?: { request: (t: 'screen') => Promise<Sentinel> } }).wakeLock;
+    if (!wl) return;
+    let sentinel: Sentinel | null = null;
+    const grab = () => { wl.request('screen').then((s) => { sentinel = s; }).catch(() => {}); };
+    const onVisible = () => { if (document.visibilityState === 'visible') grab(); };
+    grab();
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisible);
+      sentinel?.release().catch(() => {});
+    };
+  }, []);
+}
+
+/**
+ * The in-store checklist: one tab per store, its items by department in
+ * walking order, one tap to tick (ticked items sink, a second tap undoes).
+ * Replaces the page until "חזרה" (the trip stays open) or "סיום קנייה".
+ */
+function InStore({ trip, onTrip, onClose, onEnded }: {
+  trip: Trip;
+  onTrip: React.Dispatch<React.SetStateAction<Trip | null>>;
+  onClose: () => void;
+  onEnded: () => void;
+}) {
+  useWakeLock();
+  const [stopIdx, setStopIdx] = useState(0);
+  const [error, setError] = useState(false);
+  const ticked = new Set(trip.ticked);
+  const stop = trip.stops[Math.min(stopIdx, trip.stops.length - 1)];
+  const groups = groupByDepartment(stop.items, ticked);
+  const prog = progress(trip);
+
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = prev; };
+  }, []);
+
+  // Taps not answered yet: item key → [the state it set, its sequence number].
+  const pending = useRef(new Map<string, [boolean, number]>());
+  const seq = useRef(0);
+  const pendingStates = () => new Map([...pending.current].map(([k, [on]]) => [k, on]));
+  /** Adopt a trip from the server, keeping the taps still in flight. */
+  const adopt = useCallback((t: Trip) => onTrip({ ...t, ticked: withPending(t.ticked, pendingStates()) }), [onTrip]);
+
+  const tick = async (key: string) => {
+    const on = !ticked.has(key);
+    const n = ++seq.current;
+    pending.current.set(key, [on, n]);
+    onTrip((t) => t && { ...t, ticked: withPending(t.ticked, pendingStates()) });
+    try {
+      const res = await api<Trip>(`/trips/${trip.id}`, { method: 'PATCH', body: JSON.stringify({ tick: { key, on } }) });
+      if (pending.current.get(key)?.[1] === n) pending.current.delete(key);
+      adopt(res);
+      setError(false);
+    } catch {
+      if (pending.current.get(key)?.[1] === n) pending.current.delete(key);
+      onTrip((t) => t && { ...t, ticked: on ? t.ticked.filter((k) => k !== key) : [...new Set([...t.ticked, key])] });
+      setError(true);
+    }
+  };
+  const end = async () => {
+    if (!window.confirm('לסיים את הקנייה?')) return;
+    try {
+      await api(`/trips/${trip.id}`, { method: 'PATCH', body: JSON.stringify({ end: {} }) });
+      onEnded();
+    } catch {
+      setError(true);
+    }
+  };
+
+  return (
+    <div className="sh-instore" role="dialog" aria-modal="true" aria-label="בחנות">
+      <header className="sh-instore-head">
+        <button type="button" className="sh-icon-btn" onClick={onClose} aria-label="חזרה לרשימה"><FaArrowRight /></button>
+        <div className="sh-instore-title">
+          <b>{trip.stops.length > 1 ? 'הכי זול' : stop.storeName}</b>
+          <small>{ils(prog.done)} מתוך {ils(prog.total)} · {prog.count}/{prog.of}</small>
+        </div>
+        <button type="button" className="sh-btn sh-btn--ghost" onClick={end}>סיום קנייה</button>
+      </header>
+      <div className="sh-instore-bar" aria-hidden><span style={{ width: `${prog.of ? (100 * prog.count) / prog.of : 0}%` }} /></div>
+      {trip.stops.length > 1 && (
+        <div className="sh-seg sh-instore-tabs" role="tablist">
+          {trip.stops.map((st, i) => {
+            const left = st.items.filter((it) => !ticked.has(it.key)).length;
+            return (
+              <button key={st.store} type="button" role="tab" aria-selected={i === stopIdx} className={i === stopIdx ? 'is-on' : ''}
+                onClick={() => setStopIdx(i)}>
+                {st.storeName.split(' ').slice(0, 2).join(' ')} <small>{left ? left : '✓'}</small>
+              </button>
+            );
+          })}
+        </div>
+      )}
+      {error && <p className="sh-error sh-instore-error">השינוי לא נשמר. בדקו את החיבור.</p>}
+      <div className="sh-instore-body">
+        {trip.stops.length > 1 && <p className="sh-instore-store">{stop.storeName}</p>}
+        {groups.map((g) => (
+          <section key={g.id} className="sh-dept">
+            <h3>{g.name} <small>{g.left || '✓'}</small></h3>
+            <ul>
+              {g.items.map((it) => {
+                const done = ticked.has(it.key);
+                return (
+                  <li key={it.key}>
+                    <button type="button" className={`sh-tick ${done ? 'is-done' : ''}`} onClick={() => tick(it.key)} aria-pressed={done}>
+                      <span className="sh-tick-box" aria-hidden>{done && <FaCheck />}</span>
+                      <Thumb src={it.img} size={40} />
+                      <span className="sh-tick-name">{it.name}<small>{qtyLabel(it.qty, it.w)}</small></span>
+                      <span className="sh-tick-cost">{ils(it.cost)}</span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          </section>
+        ))}
+        {trip.missing.length > 0 && stopIdx === trip.stops.length - 1 && (
+          <p className="sh-instore-missing">לא בתוכנית: {trip.missing.map((m) => m.name).join(', ')}</p>
+        )}
+      </div>
+    </div>
   );
 }

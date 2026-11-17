@@ -364,7 +364,7 @@ body:has(.sh-page) { background: #ffffff; }
   position: fixed;
   inset-inline: 1rem;
   bottom: calc(1.5rem + env(safe-area-inset-bottom));
-  z-index: 30;
+  z-index: 130;
   max-width: 28rem;
   margin: 0 auto;
   padding: 0.75rem 1rem;
@@ -734,7 +734,7 @@ body:has(.sh-page) { background: #ffffff; }
 .sh-sheet-backdrop {
   position: fixed;
   inset: 0;
-  z-index: 50;
+  z-index: 115;
   display: flex;
   align-items: flex-end;
   justify-content: center;
@@ -880,7 +880,7 @@ body:has(.sh-page) { background: #ffffff; }
 .sh-deal b { font-weight: 600; color: var(--sh-ink); }
 
 /* ── camera scanner ── */
-.sh-scan { position: fixed; inset: 0; z-index: 60; background: #000; color: #fff; }
+.sh-scan { position: fixed; inset: 0; z-index: 125; background: #000; color: #fff; }
 .sh-scan-video { width: 100%; height: 100%; object-fit: cover; }
 .sh-scan-frame {
   position: absolute;
@@ -935,6 +935,109 @@ body:has(.sh-page) { background: #ffffff; }
 }
 .sh-scan-type input::placeholder { color: rgba(255, 255, 255, 0.7); }
 .sh-scan-type .sh-btn { background: #fff; color: #111; border-color: #fff; }
+
+/* ── trips ── */
+/* Layers: the site bar is 50 and its menu 100–110; the product window,
+   in-store screen and scanner cover it, and the toast stays on top. */
+.sh-go { margin-top: 0.75rem; }
+.sh-resume {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  margin: 0 0 0.75rem;
+  padding: 0.625rem 0.875rem;
+  border: 1px solid var(--sh-accent);
+  border-radius: var(--sh-r-ctl);
+  background: var(--sh-accent-soft);
+  color: var(--sh-ink);
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+.sh-resume > svg { flex: none; color: var(--sh-accent); }
+.sh-resume > span:nth-child(2) { display: flex; flex: 1; flex-direction: column; min-width: 0; }
+.sh-resume small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.8125rem; color: var(--sh-muted); }
+.sh-resume-go { font-weight: 600; color: var(--sh-accent); }
+
+.sh-instore {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  display: flex;
+  flex-direction: column;
+  background: var(--sh-bg);
+  color: var(--sh-ink);
+}
+.sh-instore-head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: calc(0.5rem + env(safe-area-inset-top)) 0.75rem 0.5rem;
+  border-bottom: 1px solid var(--sh-line);
+}
+.sh-instore-title { display: flex; flex: 1; flex-direction: column; min-width: 0; }
+.sh-instore-title b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+.sh-instore-title small { font-size: 0.875rem; color: var(--sh-muted); }
+.sh-instore-bar { height: 3px; background: var(--sh-line); }
+.sh-instore-bar span { display: block; height: 100%; background: var(--sh-accent); transition: width 0.2s; }
+.sh-seg.sh-instore-tabs { margin: 0.5rem 0.75rem 0; }
+.sh-instore-error { margin: 0.5rem 1rem 0; }
+.sh-instore-body {
+  flex: 1;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 0.5rem 1rem calc(1.5rem + env(safe-area-inset-bottom));
+  max-width: 600px;
+  width: 100%;
+  margin: 0 auto;
+  box-sizing: border-box;
+}
+.sh-instore-store { margin: 0.25rem 0; font-size: 0.875rem; color: var(--sh-muted); }
+.sh-dept h3 {
+  display: flex;
+  justify-content: space-between;
+  margin: 1rem 0 0.25rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--sh-muted);
+}
+.sh-dept ul { margin: 0; padding: 0; list-style: none; }
+.sh-tick {
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  min-height: 60px;
+  padding: 0.5rem 0;
+  border: none;
+  border-bottom: 1px solid var(--sh-line);
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-size: 1.0625rem;
+  text-align: start;
+  cursor: pointer;
+}
+.sh-tick-box {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 2px solid var(--sh-line);
+  border-radius: 8px;
+  color: #fff;
+  font-size: 0.875rem;
+}
+.sh-tick.is-done .sh-tick-box { border-color: var(--sh-accent); background: var(--sh-accent); }
+.sh-tick-name { display: flex; flex-direction: column; line-height: 1.35; }
+.sh-tick-name small { font-size: 0.8125rem; color: var(--sh-muted); }
+.sh-tick-cost { font-size: 0.9375rem; color: var(--sh-muted); white-space: nowrap; }
+.sh-tick.is-done .sh-tick-name, .sh-tick.is-done .sh-tick-cost { color: var(--sh-muted); text-decoration: line-through; }
+.sh-tick.is-done .sh-thumb { opacity: 0.5; }
+.sh-instore-missing { margin-top: 1rem; font-size: 0.875rem; color: var(--sh-muted); }
 
 @media (prefers-reduced-motion: reduce) {
   .sh-sheet { animation: none; }
