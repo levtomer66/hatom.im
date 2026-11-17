@@ -103,7 +103,7 @@ function wordsHit(h: Rankable, terms: string[]): number {
   for (const t of terms) {
     try {
       const re = new RegExp(t, 'iu');
-      if (re.test(h.name) || (h.manufacturer && re.test(h.manufacturer))) n++;
+      if (re.test(h.name) || (h.manufacturer && re.test(h.manufacturer)) || (h.aka && re.test(h.aka))) n++;
     } catch {
       /* skip a bad pattern */
     }
@@ -111,13 +111,14 @@ function wordsHit(h: Rankable, terms: string[]): number {
   return n;
 }
 
-/** 1 for each term the name misses but the manufacturer has. */
+/** 1 for each term the name misses but the manufacturer or another chain's name has. */
 function makerScore(h: Rankable, terms: string[]): number {
-  if (!h.manufacturer) return 0;
+  if (!h.manufacturer && !h.aka) return 0;
   let n = 0;
   for (const t of terms) {
     try {
-      if (!new RegExp(t, 'iu').test(h.name) && new RegExp(t, 'iu').test(h.manufacturer)) n++;
+      const re = new RegExp(t, 'iu');
+      if (!re.test(h.name) && ((h.manufacturer && re.test(h.manufacturer)) || (h.aka && re.test(h.aka)))) n++;
     } catch {
       /* skip a bad pattern */
     }
@@ -129,6 +130,8 @@ export interface Rankable {
   name: string;
   /** Matched too: a term found only here scores 1. */
   manufacturer?: string;
+  /** Other chains' names and makers (`s` on the item doc), matched like the maker. */
+  aka?: string;
   /** Stores in the city that sell it. */
   stores: number;
 }

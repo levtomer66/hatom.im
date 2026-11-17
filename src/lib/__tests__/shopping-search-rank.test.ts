@@ -104,3 +104,13 @@ test('on the typo retry, more words matched as typed wins over a better single m
   const ranked = rankHits(hits, searchPatterns(q), searchPatterns(q, { typos: true }));
   assert.equal(ranked[0].name, 'מארז רביעיית טונה במים 4*160 גרם');
 });
+
+test('on the typo retry, a word found only in another chain\'s name (aka) still counts', () => {
+  const q = 'פילטונה מים';
+  const hits = [
+    { name: 'מיץ תפוזים פונטנה', manufacturer: 'לא ידוע', stores: 9 },
+    { name: 'מארז רביעיית טונה', manufacturer: 'לא ידוע', aka: 'טונה במים פילטונה4', stores: 2 },
+  ];
+  const ranked = rankHits(hits, searchPatterns(q), searchPatterns(q, { typos: true }));
+  assert.deepEqual(ranked.map((h) => h.name), ['מארז רביעיית טונה']);
+});

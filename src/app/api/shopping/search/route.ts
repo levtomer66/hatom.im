@@ -37,7 +37,7 @@ export async function GET(request: NextRequest) {
     const local = stores.filter((s) => s.kind === 'physical').map((s) => ({
       k: String(s.k), src: s.source ?? priceSourceOf(s.chainId), chainName: s.chainName, name: s.name,
     }));
-    const hits: SearchHit[] = docs.map((d) => {
+    const hits: (SearchHit & { aka?: string })[] = docs.map((d) => {
       const selling = local.filter((s) => d.p[s.k] !== undefined);
       const prices = selling.map((s) => d.p[s.k]);
       const sources = [...new Set(selling.map((s) => s.src))];
@@ -53,9 +53,16 @@ export async function GET(request: NextRequest) {
         sources,
         cheapest: low ? { chainName: low.chainName, name: low.name } : null,
         img: d.img ?? null,
+        // Ranking only, not sent: other chains' names and makers.
+        aka: (d as { s?: string }).s,
       };
     });
-    return NextResponse.json(rankHits(hits, terms, loose).slice(0, MAX_HITS));
+    const ranked: SearchHit[] = rankHits(hits, terms, loose).slice(0, MAX_HITS).map((h) => {
+      const { aka, ...hit } = h;
+      void aka; // ranking only
+      return hit;
+    });
+    return NextResponse.json(ranked);
   } catch (error) {
     console.error('Error searching shopping items:', error);
     return NextResponse.json({ error: 'Search failed' }, { status: 500 });
