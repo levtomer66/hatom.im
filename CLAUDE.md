@@ -268,7 +268,10 @@ Identity = Gmail address. Two roles:
   Google Maps lists) and limit the ingest to stores near them
   (`ingest/locate.ts`; `--all-stores` to keep whole cities). A pin's
   `walkMinutes` limits stores to a routed walking time (`ingest/walk.ts`);
-  `places/extra.json` adds shops the map searches miss.
+  `places/extra.json` adds shops the map searches miss, and `places/official.json`
+  hand-matches a shop to an official store whose address doesn't match
+  (`"<placeRef>": "<chainSlug>/<storeId>"`). An official store matched to a shop
+  the owner skipped is left out, like an included one is kept, without re-routing.
 - **Ingest is a local, manually-run job**, not a Vercel function (Hobby cron
   is daily-only and a full run is ~190 MB of downloads + GBs of XML):
   `npm run shopping:ingest -- [--dry-run] [--offline] [--chains yohananof,shufersal,wolt] [--max-stores N] [--full] [--all-stores]`.

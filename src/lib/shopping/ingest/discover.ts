@@ -12,6 +12,8 @@
 //   extra.json                   shops the map searches miss, added by hand:
 //                                [{ pin, name, lat, lng, address, category? }]
 //   decisions.json               { [placeId]: "include" | "skip" } — your answers
+//   official.json                { [placeId]: "<chainSlug>/<storeId>" } — hand matches
+//                                to an official store whose address doesn't match
 // Output: <pin>.review.json and a table on stdout.
 //
 // Official store lists come from the Stores files the price ingest already
@@ -192,6 +194,15 @@ interface ReviewRow extends Place {
 }
 
 const official = officialStores();
+// Hand matches for shops whose address differs from the chain's file (a
+// misspelt street, a mall address, "unknown"): place ref → "<chainSlug>/<storeId>".
+const handMatches = readJson<Record<string, string>>(join(PLACES, 'official.json'), {});
+const handMatch = (p: Place) => {
+  const key = p.refs.map((r) => handMatches[r]).find(Boolean);
+  const hit = key ? official.find((s) => `${s.chainSlug}/${s.storeId}` === key) : undefined;
+  if (key && !hit) console.log(`! places/official.json: ${key} is not in any cached Stores file`);
+  return hit ?? null;
+};
 
 for (const pin of pins) {
   let box: [number, number, number, number];
@@ -222,7 +233,7 @@ for (const pin of pins) {
 
   const rows: ReviewRow[] = places.map((p) => {
     const brand = brandOf(p.names);
-    const match = brand?.chainSlug ? matchOfficial(p, cityStores.filter((s) => s.chainSlug === brand.chainSlug)) : null;
+    const match = handMatch(p) ?? (brand?.chainSlug ? matchOfficial(p, cityStores.filter((s) => s.chainSlug === brand.chainSlug)) : null);
     const status: Status = match ? 'ingested' : brand ? 'publishes' : 'none';
     const decision = p.refs.map((r) => decisions[r]).find(Boolean) ?? 'pending';
     return { ...p, status, retailer: brand?.retailer ?? null, official: match, decision };

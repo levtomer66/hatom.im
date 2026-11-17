@@ -157,7 +157,9 @@ async function ingestChain(chain: ChainConfig, cityIds: Set<string>, maxStores: 
   const storesFile = await client.latestStores();
   if (!storesFile) throw new Error(`${chain.slug}: no Stores file listed`);
   const parsed = parseStoresFile(toXml(await fetchCached(chain, storesFile, (f) => client.download(f))));
+  const seen = new Set<string>(); // some Stores files list a store more than once
   let targets: StoreRecord[] = parsed.stores
+    .filter((s) => !seen.has(s.storeId) && !!seen.add(s.storeId))
     .map((s) => ({ ...s, chainSlug: chain.slug, chainName: chain.name, cityId: cityOf(s) }))
     // Online stores are kept whatever their city and listed separately (kind: 'online').
     .filter((s) => s.kind === 'online' || (s.cityId !== null && cityIds.has(s.cityId)));
@@ -283,7 +285,8 @@ function ingestManual(chain: ChainConfig, cityIds: Set<string>): StoreRecord[] {
   const places = join(CACHE, 'places');
   const decisions = readJson<Record<string, string>>(join(places, 'decisions.json'), {});
   const pins = readJson<{ id: string; city: string }[]>(join(places, 'pins.json'), []);
-  const woltPlaces = new Set(readJson<WoltVenueConfig[]>(join(places, 'wolt.json'), []).map((v) => v.placeId).filter(Boolean));
+  // A venue with `manualToo` sells only part of the shop on Wolt (e.g. just produce): keep the manual shop too.
+  const woltPlaces = new Set(readJson<WoltVenueConfig[]>(join(places, 'wolt.json'), []).filter((v) => !v.manualToo).map((v) => v.placeId).filter(Boolean));
   const out = new Map<string, StoreRecord>();
   for (const pin of pins.filter((p) => cityIds.has(p.city))) {
     type Row = { id: string; name: string; address: string; refs: string[]; status: string; lat: number; lng: number };

@@ -17,10 +17,12 @@ const MAX_PAGES = 20;
 
 /** One venue to fetch, from places/wolt.json in the cache dir. */
 export interface WoltVenueConfig {
+  /** The venue sells only part of the shop (e.g. produce): keep the manual shop listed as well. */
+  manualToo?: boolean;
   slug: string;
   /** Target city id (cities.ts). */
   cityId: string;
-  /** places discovery id the venue was approved from (informational). */
+  /** Discovery place id the venue was approved from; places it for the pin filter. */
   placeId?: string;
 }
 

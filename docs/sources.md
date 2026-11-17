@@ -57,9 +57,10 @@ three target cities, after the city rules in [City matching](#city-matching).
 
 **Ingested** (`src/lib/shopping/chains.ts`): Shufersal, and on Cerberus
 Yochananof, Rami Levy, Tiv Taam, Dor Alon, Fresh Market, Keshet and Osher Ad
-(added 2026-11-16 — all parse with the default field aliases). Next: Bina
-(Good Pharm, King Store, Super Sapir, …), Carrefour (PublishPrice),
-Super-Pharm, Victory / Mahsani HaShuk (Laibcatalog) and Wolt.
+(added 2026-11-16 — all parse with the default field aliases); Carrefour
+(PublishPrice), Victory and Mahsani HaShuk (Laibcatalog), Bareket and City
+Market (Bina), added 2026-11-17 for branches near the pins. Next: the other
+Bina chains (Good Pharm, King Store, Super Sapir, …) and Super-Pharm.
 
 ## Access methods
 
@@ -67,10 +68,10 @@ Super-Pharm, Victory / Mahsani HaShuk (Laibcatalog) and Wolt.
 |---|---|---|
 | **Cerberus (HTTPS)** | `GET https://url.publishedprices.co.il/login` → read `<meta name="csrftoken">` → `POST /login/user` with `username=<user>&password=&csrftoken=…` (302 to `/file` = success, keep the cookie) → `GET /file` for a fresh csrftoken → `POST /file/json/dir` with `sEcho=1&iDisplayStart=0&iDisplayLength=100000&sSearch=<substring>&cd=/&csrftoken=…` → JSON `aaData[{name,size,time}]` → `GET /file/d/<name>`. | Yochananof, Rami Levy, Tiv Taam, Dor Alon, Fresh Market, Keshet, Osher Ad, Stop Market, Politzer |
 | Cerberus (FTP) | Same accounts on plain FTP `ftp://url.retail.publishedprices.co.il/` (passive, empty password). Works with `curl`. **FTP-over-TLS fails here** (`425 Unable to open the data connection`), which breaks the Python library's Cerberus engine (below). We use HTTPS. | (same) |
-| Bina projects | `http://<prefix>.binaprojects.com/MainIO_Hok.aspx` lists files (dated by a `DateFile` field), download via `/Download.aspx?FileNm=<name>`. Verified only through the library, so the exact request shape is still to be documented when the first Bina chain is onboarded. | Good Pharm, King Store, Super Sapir, Bareket, Maayan 2000, Shefa Birkat Hashem, Shuk HaIr, Zol VeBegadol, City Market |
-| PublishPrice | `https://prices.<site>.co.il/` — HTML listing, date-filtered. | Yeinot Bitan / Carrefour (`carrefour`) |
+| Bina projects | `POST https://<prefix>.binaprojects.com/MainIO_Hok.aspx` with `WStore=&WDate=<dd/mm/yyyy>&WFileType=0` → JSON `[{FileNm, DateFile, …}]` for that day (a GET answers empty). `GET /Download.aspx?FileNm=<name>` → `[{SPath}]`, the real file URL. City Market's portal also lists a franchise's files under a second chain id (7290058288090) whose store numbers don't overlap the main company's — matched by store number. | Good Pharm, King Store, Super Sapir, Bareket, Maayan 2000, Shefa Birkat Hashem, Shuk HaIr, Zol VeBegadol, City Market |
+| PublishPrice | `GET https://prices.<site>.co.il/` embeds today's listing as `const files = [{name,size,modified}]` and its folder as `const path = 'YYYYMMDD'`; a file is `/<path>/<name>`. The Stores file is UTF-16 XML. Carrefour's PriceFull headers carry the internal branch code (e.g. 442 for store 469) — the file name's store id is the one to trust. | Yeinot Bitan / Carrefour (`carrefour`) |
 | Own multi-page site | Paged HTML table with direct blob links. | Shufersal `https://prices.shufersal.co.il/` (`?page=N`, filter by category/store) · Super-Pharm `http://prices.super-pharm.co.il/` · Hazi Hinam `https://shop.hazi-hinam.co.il/Prices` |
-| Laibcatalog API | `https://laibcatalog.co.il/webapi/api/getbranches?edi=<chainId>` and a files endpoint per chain id. Overnight listings are often empty. | Victory, Mahsani HaShuk, H. Cohen |
+| Laibcatalog API | `GET https://laibcatalog.co.il/webapi/api/getfiles?edi=<chainId>` → JSON `[{branchNumber, fileName, fileType, fileDate}]` (today's files); download `/webapi/<chainId>/<fileName>`. `getbranches?edi=` gives branch names only. Overnight listings are often empty. | Victory, Mahsani HaShuk, H. Cohen |
 | Wolt | `https://wm-gateway.wolt.com/isr-prices/public/v1/index.html` → per-date page `<YYYY-MM-DD>.html` → links. Full files only, no deltas. | Wolt Market |
 
 ## Chains with stores in the target cities

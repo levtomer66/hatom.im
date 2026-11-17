@@ -18,3 +18,12 @@ test('chainBySlug finds the Cerberus chains added after the first two', () => {
     assert.equal(chainBySlug(slug)?.source.kind, 'cerberus', slug);
   }
 });
+
+test('the Bina, Laibcatalog and PublishPrice chains carry what their fetcher needs', () => {
+  const kinds = new Map(CHAINS.map((c) => [c.slug, c.source]));
+  assert.deepEqual(kinds.get('bareket'), { kind: 'bina', host: 'superbareket' });
+  assert.deepEqual(kinds.get('city-market'), { kind: 'bina', host: 'citymarketkiryatgat' });
+  assert.deepEqual(kinds.get('victory'), { kind: 'laibcatalog' });
+  assert.deepEqual(kinds.get('mahsani-hashuk'), { kind: 'laibcatalog' });
+  assert.deepEqual(kinds.get('carrefour'), { kind: 'publishprice', site: 'carrefour' });
+});

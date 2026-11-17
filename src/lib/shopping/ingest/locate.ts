@@ -57,9 +57,11 @@ export function pinFilter(placesDir: string): PinFilter | null {
 
   // Official stores the discovery review matched to a mapped shop. One the owner
   // included in places/decisions.json is on their curated list, so it is kept
-  // without re-checking the walk (two routers disagree by a minute at the edge).
+  // without re-checking the walk (two routers disagree by a minute at the edge);
+  // one they only skipped is left out the same way.
   const matched = new Map<string, Point>();
   const curated = new Set<string>();
+  const skipped = new Set<string>();
   const decisions = readJson<Record<string, string>>(join(placesDir, 'decisions.json'), {});
   for (const pin of pins) {
     const rows = readJson<{ lat: number; lng: number; refs: string[]; official: { chainSlug: string; storeId: string } | null }[]>(join(placesDir, `${pin.id}.review.json`), []);
@@ -68,8 +70,10 @@ export function pinFilter(placesDir: string): PinFilter | null {
       const k = `${r.official.chainSlug}/${r.official.storeId}`;
       matched.set(k, { lat: r.lat, lng: r.lng });
       if (r.refs.some((ref) => decisions[ref] === 'include')) curated.add(k);
+      else if (r.refs.some((ref) => decisions[ref] === 'skip')) skipped.add(k);
     }
   }
+  for (const k of curated) skipped.delete(k); // two rows can match one store
 
   const cachePath = join(placesDir, 'geocode.json');
   const cache = readJson<GeocodeCache>(cachePath, {});
@@ -129,6 +133,7 @@ export function pinFilter(placesDir: string): PinFilter | null {
           out.add(storeId(s));
           continue;
         }
+        if (skipped.has(`${s.chainSlug}/${s.storeId}`)) continue;
         const city = CITIES.find((c) => c.id === s.cityId)!;
         const queries = storeGeocodeQueries(s, city.name.replace('-יפו', ''));
         let at = matched.get(`${s.chainSlug}/${s.storeId}`) ?? null;
