@@ -717,6 +717,7 @@ body:has(.sh-page) { background: #ffffff; }
   object-fit: cover;
   object-position: center;
 }
+.sh-thumb.is-illus { border-style: dashed; border-color: var(--sh-muted); }
 .sh-thumb.is-empty {
   display: inline-flex;
   align-items: center;
@@ -768,6 +769,7 @@ body:has(.sh-page) { background: #ffffff; }
 .sh-photo-credit { font-size: 0.6875rem; line-height: 1.3; text-align: center; color: var(--sh-muted); }
 .sh-credit { margin: 1.5rem 0 0; font-size: 0.75rem; color: var(--sh-muted); }
 .sh-credit a, .sh-photo-credit { color: var(--sh-muted); text-decoration: underline; text-underline-offset: 3px; }
+.sh-photo-credit.is-plain { text-decoration: none; }
 .sh-sheet-title { margin: 0; font-size: 1.25rem; font-weight: 600; line-height: 1.35; }
 .sh-sheet-sub { display: flex; flex-wrap: wrap; gap: 0.125rem 0.75rem; margin: 0.25rem 0 0; font-size: 0.875rem; color: var(--sh-muted); }
 .sh-sheet-empty { padding: 0.5rem 2.5rem 0.5rem 0; }

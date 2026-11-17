@@ -599,7 +599,7 @@ export default function ShoppingPage() {
                       <li key={h.key} className={`sh-hit ${inList ? 'is-in' : ''} ${product?.key === h.key ? 'is-open' : ''}`}>
                         <button type="button" className="sh-hit-main" aria-expanded={narrow ? product?.key === h.key : undefined}
                           onClick={() => setProduct(product?.key === h.key && narrow ? null : { key: h.key, scanned: false })}>
-                          <Thumb src={h.img} size={44} />
+                          <Thumb src={h.img} size={44} by={h.imgBy} />
                           <span className="sh-hit-name">
                             {h.name}{h.w && <small className="sh-weighed">לפי משקל</small>}
                             {realMaker(h.manufacturer) && <small className="sh-hit-maker">{realMaker(h.manufacturer)}</small>}
@@ -1110,7 +1110,7 @@ function Line({ line, result, store }: { line: LineResult; result: CompareRespon
   if (!line.available) {
     return (
       <li className="sh-line is-missing">
-        <span className="sh-line-name"><Thumb src={it?.img} size={36} /><span>{it?.name ?? line.key}</span></span>
+        <span className="sh-line-name"><Thumb src={it?.img} size={36} by={it?.imgBy} /><span>{it?.name ?? line.key}</span></span>
         <span className="sh-line-price">לא נמכר כאן</span>
       </li>
     );
@@ -1120,7 +1120,7 @@ function Line({ line, result, store }: { line: LineResult; result: CompareRespon
   const deals = [...line.applied, ...line.offers, ...idleRefs(idle, result.promos)];
   return (
     <li className="sh-line">
-      <span className="sh-line-name"><Thumb src={it?.img} size={36} /><span>{it?.name ?? line.key} <small>{qtyLabel(line.qty, w)}</small></span></span>
+      <span className="sh-line-name"><Thumb src={it?.img} size={36} by={it?.imgBy} /><span>{it?.name ?? line.key} <small>{qtyLabel(line.qty, w)}</small></span></span>
       <PriceReveal label={ils(line.cost)} pop={deals.length ? <DealInfo deals={deals} promos={result.promos} /> : null}>
         <SaleLabel applied={line.applied.length > 0} idle={idle.length > 0} offers={line.offers.length > 0} />
         <span className="sh-line-price">
@@ -1175,7 +1175,7 @@ function PerItemRow({ row, result }: { row: ItemBest; result: CompareResponse })
   const [first, ...rest] = row.options;
   return (
     <li className="sh-peritem-row">
-      <span className="sh-line-name"><Thumb src={it?.img} size={44} /><span>{it?.name ?? row.key} <small>{qtyLabel(row.qty, w)}</small></span></span>
+      <span className="sh-line-name"><Thumb src={it?.img} size={44} by={it?.imgBy} /><span>{it?.name ?? row.key} <small>{qtyLabel(row.qty, w)}</small></span></span>
       {first ? (
         <>
           <span className="sh-line-price">
@@ -1246,7 +1246,8 @@ const sized = (src: string, px: number) =>
   src.startsWith('https://imageproxy.wolt.com/') ? `${src}${src.includes('?') ? '&' : '?'}w=${px * 2}` : src;
 
 /** A product photo, or a quiet basket mark when there's none (most items) or it fails to load. */
-function Thumb({ src, size }: { src: string | null | undefined; size: number }) {
+/** `by: 'name'` = a photo borrowed from a same-named product: dashed frame, "תמונה להמחשה" on hover. */
+function Thumb({ src, size, by }: { src: string | null | undefined; size: number; by?: string | null }) {
   const [failed, setFailed] = useState(false);
   const box = { width: size, height: size };
   if (!src || failed) {
@@ -1254,7 +1255,8 @@ function Thumb({ src, size }: { src: string | null | undefined; size: number }) 
   }
   return (
     // eslint-disable-next-line @next/next/no-img-element -- plain <img>: external photos, no optimizer
-    <img className="sh-thumb" src={sized(src, size)} width={size} height={size} style={box}
+    <img className={by === 'name' ? 'sh-thumb is-illus' : 'sh-thumb'} src={sized(src, size)}
+             title={by === 'name' ? 'תמונה להמחשה' : undefined} width={size} height={size} style={box}
       alt="" loading="lazy" decoding="async" onError={() => setFailed(true)} />
   );
 }
@@ -1462,8 +1464,9 @@ function ProductSheet({ itemKey, scanned, city, inList, onAdd, onClose, inline }
           <>
             <div className="sh-sheet-head">
               <div className="sh-sheet-photo">
-                <Thumb src={it.img} size={88} />
+                <Thumb src={it.img} size={88} by={it.imgBy} />
                 {it.img && it.imgBy === 'off' && <OffCredit barcode={it.barcode ? it.key : null} />}
+                {it.img && it.imgBy === 'name' && <span className="sh-photo-credit is-plain">תמונה להמחשה</span>}
               </div>
               <div>
                 <h2 id="sh-sheet-title" className="sh-sheet-title">{it.name}</h2>
@@ -1851,7 +1854,7 @@ function InStore({ trip, onTrip, onClose, onEnded }: {
                   <li key={it.key} className={`sh-tick-row ${missing ? 'is-gone' : ''}`}>
                     <button type="button" className={`sh-tick ${done ? 'is-done' : ''}`} onClick={() => tick(it.key)} aria-pressed={done} disabled={missing}>
                       <span className="sh-tick-box" aria-hidden>{done && <FaCheck />}</span>
-                      <Thumb src={it.img} size={40} />
+                      <Thumb src={it.img} size={40} by={it.imgBy} />
                       <span className="sh-tick-name">{it.name}<small>{missing ? 'לא היה' : qtyLabel(it.qty, it.w)}</small></span>
                       <span className="sh-tick-cost">{ils(it.cost)}</span>
                     </button>
