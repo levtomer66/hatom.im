@@ -59,12 +59,13 @@ test('listNutrition: sums per line amount, counts what it cannot place', () => {
     bamba: { nu: nu({ kcal: 534, p: 17.5, s: 3.2, na: 390 }), pack: 80, w: false, liquid: false, d: 'snacks' },
     tomato: { nu: nu({ kcal: 18, p: 0.9, s: 2.6, na: 5 }), pack: null, w: true, liquid: false, d: 'produce' },
     eggs: { nu: nu({ kcal: 143 }), pack: null, w: false, liquid: false, d: 'dairy' }, // sold by the unit: no grams
-    soap: undefined,
+    soap: { nu: null, pack: 750, w: false, liquid: false, d: 'cleaning' },
+    unknown: undefined,
   };
-  const r = listNutrition([{ key: 'bamba', qty: 2 }, { key: 'tomato', qty: 1.5 }, { key: 'eggs', qty: 1 }, { key: 'soap', qty: 1 }], meta);
+  const r = listNutrition([{ key: 'bamba', qty: 2 }, { key: 'tomato', qty: 1.5 }, { key: 'eggs', qty: 1 }, { key: 'soap', qty: 1 }, { key: 'unknown', qty: 1 }], meta);
   assert.equal(r.covered, 2);
-  assert.equal(r.of, 4);
-  assert.deepEqual(r.missing, ['eggs', 'soap']);
+  assert.equal(r.of, 4); // soap isn't food: not counted at all
+  assert.deepEqual(r.missing, ['eggs', 'unknown']);
   assert.equal(Math.round(r.totals.kcal), Math.round(534 * 1.6 + 18 * 15));
   assert.equal(Math.round(r.totals.na), Math.round(390 * 1.6 + 5 * 15));
   assert.deepEqual(r.top.kcal.map((x) => x.key), ['bamba', 'tomato']);

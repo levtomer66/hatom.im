@@ -277,6 +277,31 @@ within ±25% of 4·protein + 4·carbs + 9·fat; the OFF product name shares a wo
 with ours (or the brand does), else the row is dropped as "barcode points
 elsewhere". A row that fails falls back to the ministry match.
 
+## Status (2026-11-17)
+
+Built (app side, branch `claude/shopping-here`):
+- `src/lib/shopping/nutrition.ts` (import-free, tested): the `nu` shape,
+  `parseOff`, `plausible`, `namesAgree`, `redLabels` (תקנה 5), `packGrams`,
+  `listNutrition`; non-food departments are left out of everything.
+- Product window: "ערכים תזונתיים" with a "ל־100 גרם | לאריזה" toggle,
+  one tile per nutrient, red-label chips derived from the values, the
+  source, and "הקובע הוא הסימון על האריזה".
+- ⚙ menu in the page header (`shoppingUserSettings`, `GET/PUT
+  /api/shopping/settings`), with "ערכים תזונתיים ברשימה" (off by default).
+- The list's totals (calories, protein, sugar, sodium), "לפי X מתוך Y מוצרים",
+  "חלקי" under half; tap for the top items per nutrient, the red-label
+  items and the ones without values (`GET /api/shopping/nutrition?keys=`).
+
+Ingest (the ingest session, Open Food Facts CSV + these checks): `nu` on
+7,722 of 57,204 items in the local Docker data on 2026-11-17.
+
+Not built yet / known gaps:
+- The ministry-table fallback (by name) and "לא המוצר הנכון?" fixes.
+- Rows typed per serving instead of per 100 g pass the checks (Apropo: 268
+  kcal on OFF, 538 in the ministry table). Cross-check with the ministry
+  match where both exist.
+- Items sold by the unit (eggs) have no grams, so they're never in the totals.
+
 ## Order of work
 
 1. ~~Spike~~ (above).

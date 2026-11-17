@@ -140,6 +140,10 @@ export function redLabels(nu: Nutrition, liquid: boolean, d: string | null | und
 
 // ── amounts and totals ──
 
+/** Departments that aren't food (departments.ts ids): no nutrition section, not counted in a list's totals. */
+const NOT_FOOD = new Set(['cleaning', 'toiletries', 'paper', 'pets', 'home']);
+export const isFood = (d: string | null | undefined) => !d || !NOT_FOOD.has(d);
+
 /** Grams (ml for drinks) in one pack, from the price file's quantity and unit; null when not by weight or volume. */
 export function packGrams(q: number | null | undefined, uq: string | null | undefined): number | null {
   if (!q || q <= 0) return null;
@@ -162,7 +166,7 @@ export type HeroNutrient = (typeof HERO_NUTRIENTS)[number];
 
 export interface ListNutrition {
   totals: Record<HeroNutrient, number>;
-  /** Lines with values and a known amount, of all lines. */
+  /** Food lines with values and a known amount, of all food lines (cleaning, toiletries… aren't counted). */
   covered: number;
   of: number;
   /** Per nutrient, the lines that add the most, biggest first (at most 3). */
@@ -187,8 +191,11 @@ export function listNutrition(
   const red: string[] = [];
   const missing: string[] = [];
   let covered = 0;
+  let of = 0;
   for (const l of lines) {
     const m = meta[l.key];
+    if (m && !isFood(m.d)) continue;
+    of++;
     const grams = m ? lineGrams(l.qty, m.w, m.pack) : null;
     if (!m?.nu || grams === null) {
       missing.push(l.key);
@@ -204,5 +211,5 @@ export function listNutrition(
     }
   }
   const top = Object.fromEntries(HERO_NUTRIENTS.map((k) => [k, parts[k].sort((a, b) => b.amount - a.amount).slice(0, 3)])) as ListNutrition['top'];
-  return { totals, covered, of: lines.length, top, red, missing };
+  return { totals, covered, of, top, red, missing };
 }
