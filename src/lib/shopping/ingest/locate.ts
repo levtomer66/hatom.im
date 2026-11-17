@@ -45,6 +45,10 @@ export interface PinFilter {
   keep(stores: LocatableStore[], warn: (msg: string) => void): Promise<Set<string>>;
   /** Whether a point is within one of the city's pins (walking time when the pin sets one). */
   near(cityId: string | null, at: Point): Promise<boolean>;
+  /** Where an official store is: the discovery match, else its cached or looked-up address. */
+  pointOf(store: LocatableStore): Promise<Point | null>;
+  /** Routed walking minutes from the nearest of the city's pins (rounded up), or null. */
+  walkMinutes(cityId: string | null, at: Point): Promise<number | null>;
 }
 
 /** null when there's no pins.json: the ingest then keeps whole target cities. */
@@ -117,9 +121,32 @@ export function pinFilter(placesDir: string): PinFilter | null {
     return false;
   }
 
+  async function pointOf(s: LocatableStore): Promise<Point | null> {
+    const m = matched.get(`${s.chainSlug}/${s.storeId}`);
+    if (m) return m;
+    const city = CITIES.find((c) => c.id === s.cityId);
+    if (!city) return null;
+    for (const q of storeGeocodeQueries(s, city.name.replace('-יפו', ''))) {
+      const at = await geocode(q);
+      if (at) return at;
+    }
+    return null;
+  }
+
+  async function walkMinutes(cityId: string | null, at: Point): Promise<number | null> {
+    let best: number | null = null;
+    for (const p of pins.filter((x) => x.city === cityId)) {
+      const s = await walkSeconds(p, at);
+      if (s !== null && (best === null || s < best)) best = s;
+    }
+    return best === null ? null : Math.max(1, Math.ceil(best / 60));
+  }
+
   return {
     pins,
     near,
+    pointOf,
+    walkMinutes,
     async keep(stores, warn) {
       const out = new Set<string>();
       for (const s of stores) {

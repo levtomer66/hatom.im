@@ -148,6 +148,8 @@ interface StoreRecord extends CanonStore {
   chainName: string;
   /** Target city id; null for an online store outside the target cities. */
   cityId: string | null;
+  /** Map point, when the source places it (discovery review rows); official stores are placed by the pin filter. */
+  at?: { lat: number; lng: number };
 }
 
 async function ingestChain(chain: ChainConfig, cityIds: Set<string>, maxStores: number | null): Promise<StoreRecord[]> {
@@ -234,9 +236,10 @@ async function ingestWolt(chain: ChainConfig, cityIds: Set<string>, maxStores: n
   const previous = readJson<Record<string, StoreRecord>>(join(STATE, 'stores.json'), {});
   const out: StoreRecord[] = [];
   for (const v of venues) {
+    const at = v.placeId ? placeCoords().get(v.placeId) : undefined;
     const rec: StoreRecord = {
       chainId: chain.chainId, storeId: v.slug, subChainId: '', name: v.slug, address: '', city: v.cityId, kind: 'physical',
-      chainSlug: chain.slug, chainName: chain.name, cityId: v.cityId,
+      chainSlug: chain.slug, chainName: chain.name, cityId: v.cityId, ...(at ? { at } : {}),
     };
     const prev = loadState(rec);
     const next: SavedStoreState = prev ?? { chainId: chain.chainId, storeId: v.slug, priceFile: null, promoFile: null, items: [], promos: [] };
@@ -296,7 +299,7 @@ function ingestManual(chain: ChainConfig, cityIds: Set<string>): StoreRecord[] {
       const id = createHash('sha1').update(r.id).digest('hex').slice(0, 10);
       out.set(id, {
         chainId: chain.chainId, storeId: id, subChainId: '', name: r.name, address: r.address, city: pin.city, kind: 'physical',
-        chainSlug: chain.slug, chainName: chain.name, cityId: pin.city,
+        chainSlug: chain.slug, chainName: chain.name, cityId: pin.city, at: { lat: r.lat, lng: r.lng },
       });
     }
   }
@@ -408,8 +411,17 @@ async function main() {
     const items = buildItemDocs(states);
     const promoStats = { droppedCoupons: 0 };
     const promos = buildPromoDocs(states, nowLocal, promoStats);
+    // Walking minutes from the nearest pin, for the plan cards (null when unplaced or with no pins).
+    const walk = new Map<string, number | null>();
+    if (PINS) {
+      for (const { s } of loaded) {
+        if (s.kind !== 'physical') continue;
+        const at = s.at ?? (await PINS.pointOf(s));
+        walk.set(storeId(s), at ? await PINS.walkMinutes(s.cityId, at) : null);
+      }
+    }
     const storeDocs = buildStoreDocs(
-      loaded.map(({ s, st }) => ({ ...s, priceFile: st?.priceFile ?? null, promoFile: st?.promoFile ?? null })),
+      loaded.map(({ s, st }) => ({ ...s, priceFile: st?.priceFile ?? null, promoFile: st?.promoFile ?? null, walkMin: walk.get(storeId(s)) ?? null })),
       keys,
     );
     const chainDocs = new Map(CHAINS.map((c) => [c.chainId, { _id: c.chainId, slug: c.slug, name: c.name }]));
