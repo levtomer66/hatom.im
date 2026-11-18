@@ -14,6 +14,8 @@ const plex = IBM_Plex_Sans_Hebrew({
 export const metadata: Metadata = {
   title: '🛒 כיף לי בסופר',
   description: 'רשימת קניות ואיפה הכי זול לקנות אותה',
+  // The label under the home-screen icon (iOS otherwise uses the whole title, emoji and site suffix).
+  appleWebApp: { title: 'כיף לי בסופר' },
 };
 
 export default function ShoppingLayout({ children }: { children: React.ReactNode }) {
