@@ -25,7 +25,7 @@ import { parseArgs } from 'node:util';
 import { BSON, MongoClient, type AnyBulkWriteOperation, type Db, type Document } from 'mongodb';
 import { CHAINS, chainBySlug, keepOnlineStore, type ChainConfig } from '../chains.ts';
 import { COLLECTIONS, SNAPSHOT_COLLECTIONS, storeId, type StoreId } from '../collections.ts';
-import { CITIES, cityOf } from '../cities.ts';
+import { cityOf, ingestCityIds } from '../cities.ts';
 import { decodeXmlBytes, isGzip } from '../xml.ts';
 import { parsePriceFile, parsePromoFile, parseStoresFile, type CanonItem, type CanonPromo, type CanonStore } from '../normalize.ts';
 import { buildItemDocs, buildPromoDocs, buildStoreDocs, diffDocs, israelLocalNow, type StoreState } from '../snapshot.ts';
@@ -380,7 +380,7 @@ async function main() {
     if (!c) throw new Error(`unknown chain "${s}" (known: ${CHAINS.map((x) => x.slug).join(', ')})`);
     return c;
   });
-  const cityIds = new Set(args.cities ? args.cities.split(',') : CITIES.map((c) => c.id));
+  const cityIds = args.cities ? new Set(args.cities.split(',')) : ingestCityIds({ allStores: args['all-stores'] });
   const maxStores = args['max-stores'] ? Number(args['max-stores']) : null;
   const dry = args['dry-run'];
   log(`run ${runId}${dry ? ' (dry run)' : ''}${args.offline ? ' (offline)' : ''} — chains: ${slugs.join(', ')}; cache: ${CACHE}`);

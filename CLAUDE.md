@@ -340,7 +340,8 @@ Identity = Gmail address. Two roles:
   is a regular store: the owner adds it via `places/extra.json` + the
   discovery review (the ingest keeps a curated store in any target city, pin
   or no pin — `keepRule` in `ingest/locate.ts`); a city added only for that
-  sets `picker: false` in `CITIES`. `GET /api/shopping/stores?q=` searches every
+  sets `picker: false` in `CITIES` (Holon, for Hazi Hinam מרכבה; `--all-stores`
+  leaves such cities out). `GET /api/shopping/stores?q=` searches every
   priced store in every city; `POST /api/shopping/far` (the page sends its favorites) prices the list at the
   favorites ("כמה יעלה לי ב…", from the list card). Plans and compare stay on
   the user's city; `/here?store=` compares a store with its own city.
