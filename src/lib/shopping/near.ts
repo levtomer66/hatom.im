@@ -12,6 +12,19 @@ export const PICKER_RADIUS_KM = 10;
 export interface Centre { lat: number; lng: number }
 export type WhereSource = 'live' | 'home' | 'none';
 export interface Where { centre: Centre | null; source: WhereSource; radiusKm: number }
+/** The household's favorite stores, at most (home.ts re-exports it). */
+export const MAX_FAV_STORES = 10;
+
+/**
+ * The favorites a request counts: the page's current ones when it sends a
+ * valid list (a star just tapped counts before its debounced save lands;
+ * deduped, capped), else the household's saved ones. Read-only use: pricing.
+ */
+export function pickFavs(given: unknown, saved: number[]): number[] {
+  if (!Array.isArray(given) || !given.every((k) => Number.isInteger(k))) return saved;
+  return [...new Set(given as number[])].slice(0, MAX_FAV_STORES);
+}
+
 /** A request's near set, before the stores are loaded: where, and the household's favorites. */
 export interface Near { where: Where; favs: number[] }
 

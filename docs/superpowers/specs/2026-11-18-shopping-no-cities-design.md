@@ -35,8 +35,12 @@ decided by where you are (or the household's home spot) and the household's
   The same button is offered inline when the page has no location. No map
   widget. Any household member can set or clear it.
 - **The API** takes `lat` / `lng` (and `r`, the radius in km: 1, 2, 5 or 10)
-  per request instead of `city`; they are never stored (only the home spot
-  is, when a member saves it). The location goes only to our own API.
+  per request instead of `city`; the app never stores them (only the home
+  spot, when a member saves it). The location goes only to our own API.
+  On the GET routes (search, item, here/stores) they are in the URL, so the
+  host's request logs may hold them briefly, rounded to ~11 m; compare sends
+  them in its body. `POST /compare` also takes `favs` (the page's current
+  favorites, so a star just tapped counts before its save lands).
 - **MCP tools** take optional `lat`, `lng`, `radius_km` (1/2/5/10, default
   1); without them, the home spot. `shopping_set_city` is removed. With no
   location and no home spot, a tool answers with favorites + online and says

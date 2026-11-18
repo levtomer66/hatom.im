@@ -3,10 +3,11 @@ import { requireFeatureCaller } from '@/lib/api-caller';
 import { nearFor } from '@/lib/shopping/near-server';
 import { compareBasket, parseBasketRequest } from '@/lib/shopping/service';
 
-// POST { lat?, lng?, r?, lines, clubs?, coupons? } — the basket priced at
+// POST { lat?, lng?, r?, favs?, lines, clubs?, coupons? } — the basket priced at
 // every near store (within r km of lat/lng, else of the household's home
 // spot, plus ★ and online): physical and online stores ranked separately,
-// plans and each line's cheapest stores (see compareBasket). An old client's
+// plans and each line's cheapest stores (see compareBasket). `favs`: the
+// page's current favorites (a star just tapped counts), else the saved ones. An old client's
 // `city` is ignored.
 export async function POST(request: NextRequest) {
   const caller = await requireFeatureCaller(request, 'shopping');

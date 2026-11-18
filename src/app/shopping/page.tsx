@@ -515,8 +515,8 @@ export default function ShoppingPage() {
 
   // ── compare ──
   const sig = useMemo(
-    () => JSON.stringify([near.query, live ? null : home?.homeSpot ?? null, clubs, coupons, list?.items.map((i) => [i.key, i.qty]) ?? []]),
-    [near.query, live, home?.homeSpot, clubs, coupons, list],
+    () => JSON.stringify([near.query, live ? null : home?.homeSpot ?? null, home?.favStores ?? [], clubs, coupons, list?.items.map((i) => [i.key, i.qty]) ?? []]),
+    [near.query, live, home?.homeSpot, home?.favStores, clubs, coupons, list],
   );
   /** Where the result on screen was priced: a new place or radius closes the open card. */
   const shownWhere = useRef<string | null>(null);
@@ -530,7 +530,8 @@ export default function ShoppingPage() {
     try {
       const res = await api<CompareResponse>('/compare', {
         method: 'POST',
-        body: JSON.stringify({ ...(live ?? {}), r: near.radius, clubs, coupons, lines: list.items.map(({ key, qty }) => ({ key, qty })) }),
+        // The current favorites: a star just tapped counts before its debounced save lands.
+        body: JSON.stringify({ ...(live ?? {}), r: near.radius, favs: homeRef.current?.favStores ?? [], clubs, coupons, lines: list.items.map(({ key, qty }) => ({ key, qty })) }),
       });
       setResult(res);
       setComparedSig(sig);

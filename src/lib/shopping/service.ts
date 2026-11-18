@@ -243,7 +243,7 @@ function buildPlans(
  * A basket request's lines and toggles, validated: shared by POST /compare
  * (which hands lat / lng / r to nearFor) and POST /far. A string is the error.
  */
-export function parseBasketRequest(body: unknown): Omit<CompareRequest, 'near'> & { lat: unknown; lng: unknown; r: unknown } | string {
+export function parseBasketRequest(body: unknown): Omit<CompareRequest, 'near'> & { lat: unknown; lng: unknown; r: unknown; favs: unknown } | string {
   if (!body || typeof body !== 'object') return 'body must be an object';
   const b = body as Record<string, unknown>;
   if (!Array.isArray(b.lines) || !b.lines.length || b.lines.length > MAX_LIST_ITEMS) return 'lines must be a non-empty array';
@@ -253,7 +253,7 @@ export function parseBasketRequest(body: unknown): Omit<CompareRequest, 'near'> 
     if (typeof l.qty !== 'number' || !(l.qty > 0) || l.qty > MAX_QTY) return `bad quantity for ${l.key}`;
     lines.push({ key: l.key, qty: l.qty });
   }
-  return { lat: b.lat, lng: b.lng, r: b.r, lines, clubs: b.clubs === true, coupons: b.coupons === true };
+  return { lat: b.lat, lng: b.lng, r: b.r, favs: b.favs, lines, clubs: b.clubs === true, coupons: b.coupons === true };
 }
 
 /** The basket's items (with prices typed at `manualKeys`), their promos and the pricing options. */

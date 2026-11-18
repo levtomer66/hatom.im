@@ -150,6 +150,8 @@ export interface CompareRequest {
   lat?: number;
   lng?: number;
   r?: number;
+  /** The page's current favorites (store keys); without it, the household's saved ones. */
+  favs?: number[];
   lines: { key: string; qty: number }[];
   /** Apply club promos too. */
   clubs?: boolean;

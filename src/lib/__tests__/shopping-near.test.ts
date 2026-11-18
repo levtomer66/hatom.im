@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { nearStores, parseCentre, parseRadius, resolveWhere, type Centre } from '../shopping/near.ts';
+import { nearStores, parseCentre, parseRadius, pickFavs, resolveWhere, type Centre } from '../shopping/near.ts';
 
 test('parseCentre: both, neither, one, junk', () => {
   assert.deepEqual(parseCentre(32.0853123, '34.7818456'), { lat: 32.0853, lng: 34.7818 });
@@ -47,4 +47,13 @@ test('nearStores: no centre → favorites and online only', () => {
   const none = { centre: null, source: 'none' as const, radiusKm: 1 };
   assert.deepEqual(nearStores(stores, none, []).map((x) => x.k), [2]);
   assert.deepEqual(nearStores(stores, none, [1]).map((x) => x.k), [1, 2]);
+});
+
+test('pickFavs: the page’s current favorites when sent (a star just tapped counts), else the saved ones', () => {
+  assert.deepEqual(pickFavs([446, 433, 446], [1]), [446, 433]);
+  assert.deepEqual(pickFavs([], [1, 2]), []); // every star removed
+  assert.deepEqual(pickFavs(undefined, [1, 2]), [1, 2]);
+  assert.deepEqual(pickFavs('x', [1, 2]), [1, 2]);
+  assert.deepEqual(pickFavs([1, 'a', 2.5, 3], [9]), [9]); // junk → the saved ones
+  assert.equal(pickFavs(Array.from({ length: 20 }, (_, i) => i), []).length, 10);
 });

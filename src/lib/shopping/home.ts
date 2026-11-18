@@ -3,7 +3,9 @@
 // `node --test`. Stored as one Mongo doc (src/models/ShoppingHome.ts).
 // Spec: docs/superpowers/specs/2026-11-18-shopping-my-items-design.md
 
-import { parseCentre, type Centre } from './near.ts';
+import { MAX_FAV_STORES, parseCentre, type Centre } from './near.ts';
+
+export { MAX_FAV_STORES };
 
 /** A line on the shopping list — the shape the comparison takes. */
 export interface ListLine {
@@ -35,7 +37,6 @@ export interface ShoppingHome {
 export const MAX_MY_ITEMS = 300;
 export const MAX_LIST_ITEMS = 100;
 export const MAX_QTY = 100;
-export const MAX_FAV_STORES = 10;
 const KEY = /^(\d{1,14}|\d{13}:[\w.-]{1,40})$/;
 
 export type Result<T> = { ok: true; value: T } | { ok: false; error: string };
