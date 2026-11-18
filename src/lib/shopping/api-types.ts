@@ -224,7 +224,7 @@ export interface CompareResponse {
 export type StoreCardData = Pick<CompareResponse, 'now' | 'stores' | 'items' | 'promos' | 'idle'>;
 
 /**
- * POST /api/shopping/far { lines, clubs?, coupons? } — "כמה יעלה לי ב…": the
+ * POST /api/shopping/far { stores, lines, clubs?, coupons? } — "כמה יעלה לי ב…": the
  * list at each of the household's favorite stores (any city), complete
  * baskets cheapest first, then those missing items.
  */

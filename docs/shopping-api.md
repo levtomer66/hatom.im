@@ -52,7 +52,7 @@ agorot. The shapes are in `src/lib/shopping/api-types.ts`.
 | `GET home` | My items, the list and the favorite stores (`{ items, list, favStores, updatedAt, meta }`; `meta` = department and photo per key). |
 | `PATCH home` `{ items?, list?, favStores? }` | Replace My items, the list and/or the favorite stores (store keys, max 10). |
 | `GET stores?q=` | Priced stores in every city matching every word of `q` (2+ letters; max 30); without `q`, the favorites (`StoresResponse`). |
-| `POST far` `{ lines: [{key, qty}], clubs?, coupons? }` | "כמה יעלה לי ב…": the list at each favorite store, any city (`FarResponse`). |
+| `POST far` `{ stores, lines: [{key, qty}], clubs?, coupons? }` | "כמה יעלה לי ב…": the list at each of `stores` (the favorites, any city; `FarResponse`). |
 | `POST home/list` `{ add: [{key, qty}] }` | Put My items on the list ("מה חסר?"); items already there keep their quantity. |
 | `GET/PUT settings` `{ nutritionHero?, city? }` | The caller's preferences, incl. the saved city. |
 | `PUT manual-prices` `{ store, item, price }` | Type a neighbourhood shop's price (agorot; null clears). |

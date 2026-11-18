@@ -16,7 +16,7 @@ import type { HereDealsResponse, HereResponse, HereRow, HereStore, HereStoresRes
 import { CITIES } from '@/lib/shopping/cities';
 import { DEPARTMENTS } from '@/lib/shopping/departments';
 import {
-  dealGap, distanceLabel, endsLabel, groupHere, HERE_REMEMBER_MS, isTwin, mergeStores, nearbyStore, sortStores, storeQueryWords, verdict,
+  dealGap, distanceLabel, endsLabel, groupHere, HERE_REMEMBER_MS, inStorePickable, isTwin, mergeStores, nearbyStore, sortStores, storeQueryWords, verdict,
   type HereGroup, type LatLng,
 } from '@/lib/shopping/here';
 import { cleanAddress, dayMonth, FavStar, ils, MultiStar, multiNote, qtyLabel, SaleLabel, storeName, Thumb } from './ui';
@@ -102,7 +102,7 @@ export default function Here(props: HereProps) {
   const favKey = [...favs].join(',');
   useEffect(() => {
     const ctl = new AbortController();
-    getJson<StoresResponse>('/stores', ctl.signal).then((r) => setFavStores(r.stores)).catch(() => {});
+    getJson<StoresResponse>('/stores', ctl.signal).then((r) => setFavStores(inStorePickable(r.stores))).catch(() => {});
     return () => ctl.abort();
   }, [favKey]);
   /** A store picked from the search in another city (not in the lists above). */
@@ -150,7 +150,8 @@ function Picker({ stores, city, favs, onFav, error, onPick, onClose }: {
     if (!storeQueryWords(filter).length) return setFound(null);
     const ctl = new AbortController();
     const t = setTimeout(() => {
-      getJson<StoresResponse>(`/stores?q=${encodeURIComponent(filter.trim())}`, ctl.signal).then((r) => setFound(r.stores)).catch(() => {});
+      getJson<StoresResponse>(`/stores?q=${encodeURIComponent(filter.trim())}`, ctl.signal)
+        .then((r) => setFound(inStorePickable(r.stores))).catch(() => {});
     }, 250);
     return () => { clearTimeout(t); ctl.abort(); };
   }, [filter]);

@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  addToList, homeFromLists, linesAdded, parseFavStores, parseList, parseMyItems, parsePicks, pickMissing, removeBought,
+  addToList, homeFromLists, farStores, linesAdded, parseFavStores, parseList, parseMyItems, parsePicks, pickMissing, removeBought,
   type ListLine, type MyItem,
 } from '../shopping/home.ts';
 
@@ -90,4 +90,10 @@ test('parseFavStores keeps order, dedupes, rejects non-integers and an 11th stor
   assert.equal(r.ok, false);
   assert.equal(!r.ok && r.error, 'אפשר עד 10 חנויות מועדפות');
   assert.deepEqual(parseFavStores([]), { ok: true, value: [] });
+});
+
+test('farStores reads the favorites from the /far body, so pricing never waits for a save', () => {
+  assert.deepEqual(farStores({ stores: [5, 2, 5], lines: [] }), { ok: true, value: [5, 2] });
+  assert.equal(farStores({ lines: [] }).ok, false);
+  assert.equal(farStores({ stores: Array.from({ length: 11 }, (_, i) => i) }).ok, false);
 });

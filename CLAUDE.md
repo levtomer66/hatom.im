@@ -20,7 +20,7 @@ several independent features under separate routes:
 | `/birthday-quiz`   | Host-driven Hebrew family quiz (permission `birthday-quiz`). Questions + pure reducer in `src/lib/birthday-quiz.ts`. |
 | `/laundry`         | Step-by-step laundry guide for our LG washer (permission `laundry`). Loads, doses + step builder in `src/lib/laundry.ts`; photos in `public/laundry/`. |
 | `/calendar`        | Milestones calendar: birthdays, anniversaries, one-off events (permission `calendar`). Mongo `calendarEvents`; date math in `src/lib/calendar.ts`. |
-| `/shopping`        | Grocery price comparison across chains (permission `shopping`). Household My items + one list in Mongo `shoppingHome`; price data written by a local ingest job. |
+| `/shopping`        | Grocery price comparison across chains (permission `shopping`). Household My items + one list in Mongo `shoppingHome`. price data written by a local ingest job. |
 
 Default branch is `main`. Pushes to `main` auto-deploy to Production via
 Vercel's GitHub integration. There is no separate `master` branch.
@@ -341,7 +341,7 @@ Identity = Gmail address. Two roles:
   discovery review (the ingest keeps a curated store in any target city, pin
   or no pin — `keepRule` in `ingest/locate.ts`); a city added only for that
   sets `picker: false` in `CITIES`. `GET /api/shopping/stores?q=` searches every
-  priced store in every city; `POST /api/shopping/far` prices the list at the
+  priced store in every city; `POST /api/shopping/far` (the page sends its favorites) prices the list at the
   favorites ("כמה יעלה לי ב…", from the list card). Plans and compare stay on
   the user's city; `/here?store=` compares a store with its own city.
   Spec: `docs/superpowers/specs/2026-11-18-shopping-favorite-stores-design.md`.

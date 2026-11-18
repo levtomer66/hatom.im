@@ -70,6 +70,14 @@ export function parseFavStores(v: unknown): Result<number[]> {
   return { ok: true, value: out };
 }
 
+/**
+ * POST /far's `stores`: the favorites as the page has them now. Sent with the
+ * request (not read from the saved doc) so pricing never waits for, or races,
+ * the debounced save of a star just tapped.
+ */
+export const farStores = (body: unknown): Result<number[]> =>
+  parseFavStores(body && typeof body === 'object' ? (body as { stores?: unknown }).stores : undefined);
+
 export function parseList(v: unknown): Result<ListLine[]> {
   if (!Array.isArray(v)) return { ok: false, error: 'list must be an array' };
   if (v.length > MAX_LIST_ITEMS) return { ok: false, error: `at most ${MAX_LIST_ITEMS} items` };

@@ -770,7 +770,7 @@ export default function ShoppingPage() {
           </MyItemsSheet>
         )}
         {farOpen && list && list.items.length > 0 && (
-          <FarSheet lines={list.items} clubs={clubs} coupons={coupons} favs={favs} onFav={toggleFav} flush={flushSaves}
+          <FarSheet lines={list.items} clubs={clubs} coupons={coupons} favs={favs} onFav={toggleFav}
             onClose={() => setFarOpen(false)} />
         )}
         {missingOpen && home && (
@@ -1162,15 +1162,14 @@ function Line({ line, result, store }: { line: LineResult; result: StoreCardData
 /**
  * The shopping list priced at each favorite store, whatever its city, ranked
  * like the store list; ★ removes one, and the search below adds any priced
- * store. Pending saves are sent first: /far reads the favorites from the server.
+ * store. The favorites go with the request, so a star counts before it's saved.
  */
-function FarSheet({ lines, clubs, coupons, favs, onFav, flush, onClose }: {
+function FarSheet({ lines, clubs, coupons, favs, onFav, onClose }: {
   lines: ListLine[];
   clubs: boolean;
   coupons: boolean;
   favs: ReadonlySet<number>;
   onFav: (k: number) => void;
-  flush: () => Promise<unknown>;
   onClose: () => void;
 }) {
   const [data, setData] = useState<FarResponse | null>(null);
@@ -1194,15 +1193,14 @@ function FarSheet({ lines, clubs, coupons, favs, onFav, flush, onClose }: {
     let live = true;
     setError(false);
     (async () => {
-      await flush();
       const res = await api<FarResponse>('/far', {
         method: 'POST',
-        body: JSON.stringify({ clubs, coupons, lines: JSON.parse(sig).map(([key, qty]: [string, number]) => ({ key, qty })) }),
+        body: JSON.stringify({ stores: favKey ? favKey.split(',').map(Number) : [], clubs, coupons, lines: JSON.parse(sig).map(([key, qty]: [string, number]) => ({ key, qty })) }),
       });
       if (live) setData(res);
     })().catch(() => { if (live) setError(true); });
     return () => { live = false; };
-  }, [favKey, sig, clubs, coupons, reload, flush]);
+  }, [favKey, sig, clubs, coupons, reload]);
 
   useEffect(() => {
     if (!storeQueryWords(q).length) return setFound(null);

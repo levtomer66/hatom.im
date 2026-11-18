@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  dealGap, distanceLabel, endsLabel, groupHere, isTwin, storeDeals, HERE_WORTH_WALK, hereLines, mergeStores, metresBetween, storeMatches, storeQueryWords, nearbyStore, sortStores, tieOf, verdict,
+  dealGap, distanceLabel, endsLabel, groupHere, isTwin, storeDeals, HERE_WORTH_WALK, hereLines, inStorePickable, mergeStores, metresBetween, storeMatches, storeQueryWords, nearbyStore, sortStores, tieOf, verdict,
   type HereRow, type HereStore,
 } from '../shopping/here.ts';
 import type { PromoDoc } from '../shopping/snapshot.ts';
@@ -189,4 +189,11 @@ test('storeMatches: every word, across chain, branch, city and address', () => {
 
 test('mergeStores keeps one copy of each store, first list first', () => {
   assert.deepEqual(mergeStores([{ k: 1 }, { k: 2 }], [{ k: 2 }, { k: 3 }]).map((s) => s.k), [1, 2, 3]);
+});
+
+test('inStorePickable: only physical stores with a city (an online favorite is not a store you stand in)', () => {
+  const shop = store(1, null, null);
+  const online = { ...store(2, null, null), kind: 'online' as const, city: null };
+  const noCity = { ...store(3, null, null), city: null };
+  assert.deepEqual(inStorePickable([shop, online, noCity]).map((s) => s.k), [1]);
 });
