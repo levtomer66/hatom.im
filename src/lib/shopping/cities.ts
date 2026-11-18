@@ -9,6 +9,12 @@ export interface CityConfig {
   codes: string[];
   /** Spellings seen in City fields and store names, matched as whole words. */
   aliases: string[];
+  /**
+   * Offered in the city picker (default true). A city added only so a far
+   * store the owner curated can be ingested sets false: its few stores are
+   * found through the store search, not by switching to the city.
+   */
+  picker?: boolean;
 }
 
 export const CITIES: CityConfig[] = [

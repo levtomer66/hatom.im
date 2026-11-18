@@ -33,6 +33,22 @@ interface LocatableStore {
 }
 
 type Point = { lat: number; lng: number };
+
+/**
+ * Whether the ingest keeps a store without placing it: online stores and
+ * stores the owner included in the discovery review are kept (in any target
+ * city, pinned or not: a far store is added that way); a store in a city
+ * with no pin, or one the review skipped, is dropped; the rest are placed
+ * and kept when near a pin.
+ */
+export function keepRule(
+  s: { kind: 'physical' | 'online'; key: string; cityId: string | null },
+  ctx: { pinnedCities: ReadonlySet<string>; curated: ReadonlySet<string>; skipped: ReadonlySet<string> },
+): 'keep' | 'drop' | 'locate' {
+  if (s.kind === 'online' || ctx.curated.has(s.key)) return 'keep';
+  if (s.cityId === null || !ctx.pinnedCities.has(s.cityId) || ctx.skipped.has(s.key)) return 'drop';
+  return 'locate';
+}
 /** A hit is kept forever; a miss (`p: null`) only for MISS_TTL_MS. */
 type GeocodeCache = Record<string, { p: Point | null; at: string }>;
 
@@ -149,18 +165,12 @@ export function pinFilter(placesDir: string): PinFilter | null {
     walkMinutes,
     async keep(stores, warn) {
       const out = new Set<string>();
+      const pinnedCities = new Set(pins.map((p) => p.city));
       for (const s of stores) {
-        if (s.kind === 'online') {
-          out.add(storeId(s));
-          continue;
-        }
+        const rule = keepRule({ kind: s.kind, key: `${s.chainSlug}/${s.storeId}`, cityId: s.cityId }, { pinnedCities, curated, skipped });
+        if (rule === 'keep') out.add(storeId(s));
+        if (rule !== 'locate') continue;
         const cityPins = pins.filter((p) => p.city === s.cityId);
-        if (!cityPins.length) continue;
-        if (curated.has(`${s.chainSlug}/${s.storeId}`)) {
-          out.add(storeId(s));
-          continue;
-        }
-        if (skipped.has(`${s.chainSlug}/${s.storeId}`)) continue;
         const city = CITIES.find((c) => c.id === s.cityId)!;
         const queries = storeGeocodeQueries(s, city.name.replace('-יפו', ''));
         let at = matched.get(`${s.chainSlug}/${s.storeId}`) ?? null;

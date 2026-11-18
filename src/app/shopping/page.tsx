@@ -265,7 +265,7 @@ export default function ShoppingPage() {
     const manual = lsGet(LS_CITY_MODE) === 'manual';
     if (manual) setCityMode('manual');
     else detectCity();
-    if (savedCity && CITIES.some((c) => c.id === savedCity)) setCity(savedCity);
+    if (savedCity && CITIES.some((c) => c.id === savedCity && c.picker !== false)) setCity(savedCity);
     loadHome()
       .then(setHome)
       .catch((e) => {
@@ -704,7 +704,7 @@ export default function ShoppingPage() {
                     role="radio" aria-checked={cityMode === 'auto'}>
                     <FaLocationArrow aria-hidden /> לפי המיקום
                   </button>
-                  {CITIES.map((c) => (
+                  {CITIES.filter((c) => c.picker !== false).map((c) => (
                     <button key={c.id} type="button" role="radio" aria-checked={cityMode === 'manual' && city === c.id}
                       className={`sh-chip ${cityMode === 'manual' && city === c.id ? 'is-on' : ''}`} onClick={() => pickCity(c.id)}>
                       {c.name}
