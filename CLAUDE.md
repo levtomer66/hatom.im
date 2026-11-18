@@ -338,7 +338,8 @@ Identity = Gmail address. Two roles:
   `/api/shopping/geocode` → Photon (Nominatim's policy forbids autocomplete),
   remembered on the device; never stored server-side), else
   the household's home spot (`shoppingHome.homeSpot`, set in ⚙ → משק הבית);
-  without either, favorites + online. Every pricing route and tool resolves it
+  without either, favorites + online. The plan cards use only stores within
+  the radius (`withinRadius`); a farther ★ is listed, never planned. Every pricing route and tool resolves it
   with `nearFor()` (`near-server.ts`) and reads stores with `getStoresNear()`
   (one `find` over all candidate stores, filtered in JS: no geo index). A store
   with no `loc` counts only when starred. `CITIES` / `StoreDoc.city` are the

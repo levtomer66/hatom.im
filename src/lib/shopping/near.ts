@@ -94,6 +94,15 @@ export function nearStores<S extends { k: number; kind: 'physical' | 'online'; l
   return out;
 }
 
+/**
+ * A store the plans ("הכי זול" / "חנות אחת") may use: measured from the centre
+ * and within the radius. Favorites farther away, or with no point, are listed
+ * and priced but never win a plan (owner, 2026-11-18).
+ */
+export function withinRadius(s: { distM: number | null }, where: Where): boolean {
+  return s.distM !== null && s.distM <= where.radiusKm * 1000;
+}
+
 /** Streets aren't straight: a walk is about this much longer than the straight line. */
 const DETOUR = 1.3;
 const WALK_M_PER_MIN = 80;

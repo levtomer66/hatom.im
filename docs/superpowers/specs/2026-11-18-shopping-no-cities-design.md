@@ -201,3 +201,8 @@ shopping section (city → near set; `far` ignored by the app).
   autocomplete), inside Israel's bounding box, generic app User-Agent, no
   user identity and no location bias (typed text only): the browser never
   calls a third party and the CSP is unchanged. Results are cached in memory.
+- **The plan cards use only stores within the radius** (owner, after review):
+  "הכי זול" / "חנות אחת" are built from physical stores measured within the
+  radius (`withinRadius` in near.ts). ★ favorites farther away (or with no
+  point) are still listed in "כל החנויות" and priced in "כמה יעלה לי ב…", but
+  never win a plan. With no centre there are no plan cards.

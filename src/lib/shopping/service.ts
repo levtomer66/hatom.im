@@ -19,7 +19,7 @@ import { rankHits, searchPatterns } from '@/lib/shopping/search-rank';
 import { withManualPrices } from '@/lib/shopping/manual';
 import { isLiquid, nutritionOf, packGrams } from '@/lib/shopping/nutrition';
 import { findItems, getItems, getPromosFor, getStoresNear, searchItemsAtlas } from '@/models/ShoppingCatalog';
-import type { Near } from '@/lib/shopping/near';
+import { withinRadius, type Near } from '@/lib/shopping/near';
 import { getManualPrices } from '@/models/ShoppingManualPrice';
 
 // ── search ───────────────────────────────────────────────────────────────
@@ -338,8 +338,9 @@ export async function compareBasket(req: CompareRequest): Promise<CompareRespons
   const physical = rankStores(physicalKeys, req.lines, items, promos, opts).filter(sellsAny);
   const online = rankStores(onlineKeys, req.lines, items, promos, opts).filter(sellsAny);
 
-  // Every near store competes, ★ ones wherever they are (the ingest's `far` flag isn't used).
-  const plans = buildPlans(physical, req.lines, items, promos, opts);
+  // The plans use only the stores within the radius: a ★ farther away is listed, never planned.
+  const inRadius = new Set(stores.filter((s) => withinRadius(s, req.near.where)).map((s) => s.k));
+  const plans = buildPlans(physical.filter((b) => inRadius.has(b.store)), req.lines, items, promos, opts);
 
   // Deals a shown line doesn't use yet (a "3 ב־100" with one pack in the list).
   const shownBaskets = [

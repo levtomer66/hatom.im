@@ -855,11 +855,11 @@ const Results = React.forwardRef<HTMLElement, {
       {!hasPlans && (
         <div className="sh-hero is-partial">
           <span className="sh-hero-kicker">
-            {result.where.source === 'none' ? 'אין מיקום, אז רק חנויות מועדפות' : `אין מחירים בחנויות עד ${result.where.radiusKm} ק״מ`}
+            {result.where.source === 'none' ? 'אין מיקום להשוואה' : `אין מחירים בחנויות עד ${result.where.radiusKm} ק״מ`}
           </span>
           <span className="sh-hero-meta">
             {result.where.source === 'none'
-              ? <>אפשר לאפשר מיקום או לשמור בית (למטה), ובינתיים להשוות אונליין.</>
+              ? <>אפשר לאפשר מיקום, לבחור כתובת או לשמור בית (למטה). בינתיים: החנויות המועדפות ואונליין.</>
               : result.manual.length > 0
                 ? <>לחנויות השכונתיות כאן אין קובץ מחירים. אפשר להקליד מחירים למטה, להרחיב את הטווח, ובינתיים להשוות אונליין.</>
                 : <>{result.where.radiusKm < 10 ? 'אפשר להרחיב את הטווח למעלה, ' : ''}ובינתיים להשוות בחנויות אונליין.</>}

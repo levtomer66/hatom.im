@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { nearStores, parseCentre, parseRadius, pickFavs, resolveWhere, walkMinutes, walkOrder, type Centre } from '../shopping/near.ts';
+import { nearStores, parseCentre, parseRadius, pickFavs, resolveWhere, walkMinutes, walkOrder, withinRadius, type Centre } from '../shopping/near.ts';
 
 test('parseCentre: both, neither, one, junk', () => {
   assert.deepEqual(parseCentre(32.0853123, '34.7818456'), { lat: 32.0853, lng: 34.7818 });
@@ -83,4 +83,13 @@ test('walkOrder: without a centre the walk starts at the first stop; a stop with
   assert.ok(Math.abs(w.legs[1]! - 900) < 5);
   assert.equal(w.legs[2], null);
   assert.equal(w.total, null); // not every leg known
+});
+
+test('withinRadius: the plans’ stores — measured and inside the radius; a far or unplaced ★ is not', () => {
+  const where = { centre: { lat: 32, lng: 34.8 }, source: 'live' as const, radiusKm: 1 };
+  assert.equal(withinRadius({ distM: 1000 }, where), true);
+  assert.equal(withinRadius({ distM: 1001 }, where), false); // a ★ 1 m too far
+  assert.equal(withinRadius({ distM: null }, where), false); // a ★ with no point
+  assert.equal(withinRadius({ distM: 6600 }, { ...where, radiusKm: 10 }), true);
+  assert.equal(withinRadius({ distM: null }, { centre: null, source: 'none', radiusKm: 1 }), false);
 });
