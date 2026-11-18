@@ -21,7 +21,7 @@ async function getCollection() {
   return (await clientPromise).db().collection<HomeDocument>(COLLECTION_NAME);
 }
 
-const plain = ({ items, list, updatedAt }: HomeDocument): ShoppingHome => ({ items, list, updatedAt });
+const plain = ({ items, list, favStores, updatedAt }: HomeDocument): ShoppingHome => ({ items, list, favStores: favStores ?? [], updatedAt });
 
 export async function getHome(): Promise<ShoppingHome> {
   const col = await getCollection();
@@ -54,7 +54,7 @@ async function set(fields: Partial<ShoppingHome>): Promise<ShoppingHome> {
 
 export const setMyItems = (items: MyItem[]) => set({ items });
 export const setList = (list: ListLine[]) => set({ list });
-export const setHome = (fields: { items?: MyItem[]; list?: ListLine[] }) => set(fields);
+export const setHome = (fields: { items?: MyItem[]; list?: ListLine[]; favStores?: number[] }) => set(fields);
 
 export async function addLines(lines: ListLine[]): Promise<ShoppingHome> {
   const home = await getHome();

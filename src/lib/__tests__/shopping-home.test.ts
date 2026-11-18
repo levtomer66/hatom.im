@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  addToList, homeFromLists, linesAdded, parseList, parseMyItems, parsePicks, pickMissing, removeBought,
+  addToList, homeFromLists, linesAdded, parseFavStores, parseList, parseMyItems, parsePicks, pickMissing, removeBought,
   type ListLine, type MyItem,
 } from '../shopping/home.ts';
 
@@ -80,4 +80,14 @@ test('linesAdded returns only keys new to the list, not lines already there', ()
   const before = [line('1'), line('2')];
   const after = [line('1', 3), line('2'), line('5', 2)];
   assert.deepEqual(linesAdded(before, after).map((l) => [l.key, l.qty]), [['5', 2]]);
+});
+
+test('parseFavStores keeps order, dedupes, rejects non-integers and an 11th store', () => {
+  assert.deepEqual(parseFavStores([3, 1, 3]), { ok: true, value: [3, 1] });
+  assert.equal(parseFavStores([1.5]).ok, false);
+  assert.equal(parseFavStores('x').ok, false);
+  const r = parseFavStores(Array.from({ length: 11 }, (_, i) => i + 1));
+  assert.equal(r.ok, false);
+  assert.equal(!r.ok && r.error, 'אפשר עד 10 חנויות מועדפות');
+  assert.deepEqual(parseFavStores([]), { ok: true, value: [] });
 });

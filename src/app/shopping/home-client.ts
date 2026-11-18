@@ -18,7 +18,7 @@ export type HomeView = ShoppingHome & { meta: HomeMeta };
 
 export const loadHome = () => api<HomeView>('/home');
 
-export const saveHome = (patch: { items?: MyItem[]; list?: ListLine[] }) =>
+export const saveHome = (patch: { items?: MyItem[]; list?: ListLine[]; favStores?: number[] }) =>
   api<HomeView>('/home', { method: 'PATCH', body: JSON.stringify(patch) });
 
 /** "הוסף לרשימה": picked My items onto the list (items already there keep their quantity). */

@@ -23,6 +23,8 @@ export interface MyItem extends ListLine {
 export interface ShoppingHome {
   items: MyItem[];
   list: ListLine[];
+  /** Favorite store keys (any city), at most MAX_FAV_STORES, in the order starred. */
+  favStores: number[];
   updatedAt: string;
 }
 
@@ -32,6 +34,7 @@ export const HOME_LIST_ID = 'home';
 export const MAX_MY_ITEMS = 300;
 export const MAX_LIST_ITEMS = 100;
 export const MAX_QTY = 100;
+export const MAX_FAV_STORES = 10;
 const KEY = /^(\d{1,14}|\d{13}:[\w.-]{1,40})$/;
 
 export type Result<T> = { ok: true; value: T } | { ok: false; error: string };
@@ -55,6 +58,18 @@ function parseLine(raw: unknown): Result<ListLine> {
 }
 
 /** The list from a PATCH body: the same item twice merges into one line (quantities add). */
+/** The household's favorite store keys: integers, deduped (first kept), at most MAX_FAV_STORES. */
+export function parseFavStores(v: unknown): Result<number[]> {
+  if (!Array.isArray(v)) return { ok: false, error: 'favStores must be an array' };
+  const out: number[] = [];
+  for (const k of v) {
+    if (!Number.isInteger(k)) return { ok: false, error: 'a store key must be an integer' };
+    if (!out.includes(k)) out.push(k);
+  }
+  if (out.length > MAX_FAV_STORES) return { ok: false, error: 'אפשר עד 10 חנויות מועדפות' };
+  return { ok: true, value: out };
+}
+
 export function parseList(v: unknown): Result<ListLine[]> {
   if (!Array.isArray(v)) return { ok: false, error: 'list must be an array' };
   if (v.length > MAX_LIST_ITEMS) return { ok: false, error: `at most ${MAX_LIST_ITEMS} items` };
