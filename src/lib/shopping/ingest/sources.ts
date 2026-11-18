@@ -4,6 +4,7 @@
 
 import { parseFileName, type FileNameInfo, type FileType } from '../normalize.ts';
 import type { ChainConfig } from '../chains.ts';
+import { sleep } from './cache.ts';
 
 export interface RemoteFile {
   name: string;
@@ -34,7 +35,7 @@ export class Throttle {
   run<T>(fn: () => Promise<T>): Promise<T> {
     const next = this.chain.then(async () => {
       const wait = this.last + this.gapMs - Date.now();
-      if (wait > 0) await new Promise((r) => setTimeout(r, wait));
+      if (wait > 0) await sleep(wait);
       try {
         return await fn();
       } finally {
@@ -53,7 +54,7 @@ async function withRetry<T>(what: string, fn: () => Promise<T>, attempts = 3): P
       return await fn();
     } catch (e) {
       err = e;
-      if (i < attempts - 1) await new Promise((r) => setTimeout(r, 2000 * (i + 1)));
+      if (i < attempts - 1) await sleep(2000 * (i + 1));
     }
   }
   throw new Error(`${what} failed after ${attempts} attempts: ${errorMessage(err)}`);

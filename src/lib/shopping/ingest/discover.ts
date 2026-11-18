@@ -21,19 +21,16 @@
 // downloaded (raw/<chain>/Stores*), in this cache and in SHOPPING_EXTRA_CACHE_DIRS.
 
 import { existsSync, mkdirSync, readFileSync, readdirSync, statSync } from 'node:fs';
-import { homedir } from 'node:os';
 import { join } from 'node:path';
-import { gunzipSync } from 'node:zlib';
 import { parseArgs } from 'node:util';
 import { CHAINS } from '../chains.ts';
 import { cityOf } from '../cities.ts';
-import { decodeXmlBytes, isGzip } from '../xml.ts';
 import { parseStoresFile } from '../normalize.ts';
 import {
   brandOf, circleBox, distanceM, inRing, matchOfficial, mergePlaces, placeCity, ringBox,
   type OfficialStore, type Pin, type Place, type RawPlace,
 } from '../places.ts';
-import { readJson, writeJson } from './cache.ts';
+import { cachePaths, readJson, toXml, writeJson } from './cache.ts';
 import { nominatim } from './geo.ts';
 import type { ReviewRow } from './picks.ts';
 
@@ -44,8 +41,7 @@ const OSM_CATEGORIES = ['supermarket', 'convenience store', 'greengrocer', 'butc
 
 const { values: args } = parseArgs({ options: { pin: { type: 'string' } } });
 
-const CACHE = process.env.SHOPPING_CACHE_DIR || join(homedir(), '.cache', 'hatom-shopping');
-const PLACES = join(CACHE, 'places');
+const { root: CACHE, places: PLACES } = cachePaths();
 const OSM_DIR = join(PLACES, 'osm');
 const GOOGLE_DIR = join(PLACES, 'google');
 for (const d of [OSM_DIR, GOOGLE_DIR]) mkdirSync(d, { recursive: true });
@@ -80,9 +76,7 @@ function officialStores(): OfficialStore[] {
   }
   const out: OfficialStore[] = [];
   for (const [chainSlug, path] of latest) {
-    let bytes: Uint8Array = readFileSync(path);
-    if (isGzip(bytes)) bytes = gunzipSync(bytes);
-    for (const s of parseStoresFile(decodeXmlBytes(bytes)).stores) {
+    for (const s of parseStoresFile(toXml(new Uint8Array(readFileSync(path)))).stores) {
       out.push({ chainSlug, storeId: s.storeId, name: s.name, address: s.address, cityId: cityOf(s) });
     }
   }

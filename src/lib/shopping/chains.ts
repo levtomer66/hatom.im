@@ -17,7 +17,7 @@ export type ChainSource =
   | { kind: 'hazihinam' }
   /** Not a price-transparency chain: Wolt delivery prices for shops that publish none (ingest/wolt.ts). */
   | { kind: 'wolt' }
-  /** Shops with no price source at all, listed so users can type prices (ingest/manual.ts). */
+  /** Shops with no price source at all, listed so users can type prices (ingest/picks.ts manualShops). */
   | { kind: 'manual' };
 
 export interface ChainConfig {
