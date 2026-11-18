@@ -364,6 +364,10 @@ body:has(.sh-page) { background: #ffffff; }
 .sh-missing .sh-h2 { margin: 0 0 0.75rem; padding-inline-end: 2.5rem; }
 .sh-missing .sh-search { margin-bottom: 0.5rem; }
 .sh-missing-row.is-on .sh-item-name { font-weight: 600; }
+/* "בחר הכול": for all of My items (above the departments) and per department. */
+.sh-missing-allrow, .sh-missing-dept { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; }
+.sh-missing-allrow { margin: 0.25rem 0 0; font-size: 0.9375rem; }
+.sh-missing-all { min-height: 36px; padding: 0 0.25rem; font-size: 0.875rem; font-weight: 600; white-space: nowrap; }
 .sh-missing-pick { display: flex; flex: 1; min-width: 0; align-items: center; gap: 0.625rem; min-height: 52px; cursor: pointer; }
 .sh-missing-pick input { width: 20px; height: 20px; flex: none; accent-color: var(--sh-action); }
 .sh-missing-foot {

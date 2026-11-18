@@ -2,7 +2,7 @@
 
 // "מה חסר?": My items as a checklist by department, each at its usual
 // quantity. Ticked ones go on the shopping list; items already on it show
-// ticked and can't be picked again. The search at the top adds a new product
+// ticked and can't be picked again. "בחר הכול" ticks a department, or all. The search at the top adds a new product
 // to My items and ticks it.
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { FaCheck, FaMinus, FaPlus, FaSearch, FaTimes } from 'react-icons/fa';
@@ -67,6 +67,28 @@ export default function Missing({ items, list, meta, city, onSaveItem, onAdded, 
     else n.set(i.key, i.qty);
     return n;
   });
+  /** Items that can still be picked (not on the list already). */
+  const pickable = (of: MyItem[]) => of.filter((i) => !onList.has(i.key));
+  const allPicked = (of: MyItem[]) => { const p = pickable(of); return p.length > 0 && p.every((i) => picks.has(i.key)); };
+  /** Tick every pickable item at its usual quantity (a picked one keeps its quantity), or untick them all. */
+  const setAll = (of: MyItem[], on: boolean) => setPicks((m) => {
+    const n = new Map(m);
+    for (const i of pickable(of)) {
+      if (!on) n.delete(i.key);
+      else if (!n.has(i.key)) n.set(i.key, i.qty);
+    }
+    return n;
+  });
+  const allButton = (of: MyItem[], label: string) => {
+    if (!pickable(of).length) return null;
+    const on = allPicked(of);
+    return (
+      <button type="button" className="sh-link sh-missing-all" onClick={() => setAll(of, !on)} aria-pressed={on}
+        aria-label={`${on ? 'ניקוי' : 'בחירת'} הכול: ${label}`}>
+        {on ? 'נקה הכול' : 'בחר הכול'}
+      </button>
+    );
+  };
   const stepPick = (i: MyItem, dir: 1 | -1) => setPicks((m) => {
     const cur = m.get(i.key) ?? i.qty;
     const q = normalizeQty(cur + dir * step(i.w), i.w);
@@ -126,9 +148,18 @@ export default function Missing({ items, list, meta, city, onSaveItem, onAdded, 
         </section>
 
         {!items.length && <p className="sh-empty">עוד אין מוצרים שלי. חפשו מוצר למעלה כדי להוסיף.</p>}
+        {groups.length > 1 && (
+          <div className="sh-missing-allrow">
+            <span className="sh-muted">כל המוצרים</span>
+            {allButton(items, 'כל המוצרים')}
+          </div>
+        )}
         {groups.map((g) => (
           <section key={g.id} className="sh-sheet-section">
-            <h3 className="sh-section-title">{g.name}</h3>
+            <h3 className="sh-section-title sh-missing-dept">
+              <span>{g.name}</span>
+              {allButton(g.items, g.name)}
+            </h3>
             <ul className="sh-items">
               {g.items.map((i) => {
                 const already = onList.has(i.key);
