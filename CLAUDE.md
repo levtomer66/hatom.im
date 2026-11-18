@@ -20,6 +20,7 @@ several independent features under separate routes:
 | `/birthday-quiz`   | Host-driven Hebrew family quiz (permission `birthday-quiz`). Questions + pure reducer in `src/lib/birthday-quiz.ts`. |
 | `/laundry`         | Step-by-step laundry guide for our LG washer (permission `laundry`). Loads, doses + step builder in `src/lib/laundry.ts`; photos in `public/laundry/`. |
 | `/calendar`        | Milestones calendar: birthdays, anniversaries, one-off events (permission `calendar`). Mongo `calendarEvents`; date math in `src/lib/calendar.ts`. |
+| `/shopping`        | Grocery price comparison across chains (permission `shopping`). Per-household My items + one list in Mongo `shoppingHome`; price data written by a local ingest job. |
 
 Default branch is `main`. Pushes to `main` auto-deploy to Production via
 Vercel's GitHub integration. There is no separate `master` branch.
@@ -55,6 +56,11 @@ Vercel's GitHub integration. There is no separate `master` branch.
 ```bash
 # dev server (picks next available port; usually :3000)
 npm run dev
+
+# local mode: no Google sign-in — gated pages sign you in as an owner.
+# Uses LOCAL_MONGODB_URI (default: the Docker test Mongo on :27018), never
+# .env.local's MONGODB_URI. Guarded by NODE_ENV=development + localhost.
+npm run dev:local -- -p 3100
 
 # verify before commit
 npx tsc --noEmit --incremental false --pretty false
@@ -250,6 +256,155 @@ Identity = Gmail address. Two roles:
   keeps it deleted; to re-seed, bump `SEED_MARKER_ID` in the model.
 - Anyone with the `calendar` permission can add, edit and delete — there's no
   per-event owner (`createdBy` is informational).
+
+### Shopping price comparison (`/shopping`)
+
+- Sources per chain, access methods and verification notes: `docs/sources.md`.
+  Official price-transparency files first; **Wolt** is an approved additional
+  source for small shops (`chainId: 'wolt'`, delivery prices — label them).
+  Never comparison sites.
+- **Pins** (`places/pins.json` in the cache dir, personal — never in the repo)
+  drive `npm run shopping:discover` (small-shop discovery, OSM + hand-collected
+  Google Maps lists) and limit the ingest to stores near them
+  (`ingest/locate.ts`; `--all-stores` to keep whole cities). A pin's
+  `walkMinutes` limits stores to a routed walking time (`ingest/walk.ts`);
+  a chain left with no priced store keeps one (its listed online store, else
+  the one nearest a pin that publishes; `fallbackOrder`, docs/sources.md);
+  `places/extra.json` adds shops the map searches miss, and `places/official.json`
+  hand-matches a shop to an official store whose address doesn't match
+  (`"<placeRef>": "<chainSlug>/<storeId>"`); every hand-match on an included
+  review row counts, since discovery merges entries at one address (Hazi Hinam's
+  store and its produce store). An official store matched to a shop
+  the owner skipped is left out, like an included one is kept, without re-routing.
+- **Ingest is a local, manually-run job**, not a Vercel function (Hobby cron
+  is daily-only and a full run is ~190 MB of downloads + GBs of XML):
+  `npm run shopping:ingest -- [--dry-run] [--offline] [--chains yohananof,shufersal,wolt] [--max-stores N] [--full] [--all-stores]`.
+  `--offline` rebuilds the docs from saved state without fetching. Test locally
+  against Docker Mongo with a *copy* of the cache (`SHOPPING_CACHE_DIR`), or
+  its `written.json` will make the next Atlas run skip docs.
+  Needs a write-capable `MONGODB_URI` in `.env.shopping` (gitignored).
+  Cache in `~/.cache/hatom-shopping` (raw files pruned after 7 days and never
+  re-downloaded; per-store parsed state; `written.json` hashes). Not in the
+  repo: writes under the repo root trigger the `next dev` recompile loop.
+- **Mongo M0 budget drives the schema** (512 MB incl. indexes, ~100 ops/s):
+  `shoppingItems` is one doc per item with a `p: {storeKey: agorot}` map
+  (barcode `_id`; chain-internal codes are `<chainId>:<code>` and never
+  cross-match); `shoppingPromos` is one doc per `(chain, PromotionID, terms)` with a
+  `stores` list and a multikey `items` index — the same PromotionID differs per
+  store (item lists, per-store percent prices); see `buildPromoDocs` for why
+  item lists are unioned and rate-derived prices dropped. The job writes only docs whose
+  content hash changed. Don't switch to a doc per (store, item) — that's ~3M
+  docs and hours of writes.
+- `src/lib/shopping/*.ts` (xml, normalize, cities, snapshot, chains) are
+  import-free for `node --test`; fixtures from 2026-11-15 in
+  `src/lib/__tests__/fixtures/shopping/` hold the Yochananof regression case.
+- Promo semantics: `DiscountedPrice` is the **total for `MinQty` units**;
+  `RewardType` codes differ per chain; `MinNoOfItemOffered` is kept as
+  `minItems` but is 10 on ~99% of promos, so don't treat it as a quantity.
+  Only the daily *Full* files are ingested — the hourly `Price`/`Promo`
+  deltas are ignored (fine for a once-a-day manual run). Online stores
+  (`StoreType` 2) are ingested whatever their city, with `city: null`. City = CBS code first, store name only when City is 0 —
+  never the address (see docs/sources.md § City matching).
+- **Basket pricing** is `src/lib/shopping/pricing.ts` (pure; the header
+  comment says how each promo shape is read). `price` = total for `min`
+  units and wins over `rate`; weighted min 0.01 = per kg; a gift part (price 0
+  / rate 100) makes the promo buy-X-get-Y, and so do parts under a second
+  `gid` ("השני ב-20": the first gid is the buy part, its prices informational —
+  never price one unit at the reward). Promos are applied greedily, the
+  biggest saving first, and a unit counts toward one promo only. Club, coupon
+  and unmet basket-minimum promos are returned as `offers`, not applied.
+  Description-only deals are not parsed.
+- **Photos**: the priced source's own (Wolt), else by barcode from Rami Levy's
+  image CDN, a photo-only Wolt venue or Open Food Facts (`imgBy: 'off'` —
+  credit OFF), else borrowed by name (`imgBy: 'name'`, `photos.ts`). The
+  barcode sources are probed by `npm run shopping:photos` into `photos/*.json`;
+  the ingest only reads them. Details: docs/sources.md § Product photos.
+- **Departments**: the price files carry no category, so each item doc gets
+  `d` at ingest (`src/lib/shopping/departments.ts`, import-free): Wolt's category
+  path for the barcode first, else keyword rules on the name (longest stem wins).
+  ~78% of items are placed. The in-store mode built on it: `docs/shopping-in-store-mode.md`.
+- **API and MCP**: `docs/shopping-api.md`. The search, item and compare routes
+  and the MCP tools (`src/lib/shopping/mcp-tools.ts`) share one set of queries,
+  `src/lib/shopping/service.ts` — change pricing there, not in a route. Tools
+  take a free-text product (best search match, runner-ups named) and an
+  optional `city` that falls back to the user's saved `settings.city`.
+- **UI** at `SHOPPING_BASE_PATH` (`src/lib/shopping/config.ts`; the middleware
+  `matcher` literal must move with it). There are no named lists: each
+  **household** (one `shoppingHome` doc, model `src/models/ShoppingHome.ts`,
+  pure rules in `src/lib/shopping/home.ts` and `household.ts`) holds its
+  `members`, pending `invites`, **My items** (usual products with a usual
+  quantity; search, scan and the product window save there) and the **one
+  shopping list**, filled from My items by "מה חסר?". A person is in exactly
+  one (unique index on `members`); every route and MCP tool resolves the
+  caller's with `householdFor(email)`, which makes an empty one on a first
+  visit. Joining is by invite (⚙ → משק הבית; the invitee accepts a card on
+  /shopping; their old household is deleted if they were alone in it); no one
+  removes another member. Today's household kept `_id: 'home'` and started
+  with Tomer and Tom (`FOUNDING_MEMBERS`); it was built once from the old
+  `shoppingLists` (left untouched). Trips carry `listId` = the household id;
+  ending one `$pull`s the ticked lines (not-there ones stay).
+  Specs: `docs/superpowers/specs/2026-11-18-shopping-my-items-design.md`,
+  `docs/superpowers/specs/2026-11-18-shopping-households-design.md`.
+- **Favorite stores** (`shoppingHome.favStores`, store keys, max 10, the
+  household's): ☆/★ on every store row; favorites first in distance-sorted
+  lists (`sortStores(…, favs)`), price rankings keep their order. A far store
+  is a regular store with `far: true` on its doc (`isFar` in `ingest/locate.ts`:
+  past the walk limit, no pin in its city, or a chain's only store), which the
+  plans skip: the owner adds it via `places/extra.json` + the
+  discovery review (the ingest keeps a curated store in any target city, pin
+  or no pin — `keepRule` in `ingest/locate.ts`); a city added only for that
+  sets `picker: false` in `CITIES` (Holon, for Hazi Hinam מרכבה; `--all-stores`
+  leaves such cities out). `GET /api/shopping/stores?q=` searches every
+  priced store in every city; `POST /api/shopping/far` (the page sends its favorites) prices the list at the
+  favorites ("כמה יעלה לי ב…", from the list card). Plans and compare stay on
+  the user's city; `/here?store=` compares a store with its own city.
+  Spec: `docs/superpowers/specs/2026-11-18-shopping-favorite-stores-design.md`.
+  `/api/shopping/compare` loads only the
+  basket items, their promos (`items` index) and the city's stores, then runs
+  `rankStores` and the plans in the request. Physical and online stores are
+  ranked separately; stores whose `pricesAt` is null are never shown.
+  The read model is `src/models/ShoppingCatalog.ts`; the app never writes the
+  ingest collections.
+- **Result views**: the plan cards ("הכי זול" / "חנות אחת"), then "כל החנויות"
+  on one page: physical stores ranked for the whole list, online, the stores
+  priced by hand. Every price carries
+  its source (`StoreInfo.source`, from `priceSourceOf` in `collections.ts`: official / wolt /
+  manual), rendered only by `<SourceBadge>`. Search is in `src/lib/shopping/search-rank.ts`: `searchPatterns()` turns
+  each word into a spelling-tolerant regex (optional ו/י, final letters, ה/א
+  endings, quotes; a one-typo variant for the retry the route makes under 8
+  hits), matched against the name, the maker `m` and `s` (all chains' names
+  and makers, when the ingest writes it). Ranking: words matched as typed,
+  then name-match position, then store count.
+- **Atlas Search** (`items_search` on shoppingItems; definition and query in
+  `src/lib/shopping/search-index.ts`): the search route asks it for ~100
+  fuzzy candidates, then ranks them with rankHits as above; no retry pass.
+  Where `$search` fails (Docker Mongo, index missing) it falls back to the
+  regex search and skips Atlas for 5 minutes. Create the index on a new
+  cluster with `npm run shopping:search-index` (`-- --show` to inspect).
+- **Plans and trips** (docs/shopping-in-store-mode.md): the compare route
+  returns `plans` (one store, and `byCount`: the cheapest over exactly 2
+  and 3 stores via `choosePlan` in `plans.ts`, each stop re-priced).
+  `worthCount` picks the default: each extra store must cover more items or
+  save ₪15 over one store fewer. The "הכי זול" card's 2 · 3 chips switch
+  between them on the client (last pick in localStorage).
+  "יוצאים לקניות" starts a trip (`shoppingTrips`, model ShoppingTrip, rules in
+  `trips.ts`): one open trip per list, a snapshot of the plan's items with
+  department `d`, reachable by whoever can see the list. The in-store screen
+  polls every 5 s while visible; ticks made offline wait in localStorage and
+  `withPending` keeps unanswered taps from being undone. Swaps and moves
+  rewrite `stops` with a `rev` check. "לא היה" suggestions come from
+  `/api/shopping/alternatives` (same department, shared word, cheapest).
+  Neighbourhood shops are priced by hand in <ManualPrices> (one PUT to
+  `/api/shopping/manual-prices` per field, then a re-compare); the contract
+  is in the header comment of `src/app/shopping/page.tsx`.
+- **One product** (`GET /api/shopping/item?key&city`, the eye button and the
+  camera scanner): one unit priced at every store in the city with promos,
+  manual prices included. A one-unit price is always per unit: a multi-buy
+  ("2 ב-10") counts at its per-unit price with an asterisk, its terms on
+  hover/tap (`shownUnit`/`multiBuyUnit`) — product view, search, "אני בסופר". A scanned code is tried as-is and without leading
+  zeros. `Scanner.tsx` uses the native `BarcodeDetector` and lazy-loads
+  `@zxing/browser` only where there isn't one (iPhone Safari); it needs https
+  or localhost.
 
 ### MCP server + OAuth (`/api/mcp`)
 

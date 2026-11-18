@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import type { PermissionKey } from '@/types/permissions';
+import { LOCAL_DEV_LOGIN_PATH, localDevLoginEnabled } from '@/lib/local-dev-login';
 
 // Run in Node.js (Fluid Compute) so the MongoDB session adapter loaded
 // transitively by `@/auth` works at runtime. The default Edge runtime
@@ -36,6 +37,7 @@ const GATES: readonly Gate[] = [
   { pattern: /^\/birthday-quiz(?:\/|$)/,     permission: 'birthday-quiz' },
   { pattern: /^\/laundry(?:\/|$)/,           permission: 'laundry'     },
   { pattern: /^\/calendar(?:\/|$)/,          permission: 'calendar'    },
+  { pattern: /^\/shopping(?:\/|$)/,          permission: 'shopping'    },
 ];
 
 export default auth((req) => {
@@ -57,6 +59,12 @@ export default auth((req) => {
 
   const session = req.auth;
   if (!session?.user) {
+    // Local mode (npm run dev:local): sign in without Google.
+    if (localDevLoginEnabled(req.headers.get('host'))) {
+      const devLogin = new URL(LOCAL_DEV_LOGIN_PATH, req.nextUrl);
+      devLogin.searchParams.set('next', req.nextUrl.pathname + req.nextUrl.search);
+      return NextResponse.redirect(devLogin);
+    }
     const loginUrl = new URL('/login', req.nextUrl);
     loginUrl.searchParams.set('from', req.nextUrl.pathname + req.nextUrl.search);
     return NextResponse.redirect(loginUrl);
@@ -95,6 +103,7 @@ export const config = {
     '/birthday-quiz/:path*',
     '/laundry/:path*',
     '/calendar/:path*',
+    '/shopping/:path*',
     '/trip.html',
     '/vegas-wedding-guide.html',
   ],

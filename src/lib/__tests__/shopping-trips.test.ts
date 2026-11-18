@@ -1,0 +1,113 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { addLinesToTrip, applyStopsChange, dealNudge, groupByDepartment, parseTripCreate, parseTripPatch, progress, withPending, type TripItem } from '../shopping/trips.ts';
+import { DEPARTMENTS } from '../shopping/departments.ts';
+
+const item = (key: string, d: string | null, cost = 100): TripItem => ({ key, name: key, qty: 1, w: false, cost, d, img: null });
+
+test('groups by department in walking order, unknown departments last as "אחר"', () => {
+  const [first, second] = DEPARTMENTS;
+  const groups = groupByDepartment([item('x', null), item('b', second.id), item('a', first.id), item('y', 'nope')], new Set());
+  assert.deepEqual(groups.map((g) => g.id), [first.id, second.id, 'other']);
+  assert.equal(groups[2].name, 'אחר');
+  assert.deepEqual(groups[2].items.map((i) => i.key), ['x', 'y']);
+});
+
+test('ticked items sink within their department; left counts the rest', () => {
+  const d = DEPARTMENTS[0].id;
+  const [g] = groupByDepartment([item('a', d), item('b', d), item('c', d)], new Set(['a']));
+  assert.deepEqual(g.items.map((i) => i.key), ['b', 'c', 'a']);
+  assert.equal(g.left, 2);
+});
+
+test('progress sums ticked costs against the estimate', () => {
+  const p = progress({ estimate: 1000, ticked: ['a'], stops: [{ items: [item('a', null, 300), item('b', null, 700)] } as never] });
+  assert.deepEqual(p, { done: 300, total: 1000, count: 1, of: 2 });
+});
+
+const body = {
+  listId: '6afaca2b35b3a389faf7fa6d', plan: 'cheapest', city: 'tel-aviv', estimate: 1500,
+  stops: [{ store: 3, storeName: 'שופרסל', items: [{ key: '7290000066318', name: 'במבה', qty: 2, cost: 1380, d: 'snacks', img: null }] }],
+  missing: [{ key: '1', name: 'x' }],
+};
+
+test('a valid trip parses; bad ones say why', () => {
+  const r = parseTripCreate(body);
+  assert.equal(r.ok, true);
+  assert.equal(parseTripCreate({ ...body, plan: 'any' }).ok, false);
+  assert.equal(parseTripCreate({ ...body, stops: [] }).ok, false);
+  const dup = { ...body, stops: [body.stops[0], { ...body.stops[0], store: 4 }] };
+  assert.deepEqual(parseTripCreate(dup), { ok: false, error: 'item 7290000066318 is in two stops' });
+  assert.equal(parseTripCreate({ ...body, estimate: -1 }).ok, false);
+});
+
+test('patch: tick or end, nothing else', () => {
+  assert.deepEqual(parseTripPatch({ tick: { key: 'a', on: true } }), { ok: true, value: { tick: { key: 'a', on: true } } });
+  assert.deepEqual(parseTripPatch({ end: true }), { ok: true, value: { end: true } });
+  assert.deepEqual(parseTripPatch({ end: { paid: 12700 } }), { ok: true, value: { end: true } }); // an old client's paid is ignored
+  assert.equal(parseTripPatch({}).ok, false);
+});
+
+test('taps still in flight win over the server\'s older answer', () => {
+  // The reply to tap 1 arrives after tap 2 was sent: it doesn't know about b yet.
+  assert.deepEqual(withPending(['a'], new Map([['b', true]])).sort(), ['a', 'b']);
+  // An untick in flight hides a tick the server still reports.
+  assert.deepEqual(withPending(['a', 'b'], new Map([['a', false]])), ['b']);
+  assert.deepEqual(withPending(['a'], new Map()), ['a']);
+});
+
+const stops = () => [
+  { store: 1, storeName: 'A', items: [item('a', null, 300), item('b', null, 200)] },
+  { store: 2, storeName: 'B', items: [item('c', null, 500)] },
+];
+
+test('"לא היה": swap, move to another stop, change quantity', () => {
+  const swapped = applyStopsChange(stops(), { replace: { key: 'a', item: item('z', null, 250) } })!;
+  assert.deepEqual(swapped[0].items.map((i) => i.key), ['z', 'b']);
+  assert.equal(applyStopsChange(stops(), { replace: { key: 'a', item: item('c', null, 1) } }), null); // already on the trip
+  const moved = applyStopsChange(stops(), { move: { key: 'b', toStore: 2 } })!;
+  assert.deepEqual(moved.map((s) => s.items.map((i) => i.key)), [['a'], ['c', 'b']]);
+  assert.equal(applyStopsChange(stops(), { move: { key: 'b', toStore: 9 } }), null);
+  const more = applyStopsChange(stops(), { qty: { key: 'a', qty: 3 } })!;
+  assert.deepEqual([more[0].items[0].qty, more[0].items[0].cost], [3, 900]);
+  assert.equal(applyStopsChange(stops(), { qty: { key: 'nope', qty: 2 } }), null);
+});
+
+test('items marked "לא היה" leave the progress', () => {
+  const p = progress({ estimate: 1000, ticked: ['a'], notThere: ['c'], stops: stops() });
+  assert.deepEqual(p, { done: 300, total: 500, count: 1, of: 2 });
+});
+
+test('deal nudge only when the deal needs a few more units', () => {
+  const it = { ...item('a', null), qty: 2, deal: { text: '3ב20', minQty: 3 } };
+  assert.deepEqual(dealNudge(it), { text: '3ב20', add: 1 });
+  assert.equal(dealNudge({ ...it, qty: 3 }), null);
+  assert.equal(dealNudge({ ...it, deal: { text: 'x', minQty: 20 } }), null); // too many to suggest
+  assert.equal(dealNudge({ ...it, w: true }), null);
+});
+
+test('patch shapes for the new actions', () => {
+  assert.equal(parseTripPatch({ notThere: { key: 'a', on: true } }).ok, true);
+  assert.equal(parseTripPatch({ move: { key: 'a', toStore: 2 } }).ok, true);
+  assert.equal(parseTripPatch({ qty: { key: 'a', qty: 0 } }).ok, false);
+  assert.equal(parseTripPatch({ replace: { key: 'a', item: { key: 'z' } } }).ok, false);
+});
+
+test('addLinesToTrip: a list line added after the trip started goes to its cheapest stop', () => {
+  const tripStops = [
+    { store: 1, storeName: 'A', items: [item('milk', null)] },
+    { store: 2, storeName: 'B', items: [] },
+  ];
+  const base = (key: string) => ({ key, name: key, qty: 2, w: false, d: null, img: null });
+  const out = addLinesToTrip(tripStops, [{ key: 'salt', name: 'salt' }], [
+    { item: base('bread'), costs: { 1: 900, 2: 700 } },
+    { item: base('eggs'), costs: { 1: 500 } },
+    { item: base('caviar'), costs: {} },
+    { item: base('milk'), costs: { 2: 1 } }, // already on the trip: untouched
+    { item: base('salt'), costs: { 1: 50 } }, // already missing: stays missing, not added twice
+  ]);
+  assert.deepEqual(out.stops.map((s) => s.items.map((i) => [i.key, i.cost])), [[['milk', 100], ['eggs', 500]], [['bread', 700]]]);
+  assert.deepEqual(out.missing.map((m) => m.key), ['salt', 'caviar']);
+  assert.equal(out.added, 3);
+  assert.deepEqual(parseTripPatch({ sync: true }), { ok: true, value: { sync: true } });
+});
