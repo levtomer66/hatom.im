@@ -32,7 +32,8 @@ import { buildItemDocs, buildPromoDocs, buildStoreDocs, diffDocs, israelLocalNow
 import { Throttle, clientFor, errorMessage, type RemoteFile, type SourceClient } from './sources.ts';
 import { fetchWoltVenue, type WoltVenueConfig } from './wolt.ts';
 import { placeCity } from '../places.ts';
-import { fallbackOrder, isFar, keepFallbacks, needsFallback, pinFilter, woltVenueRule, type FallbackCandidate } from './locate.ts';
+import { fallbackOrder, keepFallbacks, needsFallback, pinFilter, woltVenueRule, type FallbackCandidate } from './locate.ts';
+import { ensureIndexes } from './write.ts';
 import { RAMI_LEVY_IMG, cachedPhotos, readOffNutrition, readRamiLevy } from './off.ts';
 
 const RAW_RETENTION_DAYS = 7;
@@ -540,23 +541,17 @@ async function main() {
     }
     const promoStats = { droppedCoupons: 0 };
     const promos = buildPromoDocs(states, nowLocal, promoStats);
-    // Walking minutes from the nearest pin, for the plan cards (null when unplaced or with no pins).
-    const walk = new Map<string, number | null>();
+    // Where each physical store is, for the app's distance sort.
     const where = new Map<string, { lat: number; lng: number }>();
-    const far = new Set<string>(); // never in the walk-limited plans (ingest/locate.ts isFar)
     if (PINS) {
       for (const { s } of loaded) {
         if (s.kind !== 'physical') continue;
         const at = s.at ?? (await PINS.pointOf(s));
         if (at) where.set(storeId(s), at);
-        const walkMin = at ? await PINS.walkMinutes(s.cityId, at) : null;
-        walk.set(storeId(s), walkMin);
-        if (isFar({ kind: s.kind, chainSlug: s.chainSlug, walkMin, keptAs: s.keptAs }, PINS.pins.filter((p) => p.city === s.cityId))) far.add(storeId(s));
       }
-      log(`far stores (out of the plans): ${far.size}`);
     }
     const storeDocs = buildStoreDocs(
-      loaded.map(({ s, st }) => ({ ...s, priceFile: st?.priceFile ?? null, promoFile: st?.promoFile ?? null, walkMin: walk.get(storeId(s)) ?? null, loc: where.get(storeId(s)) ?? null, far: far.has(storeId(s)) })),
+      loaded.map(({ s, st }) => ({ ...s, priceFile: st?.priceFile ?? null, promoFile: st?.promoFile ?? null, loc: where.get(storeId(s)) ?? null })),
       keys,
     );
     const chainDocs = new Map(CHAINS.map((c) => [c.chainId, { _id: c.chainId, slug: c.slug, name: c.name }]));
@@ -591,10 +586,7 @@ async function main() {
     for (const [name, d] of plan) log(`  diff ${name}: ${d.upserts.length} to write, ${d.deletes.length} to delete`);
 
     if (db) {
-      await db.collection(COLLECTIONS.promos).createIndex({ items: 1 });
-      await db.collection(COLLECTIONS.stores).createIndex({ city: 1 });
-      // In-store "לא היה": alternatives in the same department (app's /api/shopping/alternatives).
-      await db.collection(COLLECTIONS.items).createIndex({ d: 1 }, { sparse: true });
+      await ensureIndexes(db);
       for (const [name, d] of plan) {
         await writeCollection(db, name, d.upserts as StringIdDoc[], d.deletes);
         written[name] = d.next; // persisted per collection, so a crash mid-run only repeats the rest

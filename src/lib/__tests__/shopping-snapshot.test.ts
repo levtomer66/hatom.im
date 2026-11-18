@@ -196,18 +196,23 @@ test('buildStoreDocs carries the publish time of the price and promo files', () 
   assert.equal(d.city, 'beer-sheva');
   assert.equal(d.pricesAt, '2026-11-15T00:40');
   assert.equal(d.promosAt, null);
-  assert.equal(d.far, false);
+  // What nobody reads is not written: no `far`, `walkMin` or `cityRaw` (the app prices by live location).
+  assert.deepEqual(Object.keys(d).sort(), [
+    '_id', 'address', 'chainId', 'chainName', 'chainSlug', 'city', 'k', 'kind', 'loc', 'name',
+    'priceFile', 'pricesAt', 'promoFile', 'promosAt', 'source', 'storeId',
+  ]);
+  assert.equal(d.loc, null);
 });
 
-test('buildStoreDocs carries the far flag the ingest set', () => {
+test('buildStoreDocs: loc is the record\'s point, rounded to 5 decimals', () => {
   const docs = buildStoreDocs(
     [{
       chainId: '7290785400000', storeId: '104', subChainId: '000', name: 'קולינריק רמת גן', address: 'ביאליק 39', city: '0', kind: 'physical',
-      chainSlug: 'keshet', chainName: 'קשת טעמים', cityId: 'ramat-gan', priceFile: null, promoFile: null, far: true,
+      chainSlug: 'keshet', chainName: 'קשת טעמים', cityId: 'ramat-gan', priceFile: null, promoFile: null, loc: { lat: 32.0841234, lng: 34.8134567 },
     }],
     { '7290785400000:104': 9 },
   );
-  assert.equal(docs.get('7290785400000:104')!.far, true);
+  assert.deepEqual(docs.get('7290785400000:104')!.loc, { lat: 32.08412, lng: 34.81346 });
 });
 
 test('buildItemDocs: a first barcode photo beats the priced source\'s own, which beats the others', () => {

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { curation, fallbackOrder, isFar, keepFallbacks, keepRule, needsFallback, woltVenueRule, type FallbackCandidate } from '../shopping/ingest/locate.ts';
+import { curation, fallbackOrder, keepFallbacks, keepRule, needsFallback, woltVenueRule, type FallbackCandidate } from '../shopping/ingest/locate.ts';
 
 const ctx = { pinnedCities: new Set(['tel-aviv']), curated: new Set(['yohananof/7']), skipped: new Set(['yohananof/9']) };
 
@@ -71,23 +71,6 @@ test('fallbackOrder: stores that cannot be placed come last, a pinned city first
     cand({ key: 'x/5', pinnedCity: false, distM: 40_000 }),
   ]);
   assert.deepEqual(order, ['x/5', 'x/9', 'x/12', 'x/30']);
-});
-
-test('isFar: the fallback store, a city with no pin, or past the walk limit plus 2 minutes of router slack', () => {
-  const pins = [{ walkMinutes: 12 }];
-  const phys = { kind: 'physical' as const, chainSlug: 'yohananof' };
-  assert.equal(isFar({ ...phys, walkMin: 9 }, pins), false);
-  assert.equal(isFar({ ...phys, walkMin: 14 }, pins), false); // two routers disagree at the edge
-  assert.equal(isFar({ ...phys, walkMin: 17 }, pins), true); // Yochananof 54
-  assert.equal(isFar({ ...phys, walkMin: null }, pins), true);
-  assert.equal(isFar({ ...phys, walkMin: null }, []), true); // Holon: no pin
-  assert.equal(isFar({ ...phys, walkMin: 5, keptAs: 'fallback' }, pins), true);
-  assert.equal(isFar({ ...phys, walkMin: null }, [{}]), false); // an area pin: no walk limit to break
-});
-
-test('isFar: online stores and neighbourhood (manual) shops are never far', () => {
-  assert.equal(isFar({ kind: 'online', chainSlug: 'shufersal', walkMin: null }, []), false);
-  assert.equal(isFar({ kind: 'physical', chainSlug: 'manual', walkMin: 30 }, [{ walkMinutes: 12 }]), false);
 });
 
 test('keepFallbacks: a saved fallback stays while its chain has no other priced store', () => {

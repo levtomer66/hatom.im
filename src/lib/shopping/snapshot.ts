@@ -386,7 +386,6 @@ export interface StoreDoc {
   address: string;
   /** Target city id, or null for an online store outside the target cities. */
   city: string | null;
-  cityRaw: string;
   kind: CanonStore['kind'];
   priceFile: string | null;
   promoFile: string | null;
@@ -394,12 +393,8 @@ export interface StoreDoc {
   pricesAt: string | null;
   promosAt: string | null;
   source: PriceSource;
-  /** Routed walking minutes from the nearest pin (physical stores; null when unknown or online). */
-  walkMin: number | null;
   /** Where the store is (5 decimals ≈ 1 m), for sorting by distance; null when unknown or online. */
   loc: { lat: number; lng: number } | null;
-  /** Outside the walk limit (ingest/locate.ts isFar): searchable, never in the plans. */
-  far: boolean;
 }
 
 export interface StoreInput extends CanonStore {
@@ -408,9 +403,7 @@ export interface StoreInput extends CanonStore {
   cityId: string | null;
   priceFile: string | null;
   promoFile: string | null;
-  walkMin?: number | null;
   loc?: { lat: number; lng: number } | null;
-  far?: boolean;
 }
 
 /** "202611150040" → "2026-11-15T00:40". */
@@ -427,12 +420,10 @@ export function buildStoreDocs(stores: StoreInput[], keys: Record<string, number
       const id = storeId(s);
       return [id, {
         _id: id, k: keys[id], chainId: s.chainId, chainSlug: s.chainSlug, chainName: s.chainName,
-        storeId: s.storeId, name: s.name, address: s.address, city: s.cityId, cityRaw: s.city, kind: s.kind,
+        storeId: s.storeId, name: s.name, address: s.address, city: s.cityId, kind: s.kind,
         priceFile: s.priceFile, promoFile: s.promoFile, pricesAt: stampToLocal(s.priceFile), promosAt: stampToLocal(s.promoFile),
         source: priceSourceOf(s.chainId),
-        walkMin: s.walkMin ?? null,
         loc: s.loc ? { lat: +s.loc.lat.toFixed(5), lng: +s.loc.lng.toFixed(5) } : null,
-        far: s.far ?? false,
       }];
     }),
   );

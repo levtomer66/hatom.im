@@ -70,7 +70,7 @@ export function woltVenueRule(
 // 2026-11-18). After the keep pass, a chain with no priced store keeps its
 // listed online store, else its physical store nearest any pin (straight
 // line), that publishes a PriceFull: the ingest checks fallbackOrder() in
-// turn. That store is far (isFar): searchable, never in the walk-limited plans.
+// turn.
 
 export interface FallbackCandidate {
   key: string; // "<chainSlug>/<storeId>"
@@ -101,26 +101,6 @@ export function fallbackOrder(cands: FallbackCandidate[]): string[] {
     .filter((c) => !c.skipped && (c.kind === 'physical' || c.listedOnline))
     .sort((a, b) => rank(a) - rank(b) || (a.distM ?? 0) - (b.distM ?? 0) || Number(a.storeId) - Number(b.storeId) || a.storeId.localeCompare(b.storeId))
     .map((c) => c.key);
-}
-
-/** Minutes of slack over a pin's walk limit: two routers disagree by about a minute at the edge. */
-export const WALK_SLACK_MIN = 2;
-
-/**
- * Whether a store is far: shown in search, the product view and the store
- * search, never in the walk-limited plans. `cityPins` are the pins in the
- * store's city. Online stores and neighbourhood shops (picked from the
- * walk-limited review) never are.
- */
-export function isFar(
-  s: { kind: 'physical' | 'online'; chainSlug: string; walkMin: number | null; keptAs?: 'fallback' },
-  cityPins: { walkMinutes?: number }[],
-): boolean {
-  if (s.kind === 'online' || s.chainSlug === 'manual') return false;
-  if (s.keptAs === 'fallback' || !cityPins.length) return true;
-  const limits = cityPins.flatMap((p) => (p.walkMinutes ? [p.walkMinutes] : []));
-  if (!limits.length) return false; // area pins: kept by being inside the area
-  return s.walkMin === null || s.walkMin > Math.max(...limits) + WALK_SLACK_MIN;
 }
 
 /**
@@ -185,8 +165,6 @@ export interface PinFilter {
   near(cityId: string | null, at: Point): Promise<boolean>;
   /** Where an official store is: the discovery match, else its cached or looked-up address. */
   pointOf(store: LocatableStore): Promise<Point | null>;
-  /** Routed walking minutes from the nearest of the city's pins (rounded up), or null. */
-  walkMinutes(cityId: string | null, at: Point): Promise<number | null>;
 }
 
 /** null when there's no pins.json: the ingest then keeps whole target cities. */
@@ -257,22 +235,12 @@ export function pinFilter(placesDir: string): PinFilter | null {
     return null;
   }
 
-  async function walkMinutes(cityId: string | null, at: Point): Promise<number | null> {
-    let best: number | null = null;
-    for (const p of pins.filter((x) => x.city === cityId)) {
-      const s = await walkSeconds(p, at);
-      if (s !== null && (best === null || s < best)) best = s;
-    }
-    return best === null ? null : Math.max(1, Math.ceil(best / 60));
-  }
-
   return {
     pins,
     skipped,
     nearestPinM: (at) => Math.round(Math.min(...pins.map((p) => distanceM(p, at)))),
     near,
     pointOf,
-    walkMinutes,
     async keep(stores, warn) {
       const out = new Set<string>();
       const pinnedCities = new Set(pins.map((p) => p.city));
