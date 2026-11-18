@@ -1164,6 +1164,12 @@ body:has(.sh-page) { background: #ffffff; }
 .sh-store-top .sh-fav { margin-top: 0.375rem; }
 .sh-fav { font-size: 1.125rem; }
 .sh-fav.is-on { color: var(--sh-fav); }
+/* "כמה יעלה לי ב…": the list card's button and its sheet. */
+.sh-far-open { width: 100%; margin-top: 0.75rem; }
+.sh-far .sh-h2 { margin: 0 0 0.5rem; padding-inline-end: 2.5rem; }
+.sh-far-add { margin-top: 1rem; }
+.sh-far-more { margin-top: 0.75rem; }
+.sh-far-found { flex: 1; min-width: 0; min-height: 56px; display: flex; flex-direction: column; justify-content: center; }
 .sh-here-dist { display: flex; flex: none; flex-direction: column; align-items: flex-end; font-size: 0.9375rem; color: var(--sh-muted); white-space: nowrap; }
 .sh-here-dist small { font-size: 0.75rem; }
 .sh-here-lists { margin: 0.5rem 0 0; flex-wrap: nowrap; overflow-x: auto; }

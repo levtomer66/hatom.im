@@ -26,7 +26,8 @@
  */
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { FaMinus, FaPlus, FaTrash, FaSearch, FaChevronDown, FaTimes, FaCheck, FaBarcode, FaMapMarkerAlt, FaLocationArrow, FaShoppingCart, FaArrowRight, FaEllipsisH, FaListUl } from 'react-icons/fa';
+import { FaMinus, FaPlus, FaTrash, FaSearch, FaChevronDown, FaTimes, FaCheck, FaBarcode, FaMapMarkerAlt, FaLocationArrow, FaShoppingCart, FaArrowRight, FaEllipsisH, FaListUl, FaStore } from 'react-icons/fa';
+import { storeQueryWords } from '@/lib/shopping/here';
 import { LuRefrigerator } from 'react-icons/lu';
 import dynamic from 'next/dynamic';
 import Navbar from '@/components/Navbar';
@@ -35,7 +36,7 @@ import { distanceM } from '@/lib/shopping/places';
 import { SHOPPING_API_PATH } from '@/lib/shopping/config';
 import { HOME_LIST_ID, MAX_FAV_STORES, normalizeQty, type ListLine, type MyItem } from '@/lib/shopping/home';
 import type { ShoppingSettings } from '@/lib/shopping/api-types';
-import type { CompareResponse, StoreCardData, ShoppingPlan, ItemPrice, ItemResponse, ManualPriceResponse, PriceSource, PromoDetail, SearchHit, StoreInfo } from '@/lib/shopping/api-types';
+import type { CompareResponse, FarResponse, HereStore, StoreCardData, StoresResponse, ShoppingPlan, ItemPrice, ItemResponse, ManualPriceResponse, PriceSource, PromoDetail, SearchHit, StoreInfo } from '@/lib/shopping/api-types';
 import type { LineResult, Offer, PromoRef, StoreBasket } from '@/lib/shopping/pricing';
 import { dealNudge, groupByDepartment, progress, withPending, type PlanKind, type Trip, type TripCreate, type TripItem } from '@/lib/shopping/trips';
 import { cleanAddress, dayMonth, FavStar, ils, MultiStar, multiNote, photoBroken, qtyLabel, SaleLabel, storeName, Thumb } from './ui';
@@ -153,6 +154,8 @@ export default function ShoppingPage() {
   const [missingOpen, setMissingOpen] = useState(false);
   /** The "המוצרים שלי" sheet. */
   const [myItemsOpen, setMyItemsOpen] = useState(false);
+  /** "כמה יעלה לי ב…": the list at the favorite stores. */
+  const [farOpen, setFarOpen] = useState(false);
   const [city, setCity] = useState<string>(CITIES[0].id);
   const [cityMode, setCityMode] = useState<'auto' | 'manual'>('auto');
   const [loc, setLoc] = useState<LocState>('idle');
@@ -684,6 +687,9 @@ export default function ShoppingPage() {
                 <label className="sh-toggle"><input type="checkbox" checked={clubs} onChange={(e) => setClubs(e.target.checked)} /> לחשב מבצעי מועדון</label>
                 <label className="sh-toggle"><input type="checkbox" checked={coupons} onChange={(e) => setCoupons(e.target.checked)} /> לחשב קופונים</label>
               </div>
+              <button type="button" className="sh-btn sh-far-open" onClick={() => setFarOpen(true)}>
+                <FaStore aria-hidden /> כמה יעלה לי ב…
+              </button>
             </section>
             )}
 
@@ -762,6 +768,10 @@ export default function ShoppingPage() {
               <NutritionHero lines={home.list.map((i) => ({ key: i.key, qty: i.qty, name: i.name }))} />
             )}
           </MyItemsSheet>
+        )}
+        {farOpen && list && list.items.length > 0 && (
+          <FarSheet lines={list.items} clubs={clubs} coupons={coupons} favs={favs} onFav={toggleFav} flush={flushSaves}
+            onClose={() => setFarOpen(false)} />
         )}
         {missingOpen && home && (
           <Missing items={home.items} list={home.list} meta={home.meta} city={city} onSaveItem={saveItemNow}
@@ -1146,6 +1156,108 @@ function Line({ line, result, store }: { line: LineResult; result: StoreCardData
 }
 
 // ── product photos ──
+
+// ── "כמה יעלה לי ב…": the list at the favorite stores ──
+
+/**
+ * The shopping list priced at each favorite store, whatever its city, ranked
+ * like the store list; ★ removes one, and the search below adds any priced
+ * store. Pending saves are sent first: /far reads the favorites from the server.
+ */
+function FarSheet({ lines, clubs, coupons, favs, onFav, flush, onClose }: {
+  lines: ListLine[];
+  clubs: boolean;
+  coupons: boolean;
+  favs: ReadonlySet<number>;
+  onFav: (k: number) => void;
+  flush: () => Promise<unknown>;
+  onClose: () => void;
+}) {
+  const [data, setData] = useState<FarResponse | null>(null);
+  const [error, setError] = useState(false);
+  const [reload, setReload] = useState(0);
+  const [open, setOpen] = useState<number | null>(null);
+  const [adding, setAdding] = useState(false);
+  const [q, setQ] = useState('');
+  const [found, setFound] = useState<HereStore[] | null>(null);
+  const closeRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => closeRef.current?.focus(), []);
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
+  const favKey = [...favs].join(',');
+  const sig = JSON.stringify(lines.map((l) => [l.key, l.qty]));
+  useEffect(() => {
+    let live = true;
+    setError(false);
+    (async () => {
+      await flush();
+      const res = await api<FarResponse>('/far', {
+        method: 'POST',
+        body: JSON.stringify({ clubs, coupons, lines: JSON.parse(sig).map(([key, qty]: [string, number]) => ({ key, qty })) }),
+      });
+      if (live) setData(res);
+    })().catch(() => { if (live) setError(true); });
+    return () => { live = false; };
+  }, [favKey, sig, clubs, coupons, reload, flush]);
+
+  useEffect(() => {
+    if (!storeQueryWords(q).length) return setFound(null);
+    const ctl = new AbortController();
+    const t = setTimeout(() => {
+      fetch(`${SHOPPING_API_PATH}/stores?q=${encodeURIComponent(q.trim())}`, { signal: ctl.signal })
+        .then((r) => (r.ok ? r.json() : null)).then((r: StoresResponse | null) => r && setFound(r.stores)).catch(() => {});
+    }, 250);
+    return () => { clearTimeout(t); ctl.abort(); };
+  }, [q]);
+
+  const none = favs.size === 0;
+  const best = data?.baskets.find((b) => !b.missing.length);
+  const cityOfStore = (s: HereStore) => CITIES.find((c) => c.id === s.city)?.name ?? (s.kind === 'online' ? 'אונליין' : '');
+  return (
+    <div className="sh-sheet-backdrop" onClick={onClose}>
+      <div className="sh-sheet sh-far" role="dialog" aria-modal="true" aria-labelledby="sh-far-title" onClick={(e) => e.stopPropagation()}>
+        <button ref={closeRef} type="button" className="sh-icon-btn sh-sheet-close" onClick={onClose} aria-label="סגירה"><FaTimes /></button>
+        <h2 id="sh-far-title" className="sh-h2">כמה יעלה לי ב…</h2>
+        {error && <p className="sh-error">לא הצלחנו לטעון. <button type="button" className="sh-link" onClick={() => setReload((n) => n + 1)}>לנסות שוב</button></p>}
+        {none && <p className="sh-empty">עוד אין חנויות מועדפות. חפשו חנות וסמנו ☆.</p>}
+        {!none && !data && !error && <div className="sh-skeleton" aria-label="טוען" />}
+        {!none && data && data.baskets.map((b, i) => (
+          <StoreCard key={b.store} basket={b} result={data} rank={i} best={best} open={open === b.store}
+            toggle={() => setOpen(open === b.store ? null : b.store)} fav={{ on: favs.has(b.store), toggle: () => onFav(b.store) }} />
+        ))}
+        {(adding || none) ? (
+          <section className="sh-far-add">
+            <label className="sh-search-box">
+              <FaSearch aria-hidden />
+              <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="רשת, סניף או עיר"
+                aria-label="חיפוש חנות להוספה" autoComplete="off" autoFocus={!none} />
+            </label>
+            {found && !found.length && <p className="sh-empty">לא נמצאה חנות.</p>}
+            {found && found.length > 0 && (
+              <ul className="sh-here-stores">
+                {found.map((s) => (
+                  <li key={s.k} className="sh-here-store-row">
+                    <span className="sh-tick-name sh-far-found">
+                      <span>{s.chainName} <span className="sh-branch">{s.name}</span></span>
+                      <small>{[cityOfStore(s), cleanAddress(s.address)].filter(Boolean).join(' · ')}</small>
+                    </span>
+                    <FavStar on={favs.has(s.k)} name={storeName(s)} onToggle={() => onFav(s.k)} />
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+        ) : (
+          <button type="button" className="sh-btn sh-btn--ghost sh-far-more" onClick={() => setAdding(true)}><FaPlus aria-hidden /> הוספת חנות</button>
+        )}
+      </div>
+    </div>
+  );
+}
 
 // ── stores priced by hand ──
 
