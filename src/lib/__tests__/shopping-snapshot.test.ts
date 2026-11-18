@@ -195,6 +195,18 @@ test('buildStoreDocs carries the publish time of the price and promo files', () 
   assert.equal(d.city, 'beer-sheva');
   assert.equal(d.pricesAt, '2026-11-15T00:40');
   assert.equal(d.promosAt, null);
+  assert.equal(d.far, false);
+});
+
+test('buildStoreDocs carries the far flag the ingest set', () => {
+  const docs = buildStoreDocs(
+    [{
+      chainId: '7290785400000', storeId: '104', subChainId: '000', name: 'קולינריק רמת גן', address: 'ביאליק 39', city: '0', kind: 'physical',
+      chainSlug: 'keshet', chainName: 'קשת טעמים', cityId: 'ramat-gan', priceFile: null, promoFile: null, far: true,
+    }],
+    { '7290785400000:104': 9 },
+  );
+  assert.equal(docs.get('7290785400000:104')!.far, true);
 });
 
 test('buildItemDocs: a first barcode photo beats the priced source\'s own, which beats the others', () => {

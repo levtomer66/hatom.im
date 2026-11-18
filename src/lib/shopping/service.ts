@@ -337,7 +337,9 @@ export async function compareBasket(req: CompareRequest): Promise<CompareRespons
   const physical = rankStores(physicalKeys, req.lines, items, promos, opts).filter(sellsAny);
   const online = rankStores(onlineKeys, req.lines, items, promos, opts).filter(sellsAny);
 
-  const plans = buildPlans(physical, req.lines, items, promos, opts);
+  // Far stores (outside the walk limit: curated far stores, a chain's only store) never win a plan.
+  const far = new Set(stores.filter((s) => s.far).map((s) => s.k));
+  const plans = buildPlans(physical.filter((b) => !far.has(b.store)), req.lines, items, promos, opts);
 
   // Deals a shown line doesn't use yet (a "3 ב־100" with one pack in the list).
   const shownBaskets = [

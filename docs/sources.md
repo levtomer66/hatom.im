@@ -62,6 +62,23 @@ match, else a Nominatim lookup of the cleaned address (cached per query in
 `places/geocode.json`). Online stores always pass. A store it can't place is
 logged and left out.
 
+**Every chain keeps one store** (owner's rule, 2026-11-18). After the keep
+pass, a chain with no priced store (none near a pin or curated, or only ones
+that publish nothing) keeps one: its online store from `onlineStores`, else
+its physical store nearest any pin in a straight line (any target city; a
+store that can't be placed comes last), the first of those that publishes a
+PriceFull — never one the owner skipped in the review. The log says "kept as
+the chain's only store". The registry remembers it (`keptAs: 'fallback'`),
+so a run of other chains or `--offline` keeps it until a store of that
+chain is reached by a pin. Rules: `fallbackOrder` / `keepFallbacks` in
+`ingest/locate.ts`. Not applied on `--max-stores` or `--all-stores` runs.
+
+**Far stores** (`far: true` on the store doc, `isFar`): a chain's only store,
+a store in a city with no pin, or one past the pin's walk limit + 2 minutes
+(curated far stores such as Yochananof 54). They show in search, the product
+view and the store search, and are never in the plans. Online stores and
+neighbourhood shops are never far.
+
 **Verified 2026-11-15** by downloading each chain's latest `Stores` file
 (plus PriceFull/PromoFull for Yochananof). Store counts below are for the
 three target cities, after the city rules in [City matching](#city-matching).
