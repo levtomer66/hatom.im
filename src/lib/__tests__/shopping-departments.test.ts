@@ -48,3 +48,20 @@ test('canned, pickled and dried produce is not in the produce aisle', () => {
   assert.equal(departmentOf('תפוח עץ מיובש 160 גר'), 'snacks');
   assert.equal(departmentOf('עגבניה'), 'produce');
 });
+
+test('a stem matches only where a word starts', () => {
+  assert.equal(departmentOf('תה ירוק'), 'coffee');
+  assert.equal(departmentOf('משתה'), null); // "תה" inside a word is not tea
+  assert.equal(departmentOf('קפה  נמס'), 'coffee'); // extra spaces
+  assert.equal(departmentOf(''), null);
+});
+
+test('equally long stems: the department written first wins', () => {
+  assert.equal(departmentOf('מצית'), 'checkout'); // listed under checkout and under home
+});
+
+test('short stems and stems of several words are found', () => {
+  assert.equal(departmentOf('דג'), 'fish'); // a two-letter stem
+  assert.equal(departmentOf('נייר טואלט'), 'paper');
+  assert.equal(departmentOf('סוכרזית'), 'pantry'); // a stem that is the whole word
+});

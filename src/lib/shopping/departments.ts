@@ -41,7 +41,7 @@ export const DEPARTMENT_IDS = new Set(DEPARTMENTS.map((d) => d.id));
 const words = (...stems: string[]) => stems;
 
 /**
- * Every rule is tried and the longest matching stem wins, so "פלפל שחור" is a
+ * The longest matching stem wins (the first written one on a tie), so "פלפל שחור" is a
  * spice and not a vegetable, "פירורי לחם" is pantry, "שוקולד חלב" a sweet.
  * Pets and baby get a bonus: "חטיף כלבים" is pet food, not a snack.
  */
@@ -100,20 +100,59 @@ const CATEGORY_RULES: [string, string[]][] = [
   ['checkout', ['סיגריות', 'עישון', 'טבק']],
 ];
 
-const compile = (rules: [string, string[]][]) =>
-  rules.flatMap(([id, stems]) => stems.map((stem) => {
-    const st = norm(stem).trim();
-    return { id, len: st.length + (BONUS[id] ?? 0), needle: ` ${st}` };
-  }));
+interface Rule {
+  id: string;
+  len: number;
+  /** The stem with a leading space: it matches at the start of a word. */
+  needle: string;
+  /** Place in the written order: among equally long stems the first one wins. */
+  order: number;
+}
+
+/** A stem is looked up by its first letters: the leading space and up to two letters. */
+const KEY_LEN = 3;
+
+/**
+ * A rule set indexed by how its stems start, so a text is checked only
+ * against the stems that can begin at one of its words (a few) instead of
+ * against all of them (about a thousand).
+ */
+function compile(rules: [string, string[]][]): Map<string, Rule[]> {
+  const byStart = new Map<string, Rule[]>();
+  let order = 0;
+  for (const [id, stems] of rules) {
+    for (const stem of stems) {
+      const st = norm(stem).trim();
+      const rule: Rule = { id, len: st.length + (BONUS[id] ?? 0), needle: ` ${st}`, order: order++ };
+      const key = rule.needle.slice(0, KEY_LEN);
+      const bucket = byStart.get(key);
+      if (bucket) bucket.push(rule);
+      else byStart.set(key, [rule]);
+    }
+  }
+  return byStart;
+}
 const PRODUCT = compile(RULES);
 const CATEGORY = compile(CATEGORY_RULES);
 
-function match(text: string, rules: { id: string; len: number; needle: string }[]): string | null {
+/** The longest stem found in the text wins; among equally long ones, the one written first. */
+function match(text: string, rules: Map<string, Rule[]>): string | null {
   const t = norm(text);
   // Also try each word without a one-letter prefix (ל/ב/ה/ו/מ/ש/כ: "לתינוק", "והדרים").
   const bare = t.replace(/ [לבהומשכ](?=[א-ת]{3})/g, ' ');
-  let best: { id: string; len: number } | null = null;
-  for (const c of rules) if ((!best || c.len > best.len) && (t.includes(c.needle) || bare.includes(c.needle))) best = c;
+  let best: Rule | null = null;
+  for (const hay of bare === t ? [t] : [t, bare]) {
+    // Every stem starts with a space, so it can only match where a word starts.
+    for (let i = hay.indexOf(' '); i !== -1; i = hay.indexOf(' ', i + 1)) {
+      // A one-letter stem is filed under a shorter key, so both lengths are looked up.
+      for (let n = KEY_LEN; n > 1; n--) {
+        for (const c of rules.get(hay.slice(i, i + n)) ?? []) {
+          if (best && (c.len < best.len || (c.len === best.len && c.order > best.order))) continue;
+          if (hay.startsWith(c.needle, i)) best = c;
+        }
+      }
+    }
+  }
   return best?.id ?? null;
 }
 
