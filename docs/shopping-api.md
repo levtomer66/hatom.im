@@ -48,7 +48,7 @@ agorot. The shapes are in `src/lib/shopping/api-types.ts`.
 |---|---|
 | `GET search?q=&city=` | Products matching every word (`SearchHit[]`). |
 | `GET item?key=&city=` | One product at every store (`ItemResponse`); `key` may be a barcode. |
-| `POST compare` `{ city, lines: [{key, qty}], clubs?, coupons? }` | A basket at every store, plans and splits (`CompareResponse`). |
+| `POST compare` `{ city, lines: [{key, qty}], clubs?, coupons? }` | A basket at every store, and plans (`CompareResponse`). |
 | `GET home` | My items and the list (`{ items, list, updatedAt, meta }`; `meta` = department and photo per key). |
 | `PATCH home` `{ items?, list? }` | Replace My items and/or the list. |
 | `POST home/list` `{ add: [{key, qty}] }` | Put My items on the list ("מה חסר?"); items already there keep their quantity. |

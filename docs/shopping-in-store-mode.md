@@ -19,7 +19,7 @@ page's main button whenever the list is not empty.
 ## Plans
 
 Two cards side by side, built from what the compare route already computes
-(`rankStores` for one store, `bestSplits` for a split):
+(`rankStores` for one store, `buildPlans` for 2–3 stores):
 
 | | **הכי זול** | **חנות אחת** |
 |---|---|---|

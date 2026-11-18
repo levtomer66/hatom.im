@@ -461,55 +461,6 @@ export function multiBuyUnit(
   return best;
 }
 
-export interface Split {
-  stores: [StoreBasket, StoreBasket];
-  total: number;
-  /** Keys neither store sells. */
-  missing: string[];
-}
-
-/**
- * The cheapest ways to split the basket between two stores. Each line goes to
- * the store where it costs less when the whole basket is priced there, then
- * each half is re-priced on its own (a mix & match deal may not survive the
- * split). Only splits that use both stores are returned, cheapest first.
- */
-export function bestSplits(
-  ranked: StoreBasket[],
-  lines: BasketLine[],
-  items: Map<string, PricedItem>,
-  promos: PromoDoc[],
-  opts: PricingOptions,
-  limit = 3,
-): Split[] {
-  const qty = new Map<string, number>();
-  for (const l of lines) if (l.qty > 0) qty.set(l.key, (qty.get(l.key) ?? 0) + l.qty);
-  const lineMap = new Map(ranked.map((b) => [b.store, new Map(b.lines.map((l) => [l.key, l]))]));
-  const out: Split[] = [];
-  for (let i = 0; i < ranked.length; i++) {
-    for (let j = i + 1; j < ranked.length; j++) {
-      const [a, b] = [ranked[i], ranked[j]];
-      const la = lineMap.get(a.store)!;
-      const lb = lineMap.get(b.store)!;
-      const toA: BasketLine[] = [];
-      const toB: BasketLine[] = [];
-      const missing: string[] = [];
-      for (const [key, q] of qty) {
-        const x = la.get(key)!;
-        const y = lb.get(key)!;
-        if (!x.available && !y.available) missing.push(key);
-        else if (!y.available || (x.available && x.cost <= y.cost)) toA.push({ key, qty: q });
-        else toB.push({ key, qty: q });
-      }
-      if (!toA.length || !toB.length) continue;
-      const pa = priceStore(a.store, toA, items, promos, opts);
-      const pb = priceStore(b.store, toB, items, promos, opts);
-      out.push({ stores: [pa, pb], total: pa.total + pb.total, missing });
-    }
-  }
-  return out.sort(byValue).slice(0, limit);
-}
-
 /** Effective price per unit (or kg) of `qty` of one item at one store, or null. */
 export function unitPriceAt(
   store: number,

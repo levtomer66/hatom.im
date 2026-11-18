@@ -8,7 +8,5 @@ export const SHOPPING_API_PATH = '/api/shopping';
 
 /** Stores shown per section of the results. */
 export const RESULTS_PER_SECTION = 10;
-/** Two-store splits shown. */
-export const SPLITS_SHOWN = 3;
 /** Cheapest stores listed per item in the "per item" view. */
 export const ITEM_OPTIONS_SHOWN = 3;

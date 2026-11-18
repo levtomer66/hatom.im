@@ -3,8 +3,8 @@
 // input (a known city, sane keys and quantities); the routes and tools do
 // the validating and the HTTP / text around it. Server-only (reads Mongo).
 
-import { ITEM_OPTIONS_SHOWN, RESULTS_PER_SECTION, SPLITS_SHOWN } from '@/lib/shopping/config';
-import { bestSplits, priceStore, rankStores, shownUnit, unitAcross, type BasketLine, type PricedItem, type PricingOptions, type StoreBasket } from '@/lib/shopping/pricing';
+import { ITEM_OPTIONS_SHOWN, RESULTS_PER_SECTION } from '@/lib/shopping/config';
+import { priceStore, rankStores, shownUnit, unitAcross, type BasketLine, type PricedItem, type PricingOptions, type StoreBasket } from '@/lib/shopping/pricing';
 import { choosePlan, MAX_PLAN_STORES, worthCount } from '@/lib/shopping/plans';
 import type { PromoDoc } from '@/lib/shopping/snapshot';
 import { israelLocalNow } from '@/lib/shopping/snapshot';
@@ -232,10 +232,9 @@ function buildPlans(
 
 /**
  * The basket priced at every store serving the city: physical and online
- * stores ranked separately, the best splits and plans among the physical
- * ones, and each line's cheapest stores. Manual stores (prices typed by
+ * stores ranked separately, the plans among the physical ones, and each line's cheapest stores. Manual stores (prices typed by
  * users) are always in `manual`, with what's unpriced in `missing`; one that
- * prices every line also competes in `physical` and the splits.
+ * prices every line also competes in `physical` and the plans.
  */
 export async function compareBasket(req: CompareRequest): Promise<CompareResponse> {
   const keys = [...new Set(req.lines.map((l) => l.key))];
@@ -259,14 +258,12 @@ export async function compareBasket(req: CompareRequest): Promise<CompareRespons
   const sellsAny = (b: StoreBasket) => b.missing.length < b.lines.length;
   const physical = rankStores(physicalKeys, req.lines, items, promos, opts).filter(sellsAny);
   const online = rankStores(onlineKeys, req.lines, items, promos, opts).filter(sellsAny);
-  const splits = bestSplits(physical, req.lines, items, promos, opts, SPLITS_SHOWN);
 
   const plans = buildPlans(physical, req.lines, items, promos, opts);
 
   // Deals a shown line doesn't use yet (a "3 ב־100" with one pack in the list).
   const shownBaskets = [
     ...physical.slice(0, RESULTS_PER_SECTION), ...online.slice(0, RESULTS_PER_SECTION), ...manual,
-    ...splits.flatMap((s) => s.stores),
     ...Object.values(plans.byCount).flatMap((p) => p?.stops.map((s) => s.basket) ?? []),
   ];
   const shownLines = shownBaskets.flatMap((b) => b.lines);
@@ -287,7 +284,6 @@ export async function compareBasket(req: CompareRequest): Promise<CompareRespons
     physical: physical.slice(0, RESULTS_PER_SECTION),
     online: online.slice(0, RESULTS_PER_SECTION),
     manual,
-    splits,
     perItem: perItem(req.lines, physical),
     plans,
     promos: promoDetails(promos, [...shownLines, ...Object.values(idle).map((ids) => ({ applied: [], offers: [], idle: ids }))]),

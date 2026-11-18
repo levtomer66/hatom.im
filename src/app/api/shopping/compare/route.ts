@@ -20,7 +20,7 @@ function parseBody(body: unknown): CompareRequest | string {
 }
 
 // POST { city, lines, clubs?, coupons? } — the basket priced at every store
-// serving the city: physical and online stores ranked separately, splits,
+// serving the city: physical and online stores ranked separately,
 // plans and each line's cheapest stores (see compareBasket).
 export async function POST(request: NextRequest) {
   const caller = await requireFeatureCaller(request, 'shopping');

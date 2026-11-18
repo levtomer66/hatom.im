@@ -336,7 +336,7 @@ Identity = Gmail address. Two roles:
   Spec: `docs/superpowers/specs/2026-11-18-shopping-my-items-design.md`.
   `/api/shopping/compare` loads only the
   basket items, their promos (`items` index) and the city's stores, then runs
-  `rankStores`/`bestSplits` in the request. Physical and online stores are
+  `rankStores` and the plans in the request. Physical and online stores are
   ranked separately; stores whose `pricesAt` is null are never shown.
   The read model is `src/models/ShoppingCatalog.ts`; the app never writes the
   ingest collections.

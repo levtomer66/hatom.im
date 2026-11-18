@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  dealMinQty, priceStore, rankStores, bestSplits, unitPriceAt,
+  dealMinQty, priceStore, rankStores, unitPriceAt,
   type PricedItem, type PricingOptions,
 } from '../shopping/pricing.ts';
 import type { PromoDoc, PromoGroupDoc } from '../shopping/snapshot.ts';
@@ -211,27 +211,6 @@ test('missing items are listed and ranked after complete stores', () => {
   const ranked = rankStores([1, 2], [{ key: 'a', qty: 1 }, { key: 'b', qty: 1 }], it, [], NOW);
   assert.deepEqual(ranked.map((r) => r.store), [1, 2]);
   assert.deepEqual(ranked[1].missing, ['b']);
-});
-
-test('best split: each line goes to its cheaper store', () => {
-  const it = items(['a', { 1: 1000, 2: 600, 3: 900 }], ['b', { 1: 500, 2: 900, 3: 800 }]);
-  const lines = [{ key: 'a', qty: 1 }, { key: 'b', qty: 1 }];
-  const ranked = rankStores([1, 2, 3], lines, it, [], NOW);
-  const [best] = bestSplits(ranked, lines, it, [], NOW);
-  assert.equal(best.total, 1100);
-  assert.deepEqual(best.stores.map((s) => [s.store, s.lines.map((l) => l.key)]), [[1, ['b']], [2, ['a']]]);
-});
-
-test('best split re-prices each half, so a broken mix & match deal is not counted', () => {
-  // Store 1: a + b for 10 together (5 each). Store 2: a for 4.50, b dearer.
-  const it = items(['a', { 1: 800, 2: 450 }], ['b', { 1: 800, 2: 900 }]);
-  const p = promo([part(['a', 'b'], { min: 2, price: 1000 })]);
-  const lines = [{ key: 'a', qty: 1 }, { key: 'b', qty: 1 }];
-  const ranked = rankStores([1, 2], lines, it, [p], NOW);
-  assert.deepEqual(ranked.map((r) => [r.store, r.total]), [[1, 1000], [2, 1350]]);
-  const [split] = bestSplits(ranked, lines, it, [p], NOW);
-  // a → store 2 (450 < 500), b → store 1, where alone it is back to 800.
-  assert.equal(split.total, 450 + 800);
 });
 
 // ---- one unit across the city (search results) ----

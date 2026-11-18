@@ -2,7 +2,7 @@
 // Import-free apart from types and the (import-free) pricing engine.
 
 import type { PriceSource } from './collections.ts';
-import { dealMinQty, type AppliedPromo, type Offer, type Split, type StoreBasket } from './pricing.ts';
+import { dealMinQty, type AppliedPromo, type Offer, type StoreBasket } from './pricing.ts';
 import type { PromoDoc, StoreDoc } from './snapshot.ts';
 import type { Nutrition } from './nutrition.ts';
 
@@ -210,8 +210,6 @@ export interface CompareResponse {
    * A manual store with nothing missing also appears in `physical`.
    */
   manual: StoreBasket[];
-  /** Best two-store splits among the city's physical stores. */
-  splits: Split[];
   /** Per list item, its cheapest physical stores. */
   perItem: ItemBest[];
   /** The two ways to shop the list (docs/shopping-in-store-mode.md). */
