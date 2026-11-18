@@ -31,7 +31,7 @@ import { parsePriceFile, parsePromoFile, parseStoresFile, type CanonItem, type C
 import { buildItemDocs, buildPromoDocs, buildStoreDocs, diffDocs, israelLocalNow, type StoreState } from '../snapshot.ts';
 import { Throttle, clientFor, errorMessage, type RemoteFile, type SourceClient } from './sources.ts';
 import { fetchWoltVenue, type WoltVenueConfig } from './wolt.ts';
-import { fallbackOrder, isFar, keepFallbacks, pinFilter, type FallbackCandidate } from './locate.ts';
+import { fallbackOrder, isFar, keepFallbacks, needsFallback, pinFilter, type FallbackCandidate } from './locate.ts';
 import { RAMI_LEVY_IMG, cachedPhotos, readOffNutrition, readRamiLevy } from './off.ts';
 
 const RAW_RETENTION_DAYS = 7;
@@ -208,7 +208,8 @@ async function ingestChain(chain: ChainConfig, cityIds: Set<string>, maxStores: 
 
   const prices = await client.latestFor('PriceFull', targets.map((s) => s.storeId));
   // Every chain keeps a priced store (a --max-stores run only samples, so it doesn't).
-  if (PINS && maxStores === null && !targets.some((s) => prices.has(s.storeId))) {
+  const keptPriced = targets.map((s) => ({ publishesToday: prices.has(s.storeId), savedPrices: !!loadState(s)?.priceFile }));
+  if (PINS && maxStores === null && needsFallback(keptPriced)) {
     const kept = new Set(targets.map((s) => s.storeId));
     const fb = await fallbackFor(chain, inCities.filter((s) => !kept.has(s.storeId)), client);
     if (fb) {

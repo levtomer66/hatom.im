@@ -64,7 +64,8 @@ logged and left out.
 
 **Every chain keeps one store** (owner's rule, 2026-11-18). After the keep
 pass, a chain with no priced store (none near a pin or curated, or only ones
-that publish nothing) keeps one: its online store from `onlineStores`, else
+with no prices at all — a kept store that skips a day's PriceFull keeps
+yesterday's prices and still counts, `needsFallback`) keeps one: its online store from `onlineStores`, else
 its physical store nearest any pin in a straight line (any target city; a
 store that can't be placed comes last), the first of those that publishes a
 PriceFull — never one the owner skipped in the review. The log says "kept as
