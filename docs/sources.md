@@ -105,7 +105,10 @@ the chain's only store". The registry remembers it (`keptAs: 'fallback'`),
 so a run of other chains or `--offline` keeps it until a store of that
 chain is reached by a pin. Rules: `fallbackOrder` / `keepFallbacks` in
 `ingest/locate.ts`. Not applied on `--max-stores` or `--all-stores` runs.
-Checked 2026-11-18: Osher Ad keeps store 24 (קרמינצקי 3, Tel Aviv). **Keshet
+Checked 2026-11-18: Osher Ad kept store 24 (קרמינצקי 3, Tel Aviv) as its
+fallback until Talpiot 26 was curated, which retired it (the fallback goes once
+another kept store has prices); the owner kept 24 by curating it too
+(`extra.json` + `official.json`). **Keshet
 has none, by the owner's choice**: only Poleg (14) and Akko (21) publish a
 PriceFull, neither in a target city, so each run warns "keshet: no store in the
 target cities publishes a PriceFull" — expected.
