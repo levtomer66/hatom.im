@@ -25,13 +25,13 @@ import { parseArgs } from 'node:util';
 import { BSON, MongoClient, type AnyBulkWriteOperation, type Db, type Document } from 'mongodb';
 import { CHAINS, chainBySlug, keepOnlineStore, type ChainConfig } from '../chains.ts';
 import { COLLECTIONS, SNAPSHOT_COLLECTIONS, storeId, type StoreId } from '../collections.ts';
-import { CITIES, cityOf } from '../cities.ts';
+import { cityOf, ingestCityIds } from '../cities.ts';
 import { decodeXmlBytes, isGzip } from '../xml.ts';
 import { parsePriceFile, parsePromoFile, parseStoresFile, type CanonItem, type CanonPromo, type CanonStore } from '../normalize.ts';
 import { buildItemDocs, buildPromoDocs, buildStoreDocs, diffDocs, israelLocalNow, type StoreState } from '../snapshot.ts';
-import { Throttle, clientFor, errorMessage, type RemoteFile } from './sources.ts';
+import { Throttle, clientFor, errorMessage, type RemoteFile, type SourceClient } from './sources.ts';
 import { fetchWoltVenue, type WoltVenueConfig } from './wolt.ts';
-import { pinFilter } from './locate.ts';
+import { fallbackOrder, isFar, keepFallbacks, pinFilter, type FallbackCandidate } from './locate.ts';
 import { RAMI_LEVY_IMG, cachedPhotos, readOffNutrition, readRamiLevy } from './off.ts';
 
 const RAW_RETENTION_DAYS = 7;
@@ -151,6 +151,36 @@ interface StoreRecord extends CanonStore {
   cityId: string | null;
   /** Map point, when the source places it (discovery review rows); official stores are placed by the pin filter. */
   at?: { lat: number; lng: number };
+  /** Kept as the chain's only store: no store of the chain near a pin has prices (ingest/locate.ts fallbackOrder). */
+  keptAs?: 'fallback';
+}
+
+/**
+ * The store a chain keeps when none near a pin has prices: the first of
+ * fallbackOrder() that publishes a PriceFull. Listing-based clients answer from
+ * one cached listing; Shufersal asks per store, nearest first, so it stops early.
+ */
+async function fallbackFor(chain: ChainConfig, cands: StoreRecord[], client: SourceClient) {
+  if (!PINS) return null;
+  const pinnedCities = new Set(PINS.pins.map((p) => p.city));
+  const byKey = new Map<string, { s: StoreRecord; distM: number | null }>();
+  const list: FallbackCandidate[] = [];
+  for (const s of cands) {
+    const at = s.kind === 'physical' ? (s.at ?? (await PINS.pointOf(s))) : null;
+    const distM = at ? PINS.nearestPinM(at) : null;
+    const key = `${chain.slug}/${s.storeId}`;
+    byKey.set(key, { s, distM });
+    list.push({
+      key, storeId: s.storeId, kind: s.kind, listedOnline: (chain.onlineStores ?? []).includes(s.storeId), distM,
+      pinnedCity: s.cityId !== null && pinnedCities.has(s.cityId), skipped: PINS.skipped.has(key),
+    });
+  }
+  for (const key of fallbackOrder(list)) {
+    const { s, distM } = byKey.get(key)!;
+    const file = (await client.latestFor('PriceFull', [s.storeId])).get(s.storeId);
+    if (file) return { store: { ...s, keptAs: 'fallback' as const }, file, distM };
+  }
+  return null;
 }
 
 async function ingestChain(chain: ChainConfig, cityIds: Set<string>, maxStores: number | null): Promise<StoreRecord[]> {
@@ -161,11 +191,12 @@ async function ingestChain(chain: ChainConfig, cityIds: Set<string>, maxStores: 
   if (!storesFile) throw new Error(`${chain.slug}: no Stores file listed`);
   const parsed = parseStoresFile(toXml(await fetchCached(chain, storesFile, (f) => client.download(f))));
   const seen = new Set<string>(); // some Stores files list a store more than once
-  let targets: StoreRecord[] = parsed.stores
+  const inCities: StoreRecord[] = parsed.stores
     .filter((s) => !seen.has(s.storeId) && !!seen.add(s.storeId))
     .map((s) => ({ ...s, chainSlug: chain.slug, chainName: chain.name, cityId: cityOf(s) }))
     // Online stores are listed separately (kind: 'online'): those serving the target cities (chains.ts).
     .filter((s) => (s.kind === 'online' ? keepOnlineStore(chain, s.storeId, s.cityId) : s.cityId !== null && cityIds.has(s.cityId)));
+  let targets = inCities;
   if (PINS) {
     const near = await PINS.keep(targets, warn);
     const before = targets.length;
@@ -175,8 +206,18 @@ async function ingestChain(chain: ChainConfig, cityIds: Set<string>, maxStores: 
   if (maxStores !== null) targets = targets.slice(0, maxStores);
   log(`${chain.slug}: ${parsed.stores.length} stores listed, ${targets.length} in target cities or online (${storesFile.name})`);
 
-  const ids = targets.map((s) => s.storeId);
-  const [prices, promos] = [await client.latestFor('PriceFull', ids), await client.latestFor('PromoFull', ids)];
+  const prices = await client.latestFor('PriceFull', targets.map((s) => s.storeId));
+  // Every chain keeps a priced store (a --max-stores run only samples, so it doesn't).
+  if (PINS && maxStores === null && !targets.some((s) => prices.has(s.storeId))) {
+    const kept = new Set(targets.map((s) => s.storeId));
+    const fb = await fallbackFor(chain, inCities.filter((s) => !kept.has(s.storeId)), client);
+    if (fb) {
+      targets = [...targets, fb.store];
+      prices.set(fb.store.storeId, fb.file);
+      log(`  ${fb.store.storeId} ${fb.store.name}: kept as the chain's only store (${fb.distM === null ? 'not placed' : `${(fb.distM / 1000).toFixed(1)} km from the nearest pin`})`);
+    } else warn(`${chain.slug}: no store in the target cities publishes a PriceFull — the chain has no store`);
+  }
+  const promos = await client.latestFor('PromoFull', targets.map((s) => s.storeId));
 
   for (const s of targets) {
     const prev = loadState(s);
@@ -380,7 +421,7 @@ async function main() {
     if (!c) throw new Error(`unknown chain "${s}" (known: ${CHAINS.map((x) => x.slug).join(', ')})`);
     return c;
   });
-  const cityIds = new Set(args.cities ? args.cities.split(',') : CITIES.map((c) => c.id));
+  const cityIds = args.cities ? new Set(args.cities.split(',')) : ingestCityIds({ allStores: args['all-stores'] });
   const maxStores = args['max-stores'] ? Number(args['max-stores']) : null;
   const dry = args['dry-run'];
   log(`run ${runId}${dry ? ' (dry run)' : ''}${args.offline ? ' (offline)' : ''} — chains: ${slugs.join(', ')}; cache: ${CACHE}`);
@@ -426,7 +467,15 @@ async function main() {
     if (PINS) {
       const others = Object.values(registry).filter((s) => s.chainSlug !== 'wolt' && s.chainSlug !== 'manual');
       const near = await PINS.keep(others, warn);
-      for (const s of others) if (!near.has(storeId(s))) delete registry[storeId(s)];
+      // A chain's only store (kept as a fallback) stays while no other store of the chain has prices.
+      const fallbacks = keepFallbacks(
+        others.map((s) => ({ key: storeId(s), chainSlug: s.chainSlug, keptAs: s.keptAs, priced: !!loadState(s)?.priceFile })),
+        near,
+      );
+      for (const s of others) {
+        if (fallbacks.has(storeId(s))) log(`  ${s.chainSlug} ${s.storeId} ${s.name}: kept as the chain's only store`);
+        else if (!near.has(storeId(s))) delete registry[storeId(s)];
+      }
     }
 
     // 3. Short store keys — Mongo is the authority when we have it.
@@ -486,16 +535,20 @@ async function main() {
     // Walking minutes from the nearest pin, for the plan cards (null when unplaced or with no pins).
     const walk = new Map<string, number | null>();
     const where = new Map<string, { lat: number; lng: number }>();
+    const far = new Set<string>(); // never in the walk-limited plans (ingest/locate.ts isFar)
     if (PINS) {
       for (const { s } of loaded) {
         if (s.kind !== 'physical') continue;
         const at = s.at ?? (await PINS.pointOf(s));
         if (at) where.set(storeId(s), at);
-        walk.set(storeId(s), at ? await PINS.walkMinutes(s.cityId, at) : null);
+        const walkMin = at ? await PINS.walkMinutes(s.cityId, at) : null;
+        walk.set(storeId(s), walkMin);
+        if (isFar({ kind: s.kind, chainSlug: s.chainSlug, walkMin, keptAs: s.keptAs }, PINS.pins.filter((p) => p.city === s.cityId))) far.add(storeId(s));
       }
+      log(`far stores (out of the plans): ${far.size}`);
     }
     const storeDocs = buildStoreDocs(
-      loaded.map(({ s, st }) => ({ ...s, priceFile: st?.priceFile ?? null, promoFile: st?.promoFile ?? null, walkMin: walk.get(storeId(s)) ?? null, loc: where.get(storeId(s)) ?? null })),
+      loaded.map(({ s, st }) => ({ ...s, priceFile: st?.priceFile ?? null, promoFile: st?.promoFile ?? null, walkMin: walk.get(storeId(s)) ?? null, loc: where.get(storeId(s)) ?? null, far: far.has(storeId(s)) })),
       keys,
     );
     const chainDocs = new Map(CHAINS.map((c) => [c.chainId, { _id: c.chainId, slug: c.slug, name: c.name }]));

@@ -37,10 +37,14 @@ store) go in `places/extra.json` and are listed like any other discovered shop.
 
 **A far store** (a branch outside the pinned area, for "כמה יעלה לי ב…") goes
 in `places/extra.json` the same way. Include it in the review (or hand-match
-it in `places/official.json`): the ingest keeps an official store a curated
+it in `places/official.json`; two stores at one address — a store and its
+produce store — are two `extra.json` entries that discovery merges into one
+row, and every hand-match on that row is kept): the ingest keeps an official store a curated
 entry points to in any target city, with or without a pin there. A city that
 isn't in `CITIES` yet needs an entry (CBS code + aliases) with `picker: false`,
-so it isn't offered as the user's city. Then run the ingest as usual.
+so it isn't offered as the user's city (Holon, 2026-11-18). `--all-stores`
+leaves `picker: false` cities out, or it would pull in every chain's stores
+there. Then run the ingest as usual.
 
 **Walk limit.** A pin with `walkMinutes` keeps only stores within that walk,
 measured as a walking route by the OpenStreetMap foot router
@@ -58,6 +62,27 @@ match, else a Nominatim lookup of the cleaned address (cached per query in
 `places/geocode.json`). Online stores always pass. A store it can't place is
 logged and left out.
 
+**Every chain keeps one store** (owner's rule, 2026-11-18). After the keep
+pass, a chain with no priced store (none near a pin or curated, or only ones
+that publish nothing) keeps one: its online store from `onlineStores`, else
+its physical store nearest any pin in a straight line (any target city; a
+store that can't be placed comes last), the first of those that publishes a
+PriceFull — never one the owner skipped in the review. The log says "kept as
+the chain's only store". The registry remembers it (`keptAs: 'fallback'`),
+so a run of other chains or `--offline` keeps it until a store of that
+chain is reached by a pin. Rules: `fallbackOrder` / `keepFallbacks` in
+`ingest/locate.ts`. Not applied on `--max-stores` or `--all-stores` runs.
+Checked 2026-11-18: Osher Ad keeps store 24 (קרמינצקי 3, Tel Aviv). **Keshet
+has none, by the owner's choice**: only Poleg (14) and Akko (21) publish a
+PriceFull, neither in a target city, so each run warns "keshet: no store in the
+target cities publishes a PriceFull" — expected.
+
+**Far stores** (`far: true` on the store doc, `isFar`): a chain's only store,
+a store in a city with no pin, or one past the pin's walk limit + 2 minutes
+(curated far stores such as Yochananof 54). They show in search, the product
+view and the store search, and are never in the plans. Online stores and
+neighbourhood shops are never far.
+
 **Verified 2026-11-15** by downloading each chain's latest `Stores` file
 (plus PriceFull/PromoFull for Yochananof). Store counts below are for the
 three target cities, after the city rules in [City matching](#city-matching).
@@ -66,8 +91,11 @@ three target cities, after the city rules in [City matching](#city-matching).
 Yochananof, Rami Levy, Tiv Taam, Dor Alon, Fresh Market, Keshet and Osher Ad
 (added 2026-11-16 — all parse with the default field aliases); Carrefour
 (PublishPrice), Victory and Mahsani HaShuk (Laibcatalog), Bareket and City
-Market (Bina), added 2026-11-17 for branches near the pins. Next: the other
-Bina chains (Good Pharm, King Store, Super Sapir, …) and Super-Pharm.
+Market (Bina), added 2026-11-17 for branches near the pins; Good Pharm and
+Super-Pharm; Hazi Hinam (own site, added 2026-11-18 — it has no branch in the
+picker cities, so only its Holon מרכבה store and that branch's produce store
+are kept, as far stores; Holon is a `picker: false` city). Next: the other
+Bina chains (King Store, Super Sapir, …).
 
 ## Access methods
 
@@ -77,7 +105,8 @@ Bina chains (Good Pharm, King Store, Super Sapir, …) and Super-Pharm.
 | Cerberus (FTP) | Same accounts on plain FTP `ftp://url.retail.publishedprices.co.il/` (passive, empty password). Works with `curl`. **FTP-over-TLS fails here** (`425 Unable to open the data connection`), which breaks the Python library's Cerberus engine (below). We use HTTPS. | (same) |
 | Bina projects | `POST https://<prefix>.binaprojects.com/MainIO_Hok.aspx` with `WStore=&WDate=<dd/mm/yyyy>&WFileType=0` → JSON `[{FileNm, DateFile, …}]` for that day (a GET answers empty). `GET /Download.aspx?FileNm=<name>` → `[{SPath}]`, the real file URL. City Market's portal also lists a franchise's files under a second chain id (7290058288090) whose store numbers don't overlap the main company's — matched by store number. | Good Pharm, King Store, Super Sapir, Bareket, Maayan 2000, Shefa Birkat Hashem, Shuk HaIr, Zol VeBegadol, City Market |
 | PublishPrice | `GET https://prices.<site>.co.il/` embeds today's listing as `const files = [{name,size,modified}]` and its folder as `const path = 'YYYYMMDD'`; a file is `/<path>/<name>`. The Stores file is UTF-16 XML. Carrefour's PriceFull headers carry the internal branch code (e.g. 442 for store 469) — the file name's store id is the one to trust. | Yeinot Bitan / Carrefour (`carrefour`) |
-| Own multi-page site | Paged HTML table with direct blob links. | Shufersal `https://prices.shufersal.co.il/` (`?page=N`, filter by category/store) · Super-Pharm `http://prices.super-pharm.co.il/` · Hazi Hinam `https://shop.hazi-hinam.co.il/Prices` |
+| Own multi-page site | Paged HTML table with direct blob links. | Shufersal `https://prices.shufersal.co.il/` (`?page=N`, filter by category/store) · Super-Pharm `http://prices.super-pharm.co.il/` |
+| Hazi Hinam | `GET https://shop.hazi-hinam.co.il/Prices?p=<page>&t=<type>&d=<YYYY-MM-DD>`: a server-rendered table, 50 rows a page, each row linking to the file on Azure Blob (`hazihinamprod01.blob.core.windows.net/regulatories/…`). `t`: 1 = prices (PriceFull and the hourly Price deltas together), 2 = promos, 3 = stores; the page links give the page count. Full files land ~00:00–00:50, so yesterday's listing is read for any store today lacks. ~8 listing requests a run. | Hazi Hinam |
 | Laibcatalog API | `GET https://laibcatalog.co.il/webapi/api/getfiles?edi=<chainId>` → JSON `[{branchNumber, fileName, fileType, fileDate}]` (today's files); download `/webapi/<chainId>/<fileName>`. `getbranches?edi=` gives branch names only. Overnight listings are often empty. | Victory, Mahsani HaShuk, H. Cohen |
 | Wolt | `https://wm-gateway.wolt.com/isr-prices/public/v1/index.html` → per-date page `<YYYY-MM-DD>.html` → links. Full files only, no deltas. | Wolt Market |
 
@@ -112,7 +141,9 @@ Rough total: **~215 TLV + ~40 RG + ~65 BS stores** across 20 chains.
 
 ### Checked, no stores in the target cities (per their Stores file)
 
-Hazi Hinam (13 stores listed — the file looks partial, re-check), H. Cohen,
+Hazi Hinam (13 stores, the whole chain — re-checked 2026-11-18: Holon, Rishon
+LeZion, Rehovot, Petah Tikva, Hod HaSharon and online delivery 103; ingested
+for the Holon far store, see above), H. Cohen,
 Stop Market (`Stop_Market`), Politzer (`politzer`), Shefa Birkat Hashem,
 Shuk HaIr, Zol VeBegadol, Meshnat Yosef 1/2, City Market Shops (empty file).
 
@@ -155,8 +186,8 @@ imports; Rami Levy has no produce photos).
 
 ## File format observations
 
-- **Encoding:** every Cerberus `Stores` file, and Bitan's, is **UTF-16 LE with BOM**. Shufersal and Hazi Hinam are UTF-8 **with BOM**. The rest are UTF-8. Yochananof's PriceFull is UTF-8 with BOM. Detect by BOM, fall back to UTF-8, then windows-1255.
-- **Compression:** Cerberus serves `.gz` for Price/Promo but plain `.xml` for Stores. Hazi Hinam names a plain XML file `….gz.xml`. Sniff the gzip magic (`1f 8b`) — don't trust the extension.
+- **Encoding:** every Cerberus `Stores` file, and Bitan's, is **UTF-16 LE with BOM**. Shufersal and Hazi Hinam are UTF-8 **with BOM**. Hazi Hinam writes `<StoreName >` (a space before `>`); the parser reads it. The rest are UTF-8. Yochananof's PriceFull is UTF-8 with BOM. Detect by BOM, fall back to UTF-8, then windows-1255.
+- **Compression:** Cerberus serves `.gz` for Price/Promo but plain `.xml` for Stores. Hazi Hinam once named a plain XML file `….gz.xml` (now it serves `.gz`, and its Stores file is `StoresFull…`). Sniff the gzip magic (`1f 8b`) — don't trust the extension.
 - **File naming:** `PriceFull<chain>-<subchain>-<store>-<YYYYMMDD>-<HHMMSS>.gz`. The Laibcatalog chains use `…-<YYYYMMDDHHMMSS>-<HHMMSS>`, and City Market Shops uses `StoresFull…-<YYYYMMDDHHMM>`. Parse with a tolerant regex.
 - **Deltas aren't ingested (yet).** The job reads the latest `PriceFull` / `PromoFull` per store; the hourly `Price` / `Promo` delta files are ignored, which is fine for a manual once-a-day run. Applying them is the step to add if runs ever become hourly.
 - **Cadence (Yochananof store 001):** PriceFull and PromoFull at ~00:40 daily, Price/Promo deltas hourly at :40. Full files are ~0.5 MB gz / 8.8 MB XML (price) and ~0.1 MB gz / 3.3 MB XML (promo) per store.

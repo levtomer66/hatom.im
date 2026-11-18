@@ -13,6 +13,8 @@ export type ChainSource =
   | { kind: 'publishprice'; site: string }
   /** prices.super-pharm.co.il — a paged table filtered by file type and day. */
   | { kind: 'superpharm' }
+  /** shop.hazi-hinam.co.il/Prices — a paged table filtered by file type and day, blob links. */
+  | { kind: 'hazihinam' }
   /** Not a price-transparency chain: Wolt delivery prices for shops that publish none (ingest/wolt.ts). */
   | { kind: 'wolt' }
   /** Shops with no price source at all, listed so users can type prices (ingest/manual.ts). */
@@ -54,6 +56,8 @@ export const CHAINS: ChainConfig[] = [
   { slug: 'bareket', chainId: '7290875100001', name: 'סופר ברקת', source: { kind: 'bina', host: 'superbareket' } },
   // Stores file is the main company's; some branches publish prices under a second id (7290058288090) — matched by store number.
   { slug: 'city-market', chainId: '7290058266241', name: 'סיטי מרקט', source: { kind: 'bina', host: 'citymarketkiryatgat' } },
+  // No branch in the picker cities; Holon's מרכבה is kept as a far store (places/official.json).
+  { slug: 'hazi-hinam', chainId: '7290700100008', name: 'חצי חינם', source: { kind: 'hazihinam' } },
   // The venues come from places/wolt.json in the cache dir (personal, never in the repo).
   { slug: 'wolt', chainId: 'wolt', name: 'וולט', source: { kind: 'wolt' } },
   // Discovered shops marked "include" with no Wolt venue (places/decisions.json in the cache dir).

@@ -49,6 +49,100 @@ export function keepRule(
   if (s.cityId === null || !ctx.pinnedCities.has(s.cityId) || ctx.skipped.has(s.key)) return 'drop';
   return 'locate';
 }
+// ── a chain with no store near a pin keeps one ───────────────────────────
+// Every chain we ingest ends up with at least one priced store (owner's rule,
+// 2026-11-18). After the keep pass, a chain with no priced store keeps its
+// listed online store, else its physical store nearest any pin (straight
+// line), that publishes a PriceFull: the ingest checks fallbackOrder() in
+// turn. That store is far (isFar): searchable, never in the walk-limited plans.
+
+export interface FallbackCandidate {
+  key: string; // "<chainSlug>/<storeId>"
+  storeId: string;
+  kind: 'physical' | 'online';
+  /** On the chain's onlineStores list (chains.ts). */
+  listedOnline: boolean;
+  /** Straight-line metres to the nearest pin in any city; null when the store can't be placed. */
+  distM: number | null;
+  /** In a city with a pin. */
+  pinnedCity: boolean;
+  /** Skipped in the discovery review: the owner said no to it. */
+  skipped: boolean;
+}
+
+/** The candidates in the order the ingest tries them (the first that publishes a PriceFull wins). */
+export function fallbackOrder(cands: FallbackCandidate[]): string[] {
+  const rank = (c: FallbackCandidate) => (c.kind === 'online' ? 0 : c.distM !== null ? 1 : c.pinnedCity ? 2 : 3);
+  return cands
+    .filter((c) => !c.skipped && (c.kind === 'physical' || c.listedOnline))
+    .sort((a, b) => rank(a) - rank(b) || (a.distM ?? 0) - (b.distM ?? 0) || Number(a.storeId) - Number(b.storeId) || a.storeId.localeCompare(b.storeId))
+    .map((c) => c.key);
+}
+
+/** Minutes of slack over a pin's walk limit: two routers disagree by about a minute at the edge. */
+export const WALK_SLACK_MIN = 2;
+
+/**
+ * Whether a store is far: shown in search, the product view and the store
+ * search, never in the walk-limited plans. `cityPins` are the pins in the
+ * store's city. Online stores and neighbourhood shops (picked from the
+ * walk-limited review) never are.
+ */
+export function isFar(
+  s: { kind: 'physical' | 'online'; chainSlug: string; walkMin: number | null; keptAs?: 'fallback' },
+  cityPins: { walkMinutes?: number }[],
+): boolean {
+  if (s.kind === 'online' || s.chainSlug === 'manual') return false;
+  if (s.keptAs === 'fallback' || !cityPins.length) return true;
+  const limits = cityPins.flatMap((p) => (p.walkMinutes ? [p.walkMinutes] : []));
+  if (!limits.length) return false; // area pins: kept by being inside the area
+  return s.walkMin === null || s.walkMin > Math.max(...limits) + WALK_SLACK_MIN;
+}
+
+/**
+ * The saved fallback stores to keep when the registry is re-filtered (chains
+ * not fetched this run, --offline): each one stays while its chain has no
+ * other kept store with prices; once a pin reaches a store, the fallback goes.
+ */
+export function keepFallbacks(
+  stores: { key: string; chainSlug: string; keptAs?: 'fallback'; priced: boolean }[],
+  kept: ReadonlySet<string>,
+): Set<string> {
+  const covered = new Set(stores.filter((s) => s.priced && kept.has(s.key) && s.keptAs !== 'fallback').map((s) => s.chainSlug));
+  return new Set(stores.filter((s) => s.keptAs === 'fallback' && s.priced && !covered.has(s.chainSlug)).map((s) => s.key));
+}
+
+type ReviewRow = { lat: number; lng: number; refs: string[]; official: { chainSlug: string; storeId: string } | null };
+
+/**
+ * Official stores the discovery review matched to a mapped shop, as
+ * "<chainSlug>/<storeId>" → the row's point. One the owner included in
+ * places/decisions.json is on their curated list, so it is kept without
+ * re-checking the walk (two routers disagree by a minute at the edge); one
+ * they only skipped is left out the same way. A row names one store, but its
+ * refs may carry more hand-matches (places/official.json): discovery merges
+ * entries at one address — a store and its produce store — so every
+ * hand-match of a row's refs counts, at that row's point.
+ */
+export function curation(rows: ReviewRow[], decisions: Record<string, string>, handMatches: Record<string, string>) {
+  const matched = new Map<string, Point>();
+  const curated = new Set<string>();
+  const skipped = new Set<string>();
+  for (const r of rows) {
+    const keys = new Set(r.refs.map((ref) => handMatches[ref]).filter(Boolean));
+    if (r.official) keys.add(`${r.official.chainSlug}/${r.official.storeId}`);
+    const included = r.refs.some((ref) => decisions[ref] === 'include');
+    const skip = !included && r.refs.some((ref) => decisions[ref] === 'skip');
+    for (const k of keys) {
+      matched.set(k, { lat: r.lat, lng: r.lng });
+      if (included) curated.add(k);
+      else if (skip) skipped.add(k);
+    }
+  }
+  for (const k of curated) skipped.delete(k); // two rows can match one store
+  return { matched, curated, skipped };
+}
+
 /** A hit is kept forever; a miss (`p: null`) only for MISS_TTL_MS. */
 type GeocodeCache = Record<string, { p: Point | null; at: string }>;
 
@@ -57,6 +151,10 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 export interface PinFilter {
   pins: Pin[];
+  /** Official stores ("<chainSlug>/<storeId>") the owner skipped in the review. */
+  skipped: ReadonlySet<string>;
+  /** Straight-line metres from a point to the nearest pin in any city. */
+  nearestPinM(at: Point): number;
   /** Whether the store is near a pin; logs every store it can't place. */
   keep(stores: LocatableStore[], warn: (msg: string) => void): Promise<Set<string>>;
   /** Whether a point is within one of the city's pins (walking time when the pin sets one). */
@@ -75,25 +173,11 @@ export function pinFilter(placesDir: string): PinFilter | null {
     pins.filter((p) => p.osmArea).map((p) => [p.id, readJson<{ coordinates: [number, number][][] } | null>(join(placesDir, `${p.osmArea}.geojson`), null)?.coordinates[0] ?? null]),
   );
 
-  // Official stores the discovery review matched to a mapped shop. One the owner
-  // included in places/decisions.json is on their curated list, so it is kept
-  // without re-checking the walk (two routers disagree by a minute at the edge);
-  // one they only skipped is left out the same way.
-  const matched = new Map<string, Point>();
-  const curated = new Set<string>();
-  const skipped = new Set<string>();
-  const decisions = readJson<Record<string, string>>(join(placesDir, 'decisions.json'), {});
-  for (const pin of pins) {
-    const rows = readJson<{ lat: number; lng: number; refs: string[]; official: { chainSlug: string; storeId: string } | null }[]>(join(placesDir, `${pin.id}.review.json`), []);
-    for (const r of rows) {
-      if (!r.official) continue;
-      const k = `${r.official.chainSlug}/${r.official.storeId}`;
-      matched.set(k, { lat: r.lat, lng: r.lng });
-      if (r.refs.some((ref) => decisions[ref] === 'include')) curated.add(k);
-      else if (r.refs.some((ref) => decisions[ref] === 'skip')) skipped.add(k);
-    }
-  }
-  for (const k of curated) skipped.delete(k); // two rows can match one store
+  const { matched, curated, skipped } = curation(
+    pins.flatMap((pin) => readJson<ReviewRow[]>(join(placesDir, `${pin.id}.review.json`), [])),
+    readJson<Record<string, string>>(join(placesDir, 'decisions.json'), {}),
+    readJson<Record<string, string>>(join(placesDir, 'official.json'), {}),
+  );
 
   const cachePath = join(placesDir, 'geocode.json');
   const cache = readJson<GeocodeCache>(cachePath, {});
@@ -160,6 +244,8 @@ export function pinFilter(placesDir: string): PinFilter | null {
 
   return {
     pins,
+    skipped,
+    nearestPinM: (at) => Math.round(Math.min(...pins.map((p) => distanceM(p, at)))),
     near,
     pointOf,
     walkMinutes,

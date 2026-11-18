@@ -268,9 +268,13 @@ Identity = Gmail address. Two roles:
   Google Maps lists) and limit the ingest to stores near them
   (`ingest/locate.ts`; `--all-stores` to keep whole cities). A pin's
   `walkMinutes` limits stores to a routed walking time (`ingest/walk.ts`);
+  a chain left with no priced store keeps one (its listed online store, else
+  the one nearest a pin that publishes; `fallbackOrder`, docs/sources.md);
   `places/extra.json` adds shops the map searches miss, and `places/official.json`
   hand-matches a shop to an official store whose address doesn't match
-  (`"<placeRef>": "<chainSlug>/<storeId>"`). An official store matched to a shop
+  (`"<placeRef>": "<chainSlug>/<storeId>"`); every hand-match on an included
+  review row counts, since discovery merges entries at one address (Hazi Hinam's
+  store and its produce store). An official store matched to a shop
   the owner skipped is left out, like an included one is kept, without re-routing.
 - **Ingest is a local, manually-run job**, not a Vercel function (Hobby cron
   is daily-only and a full run is ~190 MB of downloads + GBs of XML):
@@ -344,10 +348,13 @@ Identity = Gmail address. Two roles:
 - **Favorite stores** (`shoppingHome.favStores`, store keys, max 10, the
   household's): ☆/★ on every store row; favorites first in distance-sorted
   lists (`sortStores(…, favs)`), price rankings keep their order. A far store
-  is a regular store: the owner adds it via `places/extra.json` + the
+  is a regular store with `far: true` on its doc (`isFar` in `ingest/locate.ts`:
+  past the walk limit, no pin in its city, or a chain's only store), which the
+  plans skip: the owner adds it via `places/extra.json` + the
   discovery review (the ingest keeps a curated store in any target city, pin
   or no pin — `keepRule` in `ingest/locate.ts`); a city added only for that
-  sets `picker: false` in `CITIES`. `GET /api/shopping/stores?q=` searches every
+  sets `picker: false` in `CITIES` (Holon, for Hazi Hinam מרכבה; `--all-stores`
+  leaves such cities out). `GET /api/shopping/stores?q=` searches every
   priced store in every city; `POST /api/shopping/far` (the page sends its favorites) prices the list at the
   favorites ("כמה יעלה לי ב…", from the list card). Plans and compare stay on
   the user's city; `/here?store=` compares a store with its own city.

@@ -170,7 +170,8 @@ export function cerberusClient(username: string, throttle: Throttle): SourceClie
 const SHUFERSAL = 'https://prices.shufersal.co.il';
 const SHUFERSAL_CAT: Record<'Stores' | 'PriceFull' | 'PromoFull', number> = { PriceFull: 2, PromoFull: 4, Stores: 5 };
 
-function parseShufersalListing(html: string): RemoteFile[] {
+/** Direct Azure Blob file links in a listing page (Shufersal, Hazi Hinam). */
+function blobLinks(html: string): RemoteFile[] {
   const out: RemoteFile[] = [];
   for (const m of html.matchAll(/href="(https:\/\/[^"]+\.blob\.core\.windows\.net\/[^"]+)"/g)) {
     const url = m[1].replace(/&amp;/g, '&');
@@ -190,7 +191,7 @@ export function shufersalClient(throttle: Throttle): SourceClient {
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       return res.text();
     });
-    return parseShufersalListing(html);
+    return blobLinks(html);
   };
   return {
     async latestStores() {
@@ -350,6 +351,56 @@ export function superPharmClient(throttle: Throttle): SourceClient {
   };
 }
 
+// ── Hazi Hinam (shop.hazi-hinam.co.il/Prices) ─────────────────────────────
+// A server-rendered table, 50 rows a page: ?p=<page>&t=<type>&d=<YYYY-MM-DD>
+// (t: 1 prices — PriceFull and the hourly deltas together, 2 promos, 3 stores),
+// each row linking straight to the file on Azure Blob. The Stores file is
+// named StoresFull…. Full files land at ~00:00–00:50; until then a store's
+// newest is yesterday's, so yesterday is read only for what today lacks.
+
+const HAZI_HINAM = 'https://shop.hazi-hinam.co.il/Prices';
+const HAZI_HINAM_TYPE = { PriceFull: 1, PromoFull: 2, Stores: 3 } as const;
+
+export const haziHinamListingUrl = (type: keyof typeof HAZI_HINAM_TYPE, day: string, page: number) =>
+  `${HAZI_HINAM}?${new URLSearchParams({ p: String(page), t: String(HAZI_HINAM_TYPE[type]), d: day })}`;
+
+export function parseHaziHinamListing(html: string): { files: RemoteFile[]; lastPage: number } {
+  const pages = [...html.matchAll(/href="\?p=(\d+)/g)].map((m) => Number(m[1]));
+  return { files: blobLinks(html), lastPage: Math.max(1, ...pages) };
+}
+
+export function haziHinamClient(throttle: Throttle): SourceClient {
+  const day = (offset: number) => new Date(Date.now() - offset * 86_400_000).toLocaleDateString('en-CA', { timeZone: 'Asia/Jerusalem' });
+  const listing = async (type: keyof typeof HAZI_HINAM_TYPE, offset: number) => {
+    const out: RemoteFile[] = [];
+    for (let page = 1, last = 1; page <= last && page <= 50; page++) {
+      const { files, lastPage } = parseHaziHinamListing(await getText(throttle, haziHinamListingUrl(type, day(offset), page)));
+      if (!files.length) break;
+      out.push(...files);
+      last = lastPage;
+    }
+    return out;
+  };
+  const cache = new Map<string, Promise<RemoteFile[]>>();
+  const files = (type: keyof typeof HAZI_HINAM_TYPE, offset: number) => {
+    const k = `${type}/${offset}`;
+    if (!cache.has(k)) cache.set(k, listing(type, offset));
+    return cache.get(k)!;
+  };
+  return {
+    async latestStores() {
+      return newestStores(await files('Stores', 0)) ?? newestStores(await files('Stores', 1));
+    },
+    async latestFor(type, storeIds) {
+      const out = newestByStore(await files(type, 0), type, storeIds);
+      const missing = storeIds.filter((id) => !out.has(id));
+      if (missing.length) for (const [id, f] of newestByStore(await files(type, 1), type, missing)) out.set(id, f);
+      return out;
+    },
+    download: (f) => withRetry(`download ${f.name}`, () => getBytes(throttle, f.ref)),
+  };
+}
+
 export function clientFor(chain: ChainConfig, throttle: Throttle): SourceClient {
   switch (chain.source.kind) {
     case 'cerberus':
@@ -364,6 +415,8 @@ export function clientFor(chain: ChainConfig, throttle: Throttle): SourceClient 
       return publishPriceClient(chain.source.site, throttle);
     case 'superpharm':
       return superPharmClient(throttle);
+    case 'hazihinam':
+      return haziHinamClient(throttle);
     case 'wolt':
     case 'manual':
       throw new Error(`${chain.source.kind} has no price files — the ingest builds it separately`);

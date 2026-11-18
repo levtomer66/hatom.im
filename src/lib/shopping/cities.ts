@@ -36,7 +36,23 @@ export const CITIES: CityConfig[] = [
     codes: ['9000'],
     aliases: ['באר שבע', 'באר-שבע', 'ב"ש', 'beer sheva', "be'er sheva"],
   },
+  {
+    // Far stores only: Hazi Hinam מרכבה (2026-11-18).
+    id: 'holon',
+    name: 'חולון',
+    codes: ['6600'],
+    aliases: ['חולון', 'holon'],
+    picker: false,
+  },
 ];
+
+/**
+ * Cities the ingest reads Stores files for. With pins, a picker: false city
+ * only yields the far stores the owner curated (ingest/locate.ts keepRule);
+ * --all-stores (no pins) keeps whole cities, so it leaves those cities out.
+ */
+export const ingestCityIds = ({ allStores }: { allStores: boolean }) =>
+  new Set(CITIES.filter((c) => !allStores || c.picker !== false).map((c) => c.id));
 
 /** Store names that are bookkeeping/test entries, not shops. */
 const NOT_A_STORE = /(איפוס|ספירות מלאי|test venue|\bטסט\b|בדיקה)/i;
