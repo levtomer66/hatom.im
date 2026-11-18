@@ -34,7 +34,7 @@ import Navbar from '@/components/Navbar';
 import { CITIES } from '@/lib/shopping/cities';
 import { distanceM } from '@/lib/shopping/places';
 import { SHOPPING_API_PATH } from '@/lib/shopping/config';
-import { HOME_LIST_ID, MAX_FAV_STORES, normalizeQty, type ListLine, type MyItem } from '@/lib/shopping/home';
+import { MAX_FAV_STORES, normalizeQty, type ListLine, type MyItem } from '@/lib/shopping/home';
 import type { ShoppingSettings } from '@/lib/shopping/api-types';
 import type { CompareResponse, FarResponse, HereStore, StoreCardData, StoresResponse, ShoppingPlan, ItemPrice, ItemResponse, ManualPriceResponse, PriceSource, PromoDetail, SearchHit, StoreInfo } from '@/lib/shopping/api-types';
 import type { LineResult, Offer, PromoRef, StoreBasket } from '@/lib/shopping/pricing';
@@ -210,7 +210,7 @@ export default function ShoppingPage() {
   const resultsRef = useRef<HTMLElement>(null);
 
   /** The list in the shape the result views take (they predate My items). */
-  const list = useMemo(() => (home ? { id: HOME_LIST_ID, name: 'רשימת הקניות', items: home.list } : null), [home]);
+  const list = useMemo(() => (home ? { id: home.id, name: 'רשימת הקניות', items: home.list } : null), [home]);
 
   // Product photos seen so far (search hits and compare results), by item key.
   const [imgs, setImgs] = useState<Record<string, string>>({});
@@ -275,7 +275,8 @@ export default function ShoppingPage() {
         // In the store without signal: the last copy seen on this phone, so an open trip still opens.
         const cached = isNetworkError(e) ? lsJson<HomeView>(LS_HOME_CACHE) : null;
         if (cached) {
-          setHome({ ...cached, favStores: cached.favStores ?? [] }); // a copy cached before favorites existed
+          // A copy cached before favorites or households existed was the one household, 'home'.
+          setHome({ ...cached, id: cached.id ?? 'home', members: cached.members ?? [], invites: cached.invites ?? [], favStores: cached.favStores ?? [] });
           setToast('אין חיבור. מוצגים הנתונים האחרונים מהטלפון.');
         } else {
           setLoadError(true);
@@ -479,21 +480,22 @@ export default function ShoppingPage() {
   }, [query, city]);
 
   // ── the list's open trip ──
-  const homeLoaded = !!home;
+  // The household's id: the trips' listId, and the key of the trip kept on the phone.
+  const homeId = home?.id ?? null;
   useEffect(() => {
-    if (!homeLoaded) return;
+    if (!homeId) return;
     let live = true;
     api<Trip | null>('/trips')
       .then((t) => { if (live) setTrip(t); })
-      .catch((e) => { if (live && isNetworkError(e)) setTrip(lsJson<Trip>(lsTrip(HOME_LIST_ID))); });
+      .catch((e) => { if (live && isNetworkError(e)) setTrip(lsJson<Trip>(lsTrip(homeId))); });
     return () => { live = false; };
-  }, [homeLoaded]);
+  }, [homeId]);
 
   useEffect(() => {
-    if (!homeLoaded) return;
-    if (trip && !trip.endedAt) lsSet(lsTrip(HOME_LIST_ID), JSON.stringify(trip));
-    else lsDel(lsTrip(HOME_LIST_ID));
-  }, [trip, homeLoaded]);
+    if (!homeId) return;
+    if (trip && !trip.endedAt) lsSet(lsTrip(homeId), JSON.stringify(trip));
+    else lsDel(lsTrip(homeId));
+  }, [trip, homeId]);
 
   // Opening the trip takes on what the list gained since it started (a "מה חסר?"
   // after "יוצאים לקניות"): the server places each new line at its cheapest stop.
@@ -514,7 +516,7 @@ export default function ShoppingPage() {
     if (!list || !result) return;
     if (trip) return setInStore(true);
     try {
-      const t = await api<Trip>('/trips', { method: 'POST', body: JSON.stringify(tripSnapshot(result, plan, HOME_LIST_ID, city)) });
+      const t = await api<Trip>('/trips', { method: 'POST', body: JSON.stringify(tripSnapshot(result, plan, list.id, city)) });
       setTrip(t);
       setInStore(true);
     } catch {

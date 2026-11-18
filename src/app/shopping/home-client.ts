@@ -1,7 +1,8 @@
 // Client side of /api/shopping/home: the household's My items and its one
 // shopping list. Used by the page and the "מה חסר?" sheet.
 import { SHOPPING_API_PATH } from '@/lib/shopping/config';
-import type { ListLine, MyItem, ShoppingHome } from '@/lib/shopping/home';
+import type { ListLine, MyItem } from '@/lib/shopping/home';
+import type { Household } from '@/lib/shopping/household';
 
 export async function api<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(SHOPPING_API_PATH + path, {
@@ -14,7 +15,8 @@ export async function api<T>(path: string, init?: RequestInit): Promise<T> {
 
 /** Department and photo per item key, as GET /home returns them. */
 export type HomeMeta = Record<string, { d?: string; img?: string; imgBy?: 'off' | 'name' }>;
-export type HomeView = ShoppingHome & { meta: HomeMeta };
+/** The caller's household (its `id` is the trips' `listId`) plus department and photo per key. */
+export type HomeView = Household & { meta: HomeMeta };
 
 export const loadHome = () => api<HomeView>('/home');
 

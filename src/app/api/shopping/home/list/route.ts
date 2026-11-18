@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireFeatureCaller } from '@/lib/api-caller';
 import { parsePicks, pickMissing } from '@/lib/shopping/home';
-import { addLines, getHome, withMeta } from '@/models/ShoppingHome';
+import { addLines, householdFor, withMeta } from '@/models/ShoppingHome';
 
 // POST { add: [{ key, qty }] } — the "מה חסר?" submit: picked My items go on
 // the list at the given quantity (else the usual one). Items already on the
@@ -18,8 +18,8 @@ export async function POST(request: NextRequest) {
   const picks = parsePicks(body);
   if (!picks.ok) return NextResponse.json({ error: picks.error }, { status: 400 });
   try {
-    const home = await getHome();
-    return NextResponse.json(await withMeta(await addLines(pickMissing(home.items, picks.value))));
+    const home = await householdFor(caller.userEmail);
+    return NextResponse.json(await withMeta(await addLines(home.id, pickMissing(home.items, picks.value))));
   } catch (error) {
     console.error('Error adding to the shopping list:', error);
     return NextResponse.json({ error: 'Failed to add to the list' }, { status: 500 });

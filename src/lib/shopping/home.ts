@@ -28,9 +28,6 @@ export interface ShoppingHome {
   updatedAt: string;
 }
 
-/** The `listId` trips store for the household's one list. */
-export const HOME_LIST_ID = 'home';
-
 export const MAX_MY_ITEMS = 300;
 export const MAX_LIST_ITEMS = 100;
 export const MAX_QTY = 100;

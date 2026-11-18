@@ -10,7 +10,7 @@ import { CITIES } from '@/lib/shopping/cities';
 import { MAX_LIST_ITEMS, MAX_QTY, linesAdded, normalizeQty, type ListLine } from '@/lib/shopping/home';
 import type { SearchHit, StoreInfo } from '@/lib/shopping/api-types';
 import { compareBasket, itemPrices, searchProducts } from '@/lib/shopping/service';
-import { ensureMyItems, getHome, setList } from '@/models/ShoppingHome';
+import { ensureMyItems, householdFor, setList } from '@/models/ShoppingHome';
 import { getShoppingSettings, updateShoppingSettings } from '@/models/ShoppingUserSettings';
 
 export interface ShoppingToolCaller {
@@ -69,9 +69,10 @@ async function cityFor(args: Record<string, unknown>, caller: ShoppingToolCaller
   throw new Error(`Which city should I price in? Pass city (${CITY_LIST}), or save one with shopping_set_city.`);
 }
 
-/** The household's one shopping list (built from My items on the page with "מה חסר?"). */
-async function theList(): Promise<{ name: string; items: ListLine[] }> {
-  return { name: 'the shopping list', items: (await getHome()).list };
+/** The caller's household's one shopping list (built from My items on the page with "מה חסר?"). */
+async function theList(caller: { userEmail: string }): Promise<{ id: string; name: string; items: ListLine[] }> {
+  const h = await householdFor(caller.userEmail);
+  return { id: h.id, name: 'the shopping list', items: h.list };
 }
 
 const isKey = (s: string) => /^\d{8,14}$/.test(s) || /^\d{13}:[^\s]+$/.test(s) || /^wolt:/.test(s) || /^manual:/.test(s);
@@ -188,8 +189,8 @@ export const SHOPPING_TOOLS: ShoppingTool[] = [
     name: 'shopping_my_items',
     description: 'The household\'s "My items": the products it usually buys, each with its usual quantity. The shopping list is built from these.',
     inputSchema: { type: 'object', properties: {}, additionalProperties: false },
-    handler: async () => {
-      const { items } = await getHome();
+    handler: async (_args, caller) => {
+      const { items } = await householdFor(caller.userEmail);
       if (!items.length) return 'My items is empty.';
       return [`My items (${items.length}):`, ...items.map((it) => `- ${listLine(it)}`)].join('\n');
     },
@@ -198,8 +199,8 @@ export const SHOPPING_TOOLS: ShoppingTool[] = [
     name: 'shopping_get_list',
     description: 'The items on the household\'s shopping list (name, quantity, key).',
     inputSchema: { type: 'object', properties: {}, additionalProperties: false },
-    handler: async () => {
-      const list = await theList();
+    handler: async (_args, caller) => {
+      const list = await theList(caller);
       if (!list.items.length) return `"${list.name}" is empty.`;
       return [`"${list.name}" (${list.items.length} items):`, ...list.items.map((it) => `- ${listLine(it)}`)].join('\n');
     },
@@ -233,7 +234,7 @@ export const SHOPPING_TOOLS: ShoppingTool[] = [
     handler: async (args, caller) => {
       const wanted = Array.isArray(args.items) ? (args.items as Record<string, unknown>[]) : [];
       if (!wanted.length) throw new Error('items is required.');
-      const list = await theList();
+      const list = await theList(caller);
       const city = await cityFor(args, caller);
       const items = [...list.items];
       const report: string[] = [];
@@ -264,9 +265,9 @@ export const SHOPPING_TOOLS: ShoppingTool[] = [
           report.push(`✓ "${product}" → ${hit.name} × ${qty}${hit.w ? ' kg' : ''}${price}.${alt}`);
         }
       }
-      await setList(items);
+      await setList(list.id, items);
       // Only the products this call put on the list: a line already there may have been removed from My items on purpose.
-      await ensureMyItems(linesAdded(list.items, items), caller.userEmail);
+      await ensureMyItems(list.id, linesAdded(list.items, items), caller.userEmail);
       return [`The list (${items.length} items):`, ...report].join('\n');
     },
   },
@@ -293,9 +294,9 @@ export const SHOPPING_TOOLS: ShoppingTool[] = [
       required: ['items'],
       additionalProperties: false,
     },
-    handler: async (args) => {
+    handler: async (args, caller) => {
       const wanted = Array.isArray(args.items) ? (args.items as Record<string, unknown>[]) : [];
-      const list = await theList();
+      const list = await theList(caller);
       let items = [...list.items];
       const report: string[] = [];
       for (const w of wanted) {
@@ -315,7 +316,7 @@ export const SHOPPING_TOOLS: ShoppingTool[] = [
           report.push(`✓ Removed ${it.name}.`);
         }
       }
-      await setList(items);
+      await setList(list.id, items);
       return [`The list (${items.length} items):`, ...report].join('\n');
     },
   },
@@ -332,7 +333,7 @@ export const SHOPPING_TOOLS: ShoppingTool[] = [
       additionalProperties: false,
     },
     handler: async (args, caller) => {
-      const list = await theList();
+      const list = await theList(caller);
       if (!list.items.length) return `"${list.name}" is empty — nothing to compare.`;
       const city = await cityFor(args, caller);
       const res = await compareBasket({

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireFeatureCaller } from '@/lib/api-caller';
 import { parseTripCreate } from '@/lib/shopping/trips';
-import { HOME_LIST_ID } from '@/lib/shopping/home';
+import { householdFor } from '@/models/ShoppingHome';
 import { getOpenTrip, startTrip } from '@/models/ShoppingTrip';
 
 // GET — the household list's open trip, or null.
@@ -9,7 +9,7 @@ export async function GET(request: NextRequest) {
   const caller = await requireFeatureCaller(request, 'shopping');
   if (caller instanceof NextResponse) return caller;
   try {
-    return NextResponse.json(await getOpenTrip(HOME_LIST_ID));
+    return NextResponse.json(await getOpenTrip((await householdFor(caller.userEmail)).id));
   } catch (error) {
     console.error('Error reading shopping trip:', error);
     return NextResponse.json({ error: 'Failed to read trip' }, { status: 500 });
@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) {
   const parsed = parseTripCreate(body);
   if (!parsed.ok) return NextResponse.json({ error: parsed.error }, { status: 400 });
   try {
-    const { trip, created } = await startTrip({ ...parsed.value, listId: HOME_LIST_ID }, caller.userEmail);
+    const { trip, created } = await startTrip({ ...parsed.value, listId: (await householdFor(caller.userEmail)).id }, caller.userEmail);
     return NextResponse.json(trip, { status: created ? 201 : 200 });
   } catch (error) {
     console.error('Error starting shopping trip:', error);

@@ -1,16 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireFeatureCaller } from '@/lib/api-caller';
 import { parseFavStores, parseList, parseMyItems, type ListLine, type MyItem } from '@/lib/shopping/home';
-import { getHome, setHome, withMeta } from '@/models/ShoppingHome';
+import { householdFor, setHome, withMeta } from '@/models/ShoppingHome';
 
-// The household's My items and its one shopping list (one doc, shared by
-// everyone holding `shopping`). GET creates it from the old named lists the
-// first time. PATCH { items?, list?, favStores? } replaces any of the arrays.
+// The caller's household: its My items, its one shopping list and its
+// favorite stores. GET makes an empty household for someone who has none. PATCH { items?, list?, favStores? } replaces any of the arrays.
 export async function GET(request: NextRequest) {
   const caller = await requireFeatureCaller(request, 'shopping');
   if (caller instanceof NextResponse) return caller;
   try {
-    return NextResponse.json(await withMeta(await getHome()));
+    return NextResponse.json(await withMeta(await householdFor(caller.userEmail)));
   } catch (error) {
     console.error('Error fetching shopping home:', error);
     return NextResponse.json({ error: 'Failed to fetch My items' }, { status: 500 });
@@ -30,9 +29,10 @@ export async function PATCH(request: NextRequest) {
   }
   if (body.items === undefined && body.list === undefined && body.favStores === undefined) return NextResponse.json({ error: 'nothing to update' }, { status: 400 });
   try {
+    const home = await householdFor(caller.userEmail);
     const fields: { items?: MyItem[]; list?: ListLine[]; favStores?: number[] } = {};
     if (body.items !== undefined) {
-      const prev = (await getHome()).items;
+      const prev = home.items;
       const r = parseMyItems(body.items, caller.userEmail, new Date().toISOString(), prev);
       if (!r.ok) return NextResponse.json({ error: r.error }, { status: 400 });
       fields.items = r.value;
@@ -47,7 +47,7 @@ export async function PATCH(request: NextRequest) {
       if (!r.ok) return NextResponse.json({ error: r.error }, { status: 400 });
       fields.favStores = r.value;
     }
-    return NextResponse.json(await withMeta(await setHome(fields)));
+    return NextResponse.json(await withMeta(await setHome(home.id, fields)));
   } catch (error) {
     console.error('Error updating shopping home:', error);
     return NextResponse.json({ error: 'Failed to save' }, { status: 500 });

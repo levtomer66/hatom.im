@@ -8,8 +8,7 @@ import { hereLines, verdict } from '@/lib/shopping/here';
 import { withManualPrices } from '@/lib/shopping/manual';
 import { getItems, getPromosFor, getStoreByKey, getStoresFor } from '@/models/ShoppingCatalog';
 import { getManualPrices } from '@/models/ShoppingManualPrice';
-import { HOME_LIST_ID } from '@/lib/shopping/home';
-import { getHome } from '@/models/ShoppingHome';
+import { householdFor } from '@/models/ShoppingHome';
 import { getRecentTicked } from '@/models/ShoppingTrip';
 
 /** Past-trip items looked at for "קנית בעבר", and how many of them are shown. */
@@ -32,14 +31,14 @@ export async function GET(request: NextRequest) {
     const picked = await getStoreByKey(storeKey);
     if (!picked || picked.kind !== 'physical' || picked.city === null) return NextResponse.json({ error: 'No such store' }, { status: 404 });
     const city = picked.city;
-    const [stores, home] = await Promise.all([getStoresFor(city), getHome()]);
+    const [stores, home] = await Promise.all([getStoresFor(city), householdFor(caller.userEmail)]);
     const physical = stores.filter((s) => s.kind === 'physical' && s.city === city);
     const store = physical.find((s) => s.k === storeKey);
     if (!store) return NextResponse.json({ error: 'No such store' }, { status: 404 });
 
     const lines = hereLines(home.list, home.items);
     const mine = new Set(lines.map((l) => l.key));
-    const before = (await getRecentTicked([HOME_LIST_ID])).filter((k) => !mine.has(k)).slice(0, BEFORE_SCAN);
+    const before = (await getRecentTicked([home.id])).filter((k) => !mine.has(k)).slice(0, BEFORE_SCAN);
     const keys = [...mine, ...before];
     const wanted = new Set(keys);
     const [docs, promos] = await Promise.all([getItems(keys), getPromosFor(keys)]);

@@ -5,7 +5,7 @@ import { storeMatches, storeQueryWords } from '@/lib/shopping/here';
 import { israelLocalNow, type StoreDoc } from '@/lib/shopping/snapshot';
 import { storeInfo, type HereStore, type StoresResponse } from '@/lib/shopping/api-types';
 import { getPricedStores, getStoresByKeys, storeLoc } from '@/models/ShoppingCatalog';
-import { getHome } from '@/models/ShoppingHome';
+import { householdFor } from '@/models/ShoppingHome';
 
 /** Search results returned at most. */
 const MAX_RESULTS = 30;
@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
   const q = request.nextUrl.searchParams.get('q');
   try {
     let stores: StoreDoc[];
-    if (q === null) stores = await getStoresByKeys((await getHome()).favStores);
+    if (q === null) stores = await getStoresByKeys((await householdFor(caller.userEmail)).favStores);
     else if (!storeQueryWords(q).length) stores = [];
     else {
       stores = (await getPricedStores())
