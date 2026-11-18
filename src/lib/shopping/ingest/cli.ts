@@ -16,7 +16,6 @@
 //   state/keys.json           store → short numeric key used in price maps
 //   logs/<run>.log            skipped files / records
 
-import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync, appendFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
@@ -30,10 +29,10 @@ import { parsePriceFile, parsePromoFile, parseStoresFile, type CanonItem, type C
 import { buildItemDocs, buildPromoDocs, buildStoreDocs, diffDocs, israelLocalNow, type StoreState } from '../snapshot.ts';
 import { Throttle, clientFor, errorMessage, type RemoteFile, type SourceClient } from './sources.ts';
 import { fetchWoltVenue, type WoltVenueConfig } from './wolt.ts';
-import { placeCity } from '../places.ts';
 import { fallbackOrder, keepFallbacks, needsFallback, pinFilter, woltVenueRule, type FallbackCandidate } from './locate.ts';
 import { ensureIndexes } from './write.ts';
 import { parseIngestFlags, type IngestFlags } from './flags.ts';
+import { loadPicks, type Picks } from './picks.ts';
 import { RAMI_LEVY_IMG, cachedPhotos, readOffNutrition, readRamiLevy } from './off.ts';
 
 const RAW_RETENTION_DAYS = 7;
@@ -60,8 +59,14 @@ const STATE = join(CACHE, 'state');
 const STORE_STATE = join(STATE, 'stores');
 const LOGS = join(CACHE, 'logs');
 for (const d of [RAW, STORE_STATE, LOGS]) mkdirSync(d, { recursive: true });
-// Only stores near the pins, or picked by hand, are ingested (ingest/locate.ts).
-const PINS = pinFilter(join(CACHE, 'places')) ?? stop(`no pins: create ${join(CACHE, 'places', 'pins.json')} (see the header of ingest/discover.ts)`);
+// Only stores near the pins, or picked by hand, are ingested: the owner's files (ingest/picks.ts).
+let PICKS: Picks;
+try {
+  PICKS = loadPicks(join(CACHE, 'places'));
+} catch (e) {
+  stop(errorMessage(e));
+}
+const PINS = pinFilter(join(CACHE, 'places'), PICKS);
 
 const runId = new Date().toISOString().replace(/[:.]/g, '-');
 const logFile = join(LOGS, `${runId}.log`);
@@ -253,22 +258,17 @@ async function ingestChain(chain: ChainConfig, maxStores: number | null): Promis
  * its previous items, like a chain store whose PriceFull is missing.
  */
 async function ingestWolt(chain: ChainConfig, maxStores: number | null): Promise<StoreRecord[]> {
-  const configPath = join(CACHE, 'places', 'wolt.json');
   let venues: WoltVenueConfig[] = [];
-  {
-    // Wolt pages carry no coordinates; a venue is placed by the discovery entry it was approved from.
-    const at = placeCoords();
-    const decisions = readJson<Record<string, string>>(join(CACHE, 'places', 'decisions.json'), {});
-    const pinnedCities = new Set(PINS.pins.map((p) => p.city));
-    for (const v of readJson<WoltVenueConfig[]>(configPath, []).filter((v) => isTargetCity(v.cityId) && !v.photosOnly)) {
-      const p = v.placeId ? at.get(v.placeId) : undefined;
-      const rule = woltVenueRule({ cityId: v.cityId, placed: !!p, included: !!v.placeId && decisions[v.placeId] === 'include' }, pinnedCities);
-      if (rule === 'keep' || (rule === 'locate' && (await PINS.near(v.cityId, p!)))) venues.push(v);
-      else log(`  ${v.slug}: ${!p ? 'no discovery entry to place it' : pinnedCities.has(v.cityId) ? 'outside the pin' : 'not included in the review'} — left out`);
-    }
+  // Wolt pages carry no coordinates; a venue is placed by the discovery entry it was approved from.
+  const { pinnedCities } = PICKS;
+  for (const v of PICKS.woltVenues.filter((v) => isTargetCity(v.cityId) && !v.photosOnly)) {
+    const p = v.placeId ? PICKS.placePoint(v.placeId) : undefined;
+    const rule = woltVenueRule({ cityId: v.cityId, placed: !!p, included: !!v.placeId && PICKS.included(v.placeId) }, pinnedCities);
+    if (rule === 'keep' || (rule === 'locate' && (await PINS.near(v.cityId, p!)))) venues.push(v);
+    else log(`  ${v.slug}: ${!p ? 'no discovery entry to place it' : pinnedCities.has(v.cityId) ? 'outside the pin' : 'not included in the review'} — left out`);
   }
   if (maxStores !== null) venues = venues.slice(0, maxStores);
-  log(`${chain.slug}: ${venues.length} venues in target cities (${existsSync(configPath) ? configPath : 'no places/wolt.json'})`);
+  log(`${chain.slug}: ${venues.length} venues in target cities (places/wolt.json)`);
   const rawDir = join(RAW, chain.slug);
   mkdirSync(rawDir, { recursive: true });
   const nowLocal = israelLocalNow(); // "YYYY-MM-DDTHH:mm"
@@ -277,7 +277,7 @@ async function ingestWolt(chain: ChainConfig, maxStores: number | null): Promise
   const previous = readJson<Record<string, StoreRecord>>(join(STATE, 'stores.json'), {});
   const out: StoreRecord[] = [];
   for (const v of venues) {
-    const at = v.placeId ? placeCoords().get(v.placeId) : undefined;
+    const at = v.placeId ? PICKS.placePoint(v.placeId) : undefined;
     const rec: StoreRecord = {
       chainId: chain.chainId, storeId: v.slug, subChainId: '', name: v.slug, address: '', city: v.cityId, kind: 'physical',
       chainSlug: chain.slug, chainName: chain.name, cityId: v.cityId, ...(at ? { at } : {}),
@@ -306,22 +306,12 @@ async function ingestWolt(chain: ChainConfig, maxStores: number | null): Promise
 }
 
 /**
- * Shops the owner marked "include" in the discovery review (places/decisions.json)
- * that have no ingested price source: not an official store we fetch, and not a
- * Wolt venue in places/wolt.json. They are listed with no items; users type
- * their prices in the app (shoppingManualPrices). Store id = hash of the
- * discovery place id, so it is stable across runs. The decisions are the
- * owner's curated list (checked against the walk limit when it was made), so
- * they are not re-checked here: two routers disagree by a minute at the edge.
- */
-/** Discovery place ref → coordinates, from every pin's review file. */
-/**
  * barcode → photo link from the photo-only Wolt venues (places/wolt.json
  * `photosOnly`). Their responses are cached under the week's Sunday, so a
  * venue is downloaded at most once a week; --offline only reads that cache.
  */
 async function woltPhotos(offline: boolean): Promise<Map<string, string>> {
-  const venues = readJson<WoltVenueConfig[]>(join(CACHE, 'places', 'wolt.json'), []).filter((v) => v.photosOnly);
+  const venues = PICKS.woltVenues.filter((v) => v.photosOnly);
   const out = new Map<string, string>();
   if (!venues.length) return out;
   const rawDir = join(RAW, 'wolt');
@@ -350,43 +340,20 @@ async function woltPhotos(offline: boolean): Promise<Map<string, string>> {
   return out;
 }
 
-function placeCoords(): Map<string, { lat: number; lng: number }> {
-  const out = new Map<string, { lat: number; lng: number }>();
-  for (const pin of readJson<{ id: string }[]>(join(CACHE, 'places', 'pins.json'), [])) {
-    for (const r of readJson<{ refs: string[]; lat: number; lng: number }[]>(join(CACHE, 'places', `${pin.id}.review.json`), [])) {
-      for (const ref of r.refs) out.set(ref, { lat: r.lat, lng: r.lng });
-    }
-  }
-  return out;
-}
-
+/**
+ * The neighbourhood shops with no price source (ingest/picks.ts manualShops):
+ * listed with no items; users type their prices in the app (shoppingManualPrices).
+ */
 function ingestManual(chain: ChainConfig): StoreRecord[] {
-  const places = join(CACHE, 'places');
-  const decisions = readJson<Record<string, string>>(join(places, 'decisions.json'), {});
-  const pins = readJson<{ id: string; city: string }[]>(join(places, 'pins.json'), []);
-  // A venue with `manualToo` sells only part of the shop on Wolt (e.g. just produce): keep the manual shop too.
-  const woltPlaces = new Set(readJson<WoltVenueConfig[]>(join(places, 'wolt.json'), []).filter((v) => !v.manualToo).map((v) => v.placeId).filter(Boolean));
-  const out = new Map<string, StoreRecord>();
-  for (const pin of pins) {
-    type Row = { id: string; name: string; address: string; refs: string[]; status: string; lat: number; lng: number; city?: string };
-    for (const r of readJson<Row[]>(join(places, `${pin.id}.review.json`), [])) {
-      // A shop added under another city's pin carries its own city (places/extra.json).
-      const city = placeCity(r, pin);
-      if (!isTargetCity(city)) continue;
-      if (r.status === 'ingested' || !r.refs.some((ref) => decisions[ref] === 'include')) continue;
-      if (r.refs.some((ref) => woltPlaces.has(ref))) continue;
-      const id = createHash('sha1').update(r.id).digest('hex').slice(0, 10);
-      out.set(id, {
-        chainId: chain.chainId, storeId: id, subChainId: '', name: r.name, address: r.address, city, kind: 'physical',
-        chainSlug: chain.slug, chainName: chain.name, cityId: city, at: { lat: r.lat, lng: r.lng },
-      });
-    }
-  }
-  for (const rec of out.values()) {
+  const out = PICKS.manualShops().map((m): StoreRecord => ({
+    chainId: chain.chainId, storeId: m.id, subChainId: '', name: m.name, address: m.address, city: m.city, kind: 'physical',
+    chainSlug: chain.slug, chainName: chain.name, cityId: m.city, at: m.at,
+  }));
+  for (const rec of out) {
     if (!loadState(rec)) saveState({ chainId: chain.chainId, storeId: rec.storeId, priceFile: null, promoFile: null, items: [], promos: [] });
   }
-  log(`${chain.slug}: ${out.size} included shops with no price source (from places/decisions.json)`);
-  return [...out.values()];
+  log(`${chain.slug}: ${out.length} included shops with no price source (from places/decisions.json)`);
+  return out;
 }
 
 function assignKeys(stores: StoreRecord[], existing: Record<string, number>): Record<string, number> {

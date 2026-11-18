@@ -14,6 +14,7 @@ import { join } from 'node:path';
 import { CITIES } from '../cities.ts';
 import { storeId } from '../collections.ts';
 import { distanceM, pinContains, storeGeocodeQueries, walkPrefilterM, type Pin } from '../places.ts';
+import type { Picks } from './picks.ts';
 import { walkRouter } from './walk.ts';
 
 const NOMINATIM = 'https://nominatim.openstreetmap.org/search';
@@ -116,37 +117,6 @@ export function keepFallbacks(
   return new Set(stores.filter((s) => s.keptAs === 'fallback' && s.priced && !covered.has(s.chainSlug)).map((s) => s.key));
 }
 
-type ReviewRow = { lat: number; lng: number; refs: string[]; official: { chainSlug: string; storeId: string } | null };
-
-/**
- * Official stores the discovery review matched to a mapped shop, as
- * "<chainSlug>/<storeId>" → the row's point. One the owner included in
- * places/decisions.json is on their curated list, so it is kept without
- * re-checking the walk (two routers disagree by a minute at the edge); one
- * they only skipped is left out the same way. A row names one store, but its
- * refs may carry more hand-matches (places/official.json): discovery merges
- * entries at one address — a store and its produce store — so every
- * hand-match of a row's refs counts, at that row's point.
- */
-export function curation(rows: ReviewRow[], decisions: Record<string, string>, handMatches: Record<string, string>) {
-  const matched = new Map<string, Point>();
-  const curated = new Set<string>();
-  const skipped = new Set<string>();
-  for (const r of rows) {
-    const keys = new Set(r.refs.map((ref) => handMatches[ref]).filter(Boolean));
-    if (r.official) keys.add(`${r.official.chainSlug}/${r.official.storeId}`);
-    const included = r.refs.some((ref) => decisions[ref] === 'include');
-    const skip = !included && r.refs.some((ref) => decisions[ref] === 'skip');
-    for (const k of keys) {
-      matched.set(k, { lat: r.lat, lng: r.lng });
-      if (included) curated.add(k);
-      else if (skip) skipped.add(k);
-    }
-  }
-  for (const k of curated) skipped.delete(k); // two rows can match one store
-  return { matched, curated, skipped };
-}
-
 /** A hit is kept forever; a miss (`p: null`) only for MISS_TTL_MS. */
 type GeocodeCache = Record<string, { p: Point | null; at: string }>;
 
@@ -167,19 +137,9 @@ export interface PinFilter {
   pointOf(store: LocatableStore): Promise<Point | null>;
 }
 
-/** null when there's no pins.json (or it lists no pin): the ingest stops and says so. */
-export function pinFilter(placesDir: string): PinFilter | null {
-  const pins = readJson<Pin[]>(join(placesDir, 'pins.json'), []);
-  if (!pins.length) return null;
-  const rings = new Map(
-    pins.filter((p) => p.osmArea).map((p) => [p.id, readJson<{ coordinates: [number, number][][] } | null>(join(placesDir, `${p.osmArea}.geojson`), null)?.coordinates[0] ?? null]),
-  );
-
-  const { matched, curated, skipped } = curation(
-    pins.flatMap((pin) => readJson<ReviewRow[]>(join(placesDir, `${pin.id}.review.json`), [])),
-    readJson<Record<string, string>>(join(placesDir, 'decisions.json'), {}),
-    readJson<Record<string, string>>(join(placesDir, 'official.json'), {}),
-  );
+export function pinFilter(placesDir: string, picks: Picks): PinFilter {
+  const { pins, rings } = picks;
+  const { matched, curated, skipped } = picks.curation();
 
   const cachePath = join(placesDir, 'geocode.json');
   const cache = readJson<GeocodeCache>(cachePath, {});
