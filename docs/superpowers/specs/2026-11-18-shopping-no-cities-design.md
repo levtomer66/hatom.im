@@ -190,12 +190,14 @@ shopping section (city → near set; `far` ignored by the app).
   ("↓ 650 מ׳ · ~11 דק׳") and the total walk. `StoreInfo` gains `loc` (store
   addresses are public). Without a centre the walk starts at the first stop.
 - **Manual location by address search.** The footer's "שינוי מיקום" opens a
-  sheet: type an address, search (on submit), pick one of up to 5 results in
+  sheet: type an address and suggestions appear as you type (300 ms debounce,
+  from 2 letters, no search button; Enter takes the first), up to 6 places in
   Israel. The picked point becomes the centre ("ליד ‹address›"), remembered on
   the device (localStorage `shopping:place`) until "המיקום שלי". The same sheet
   saves the picked point (or the GPS one) as the home spot — so a home spot can
   be set without GPS. Geocoding goes through our own
-  `GET /api/shopping/geocode?q=` to OpenStreetMap Nominatim (Israel only,
-  Hebrew, generic app User-Agent, no user identity; typed text only): the
-  browser never calls a third party and the CSP is unchanged. Results are
-  cached in memory; the route allows one upstream call a second.
+  `GET /api/shopping/geocode?q=` to Photon (komoot's OpenStreetMap geocoder,
+  built for search-as-you-type — Nominatim's usage policy forbids
+  autocomplete), inside Israel's bounding box, generic app User-Agent, no
+  user identity and no location bias (typed text only): the browser never
+  calls a third party and the CSP is unchanged. Results are cached in memory.

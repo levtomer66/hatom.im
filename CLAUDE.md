@@ -334,8 +334,9 @@ Identity = Gmail address. Two roles:
   centre, plus the ★ favorites wherever they are, plus every online store
   (`nearStores` in `src/lib/shopping/near.ts`, import-free). The centre is the
   `lat`/`lng` the request sends (the page's live location, or a place set by
-  hand through the address search — `PlaceSheet`, `/api/shopping/geocode` →
-  Nominatim, remembered on the device; never stored server-side), else
+  hand through the address search — `PlaceSheet`, type-ahead via
+  `/api/shopping/geocode` → Photon (Nominatim's policy forbids autocomplete),
+  remembered on the device; never stored server-side), else
   the household's home spot (`shoppingHome.homeSpot`, set in ⚙ → משק הבית);
   without either, favorites + online. Every pricing route and tool resolves it
   with `nearFor()` (`near-server.ts`) and reads stores with `getStoresNear()`

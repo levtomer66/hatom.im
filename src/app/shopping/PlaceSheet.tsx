@@ -2,8 +2,8 @@
 
 // "שינוי מיקום": set where prices are compared by typing an address (spec
 // addendum in docs/superpowers/specs/2026-11-18-shopping-no-cities-design.md).
-// The search runs on submit through our /api/shopping/geocode (OpenStreetMap
-// Nominatim behind it). A result is used here ("כאן") or saved as the home
+// Suggestions come as you type (debounced) from our /api/shopping/geocode
+// (Photon, OpenStreetMap, behind it); there is no search button. A result is used here ("כאן") or saved as the home
 // spot; mode 'home' (from ⚙ → משק הבית) only saves the home spot.
 import { useEffect, useRef, useState } from 'react';
 import { FaHome, FaLocationArrow, FaSearch, FaTimes } from 'react-icons/fa';
@@ -32,21 +32,30 @@ export function PlaceSheet({ mode, place, onUse, onSaveHome, onMyLocation, onClo
     return () => document.removeEventListener('keydown', onKey);
   }, [onClose]);
 
-  const search = async () => {
+  // Suggestions as you type: 300 ms after the last key, from 2 letters; a newer query aborts the older one.
+  useEffect(() => {
     const t = q.trim();
-    if (t.length < 2) return;
-    setBusy(true);
-    setError(null);
-    try {
-      const res = await fetch(`${SHOPPING_API_PATH}/geocode?q=${encodeURIComponent(t)}`);
-      if (!res.ok) throw new Error(String(res.status));
-      setFound(((await res.json()) as { places: Place[] }).places);
-    } catch {
-      setError('החיפוש לא הצליח. נסו שוב.');
-    } finally {
-      setBusy(false);
+    if (t.length < 2) {
+      setFound(null);
+      setError(null);
+      return;
     }
-  };
+    const ctl = new AbortController();
+    const timer = setTimeout(async () => {
+      setBusy(true);
+      try {
+        const res = await fetch(`${SHOPPING_API_PATH}/geocode?q=${encodeURIComponent(t)}`, { signal: ctl.signal });
+        if (!res.ok) throw new Error(String(res.status));
+        setFound(((await res.json()) as { places: Place[] }).places);
+        setError(null);
+      } catch {
+        if (!ctl.signal.aborted) setError('החיפוש לא הצליח. נסו שוב.');
+      } finally {
+        if (!ctl.signal.aborted) setBusy(false);
+      }
+    }, 300);
+    return () => { clearTimeout(timer); ctl.abort(); };
+  }, [q]);
 
   return (
     <div className="sh-sheet-backdrop" onClick={onClose}>
@@ -58,18 +67,18 @@ export function PlaceSheet({ mode, place, onUse, onSaveHome, onMyLocation, onClo
             <FaLocationArrow aria-hidden /> המיקום שלי (במקום {place.label})
           </button>
         )}
-        <form className="sh-place-form" onSubmit={(e) => { e.preventDefault(); void search(); }}>
+        <form className="sh-place-form" role="search" onSubmit={(e) => { e.preventDefault(); if (found?.[0] && mode === 'here') { onUse(found[0]); onClose(); } }}>
           <label className="sh-search-box">
             <FaSearch aria-hidden />
             <input ref={inputRef} type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="כתובת, למשל הרצל 5 רמת גן"
-              aria-label="כתובת" autoComplete="street-address" enterKeyHint="search" />
+              aria-label="כתובת" aria-controls="sh-place-list" aria-autocomplete="list" autoComplete="off" enterKeyHint="search" />
+            {busy && <span className="sh-place-busy" aria-live="polite">מחפש…</span>}
           </label>
-          <button type="submit" className="sh-btn sh-btn--primary" disabled={busy || q.trim().length < 2}>{busy ? 'מחפש…' : 'חיפוש'}</button>
         </form>
         {error && <p className="sh-error">{error}</p>}
         {found && !found.length && <p className="sh-empty">לא נמצאה כתובת. נסו לכתוב גם את העיר.</p>}
         {found && found.length > 0 && (
-          <ul className="sh-place-list">
+          <ul className="sh-place-list" id="sh-place-list">
             {found.map((p) => (
               <li key={`${p.lat},${p.lng},${p.label}`} className="sh-place-row">
                 <span className="sh-place-label">{p.label}</span>

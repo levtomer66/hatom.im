@@ -71,5 +71,5 @@ ignored.
 | `POST far` `{ stores, lines: [{key, qty}], clubs?, coupons? }` | "כמה יעלה לי ב…": the list at each of `stores` (the favorites, wherever they are; `FarResponse`). |
 | `POST home/list` `{ add: [{key, qty}] }` | Put My items on the list ("מה חסר?"); items already there keep their quantity. |
 | `GET/PUT settings` `{ nutritionHero? }` | The caller's preferences. |
-| `GET geocode?q=` | Up to 5 places in Israel for an address (`{ places: [{ label, lat, lng }] }`), via OpenStreetMap Nominatim on our side (typed text only; cached; one upstream call a second). |
+| `GET geocode?q=` | Up to 6 places in Israel for an address, as you type (`{ places: [{ label, lat, lng }] }`), via Photon (OpenStreetMap) on our side (typed text only, no location; cached). |
 | `PUT manual-prices` `{ store, item, price }` | Type a neighbourhood shop's price (agorot; null clears). |
