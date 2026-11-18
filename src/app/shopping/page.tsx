@@ -36,12 +36,13 @@ import { distanceM } from '@/lib/shopping/places';
 import { SHOPPING_API_PATH } from '@/lib/shopping/config';
 import { MAX_FAV_STORES, normalizeQty, type ListLine, type MyItem } from '@/lib/shopping/home';
 import type { ShoppingSettings } from '@/lib/shopping/api-types';
-import type { CompareResponse, FarResponse, HereStore, StoreCardData, StoresResponse, ShoppingPlan, ItemPrice, ItemResponse, ManualPriceResponse, PriceSource, PromoDetail, SearchHit, StoreInfo } from '@/lib/shopping/api-types';
+import type { CompareResponse, FarResponse, HouseholdResponse, HereStore, StoreCardData, StoresResponse, ShoppingPlan, ItemPrice, ItemResponse, ManualPriceResponse, PriceSource, PromoDetail, SearchHit, StoreInfo } from '@/lib/shopping/api-types';
 import type { LineResult, Offer, PromoRef, StoreBasket } from '@/lib/shopping/pricing';
 import { dealNudge, groupByDepartment, progress, withPending, type PlanKind, type Trip, type TripCreate, type TripItem } from '@/lib/shopping/trips';
 import { cleanAddress, dayMonth, FavStar, ils, MultiStar, multiNote, photoBroken, qtyLabel, SaleLabel, storeName, Thumb } from './ui';
 import Here from './Here';
 import MyItemsSheet from './MyItems';
+import { HouseholdSheet, householdAction, InviteCard, loadHousehold } from './Household';
 import Missing from './Missing';
 import { api, loadHome, saveHome, type HomeView } from './home-client';
 import { NutritionHero, NutritionPanel, SettingsMenu } from './Nutrition';
@@ -156,6 +157,9 @@ export default function ShoppingPage() {
   const [myItemsOpen, setMyItemsOpen] = useState(false);
   /** "כמה יעלה לי ב…": the list at the favorite stores. */
   const [farOpen, setFarOpen] = useState(false);
+  /** Invites to the caller from other households (cards above the search), and the "משק הבית" sheet. */
+  const [incoming, setIncoming] = useState<HouseholdResponse['incoming']>([]);
+  const [householdOpen, setHouseholdOpen] = useState(false);
   const [city, setCity] = useState<string>(CITIES[0].id);
   const [cityMode, setCityMode] = useState<'auto' | 'manual'>('auto');
   const [loc, setLoc] = useState<LocState>('idle');
@@ -339,6 +343,19 @@ export default function ShoppingPage() {
       /* offline: keep what's on screen */
     }
   }, [flushSaves]);
+  /** Accept or decline an invite; joining swaps the whole household on the page. */
+  const answerInvite = useCallback(async (id: string, accept: boolean) => {
+    try {
+      const h = await householdAction(accept ? { accept: id } : { decline: id });
+      setIncoming(h.incoming);
+      if (accept) {
+        await refreshHome();
+        setToast('הצטרפת למשק הבית');
+      }
+    } catch (e) {
+      setToast((e as Error).message);
+    }
+  }, [refreshHome]);
   useEffect(() => {
     const onBack = () => { if (document.visibilityState === 'visible') void refreshHome(); };
     document.addEventListener('visibilitychange', onBack);
@@ -484,6 +501,10 @@ export default function ShoppingPage() {
   const homeId = home?.id ?? null;
   useEffect(() => {
     if (!homeId) return;
+    loadHousehold().then((h) => setIncoming(h.incoming)).catch(() => {});
+  }, [homeId]);
+  useEffect(() => {
+    if (!homeId) return;
     let live = true;
     api<Trip | null>('/trips')
       .then((t) => { if (live) setTrip(t); })
@@ -578,6 +599,7 @@ export default function ShoppingPage() {
         <header className="sh-home-head">
           <h1 className="sh-logo">כיף לי <span>בסופר</span></h1>
         </header>
+        {incoming.map((inv) => <InviteCard key={inv.id} invite={inv} onAnswer={(accept) => answerInvite(inv.id, accept)} />)}
 
         {loadError && <p className="sh-error">לא הצלחנו לטעון את המוצרים והרשימה. נסו לרענן.</p>}
         {!home && !loadError && <div className="sh-skeleton" aria-label="טוען" />}
@@ -747,7 +769,7 @@ export default function ShoppingPage() {
                   ))}
                 </div>
               )}
-              <SettingsMenu settings={settings} onChange={changeSettings} />
+              <SettingsMenu settings={settings} onChange={changeSettings} onHousehold={() => setHouseholdOpen(true)} />
             </footer>
           </>
         )}
@@ -784,6 +806,9 @@ export default function ShoppingPage() {
               <NutritionHero lines={home.list.map((i) => ({ key: i.key, qty: i.qty, name: i.name }))} />
             )}
           </MyItemsSheet>
+        )}
+        {householdOpen && (
+          <HouseholdSheet onClose={() => setHouseholdOpen(false)} onChanged={() => { setHouseholdOpen(false); void refreshHome(); }} />
         )}
         {farOpen && list && list.items.length > 0 && (
           <FarSheet lines={list.items} clubs={clubs} coupons={coupons} favs={favs} onFav={toggleFav}

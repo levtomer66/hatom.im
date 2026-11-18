@@ -199,9 +199,11 @@ export function NutritionHero({ lines }: { lines: { key: string; qty: number; na
 // ── the ⚙ menu ──
 
 /** The page's preferences, behind one gear button (like the workout app's header menu). */
-export function SettingsMenu({ settings, onChange }: {
+export function SettingsMenu({ settings, onChange, onHousehold }: {
   settings: ShoppingSettings | null;
   onChange: (patch: Partial<ShoppingSettings>) => void;
+  /** "משק הבית": opens the household sheet. */
+  onHousehold?: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -228,6 +230,11 @@ export function SettingsMenu({ settings, onChange }: {
               onChange={(e) => onChange({ nutritionHero: e.target.checked })} />
             <span>ערכים תזונתיים ברשימה<small>קלוריות, חלבון, סוכר ונתרן לכל הרשימה</small></span>
           </label>
+          {onHousehold && (
+            <button type="button" role="menuitem" className="sh-settings-item" onClick={() => { setOpen(false); onHousehold(); }}>
+              <span>משק הבית<small>מי חולק איתך את המוצרים והרשימה</small></span>
+            </button>
+          )}
         </div>
       )}
     </div>

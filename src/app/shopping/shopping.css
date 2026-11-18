@@ -1271,6 +1271,27 @@ body:has(.sh-page) { background: #ffffff; }
 .sh-settings-pop .sh-toggle { align-items: flex-start; }
 .sh-settings-pop .sh-toggle span { display: flex; flex-direction: column; }
 .sh-settings-pop .sh-toggle small { font-size: 0.8125rem; color: var(--sh-muted); }
+.sh-settings-item {
+  display: flex; width: 100%; min-height: var(--sh-tap); margin-top: 0.25rem; padding: 0.5rem 0 0;
+  border: none; border-top: 1px solid var(--sh-line); background: none; color: inherit; font: inherit; text-align: start; cursor: pointer;
+}
+.sh-settings-item span { display: flex; flex-direction: column; }
+.sh-settings-item small { font-size: 0.8125rem; color: var(--sh-muted); }
+
+/* Households: an invite to the caller (above the search), and the "משק הבית" sheet. */
+.sh-invite { margin: 0 0 0.75rem; padding: 0.875rem; border: 1px solid var(--sh-accent); border-radius: var(--sh-r-ctl); background: var(--sh-accent-soft); }
+.sh-invite-text { margin: 0; }
+.sh-invite-warn { margin: 0.25rem 0 0; font-size: 0.875rem; color: var(--sh-miss); }
+.sh-invite-actions { display: flex; gap: 0.5rem; margin-top: 0.75rem; }
+.sh-invite-actions .sh-btn { flex: 1; justify-content: center; }
+.sh-household .sh-h2 { margin: 0 0 0.75rem; padding-inline-end: 2.5rem; }
+.sh-household-list { margin: 0; padding: 0; list-style: none; }
+.sh-household-list li { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; min-height: 52px; border-bottom: 1px solid var(--sh-line); }
+.sh-household-list li b { font-weight: 600; }
+.sh-household-list li small { color: var(--sh-muted); font-size: 0.8125rem; overflow: hidden; text-overflow: ellipsis; }
+.sh-household-invite { display: flex; flex-direction: column; gap: 0.5rem; margin-top: 1rem; }
+.sh-household-invite .sh-btn { justify-content: center; }
+.sh-household-leave { width: 100%; margin-top: 1.25rem; }
 
 .sh-nu-fold {
   display: flex;
