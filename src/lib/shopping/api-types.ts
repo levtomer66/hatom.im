@@ -220,6 +220,16 @@ export interface CompareResponse {
   idle: Record<string, string[]>;
 }
 
+/** What a store card (rank, total, breakdown) reads besides its basket. */
+export type StoreCardData = Pick<CompareResponse, 'now' | 'stores' | 'items' | 'promos' | 'idle'>;
+
+/**
+ * POST /api/shopping/far { lines, clubs?, coupons? } — "כמה יעלה לי ב…": the
+ * list at each of the household's favorite stores (any city), complete
+ * baskets cheapest first, then those missing items.
+ */
+export type FarResponse = StoreCardData & { baskets: StoreBasket[] };
+
 /** One store's price for a single unit (1 kg when weighted) of one item, promos applied. */
 export interface ItemPrice {
   store: number;

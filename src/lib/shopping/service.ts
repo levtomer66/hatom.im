@@ -4,13 +4,14 @@
 // the validating and the HTTP / text around it. Server-only (reads Mongo).
 
 import { ITEM_OPTIONS_SHOWN, RESULTS_PER_SECTION } from '@/lib/shopping/config';
+import { MAX_LIST_ITEMS, MAX_QTY } from '@/lib/shopping/home';
 import { priceStore, rankStores, shownUnit, unitAcross, type BasketLine, type PricedItem, type PricingOptions, type StoreBasket } from '@/lib/shopping/pricing';
 import { choosePlan, MAX_PLAN_STORES, worthCount } from '@/lib/shopping/plans';
-import type { PromoDoc } from '@/lib/shopping/snapshot';
+import type { ItemDoc, PromoDoc, StoreDoc } from '@/lib/shopping/snapshot';
 import { israelLocalNow } from '@/lib/shopping/snapshot';
 import {
   idleDeals, imgByOf, promoDetails, storeInfo,
-  type CompareResponse, type ItemBest, type ItemPrice, type ItemResponse, type Plans, type SearchHit, type ShoppingPlan, type StoreInfo,
+  type CompareResponse, type FarResponse, type ItemBest, type StoreCardData, type ItemPrice, type ItemResponse, type Plans, type SearchHit, type ShoppingPlan, type StoreInfo,
 } from '@/lib/shopping/api-types';
 import { priceSourceOf } from '@/lib/shopping/collections';
 import { rankHits, searchPatterns } from '@/lib/shopping/search-rank';
@@ -236,10 +237,27 @@ function buildPlans(
  * users) are always in `manual`, with what's unpriced in `missing`; one that
  * prices every line also competes in `physical` and the plans.
  */
-export async function compareBasket(req: CompareRequest): Promise<CompareResponse> {
+/**
+ * A basket request's lines and toggles, validated: shared by POST /compare
+ * (which also needs a known city) and POST /far. A string is the error.
+ */
+export function parseBasketRequest(body: unknown): Omit<CompareRequest, 'city'> & { city: unknown } | string {
+  if (!body || typeof body !== 'object') return 'body must be an object';
+  const b = body as Record<string, unknown>;
+  if (!Array.isArray(b.lines) || !b.lines.length || b.lines.length > MAX_LIST_ITEMS) return 'lines must be a non-empty array';
+  const lines: BasketLine[] = [];
+  for (const l of b.lines as Record<string, unknown>[]) {
+    if (typeof l?.key !== 'string' || l.key.length > 60) return 'bad line key';
+    if (typeof l.qty !== 'number' || !(l.qty > 0) || l.qty > MAX_QTY) return `bad quantity for ${l.key}`;
+    lines.push({ key: l.key, qty: l.qty });
+  }
+  return { city: b.city, lines, clubs: b.clubs === true, coupons: b.coupons === true };
+}
+
+/** The basket's items (with prices typed at `manualKeys`), their promos and the pricing options. */
+async function loadBasket(req: Omit<CompareRequest, 'city'>, manualKeys: number[]) {
   const keys = [...new Set(req.lines.map((l) => l.key))];
-  const [stores, itemDocs, promos] = await Promise.all([getStoresFor(req.city), getItems(keys), getPromosFor(keys)]);
-  const manualKeys = stores.filter((s) => s.source === 'manual').map((s) => s.k);
+  const [itemDocs, promos] = await Promise.all([getItems(keys), getPromosFor(keys)]);
   const typed = await getManualPrices(manualKeys, keys);
   const items = withManualPrices(new Map(itemDocs.map((d) => [d._id, d])), typed);
   const now = israelLocalNow();
@@ -248,6 +266,42 @@ export async function compareBasket(req: CompareRequest): Promise<CompareRespons
     clubs: req.clubs ? [...new Set(promos.map((p) => p.club).filter((c) => c !== 0))] : [],
     coupons: req.coupons,
   };
+  return { itemDocs, items, promos, now, opts };
+}
+
+/** What a store card needs beyond its basket: the items, the deals the shown baskets don't reach yet, and every named deal's terms. */
+function cardData(shown: StoreBasket[], itemDocs: ItemDoc[], promos: PromoDoc[], now: string): Pick<StoreCardData, 'items' | 'promos' | 'idle'> {
+  const idle: Record<string, string[]> = {};
+  for (const b of shown) {
+    for (const l of b.lines) {
+      if (!l.available) continue;
+      const ids = idleDeals(promos, b.store, l.key, now, l);
+      if (ids.length) idle[`${b.store}|${l.key}`] = ids;
+    }
+  }
+  return {
+    items: Object.fromEntries(itemDocs.map((d) => [d._id, { name: d.n, manufacturer: d.m, w: d.w, img: d.img ?? null, imgBy: imgByOf(d), d: d.d ?? null }])),
+    idle,
+    promos: promoDetails(promos, [...shown.flatMap((b) => b.lines), ...Object.values(idle).map((ids) => ({ applied: [], offers: [], idle: ids }))]),
+  };
+}
+
+/** "כמה יעלה לי ב…": the basket at each of `stores` (the favorites, any city), ranked like the store list. */
+export async function priceAtStores(stores: StoreDoc[], req: Omit<CompareRequest, 'city'>): Promise<FarResponse> {
+  const { itemDocs, items, promos, now, opts } = await loadBasket(req, stores.filter((s) => s.source === 'manual').map((s) => s.k));
+  const baskets = rankStores(stores.map((s) => s.k), req.lines, items, promos, opts);
+  return {
+    now,
+    stores: Object.fromEntries(stores.map((s): [number, StoreInfo] => [s.k, storeInfo(s)])),
+    baskets,
+    ...cardData(baskets, itemDocs, promos, now),
+  };
+}
+
+export async function compareBasket(req: CompareRequest): Promise<CompareResponse> {
+  const stores = await getStoresFor(req.city);
+  const manualKeys = stores.filter((s) => s.source === 'manual').map((s) => s.k);
+  const { itemDocs, items, promos, now, opts } = await loadBasket(req, manualKeys);
   const manual = rankStores(manualKeys, req.lines, items, promos, opts);
   const complete = new Set(manual.filter((b) => !b.missing.length).map((b) => b.store));
   const physicalKeys = stores
@@ -266,27 +320,19 @@ export async function compareBasket(req: CompareRequest): Promise<CompareRespons
     ...physical.slice(0, RESULTS_PER_SECTION), ...online.slice(0, RESULTS_PER_SECTION), ...manual,
     ...Object.values(plans.byCount).flatMap((p) => p?.stops.map((s) => s.basket) ?? []),
   ];
-  const shownLines = shownBaskets.flatMap((b) => b.lines);
-  const idle: Record<string, string[]> = {};
-  for (const b of shownBaskets) {
-    for (const l of b.lines) {
-      if (!l.available) continue;
-      const ids = idleDeals(promos, b.store, l.key, now, l);
-      if (ids.length) idle[`${b.store}|${l.key}`] = ids;
-    }
-  }
+  const card = cardData(shownBaskets, itemDocs, promos, now);
 
   return {
     now,
     city: req.city,
     stores: Object.fromEntries(stores.map((s): [number, StoreInfo] => [s.k, storeInfo(s)])),
-    items: Object.fromEntries(itemDocs.map((d) => [d._id, { name: d.n, manufacturer: d.m, w: d.w, img: d.img ?? null, imgBy: imgByOf(d), d: d.d ?? null }])),
+    items: card.items,
     physical: physical.slice(0, RESULTS_PER_SECTION),
     online: online.slice(0, RESULTS_PER_SECTION),
     manual,
     perItem: perItem(req.lines, physical),
     plans,
-    promos: promoDetails(promos, [...shownLines, ...Object.values(idle).map((ids) => ({ applied: [], offers: [], idle: ids }))]),
-    idle,
+    promos: card.promos,
+    idle: card.idle,
   };
 }
