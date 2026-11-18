@@ -35,7 +35,7 @@ import { distanceM } from '@/lib/shopping/places';
 import { SHOPPING_API_PATH } from '@/lib/shopping/config';
 import { HOME_LIST_ID, normalizeQty, type ListLine, type MyItem } from '@/lib/shopping/home';
 import type { ShoppingSettings } from '@/lib/shopping/api-types';
-import type { CompareResponse, ShoppingPlan, ItemBest, ItemPrice, ItemResponse, ManualPriceResponse, PriceSource, PromoDetail, SearchHit, StoreInfo } from '@/lib/shopping/api-types';
+import type { CompareResponse, ShoppingPlan, ItemPrice, ItemResponse, ManualPriceResponse, PriceSource, PromoDetail, SearchHit, StoreInfo } from '@/lib/shopping/api-types';
 import type { LineResult, Offer, PromoRef, StoreBasket } from '@/lib/shopping/pricing';
 import { dealNudge, groupByDepartment, progress, withPending, type PlanKind, type Trip, type TripCreate, type TripItem } from '@/lib/shopping/trips';
 import { cleanAddress, dayMonth, ils, MultiStar, multiNote, photoBroken, qtyLabel, SaleLabel, storeName, Thumb } from './ui';
@@ -142,7 +142,6 @@ const Scanner = dynamic(() => import('./Scanner'), { ssr: false });
 /** The one shopping list, in the shape the result views take. */
 type PageList = { id: string; name: string; items: ListLine[] };
 
-type Tab = 'item' | 'list' | 'stores' | 'online';
 const step = (w: boolean) => (w ? 0.5 : 1);
 /** The search placeholder types these in turn (the first is also the static one). */
 const SEARCH_PHRASES = ['חיפוש מוצר או ברקוד', 'חלב 3%', 'במבה', 'קפה טורקי', 'לחם מלא', 'עגבניות שרי', 'שוקולד פרה'];
@@ -204,7 +203,6 @@ export default function ShoppingPage() {
   const [comparedSig, setComparedSig] = useState('');
   const [comparing, setComparing] = useState(false);
   const [compareError, setCompareError] = useState(false);
-  const [tab, setTab] = useState<Tab>('list');
   const [open, setOpen] = useState<string | null>(null);
   const resultsRef = useRef<HTMLElement>(null);
 
@@ -517,8 +515,6 @@ export default function ShoppingPage() {
       setComparedSig(sig);
       if (shownCity.current !== res.city) {
         setOpen(null);
-        // The list tab also holds the neighbourhood shops; online only when there's nothing nearby at all.
-        setTab(res.physical.length || res.manual.length ? 'list' : 'online');
       }
     } catch {
       setCompareError(true);
@@ -679,7 +675,7 @@ export default function ShoppingPage() {
             )}
 
             {result && (
-              <Results ref={resultsRef} result={result} list={list} updating={stale || comparing} tab={tab} setTab={setTab} open={open} setOpen={setOpen}
+              <Results ref={resultsRef} result={result} list={list} updating={stale || comparing} open={open} setOpen={setOpen}
                 onPricesSaved={() => compare()} onStartTrip={startTrip} tripOpen={!!trip} />
             )}
             {!result && hasItems && !compareError && <div className="sh-skeleton" aria-label="משווה מחירים" />}
@@ -792,32 +788,21 @@ const Results = React.forwardRef<HTMLElement, {
   result: CompareResponse;
   list: PageList;
   updating: boolean;
-  tab: Tab;
-  setTab: (t: Tab) => void;
   open: string | null;
   setOpen: (k: string | null) => void;
   /** A manual price was saved: re-price the list. */
   onPricesSaved: () => void;
   onStartTrip: (plan: ShoppingPlan) => void;
   tripOpen: boolean;
-}>(function Results({ result, list, updating, tab, setTab, open, setOpen, onPricesSaved, onStartTrip, tripOpen }, ref) {
-  const complete = result.physical.filter((b) => !b.missing.length);
-  const best = complete[0];
-  const closest = result.physical[0];
-  const worst = complete[complete.length - 1];
-  const bestSplit = result.splits[0];
-  const splitSaving = best && bestSplit && !bestSplit.missing.length ? best.total - bestSplit.total : 0;
+}>(function Results({ result, list, updating, open, setOpen, onPricesSaved, onStartTrip, tripOpen }, ref) {
   const full = result.physical.filter((b) => !b.missing.length);
-  const bestOnline = result.online[0];
+  const best = full[0];
   const partial = result.physical.filter((b) => b.missing.length);
+  const bestOnline = result.online[0];
   const toggle = (id: string) => setOpen(open === id ? null : id);
-  const tabs: [Tab, string][] = [
-    ['item', 'לפי מוצר'],
-    ['list', 'לפי רשימה'],
-    ['stores', 'לפי חנויות'],
-    ['online', 'אונליין'],
-  ];
+  const onlineRef = useRef<HTMLElement>(null);
 
+  // No physical store has prices → no plans; the stores and online show straight away.
   const hasPlans = !!result.plans?.oneStore;
   const [showAll, setShowAll] = useState(false);
 
@@ -830,28 +815,7 @@ const Results = React.forwardRef<HTMLElement, {
           <FaChevronDown className={`sh-caret ${showAll ? 'is-open' : ''}`} aria-hidden />
         </button>
       )}
-      {(!hasPlans || showAll) && (<>
-      {hasPlans ? null : best ? (
-        <div className="sh-hero">
-          <span className="sh-hero-kicker">הכי זול לקנות הכול</span>
-          <span className="sh-hero-store">{storeName(result.stores[best.store])}</span>
-          <span className="sh-hero-total">{ils(best.total)}</span>
-          {worst && worst !== best && (
-            <span className="sh-hero-meta">{ils(worst.total - best.total)} פחות מהסניף היקר ברשימה</span>
-          )}
-          {updating && <span className="sh-updating">מעדכן…</span>}
-          {splitSaving >= SPLIT_WORTH && (
-            <button type="button" className="sh-hero-split" onClick={() => setTab('stores')}>
-              <span>
-                <b>בשתי חנויות: {ils(splitSaving)} פחות</b>
-                <small>{bestSplit.stores.map((b) => result.stores[b.store]?.chainName ?? '?').join(' ו־')}, {ils(bestSplit.total)} ביחד</small>
-              </span>
-              <FaChevronDown className="sh-hero-split-go" aria-hidden />
-            </button>
-          )}
-        </div>
-      ) : (
-        !result.physical.length ? (
+      {!hasPlans && (
         <div className="sh-hero is-partial">
           <span className="sh-hero-kicker">אין עדיין מחירים בחנויות שליד הבית</span>
           <span className="sh-hero-meta">
@@ -860,7 +824,7 @@ const Results = React.forwardRef<HTMLElement, {
               : <>אפשר להשוות בינתיים בחנויות אונליין.</>}
           </span>
           {bestOnline && (
-            <button type="button" className="sh-hero-split" onClick={() => setTab('online')}>
+            <button type="button" className="sh-hero-split" onClick={() => onlineRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}>
               <span>
                 <b>הכי זול אונליין: {ils(bestOnline.total)}</b>
                 <small>{storeName(result.stores[bestOnline.store])}{bestOnline.missing.length ? `, חסרים ${bestOnline.missing.length}` : ''}</small>
@@ -870,37 +834,10 @@ const Results = React.forwardRef<HTMLElement, {
           )}
           {updating && <span className="sh-updating">מעדכן…</span>}
         </div>
-        ) : (
-        <div className="sh-hero is-partial">
-          <span className="sh-hero-kicker">אין סניף שיש בו את כל {list.items.length} המוצרים</span>
-          {closest && (
-            <>
-              <span className="sh-hero-store">הכי קרוב: {storeName(result.stores[closest.store])}</span>
-              <span className="sh-hero-total">{ils(closest.total)} <small>חסרים {closest.missing.length}</small></span>
-            </>
-          )}
-          <span className="sh-hero-meta">
-            <button type="button" className="sh-link" onClick={() => setTab('item')}>לראות איפה כל מוצר הכי זול</button>
-          </span>
-          {updating && <span className="sh-updating">מעדכן…</span>}
-        </div>
-        )
       )}
-
-      <div className="sh-seg sh-tabs" role="tablist">
-        {tabs.map(([id, label]) => (
-          <button key={id} type="button" role="tab" aria-selected={tab === id}
-            className={tab === id ? 'is-on' : ''} onClick={() => setTab(id)}>
-            {label}
-          </button>
-        ))}
-      </div>
-
-      {tab === 'item' && <PerItem result={result} />}
-
-      {tab === 'list' && (
+      {/* Every store for the whole list (one page, no tabs): full baskets, then partial, then online. */}
+      {(!hasPlans || showAll) && (
         <>
-          {!result.physical.length && !result.manual.length && <p className="sh-empty">אין חנויות עם מחירים ליד הבית.</p>}
           {full.length > 0 && partial.length > 0 && <h3 className="sh-group-title">יש בהן את כל המוצרים</h3>}
           {full.map((b, i) => (
             <StoreCard key={b.store} basket={b} result={result} rank={i} best={best}
@@ -911,60 +848,20 @@ const Results = React.forwardRef<HTMLElement, {
             <StoreCard key={b.store} basket={b} result={result} rank={full.length + i} best={best}
               open={open === `s${b.store}`} toggle={() => toggle(`s${b.store}`)} />
           ))}
-          {result.manual.length > 0 && (
-            <ManualStores key={result.city} baskets={result.manual} result={result} list={list} onSaved={onPricesSaved}
-              startOpen={!result.physical.length} />
-          )}
+          <section ref={onlineRef} className="sh-online">
+            <h3 className="sh-group-title">אונליין</h3>
+            {result.online.length
+              ? result.online.map((b, i) => (
+                <StoreCard key={b.store} basket={b} result={result} rank={i} best={result.online.find((x) => !x.missing.length)}
+                  open={open === `o${b.store}`} toggle={() => toggle(`o${b.store}`)} />
+              ))
+              : <p className="sh-empty">אין חנויות אונליין עם מחירים.</p>}
+          </section>
         </>
       )}
-
-      {tab === 'stores' && <CheapestEach result={result} single={best} />}
-      {tab === 'stores' && (
-        result.splits.length
-          ? result.splits.map((s, i) => {
-            const id = `p${i}`;
-            const saving = best ? best.total - s.total : 0;
-            return (
-              <article key={id} className={`sh-card sh-store ${i === 0 ? 'is-best' : ''}`}>
-                {i === 0 && <h3 className="sh-section-title">חלוקה לשתי חנויות</h3>}
-                <button type="button" className="sh-store-head sh-store-head--split" onClick={() => toggle(id)} aria-expanded={open === id}>
-                  <span className="sh-store-title">
-                    {s.stores.map((b) => storeName(result.stores[b.store])).join(' + ')}
-                  </span>
-                  <span className="sh-store-total">{ils(s.total)}</span>
-                  <FaChevronDown className={`sh-caret ${open === id ? 'is-open' : ''}`} aria-hidden />
-                  <span className="sh-store-meta">
-                    {saving > 0 && <span className="sh-save">{ils(saving)} פחות מחנות אחת</span>}
-                    {s.missing.length > 0 && <span className="sh-missing">חסרים {s.missing.length}</span>}
-                    <span>{s.stores.map((b) => `${b.lines.filter((l) => l.available).length} ב${result.stores[b.store]?.chainName ?? '?'}`).join(', ')}</span>
-                  </span>
-                </button>
-                {open === id && s.stores.map((b) => (
-                  <div key={b.store} className="sh-split-part">
-                    <h3 className="sh-h3">
-                      <span>{storeName(result.stores[b.store])}</span> <span>{ils(b.total)}</span>
-                    </h3>
-                    {result.stores[b.store] && <SourceBadge store={result.stores[b.store]} now={result.now} />}
-                    <Breakdown basket={b} result={result} onlyAvailable />
-                  </div>
-                ))}
-              </article>
-            );
-          })
-          : <p className="sh-empty">פיצול לשתי חנויות לא יוצא זול יותר מחנות אחת הפעם.</p>
-      )}
-
-      {tab === 'online' && (
-        result.online.length
-          ? result.online.map((b, i) => (
-            <StoreCard key={b.store} basket={b} result={result} rank={i} best={result.online.find((x) => !x.missing.length)}
-              open={open === `o${b.store}`} toggle={() => toggle(`o${b.store}`)} />
-          ))
-          : <p className="sh-empty">אין חנויות אונליין עם מחירים.</p>
-      )}
-      </>)}
-      {hasPlans && !showAll && result.manual.length > 0 && (
-        <ManualStores key={`m-${result.city}`} baskets={result.manual} result={result} list={list} onSaved={onPricesSaved} />
+      {result.manual.length > 0 && (
+        <ManualStores key={`m-${result.city}`} baskets={result.manual} result={result} list={list} onSaved={onPricesSaved}
+          startOpen={!hasPlans} />
       )}
     </section>
   );
@@ -1141,9 +1038,6 @@ const LOC_NOTE: Record<LocState | 'manual', string> = {
   manual: 'נבחר ידנית',
 };
 
-/** A two-store split is offered only when it saves at least this (agorot). */
-const SPLIT_WORTH = 500;
-
 function StoreCard({ basket, result, rank, best, open, toggle }: {
   basket: StoreBasket;
   result: CompareResponse;
@@ -1227,99 +1121,6 @@ function Line({ line, result, store }: { line: LineResult; result: CompareRespon
         </span>
       )}
     </li>
-  );
-}
-
-// ── per item / per stores ──
-
-/** One item's cheapest stores. */
-function PerItem({ result }: { result: CompareResponse }) {
-  const sold = result.perItem.filter((x) => x.options.length);
-  const total = sold.reduce((sum, x) => sum + x.options[0].cost, 0);
-  const storeCount = new Set(sold.map((x) => x.options[0].store)).size;
-  if (!sold.length) {
-    return <p className="sh-view-note">לאף מוצר ברשימה אין עדיין מחיר בחנויות שליד הבית.</p>;
-  }
-  return (
-    <>
-      <p className="sh-view-note">
-        המחיר הכי זול לכל מוצר בנפרד. יחד: <b>{ils(total)}</b> ב־{storeCount} {storeCount === 1 ? 'חנות' : 'חנויות'}
-        {sold.length < result.perItem.length && <>, ו־{result.perItem.length - sold.length} לא נמכרים בעיר</>}.
-      </p>
-      <ul className="sh-card sh-peritem">
-        {result.perItem.map((x) => <PerItemRow key={x.key} row={x} result={result} />)}
-      </ul>
-    </>
-  );
-}
-
-function PerItemRow({ row, result }: { row: ItemBest; result: CompareResponse }) {
-  const it = result.items[row.key];
-  const w = it?.w ?? false;
-  const [first, ...rest] = row.options;
-  return (
-    <li className="sh-peritem-row">
-      <span className="sh-line-name"><Thumb src={it?.img} size={44} by={it?.imgBy} /><span>{it?.name ?? row.key} <small>{qtyLabel(row.qty, w)}</small></span></span>
-      {first ? (
-        <>
-          <span className="sh-line-price">
-            <b>{ils(first.cost)}</b>
-            {first.cost < first.regularCost && <s>{ils(first.regularCost)}</s>}
-          </span>
-          <span className="sh-peritem-where">
-            <span className="sh-peritem-best">{storeName(result.stores[first.store])}</span>
-            {result.stores[first.store] && <SourceTag source={result.stores[first.store].source} />}
-            <small>{row.stores} {row.stores === 1 ? 'סניף מוכר' : 'סניפים מוכרים'}</small>
-          </span>
-          {rest.length > 0 && (
-            <span className="sh-peritem-alt">
-              {rest.map((o) => (
-                <span key={o.store}>{result.stores[o.store]?.chainName ?? '?'} {result.stores[o.store]?.name} <b>{ils(o.cost)}</b></span>
-              ))}
-            </span>
-          )}
-        </>
-      ) : <span className="sh-line-price sh-missing">לא נמכר בעיר</span>}
-    </li>
-  );
-}
-
-/**
- * Every item at its cheapest store, grouped by store: the shopping route if
- * you're willing to go anywhere. The prices are each store's price in the
- * whole-basket context, so a mix & match deal may not survive buying only
- * part of the list there; the two-store splits below are re-priced exactly.
- */
-function CheapestEach({ result, single }: { result: CompareResponse; single: StoreBasket | undefined }) {
-  const groups = new Map<number, { key: string; cost: number }[]>();
-  for (const x of result.perItem) {
-    const o = x.options[0];
-    if (o) groups.set(o.store, [...(groups.get(o.store) ?? []), { key: x.key, cost: o.cost }]);
-  }
-  // Two stores is what the exact splits below already show.
-  if (groups.size < 2 || (groups.size === 2 && result.splits.length)) return null;
-  const sorted = [...groups].sort((a, b) => b[1].length - a[1].length);
-  const total = sorted.reduce((sum, [, xs]) => sum + xs.reduce((s, x) => s + x.cost, 0), 0);
-  const missing = result.perItem.filter((x) => !x.options.length).length;
-  return (
-    <article className="sh-card sh-group">
-      <h3 className="sh-section-title">כל מוצר במקום הכי זול</h3>
-      <p className="sh-group-sum">
-        <b>{ils(total)}</b> ב־{groups.size} חנויות
-        {single && !missing && single.total > total && <span className="sh-save">, {ils(single.total - total)} פחות מחנות אחת</span>}
-        {missing > 0 && <span className="sh-missing">, חסרים {missing}</span>}
-      </p>
-      {sorted.map(([store, xs]) => (
-        <div key={store} className="sh-group-store">
-          <h4>
-            <span>{storeName(result.stores[store])}</span>
-            <span>{ils(xs.reduce((s, x) => s + x.cost, 0))}</span>
-          </h4>
-          <p>{xs.map((x) => result.items[x.key]?.name ?? x.key).join(', ')}</p>
-        </div>
-      ))}
-      <p className="sh-footnote">משוער: מבצע ״קנה כמה״ עשוי לא לחול כשקונים רק חלק מהרשימה בחנות.</p>
-    </article>
   );
 }
 

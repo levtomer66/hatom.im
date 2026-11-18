@@ -465,7 +465,7 @@ body:has(.sh-page) { background: #ffffff; }
 
 /* ── results ── */
 .sh-results { scroll-margin-top: 5rem; }
-.sh-results.is-updating .sh-store, .sh-results.is-updating .sh-hero-total { opacity: 0.5; transition: opacity 0.2s; }
+.sh-results.is-updating .sh-store { opacity: 0.5; transition: opacity 0.2s; }
 
 .sh-hero {
   position: relative;
@@ -477,9 +477,6 @@ body:has(.sh-page) { background: #ffffff; }
 }
 .sh-hero-kicker { font-size: 0.9375rem; color: var(--sh-muted); }
 .sh-hero.is-partial .sh-hero-kicker { color: var(--sh-miss); font-weight: 500; }
-.sh-hero-store { font-size: 1.25rem; font-weight: 600; line-height: 1.35; }
-.sh-hero-total { margin-top: 0.25rem; font-size: 2.75rem; font-weight: 600; line-height: 1.1; letter-spacing: -0.01em; }
-.sh-hero-total small { margin-inline-start: 0.5rem; font-size: 1rem; font-weight: 500; letter-spacing: 0; color: var(--sh-miss); }
 .sh-hero-meta { display: flex; flex-wrap: wrap; gap: 0.25rem 1rem; margin-top: 0.5rem; font-size: 0.9375rem; color: var(--sh-muted); }
 .sh-hero-split {
   display: flex;
@@ -577,29 +574,6 @@ body:has(.sh-page) { background: #ffffff; }
   cursor: pointer;
 }
 
-/* the four views: underline tabs */
-.sh-seg.sh-tabs {
-  position: sticky;
-  top: 4.4rem;
-  z-index: 5;
-  gap: 0;
-  margin: 0 -1rem 0.5rem;
-  padding: 0 1rem;
-  border-radius: 0;
-  border-bottom: 1px solid var(--sh-line);
-  background: var(--sh-bg);
-}
-.sh-seg.sh-tabs button {
-  min-height: 48px;
-  border-radius: 0;
-  border-bottom: 2px solid transparent;
-  margin-bottom: -1px;
-}
-.sh-seg.sh-tabs button.is-on { background: none; box-shadow: none; border-bottom-color: var(--sh-accent); color: var(--sh-ink); }
-
-.sh-view-note { margin: 0.75rem 0; color: var(--sh-muted); }
-.sh-view-note b { font-weight: 600; color: var(--sh-ink); }
-
 /* a ranked store: a ledger row, not a card */
 .sh-results .sh-card.sh-store {
   margin: 0;
@@ -654,9 +628,8 @@ body:has(.sh-page) { background: #ffffff; }
 .sh-store-save { grid-column: 2 / -1; font-size: 0.8125rem; color: var(--sh-accent); }
 .sh-save { color: var(--sh-accent); font-weight: 500; }
 .sh-missing { color: var(--sh-miss); font-weight: 500; }
-.sh-store-head--split { grid-template-columns: minmax(0, 1fr) auto auto; }
-.sh-store-head--split .sh-store-meta { grid-column: 1 / -1; flex-wrap: wrap; }
 .sh-store-title { font-weight: 600; line-height: 1.4; }
+.sh-online { margin-top: 1.25rem; }
 .sh-group-title { margin: 1rem 0 0; font-size: 0.875rem; font-weight: 600; color: var(--sh-muted); }
 
 .sh-section-title { margin: 1rem 0 0; font-size: 0.9375rem; font-weight: 600; color: var(--sh-muted); }
@@ -690,34 +663,6 @@ body:has(.sh-page) { background: #ffffff; }
 .sh-promo small { margin-inline-start: 0.375rem; color: var(--sh-muted); }
 .sh-promo.is-offer { color: var(--sh-muted); }
 .sh-promo.is-offer::before { content: '○ '; }
-
-.sh-split-part { padding: 0 0 0.25rem; }
-.sh-split-part > .sh-src-line { margin-bottom: 0.5rem; font-size: 0.875rem; color: var(--sh-muted); }
-
-/* per item */
-.sh-results .sh-card.sh-peritem { margin: 0; padding: 0; border-radius: 0; background: none; list-style: none; }
-.sh-peritem-row {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 0.25rem 0.75rem;
-  padding: 1rem 0;
-  border-bottom: 1px solid var(--sh-line);
-}
-.sh-peritem-row .sh-line-price b { font-size: 1.125rem; }
-.sh-peritem-where { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 0.625rem; font-size: 0.875rem; }
-.sh-peritem-best { font-weight: 600; color: var(--sh-accent); }
-.sh-peritem-where small { color: var(--sh-muted); }
-.sh-peritem-alt { grid-column: 1 / -1; display: flex; flex-direction: column; font-size: 0.8125rem; color: var(--sh-muted); }
-.sh-peritem-alt b { margin-inline-start: 0.375rem; font-weight: 500; }
-
-/* per stores: every item at its cheapest */
-.sh-results .sh-card.sh-group { margin: 0.75rem 0 0; padding: 1rem; }
-.sh-group .sh-section-title { margin: 0; }
-.sh-group-sum { margin: 0.25rem 0 0.75rem; }
-.sh-group-sum b { font-size: 1.5rem; font-weight: 600; }
-.sh-group-store { padding: 0.75rem 0; border-top: 1px solid var(--sh-line); }
-.sh-group-store h4 { display: flex; justify-content: space-between; gap: 0.75rem; margin: 0; font-size: 1rem; font-weight: 600; }
-.sh-group-store p { margin: 0.25rem 0 0; font-size: 0.875rem; color: var(--sh-muted); }
 
 /* stores with no prices yet */
 .sh-results .sh-card.sh-unpriced { margin: 1.5rem 0 0; padding: 0; overflow: hidden; }
