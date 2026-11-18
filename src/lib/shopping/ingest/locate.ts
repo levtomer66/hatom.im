@@ -1,25 +1,28 @@
-// Keeps the price ingest to the stores near the pins (places/pins.json):
-// official store files carry addresses but no coordinates, so each store is
-// placed by (1) the discovery review's match of a mapped shop to that store,
-// else (2) a Nominatim lookup of its address, cached forever per query in
-// places/geocode.json (a miss is retried after a day: Nominatim answers []
-// while it throttles a client). Online stores are not location-bound and always
-// pass. A pin with `walkMinutes` keeps only stores within that walk (a routed
-// walking time, ingest/walk.ts); there a store that can't be placed is dropped,
-// since it can't be shown to meet the limit. Without walkMinutes, an unplaced
-// store is kept and logged.
+// Places stores for the selection stage (ingest/select.ts). Official store
+// files carry addresses but no coordinates, so a store is placed by (1) the
+// discovery review's match of a mapped shop to that store, else (2) a
+// Nominatim lookup of its address, cached per query in places/geocode.json:
+// a hit forever, a miss for 30 days (it used to be one day, and every run
+// spent minutes re-asking questions Nominatim can't answer).
+//
+// A point is near a pin when it is within the pin's walk (a routed walking
+// time, ingest/walk.ts) or, for a pin with no `walkMinutes`, inside its
+// circle or area.
+//
+// An --offline run makes no request: lookups and walks answer from their
+// caches only, and one that isn't cached is `'uncached'`, never a miss.
 
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { CITIES } from '../cities.ts';
-import { distanceM, pinContains, storeGeocodeQueries, walkPrefilterM } from '../places.ts';
-import type { Picks } from './picks.ts';
-import { walkRouter } from './walk.ts';
+import { distanceM, pinContains, storeGeocodeQueries, walkPrefilterM, type Pin } from '../places.ts';
+import { readJson, writeJson } from './cache.ts';
+import { NominatimError, nominatim, type NetDeps } from './geo.ts';
+import type { Picks, Point } from './picks.ts';
+import { walkRouter, type WalkSeconds } from './walk.ts';
 
-const NOMINATIM = 'https://nominatim.openstreetmap.org/search';
 const USER_AGENT = 'hatom-shopping-ingest/0.1';
-const GAP_MS = 1500; // Nominatim policy: at most 1 request/s; leave headroom.
-const MISS_TTL_MS = 86_400_000;
+/** How long a miss stands before the address is asked again. */
+export const MISS_TTL_MS = 30 * 86_400_000;
 
 export interface LocatableStore {
   chainId: string;
@@ -32,13 +35,40 @@ export interface LocatableStore {
   cityId: string | null;
 }
 
-type Point = { lat: number; lng: number };
+/** places/geocode.json: query → the point (`p: null` = a miss) and when it was asked. */
+export type GeocodeCache = Record<string, { p: Point | null; at: string }>;
 
-/** A hit is kept forever; a miss (`p: null`) only for MISS_TTL_MS. */
-type GeocodeCache = Record<string, { p: Point | null; at: string }>;
+/** An address lookup: the point, null for a miss, `'uncached'` when offline and never asked. */
+export type Geocode = (query: string) => Promise<Point | null | 'uncached'>;
 
-const readJson = <T,>(p: string, fallback: T): T => (existsSync(p) ? (JSON.parse(readFileSync(p, 'utf8')) as T) : fallback);
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+export function geocoder(d: {
+  cache: GeocodeCache;
+  /** Called after an answer was added to `cache`. */
+  save(): void;
+  /** Asks Nominatim: the first hit's point, or null. Throws NominatimError when it refuses. */
+  search(query: string): Promise<Point | null>;
+  offline: boolean;
+  now?: () => number;
+}): Geocode {
+  const now = d.now ?? Date.now;
+  return async (q) => {
+    const c = d.cache[q];
+    // Offline, a miss of any age stands: it can't be asked again.
+    if (c && (c.p || d.offline || now() - Date.parse(c.at) < MISS_TTL_MS)) return c.p;
+    if (d.offline) return 'uncached';
+    let p: Point | null;
+    try {
+      p = await d.search(q);
+    } catch (e) {
+      // Still refused after the back-off: unplaceable for this run, and not cached.
+      if (e instanceof NominatimError) return null;
+      throw e;
+    }
+    d.cache[q] = { p, at: new Date(now()).toISOString() };
+    d.save();
+    return p;
+  };
+}
 
 /**
  * Places stores. `'uncached'` = the answer is not in the cache and the run
@@ -55,60 +85,27 @@ export interface Locator {
   nearestPinM(at: Point): number;
 }
 
-export function locator(placesDir: string, picks: Picks): Locator {
-  const { pins, rings } = picks;
-  const { matched } = picks.curation();
-
-  const cachePath = join(placesDir, 'geocode.json');
-  const cache = readJson<GeocodeCache>(cachePath, {});
-  for (const [k, v] of Object.entries(cache) as [string, unknown][]) {
-    // First cache format stored the point (or null) directly.
-    if (!v || !('at' in (v as object))) cache[k] = { p: (v as Point | null) ?? null, at: v ? new Date().toISOString() : '1970-01-01' };
-  }
-  let last = 0;
-  async function geocode(q: string): Promise<Point | null> {
-    const c = cache[q];
-    if (c && (c.p || Date.now() - Date.parse(c.at) < MISS_TTL_MS)) return c.p;
-    const url = `${NOMINATIM}?${new URLSearchParams({ q, format: 'jsonv2', limit: '1', countrycodes: 'il' })}`;
-    for (let attempt = 1; ; attempt++) {
-      const wait = last + GAP_MS - Date.now();
-      if (wait > 0) await sleep(wait);
-      last = Date.now();
-      const res = await fetch(url, { headers: { 'User-Agent': USER_AGENT, 'Accept-Language': 'he' } });
-      if (res.ok) {
-        const [hit] = (await res.json()) as { lat: string; lon: string }[];
-        cache[q] = { p: hit ? { lat: +hit.lat, lng: +hit.lon } : null, at: new Date().toISOString() };
-        writeFileSync(cachePath, JSON.stringify(cache, null, 1));
-        return cache[q].p;
-      }
-      // 429/503 = slow down: back off 10 s, 20 s, 40 s, then treat as unplaceable for this run.
-      if ((res.status !== 429 && res.status !== 503) || attempt > 3) return null;
-      await sleep(10_000 * 2 ** (attempt - 1));
-    }
-  }
-
-  const walkSeconds = walkRouter(placesDir);
-  async function near(cityId: string | null, at: Point): Promise<boolean> {
-    for (const p of pins.filter((x) => x.city === cityId)) {
-      if (p.walkMinutes) {
-        if (distanceM(p, at) > walkPrefilterM(p)) continue;
-        const s = await walkSeconds(p, at);
-        if (s !== null && s <= p.walkMinutes * 60) return true;
-      } else if (pinContains(p, rings.get(p.id) ?? null, at)) {
-        return true;
-      }
-    }
-    return false;
-  }
+/** The locator over given lookups: no files, no network of its own. */
+export function makeLocator(d: {
+  pins: Pin[];
+  rings: Map<string, [number, number][] | null>;
+  /** Official store ref → the point of the review row matched to it (picks.curation().matched). */
+  matched: ReadonlyMap<string, Point>;
+  geocode: Geocode;
+  walkSeconds: WalkSeconds;
+}): Locator {
+  const { pins, rings, matched, geocode, walkSeconds } = d;
 
   function queriesOf(s: LocatableStore): string[] {
     const city = CITIES.find((c) => c.id === s.cityId);
     return city ? storeGeocodeQueries(s, city.name.replace('-יפו', '')) : [];
   }
 
-  async function pointOf(s: LocatableStore): Promise<Point | null> {
+  async function pointOf(s: LocatableStore): Promise<Point | null | 'uncached'> {
     const m = matched.get(`${s.chainSlug}/${s.storeId}`);
     if (m) return m;
+    // Best query first; the first that answers with a point wins. An uncached
+    // one stops the search: a later query's hit could be the wrong answer.
     for (const q of queriesOf(s)) {
       const at = await geocode(q);
       if (at) return at;
@@ -116,5 +113,43 @@ export function locator(placesDir: string, picks: Picks): Locator {
     return null;
   }
 
+  async function near(cityId: string | null, at: Point): Promise<boolean | 'uncached'> {
+    let uncached = false;
+    for (const p of pins.filter((x) => x.city === cityId)) {
+      if (p.walkMinutes) {
+        if (distanceM(p, at) > walkPrefilterM(p)) continue;
+        const s = await walkSeconds(p, at);
+        if (s === 'uncached') uncached = true;
+        else if (s !== null && s <= p.walkMinutes * 60) return true;
+      } else if (pinContains(p, rings.get(p.id) ?? null, at)) {
+        return true;
+      }
+    }
+    return uncached ? 'uncached' : false;
+  }
+
   return { pointOf, queriesOf, near, nearestPinM: (at) => Math.round(Math.min(...pins.map((p) => distanceM(p, at)))) };
+}
+
+/** The locator over the cache files in places/ (geocode.json, walk.json). */
+export function locator(placesDir: string, picks: Picks, opts: { offline: boolean } & NetDeps): Locator {
+  const cachePath = join(placesDir, 'geocode.json');
+  const cache = readJson<GeocodeCache>(cachePath, {});
+  const search = nominatim(USER_AGENT, opts);
+  return makeLocator({
+    pins: picks.pins,
+    rings: picks.rings,
+    matched: picks.curation().matched,
+    geocode: geocoder({
+      cache,
+      save: () => writeJson(cachePath, cache, 1),
+      offline: opts.offline,
+      now: opts.now,
+      search: async (q) => {
+        const [hit] = await search<{ lat: string; lon: string }>({ q, format: 'jsonv2', limit: '1', countrycodes: 'il' });
+        return hit ? { lat: +hit.lat, lng: +hit.lon } : null;
+      },
+    }),
+    walkSeconds: walkRouter(placesDir, opts),
+  });
 }

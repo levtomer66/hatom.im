@@ -67,7 +67,8 @@ try {
 } catch (e) {
   stop(errorMessage(e));
 }
-const SELECT = selector(PICKS, locator(join(CACHE, 'places'), PICKS));
+// --offline: the locator answers from its caches only and makes no request.
+const SELECT = selector(PICKS, locator(join(CACHE, 'places'), PICKS, { offline: flags.offline }));
 
 const runId = new Date().toISOString().replace(/[:.]/g, '-');
 const logFile = join(LOGS, `${runId}.log`);
