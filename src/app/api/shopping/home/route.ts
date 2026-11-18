@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireFeatureCaller } from '@/lib/api-caller';
+import { wrongHousehold } from '@/lib/shopping/household';
 import { parseFavStores, parseList, parseMyItems, type ListLine, type MyItem } from '@/lib/shopping/home';
 import { householdFor, setHome, withMeta } from '@/models/ShoppingHome';
 
@@ -30,6 +31,8 @@ export async function PATCH(request: NextRequest) {
   if (body.items === undefined && body.list === undefined && body.favStores === undefined) return NextResponse.json({ error: 'nothing to update' }, { status: 400 });
   try {
     const home = await householdFor(caller.userEmail);
+    // Made for a household the caller has since left: applying it would overwrite this one's arrays.
+    if (wrongHousehold(body.home, home.id)) return NextResponse.json({ error: 'משק הבית השתנה' }, { status: 409 });
     const fields: { items?: MyItem[]; list?: ListLine[]; favStores?: number[] } = {};
     if (body.items !== undefined) {
       const prev = home.items;

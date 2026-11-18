@@ -47,7 +47,12 @@ export function InviteCard({ invite, onAnswer }: {
 }
 
 /** The "משק הבית" sheet. `onChanged` runs after leaving, so the page reloads its data. */
-export function HouseholdSheet({ onClose, onChanged }: { onClose: () => void; onChanged: () => void }) {
+export function HouseholdSheet({ onClose, onChanged, beforeLeave }: {
+  onClose: () => void;
+  onChanged: () => void;
+  /** Sends the page's pending saves, so they land in this household before leaving it. */
+  beforeLeave?: () => Promise<unknown>;
+}) {
   const [h, setH] = useState<HouseholdResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [email, setEmail] = useState('');
@@ -75,7 +80,10 @@ export function HouseholdSheet({ onClose, onChanged }: { onClose: () => void; on
   };
   const leave = () => {
     if (!window.confirm('לעזוב את משק הבית? המוצרים והרשימה נשארים לשאר בני הבית.')) return;
-    void act({ leave: true }, onChanged);
+    void (async () => {
+      await beforeLeave?.();
+      await act({ leave: true }, onChanged);
+    })();
   };
 
   return (

@@ -52,3 +52,15 @@ export function acceptPlan(from: Pick<Household, 'members' | 'items' | 'list'>, 
   const deleteFrom = from.members.length === 1 && from.members[0] === email;
   return { deleteFrom, loses: deleteFrom ? from.items.length + from.list.length : 0 };
 }
+
+/**
+ * A write the page made for household `sent` while the caller is now in
+ * `actual` (they accepted or left on another device, or a save was still
+ * pending at the switch): applying it would replace the new household's
+ * arrays with the old one's. A client that names no household is allowed.
+ */
+export const wrongHousehold = (sent: unknown, actual: string): boolean => typeof sent === 'string' && sent !== actual;
+
+/** A household with only `email` in it and nothing saved: safe to drop when it got in the way of joining another. */
+export const isDisposable = (h: Pick<Household, 'members' | 'invites' | 'items' | 'list' | 'favStores'>, email: string): boolean =>
+  h.members.length === 1 && h.members[0] === email && !h.invites.length && !h.items.length && !h.list.length && !h.favStores.length;

@@ -1,7 +1,7 @@
 import { ObjectId } from 'mongodb';
 import clientPromise from '@/lib/mongodb';
 import { MAX_MY_ITEMS, addToList, homeFromLists, type ListLine, type MyItem } from '@/lib/shopping/home';
-import { acceptPlan, MAX_INVITES, MAX_MEMBERS, type Household, type Invite } from '@/lib/shopping/household';
+import { acceptPlan, isDisposable, MAX_INVITES, MAX_MEMBERS, type Household, type Invite } from '@/lib/shopping/household';
 import { getItemMeta } from '@/models/ShoppingCatalog';
 import { getAllShoppingListsForMigration } from '@/models/ShoppingList';
 
@@ -186,7 +186,20 @@ export async function acceptInvite(email: string, toId: string): Promise<Househo
     ? (await col.deleteOne({ _id: current.id, members: [me] })).deletedCount
     : 0;
   if (!left) await col.updateOne({ _id: current.id }, { $pull: { members: me } }); // someone else joined it meanwhile
-  const joined = await col.updateOne({ _id: toId }, { $addToSet: { members: me } });
+  let joined;
+  try {
+    joined = await col.updateOne({ _id: toId }, { $addToSet: { members: me } });
+  } catch (e) {
+    // Another request of theirs (a tab, a phone, an MCP call) made them a fresh household between
+    // leaving and joining: drop it if it's still empty, and join once more.
+    if (!isDuplicateKey(e)) throw e;
+    const stray = await col.findOne({ members: me });
+    if (stray && isDisposable(plain(stray), me)) await col.deleteOne({ _id: stray._id, members: [me] });
+    joined = await col.updateOne({ _id: toId }, { $addToSet: { members: me } }).catch((e2) => {
+      if (isDuplicateKey(e2)) return { matchedCount: 0 };
+      throw e2;
+    });
+  }
   if (!joined.matchedCount) {
     await householdFor(me);
     return null;

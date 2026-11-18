@@ -310,23 +310,34 @@ export default function ShoppingPage() {
   type Field = 'list' | 'items' | 'favStores';
   const timers = useRef<Partial<Record<Field, ReturnType<typeof setTimeout>>>>({});
   const pendingSave = useRef<{ list?: ListLine[]; items?: MyItem[]; favStores?: number[] }>({});
+  /** The household each pending save was made in (sent with it, so a save after a switch is refused, not misapplied). */
+  const pendingFor = useRef<Partial<Record<Field, string>>>({});
   const sendSave = useCallback(async (field: Field) => {
     clearTimeout(timers.current[field]);
     const value = pendingSave.current[field];
     if (!value) return;
     delete pendingSave.current[field];
+    const madeIn = pendingFor.current[field];
     try {
-      const res = await saveHome({ [field]: value });
+      const res = await saveHome({ [field]: value, home: madeIn });
       // Only the looked-up photos and departments: local edits made since stay.
       setHome((h) => (h ? { ...h, meta: { ...h.meta, ...res.meta } } : res));
       setSaveError(false);
-    } catch {
+    } catch (e) {
+      if ((e as Error).message === '409') {
+        // The caller is in another household now (another device, or an accept): show that one instead.
+        pendingSave.current = {};
+        loadHome().then(setHome).catch(() => {});
+        setToast('משק הבית השתנה. הנתונים נטענו מחדש.');
+        return;
+      }
       setSaveError(true);
     }
   }, []);
   const save = useCallback((field: Field, value: ListLine[] | MyItem[] | number[]) => {
     clearTimeout(timers.current[field]);
     (pendingSave.current as Record<Field, unknown>)[field] = value;
+    pendingFor.current[field] = homeRef.current?.id;
     timers.current[field] = setTimeout(() => void sendSave(field), 600);
   }, [sendSave]);
   /** Send what's waiting to be saved, now. */
@@ -346,6 +357,7 @@ export default function ShoppingPage() {
   /** Accept or decline an invite; joining swaps the whole household on the page. */
   const answerInvite = useCallback(async (id: string, accept: boolean) => {
     try {
+      await flushSaves(); // edits made here land in this household before the switch
       const h = await householdAction(accept ? { accept: id } : { decline: id });
       setIncoming(h.incoming);
       if (accept) {
@@ -355,7 +367,7 @@ export default function ShoppingPage() {
     } catch (e) {
       setToast((e as Error).message);
     }
-  }, [refreshHome]);
+  }, [flushSaves, refreshHome]);
   useEffect(() => {
     const onBack = () => { if (document.visibilityState === 'visible') void refreshHome(); };
     document.addEventListener('visibilitychange', onBack);
@@ -808,14 +820,14 @@ export default function ShoppingPage() {
           </MyItemsSheet>
         )}
         {householdOpen && (
-          <HouseholdSheet onClose={() => setHouseholdOpen(false)} onChanged={() => { setHouseholdOpen(false); void refreshHome(); }} />
+          <HouseholdSheet onClose={() => setHouseholdOpen(false)} beforeLeave={flushSaves} onChanged={() => { setHouseholdOpen(false); void refreshHome(); }} />
         )}
         {farOpen && list && list.items.length > 0 && (
           <FarSheet lines={list.items} clubs={clubs} coupons={coupons} favs={favs} onFav={toggleFav}
             onClose={() => setFarOpen(false)} />
         )}
         {missingOpen && home && (
-          <Missing items={home.items} list={home.list} meta={home.meta} city={city} onSaveItem={saveItemNow}
+          <Missing items={home.items} list={home.list} meta={home.meta} city={city} homeId={home.id} onSaveItem={saveItemNow}
             onAdded={(h) => { setHome(h); setMissingOpen(false); setToast('נוסף לרשימה'); }} onClose={() => setMissingOpen(false)} />
         )}
         {toast && <div className="sh-toast" role="status">{toast}</div>}

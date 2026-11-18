@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { wrongHousehold } from '@/lib/shopping/household';
 import { requireFeatureCaller } from '@/lib/api-caller';
 import { parsePicks, pickMissing } from '@/lib/shopping/home';
 import { addLines, householdFor, withMeta } from '@/models/ShoppingHome';
@@ -19,6 +20,7 @@ export async function POST(request: NextRequest) {
   if (!picks.ok) return NextResponse.json({ error: picks.error }, { status: 400 });
   try {
     const home = await householdFor(caller.userEmail);
+    if (wrongHousehold((body as { home?: unknown })?.home, home.id)) return NextResponse.json({ error: 'משק הבית השתנה' }, { status: 409 });
     return NextResponse.json(await withMeta(await addLines(home.id, pickMissing(home.items, picks.value))));
   } catch (error) {
     console.error('Error adding to the shopping list:', error);

@@ -16,11 +16,13 @@ import { Thumb } from './ui';
 const step = (w: boolean) => (w ? 0.5 : 1);
 const OTHER = { id: 'other', name: 'אחר' };
 
-export default function Missing({ items, list, meta, city, onSaveItem, onAdded, onClose }: {
+export default function Missing({ items, list, meta, city, homeId, onSaveItem, onAdded, onClose }: {
   items: MyItem[];
   list: ListLine[];
   meta: HomeMeta;
   city: string;
+  /** The household these items are in (the server refuses the add once the caller is in another). */
+  homeId: string;
   /** Save a new product to My items (the page owns the save). */
   onSaveItem: (hit: { key: string; name: string; w: boolean }) => Promise<void>;
   onAdded: (home: HomeView) => void;
@@ -113,7 +115,7 @@ export default function Missing({ items, list, meta, city, onSaveItem, onAdded, 
     setSaving(true);
     setError(false);
     try {
-      onAdded(await submitMissing([...picks].map(([key, qty]) => ({ key, qty }))));
+      onAdded(await submitMissing([...picks].map(([key, qty]) => ({ key, qty })), homeId));
     } catch {
       setError(true);
       setSaving(false);
