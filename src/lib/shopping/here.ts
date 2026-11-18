@@ -73,14 +73,16 @@ export function metresBetween(a: LatLng, b: LatLng): number {
 
 /**
  * Stores for the picker with their distance from `me` (null without a
- * position or a location). Stores we have prices for come first, the rest
- * after them; inside each part nearest first, stores without a distance
+ * position or a location). Favorites (`favs`) come first, then stores we
+ * have prices for, then the rest; inside each part nearest first, stores without a distance
  * after those, by walking time from the pins, then by name.
  */
-export function sortStores<S extends HereStore>(stores: S[], me: LatLng | null): (S & { distM: number | null })[] {
+export function sortStores<S extends HereStore>(stores: S[], me: LatLng | null, favs?: ReadonlySet<number>): (S & { distM: number | null })[] {
   return stores
     .map((s) => ({ ...s, distM: me && s.loc ? Math.round(metresBetween(me, s.loc)) : null }))
     .sort((a, b) => {
+      const fa = !!favs?.has(a.k);
+      if (fa !== !!favs?.has(b.k)) return fa ? -1 : 1;
       if (a.priced !== b.priced) return a.priced ? -1 : 1;
       if (a.distM !== null || b.distM !== null) {
         if (a.distM === null) return 1;
@@ -92,6 +94,23 @@ export function sortStores<S extends HereStore>(stores: S[], me: LatLng | null):
       if (wa !== wb) return wa - wb;
       return `${a.chainName} ${a.name}`.localeCompare(`${b.chainName} ${b.name}`, 'he');
     });
+}
+
+/** The words of a store search: 2+ letters each. None means no search (not "every store"). */
+export const storeQueryWords = (q: string) => q.trim().split(/\s+/).filter((w) => w.length >= 2);
+
+/** Whether a store matches every word of `q`, in its chain, branch, city or address. */
+export function storeMatches(q: string, s: { chainName: string; name: string; address: string; cityName: string }): boolean {
+  const words = storeQueryWords(q);
+  if (!words.length) return false;
+  const hay = `${s.chainName} ${s.name} ${s.cityName} ${s.address}`;
+  return words.every((w) => hay.includes(w));
+}
+
+/** Store lists joined, each store once (its first occurrence). */
+export function mergeStores<S extends { k: number }>(...lists: S[][]): S[] {
+  const seen = new Set<number>();
+  return lists.flat().filter((s) => !seen.has(s.k) && !!seen.add(s.k));
 }
 
 /** The store to suggest: the nearest one (priced or not), if it's within HERE_NEAR_M. */

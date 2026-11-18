@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  dealGap, distanceLabel, endsLabel, groupHere, isTwin, storeDeals, HERE_WORTH_WALK, hereLines, metresBetween, nearbyStore, sortStores, tieOf, verdict,
+  dealGap, distanceLabel, endsLabel, groupHere, isTwin, storeDeals, HERE_WORTH_WALK, hereLines, mergeStores, metresBetween, storeMatches, storeQueryWords, nearbyStore, sortStores, tieOf, verdict,
   type HereRow, type HereStore,
 } from '../shopping/here.ts';
 import type { PromoDoc } from '../shopping/snapshot.ts';
@@ -168,4 +168,25 @@ test('storeDeals: a "second for ₪20" deal is priced for two units', () => {
   p.g.push({ gid: '002', rt: 1, min: 1, max: null, rate: null, price: 2000, w: false, items: ['s'] });
   const [d] = storeDeals(7, [p], items, '2026-11-17T12:00');
   assert.deepEqual([d.qty, d.cost, d.regularCost], [2, 10490 + 2000, 2 * 10490]);
+});
+
+test('sortStores: favorites first by distance, the rest as before', () => {
+  const me = { lat: 32.06, lng: 34.77 };
+  const near = store(1, { lat: 32.061, lng: 34.771 }, null);
+  const far = store(2, { lat: 31.25, lng: 34.79 }, null);
+  const mid = store(3, { lat: 32.08, lng: 34.78 }, null);
+  assert.deepEqual(sortStores([near, far, mid], me, new Set([2, 3])).map((s) => s.k), [3, 2, 1]);
+  assert.deepEqual(sortStores([near, far, mid], me).map((s) => s.k), [1, 3, 2]);
+});
+
+test('storeMatches: every word, across chain, branch, city and address', () => {
+  const s = { chainName: 'רמי לוי', name: 'סניף העיר', address: 'הרצל 5', cityName: 'באר שבע' };
+  assert.equal(storeMatches('רמי באר', s), true);
+  assert.equal(storeMatches('רמי חיפה', s), false);
+  assert.deepEqual(storeQueryWords(' א  '), []);
+  assert.equal(storeMatches('א', s), false); // too short: no search, not "everything"
+});
+
+test('mergeStores keeps one copy of each store, first list first', () => {
+  assert.deepEqual(mergeStores([{ k: 1 }, { k: 2 }], [{ k: 2 }, { k: 3 }]).map((s) => s.k), [1, 2, 3]);
 });
