@@ -60,7 +60,7 @@ export const CHAINS: ChainConfig[] = [
   { slug: 'super-sapir', chainId: '7290058156016', name: 'סופר ספיר', source: { kind: 'bina', host: 'supersapir' } },
   // Mevaseret Zion 25 only (places/official.json).
   { slug: 'zol-vebegadol', chainId: '7290058173198', name: 'זול ובגדול', source: { kind: 'bina', host: 'zolvebegadol' } },
-  // No branch in the picker cities; Holon's מרכבה is kept as a far store (places/official.json).
+  // No branch near a pin; Holon's מרכבה is picked by hand (places/official.json).
   { slug: 'hazi-hinam', chainId: '7290700100008', name: 'חצי חינם', source: { kind: 'hazihinam' } },
   // The venues come from places/wolt.json in the cache dir (personal, never in the repo).
   { slug: 'wolt', chainId: 'wolt', name: 'וולט', source: { kind: 'wolt' } },

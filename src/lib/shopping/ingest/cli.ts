@@ -21,11 +21,10 @@ import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, wri
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { gunzipSync, gzipSync } from 'node:zlib';
-import { parseArgs } from 'node:util';
 import { BSON, MongoClient, type AnyBulkWriteOperation, type Db, type Document } from 'mongodb';
 import { CHAINS, chainBySlug, keepOnlineStore, type ChainConfig } from '../chains.ts';
 import { COLLECTIONS, SNAPSHOT_COLLECTIONS, storeId, type StoreId } from '../collections.ts';
-import { cityOf, ingestCityIds } from '../cities.ts';
+import { cityOf, isTargetCity } from '../cities.ts';
 import { decodeXmlBytes, isGzip } from '../xml.ts';
 import { parsePriceFile, parsePromoFile, parseStoresFile, type CanonItem, type CanonPromo, type CanonStore } from '../normalize.ts';
 import { buildItemDocs, buildPromoDocs, buildStoreDocs, diffDocs, israelLocalNow, type StoreState } from '../snapshot.ts';
@@ -34,6 +33,7 @@ import { fetchWoltVenue, type WoltVenueConfig } from './wolt.ts';
 import { placeCity } from '../places.ts';
 import { fallbackOrder, keepFallbacks, needsFallback, pinFilter, woltVenueRule, type FallbackCandidate } from './locate.ts';
 import { ensureIndexes } from './write.ts';
+import { parseIngestFlags, type IngestFlags } from './flags.ts';
 import { RAMI_LEVY_IMG, cachedPhotos, readOffNutrition, readRamiLevy } from './off.ts';
 
 const RAW_RETENTION_DAYS = 7;
@@ -41,18 +41,18 @@ const REQUEST_GAP_MS = 1500;
 const WRITE_BATCH = 500;
 const WRITE_PAUSE_MS = 1000; // Atlas M0: ~100 ops/s; it queues rather than fails, but be polite.
 
-const { values: args } = parseArgs({
-  options: {
-    chains: { type: 'string' },
-    cities: { type: 'string' },
-    'max-stores': { type: 'string' },
-    'dry-run': { type: 'boolean', default: false },
-    /** Ignore places/pins.json and keep every store in the target cities. */
-    'all-stores': { type: 'boolean', default: false },
-    full: { type: 'boolean', default: false },
-    offline: { type: 'boolean', default: false },
-  },
-});
+/** Stops the run before anything is fetched or written. */
+function stop(msg: string): never {
+  console.error(msg);
+  process.exit(1);
+}
+
+let flags: IngestFlags;
+try {
+  flags = parseIngestFlags(process.argv.slice(2));
+} catch (e) {
+  stop(errorMessage(e));
+}
 
 const CACHE = process.env.SHOPPING_CACHE_DIR || join(homedir(), '.cache', 'hatom-shopping');
 const RAW = join(CACHE, 'raw');
@@ -60,8 +60,8 @@ const STATE = join(CACHE, 'state');
 const STORE_STATE = join(STATE, 'stores');
 const LOGS = join(CACHE, 'logs');
 for (const d of [RAW, STORE_STATE, LOGS]) mkdirSync(d, { recursive: true });
-// With pins, only stores near them are ingested (ingest/locate.ts); --all-stores keeps whole cities.
-const PINS = args['all-stores'] ? null : pinFilter(join(CACHE, 'places'));
+// Only stores near the pins, or picked by hand, are ingested (ingest/locate.ts).
+const PINS = pinFilter(join(CACHE, 'places')) ?? stop(`no pins: create ${join(CACHE, 'places', 'pins.json')} (see the header of ingest/discover.ts)`);
 
 const runId = new Date().toISOString().replace(/[:.]/g, '-');
 const logFile = join(LOGS, `${runId}.log`);
@@ -163,7 +163,6 @@ interface StoreRecord extends CanonStore {
  * one cached listing; Shufersal asks per store, nearest first, so it stops early.
  */
 async function fallbackFor(chain: ChainConfig, cands: StoreRecord[], client: SourceClient) {
-  if (!PINS) return null;
   const pinnedCities = new Set(PINS.pins.map((p) => p.city));
   const byKey = new Map<string, { s: StoreRecord; distM: number | null }>();
   const list: FallbackCandidate[] = [];
@@ -185,9 +184,9 @@ async function fallbackFor(chain: ChainConfig, cands: StoreRecord[], client: Sou
   return null;
 }
 
-async function ingestChain(chain: ChainConfig, cityIds: Set<string>, maxStores: number | null): Promise<StoreRecord[]> {
-  if (chain.source.kind === 'wolt') return ingestWolt(chain, cityIds, maxStores);
-  if (chain.source.kind === 'manual') return ingestManual(chain, cityIds);
+async function ingestChain(chain: ChainConfig, maxStores: number | null): Promise<StoreRecord[]> {
+  if (chain.source.kind === 'wolt') return ingestWolt(chain, maxStores);
+  if (chain.source.kind === 'manual') return ingestManual(chain);
   const client = clientFor(chain, new Throttle(REQUEST_GAP_MS));
   const storesFile = await client.latestStores();
   if (!storesFile) throw new Error(`${chain.slug}: no Stores file listed`);
@@ -197,21 +196,17 @@ async function ingestChain(chain: ChainConfig, cityIds: Set<string>, maxStores: 
     .filter((s) => !seen.has(s.storeId) && !!seen.add(s.storeId))
     .map((s) => ({ ...s, chainSlug: chain.slug, chainName: chain.name, cityId: cityOf(s) }))
     // Online stores are listed separately (kind: 'online'): those serving the target cities (chains.ts).
-    .filter((s) => (s.kind === 'online' ? keepOnlineStore(chain, s.storeId, s.cityId) : s.cityId !== null && cityIds.has(s.cityId)));
-  let targets = inCities;
-  if (PINS) {
-    const near = await PINS.keep(targets, warn);
-    const before = targets.length;
-    targets = targets.filter((s) => near.has(storeId(s)));
-    log(`${chain.slug}: ${targets.length} of ${before} target-city stores are near a pin or online`);
-  }
+    .filter((s) => (s.kind === 'online' ? keepOnlineStore(chain, s.storeId, s.cityId) : s.cityId !== null));
+  const near = await PINS.keep(inCities, warn);
+  let targets = inCities.filter((s) => near.has(storeId(s)));
+  log(`${chain.slug}: ${targets.length} of ${inCities.length} target-city stores are near a pin or online`);
   if (maxStores !== null) targets = targets.slice(0, maxStores);
   log(`${chain.slug}: ${parsed.stores.length} stores listed, ${targets.length} in target cities or online (${storesFile.name})`);
 
   const prices = await client.latestFor('PriceFull', targets.map((s) => s.storeId));
-  // Every chain keeps a priced store (a --max-stores run only samples, so it doesn't).
+  // Every chain keeps a priced store.
   const keptPriced = targets.map((s) => ({ publishesToday: prices.has(s.storeId), savedPrices: !!loadState(s)?.priceFile }));
-  if (PINS && maxStores === null && needsFallback(keptPriced)) {
+  if (needsFallback(keptPriced)) {
     const kept = new Set(targets.map((s) => s.storeId));
     const fb = await fallbackFor(chain, inCities.filter((s) => !kept.has(s.storeId)), client);
     if (fb) {
@@ -257,22 +252,20 @@ async function ingestChain(chain: ChainConfig, cityIds: Set<string>, maxStores: 
  * Wolt venues approved in places/wolt.json. A venue that fails to load keeps
  * its previous items, like a chain store whose PriceFull is missing.
  */
-async function ingestWolt(chain: ChainConfig, cityIds: Set<string>, maxStores: number | null): Promise<StoreRecord[]> {
+async function ingestWolt(chain: ChainConfig, maxStores: number | null): Promise<StoreRecord[]> {
   const configPath = join(CACHE, 'places', 'wolt.json');
-  let venues = readJson<WoltVenueConfig[]>(configPath, []).filter((v) => cityIds.has(v.cityId) && !v.photosOnly);
-  if (PINS) {
+  let venues: WoltVenueConfig[] = [];
+  {
     // Wolt pages carry no coordinates; a venue is placed by the discovery entry it was approved from.
     const at = placeCoords();
     const decisions = readJson<Record<string, string>>(join(CACHE, 'places', 'decisions.json'), {});
     const pinnedCities = new Set(PINS.pins.map((p) => p.city));
-    const kept: WoltVenueConfig[] = [];
-    for (const v of venues) {
+    for (const v of readJson<WoltVenueConfig[]>(configPath, []).filter((v) => isTargetCity(v.cityId) && !v.photosOnly)) {
       const p = v.placeId ? at.get(v.placeId) : undefined;
       const rule = woltVenueRule({ cityId: v.cityId, placed: !!p, included: !!v.placeId && decisions[v.placeId] === 'include' }, pinnedCities);
-      if (rule === 'keep' || (rule === 'locate' && (await PINS.near(v.cityId, p!)))) kept.push(v);
+      if (rule === 'keep' || (rule === 'locate' && (await PINS.near(v.cityId, p!)))) venues.push(v);
       else log(`  ${v.slug}: ${!p ? 'no discovery entry to place it' : pinnedCities.has(v.cityId) ? 'outside the pin' : 'not included in the review'} — left out`);
     }
-    venues = kept;
   }
   if (maxStores !== null) venues = venues.slice(0, maxStores);
   log(`${chain.slug}: ${venues.length} venues in target cities (${existsSync(configPath) ? configPath : 'no places/wolt.json'})`);
@@ -367,7 +360,7 @@ function placeCoords(): Map<string, { lat: number; lng: number }> {
   return out;
 }
 
-function ingestManual(chain: ChainConfig, cityIds: Set<string>): StoreRecord[] {
+function ingestManual(chain: ChainConfig): StoreRecord[] {
   const places = join(CACHE, 'places');
   const decisions = readJson<Record<string, string>>(join(places, 'decisions.json'), {});
   const pins = readJson<{ id: string; city: string }[]>(join(places, 'pins.json'), []);
@@ -379,7 +372,7 @@ function ingestManual(chain: ChainConfig, cityIds: Set<string>): StoreRecord[] {
     for (const r of readJson<Row[]>(join(places, `${pin.id}.review.json`), [])) {
       // A shop added under another city's pin carries its own city (places/extra.json).
       const city = placeCity(r, pin);
-      if (!cityIds.has(city)) continue;
+      if (!isTargetCity(city)) continue;
       if (r.status === 'ingested' || !r.refs.some((ref) => decisions[ref] === 'include')) continue;
       if (r.refs.some((ref) => woltPlaces.has(ref))) continue;
       const id = createHash('sha1').update(r.id).digest('hex').slice(0, 10);
@@ -424,17 +417,16 @@ async function writeCollection(db: Db, name: string, upserts: StringIdDoc[], del
 const mb = (bytes: number) => `${(bytes / 1_048_576).toFixed(1)} MB`;
 
 async function main() {
-  const slugs = args.chains ? args.chains.split(',') : CHAINS.map((c) => c.slug);
+  const slugs = flags.chains ?? CHAINS.map((c) => c.slug);
   const chains = slugs.map((s) => {
-    const c = chainBySlug(s.trim());
+    const c = chainBySlug(s);
     if (!c) throw new Error(`unknown chain "${s}" (known: ${CHAINS.map((x) => x.slug).join(', ')})`);
     return c;
   });
-  const cityIds = args.cities ? new Set(args.cities.split(',')) : ingestCityIds({ allStores: args['all-stores'] });
-  const maxStores = args['max-stores'] ? Number(args['max-stores']) : null;
-  const dry = args['dry-run'];
-  log(`run ${runId}${dry ? ' (dry run)' : ''}${args.offline ? ' (offline)' : ''} — chains: ${slugs.join(', ')}; cache: ${CACHE}`);
-  pruneRaw();
+  const { maxStores, dryRun: dry } = flags;
+  log(`run ${runId}${dry ? ' (dry run)' : ''}${flags.offline ? ' (offline)' : ''} — chains: ${slugs.join(', ')}; cache: ${CACHE}`);
+  // A dry run or an offline run reads the raw cache (re-parsing saved state), so it never thins it.
+  if (flags.pruneRaw) pruneRaw();
 
   let mongo: MongoClient | null = null;
   let db: Db | null = null;
@@ -448,24 +440,22 @@ async function main() {
   try {
     // 1. Fetch + parse the chains asked for (others keep their saved state).
     const fresh: StoreRecord[] = [];
-    for (const chain of args.offline ? [] : chains) {
+    for (const chain of flags.offline ? [] : chains) {
       try {
-        fresh.push(...(await ingestChain(chain, cityIds, maxStores)));
+        fresh.push(...(await ingestChain(chain, maxStores)));
       } catch (e) {
         warn(`${chain.slug}: chain skipped — ${errorMessage(e)}`);
       }
     }
 
     // 2. Store registry: merge with stores of chains not run this time. A
-    //    complete run of a chain replaces its store list; a --max-stores run
-    //    only adds/updates, so it never makes a later run delete stores.
+    //    run of a chain replaces its store list (a --max-stores sample too:
+    //    it is a dry run, so the registry is never saved).
     const registryPath = join(STATE, 'stores.json');
     const registry = readJson<Record<string, StoreRecord>>(registryPath, {});
-    if (maxStores === null) {
-      const ranChainIds = new Set(fresh.map((s) => s.chainId));
-      for (const id of Object.keys(registry)) {
-        if (ranChainIds.has(registry[id].chainId)) delete registry[id];
-      }
+    const ranChainIds = new Set(fresh.map((s) => s.chainId));
+    for (const id of Object.keys(registry)) {
+      if (ranChainIds.has(registry[id].chainId)) delete registry[id];
     }
     for (const s of fresh) registry[storeId(s)] = s;
     // Online stores left from before the per-chain list (chains.ts onlineStores).
@@ -473,7 +463,7 @@ async function main() {
       if (s.kind === 'online' && !keepOnlineStore(chainBySlug(s.chainSlug), s.storeId, s.cityId)) delete registry[storeId(s)];
     }
     // Stores of chains not run this time (or an --offline run) are held to the pins too.
-    if (PINS) {
+    {
       const others = Object.values(registry).filter((s) => s.chainSlug !== 'wolt' && s.chainSlug !== 'manual');
       const near = await PINS.keep(others, warn);
       // A chain's only store (kept as a fallback) stays while no other store of the chain has prices.
@@ -516,7 +506,7 @@ async function main() {
         if (it.barcode && /^\d{8,14}$/.test(it.key) && !(it.key in probed) && !photos.has(it.key)) photos.set(it.key, { img: RAMI_LEVY_IMG(it.key), first: true });
       }
     }
-    const wm = await woltPhotos(Boolean(args.offline));
+    const wm = await woltPhotos(flags.offline);
     for (const [k, img] of wm) if (!photos.get(k) || photos.get(k)!.by === 'off') photos.set(k, { img });
     // The owner's call (2026-11-17): every other barcode not yet checked is assumed
     // to be on Rami Levy's CDN too (~91% are) rather than waiting ~17 h of checks.
@@ -543,12 +533,10 @@ async function main() {
     const promos = buildPromoDocs(states, nowLocal, promoStats);
     // Where each physical store is, for the app's distance sort.
     const where = new Map<string, { lat: number; lng: number }>();
-    if (PINS) {
-      for (const { s } of loaded) {
-        if (s.kind !== 'physical') continue;
-        const at = s.at ?? (await PINS.pointOf(s));
-        if (at) where.set(storeId(s), at);
-      }
+    for (const { s } of loaded) {
+      if (s.kind !== 'physical') continue;
+      const at = s.at ?? (await PINS.pointOf(s));
+      if (at) where.set(storeId(s), at);
     }
     const storeDocs = buildStoreDocs(
       loaded.map(({ s, st }) => ({ ...s, priceFile: st?.priceFile ?? null, promoFile: st?.promoFile ?? null, loc: where.get(storeId(s)) ?? null })),
@@ -571,7 +559,7 @@ async function main() {
     // 6. Diff + write.
     const writtenPath = join(STATE, 'written.json');
     const written = readJson<Record<string, Record<string, string>>>(writtenPath, {});
-    if (args.full && db) {
+    if (flags.full && db) {
       for (const name of SNAPSHOT_COLLECTIONS) {
         const ids = await db.collection(name).find({}, { projection: { _id: 1 } }).map((d) => String(d._id)).toArray();
         written[name] = Object.fromEntries(ids.map((id) => [id, '']));

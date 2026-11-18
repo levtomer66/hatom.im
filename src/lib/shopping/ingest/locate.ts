@@ -167,7 +167,7 @@ export interface PinFilter {
   pointOf(store: LocatableStore): Promise<Point | null>;
 }
 
-/** null when there's no pins.json: the ingest then keeps whole target cities. */
+/** null when there's no pins.json (or it lists no pin): the ingest stops and says so. */
 export function pinFilter(placesDir: string): PinFilter | null {
   const pins = readJson<Pin[]>(join(placesDir, 'pins.json'), []);
   if (!pins.length) return null;
