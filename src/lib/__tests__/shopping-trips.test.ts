@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { applyStopsChange, dealNudge, groupByDepartment, parseTripCreate, parseTripPatch, progress, withPending, type TripItem } from '../shopping/trips.ts';
+import { addLinesToTrip, applyStopsChange, dealNudge, groupByDepartment, parseTripCreate, parseTripPatch, progress, withPending, type TripItem } from '../shopping/trips.ts';
 import { DEPARTMENTS } from '../shopping/departments.ts';
 
 const item = (key: string, d: string | null, cost = 100): TripItem => ({ key, name: key, qty: 1, w: false, cost, d, img: null });
@@ -91,4 +91,23 @@ test('patch shapes for the new actions', () => {
   assert.equal(parseTripPatch({ move: { key: 'a', toStore: 2 } }).ok, true);
   assert.equal(parseTripPatch({ qty: { key: 'a', qty: 0 } }).ok, false);
   assert.equal(parseTripPatch({ replace: { key: 'a', item: { key: 'z' } } }).ok, false);
+});
+
+test('addLinesToTrip: a list line added after the trip started goes to its cheapest stop', () => {
+  const tripStops = [
+    { store: 1, storeName: 'A', items: [item('milk', null)] },
+    { store: 2, storeName: 'B', items: [] },
+  ];
+  const base = (key: string) => ({ key, name: key, qty: 2, w: false, d: null, img: null });
+  const out = addLinesToTrip(tripStops, [{ key: 'salt', name: 'salt' }], [
+    { item: base('bread'), costs: { 1: 900, 2: 700 } },
+    { item: base('eggs'), costs: { 1: 500 } },
+    { item: base('caviar'), costs: {} },
+    { item: base('milk'), costs: { 2: 1 } }, // already on the trip: untouched
+    { item: base('salt'), costs: { 1: 50 } }, // already missing: stays missing, not added twice
+  ]);
+  assert.deepEqual(out.stops.map((s) => s.items.map((i) => [i.key, i.cost])), [[['milk', 100], ['eggs', 500]], [['bread', 700]]]);
+  assert.deepEqual(out.missing.map((m) => m.key), ['salt', 'caviar']);
+  assert.equal(out.added, 3);
+  assert.deepEqual(parseTripPatch({ sync: true }), { ok: true, value: { sync: true } });
 });

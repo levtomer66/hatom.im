@@ -7,6 +7,7 @@ import { ITEM_OPTIONS_SHOWN, RESULTS_PER_SECTION } from '@/lib/shopping/config';
 import { MAX_LIST_ITEMS, MAX_QTY } from '@/lib/shopping/home';
 import { priceStore, rankStores, shownUnit, unitAcross, type BasketLine, type PricedItem, type PricingOptions, type StoreBasket } from '@/lib/shopping/pricing';
 import { choosePlan, MAX_PLAN_STORES, worthCount } from '@/lib/shopping/plans';
+import type { TripItem } from '@/lib/shopping/trips';
 import type { ItemDoc, PromoDoc, StoreDoc } from '@/lib/shopping/snapshot';
 import { israelLocalNow } from '@/lib/shopping/snapshot';
 import {
@@ -284,6 +285,29 @@ function cardData(shown: StoreBasket[], itemDocs: ItemDoc[], promos: PromoDoc[],
     idle,
     promos: promoDetails(promos, [...shown.flatMap((b) => b.lines), ...Object.values(idle).map((ids) => ({ applied: [], offers: [], idle: ids }))]),
   };
+}
+
+/**
+ * Each line's cost at each of `stores` for its quantity (deals applied, no
+ * club or coupon), only where it's sold, with its department and photo: what
+ * a trip needs to take on a line the list gained after it started.
+ */
+export async function priceLinesAt(
+  lines: { key: string; qty: number; name: string; w: boolean }[],
+  stores: number[],
+): Promise<{ item: Omit<TripItem, 'cost'>; costs: Record<number, number> }[]> {
+  if (!lines.length) return [];
+  const { itemDocs, items, promos, opts } = await loadBasket({ lines, clubs: false, coupons: false }, stores);
+  const docs = new Map(itemDocs.map((d) => [d._id, d]));
+  return lines.map((l) => {
+    const costs: Record<number, number> = {};
+    for (const st of stores) {
+      const line = priceStore(st, [{ key: l.key, qty: l.qty }], items, promos, opts).lines[0];
+      if (line?.available) costs[st] = line.cost;
+    }
+    const d = docs.get(l.key);
+    return { item: { key: l.key, name: l.name, qty: l.qty, w: l.w, d: d?.d ?? null, img: d?.img ?? null, imgBy: d ? imgByOf(d) : null }, costs };
+  });
 }
 
 /** "כמה יעלה לי ב…": the basket at each of `stores` (the favorites, any city), ranked like the store list. */

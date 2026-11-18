@@ -3,8 +3,9 @@ import { ObjectId } from 'mongodb';
 import { requireFeatureCaller } from '@/lib/api-caller';
 import { parseTripPatch } from '@/lib/shopping/trips';
 import { HOME_LIST_ID } from '@/lib/shopping/home';
-import { pullBought } from '@/models/ShoppingHome';
-import { changeStops, endTrip, getTrip, setNotThere, setTick } from '@/models/ShoppingTrip';
+import { priceLinesAt } from '@/lib/shopping/service';
+import { getHome, pullBought } from '@/models/ShoppingHome';
+import { addToTrip, changeStops, endTrip, getTrip, setNotThere, setTick } from '@/models/ShoppingTrip';
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -22,6 +23,16 @@ async function endAndClear(id: string) {
   return trip;
 }
 
+/** Takes on the list lines added since the trip started ("מה חסר?" after "יוצאים לקניות"). */
+async function syncWithList(id: string) {
+  const trip = await getTrip(id);
+  if (!trip || trip.endedAt) return null;
+  const known = new Set([...trip.stops.flatMap((s) => s.items.map((i) => i.key)), ...trip.missing.map((m) => m.key)]);
+  const fresh = (await getHome()).list.filter((l) => !known.has(l.key));
+  if (!fresh.length) return trip;
+  return addToTrip(id, await priceLinesAt(fresh, trip.stops.map((s) => s.store)));
+}
+
 // GET — the trip (polled while the in-store screen is open).
 export async function GET(request: NextRequest, { params }: Params) {
   const caller = await requireFeatureCaller(request, 'shopping');
@@ -37,7 +48,7 @@ export async function GET(request: NextRequest, { params }: Params) {
 
 // PATCH — one change: { tick: {key, on} } | { notThere: {key, on} } |
 // { replace: {key, item} } | { move: {key, toStore} } | { qty: {key, qty} } |
-// { end: true }.
+// { sync: true } (take on new list lines) | { end: true }.
 export async function PATCH(request: NextRequest, { params }: Params) {
   const caller = await requireFeatureCaller(request, 'shopping');
   if (caller instanceof NextResponse) return caller;
@@ -56,6 +67,7 @@ export async function PATCH(request: NextRequest, { params }: Params) {
     const trip = 'tick' in p ? await setTick(id, p.tick.key, p.tick.on, caller.userEmail)
       : 'notThere' in p ? await setNotThere(id, p.notThere.key, p.notThere.on)
         : 'end' in p ? await endAndClear(id)
+          : 'sync' in p ? await syncWithList(id)
           : await changeStops(id, p);
     return trip ? NextResponse.json(trip) : NextResponse.json({ error: 'Trip already ended, or no such item' }, { status: 409 });
   } catch (error) {

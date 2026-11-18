@@ -1,6 +1,6 @@
 import { ObjectId } from 'mongodb';
 import clientPromise from '@/lib/mongodb';
-import { applyStopsChange, type Trip, type TripCreate, type TripPatch } from '@/lib/shopping/trips';
+import { addLinesToTrip, applyStopsChange, type Trip, type TripCreate, type TripItem, type TripPatch } from '@/lib/shopping/trips';
 
 // Shopping trips (docs/shopping-in-store-mode.md): a plan taken into the
 // store. One open trip per list; anyone who can see the list can join it,
@@ -93,6 +93,29 @@ export async function changeStops(
     const res = await col.findOneAndUpdate(
       { _id: doc._id, endedAt: null, ...(doc.rev === undefined ? { rev: { $exists: false } } : { rev }) },
       { $set: { stops, rev: rev + 1 }, ...pullOld },
+      { returnDocument: 'after' },
+    );
+    if (res) return docToTrip(res);
+  }
+  return null;
+}
+
+/**
+ * Lines the list gained after the trip started, placed at their cheapest stop
+ * (or missing). Retried on a concurrent change, like changeStops; the open
+ * trip as it is when nothing new was added.
+ */
+export async function addToTrip(id: string, adds: { item: Omit<TripItem, 'cost'>; costs: Record<number, number> }[]): Promise<Trip | null> {
+  const col = await getCollection();
+  for (let attempt = 0; attempt < 4; attempt++) {
+    const doc = await col.findOne({ _id: new ObjectId(id), endedAt: null });
+    if (!doc) return null;
+    const next = addLinesToTrip(doc.stops, doc.missing, adds);
+    if (!next.added) return docToTrip(doc);
+    const rev = doc.rev ?? 0;
+    const res = await col.findOneAndUpdate(
+      { _id: doc._id, endedAt: null, ...(doc.rev === undefined ? { rev: { $exists: false } } : { rev }) },
+      { $set: { stops: next.stops, missing: next.missing, rev: rev + 1 } },
       { returnDocument: 'after' },
     );
     if (res) return docToTrip(res);

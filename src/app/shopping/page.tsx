@@ -495,6 +495,20 @@ export default function ShoppingPage() {
     else lsDel(lsTrip(HOME_LIST_ID));
   }, [trip, homeLoaded]);
 
+  // Opening the trip takes on what the list gained since it started (a "מה חסר?"
+  // after "יוצאים לקניות"): the server places each new line at its cheapest stop.
+  const tripId = trip && !trip.endedAt ? trip.id : null;
+  useEffect(() => {
+    if (!inStore || !tripId) return;
+    let live = true;
+    (async () => {
+      await flushSaves();
+      const t = await api<Trip>(`/trips/${tripId}`, { method: 'PATCH', body: JSON.stringify({ sync: true }) });
+      if (live) setTrip(t);
+    })().catch(() => { /* offline: the trip as it was */ });
+    return () => { live = false; };
+  }, [inStore, tripId, flushSaves]);
+
   /** Start a trip on the chosen plan, or join the list's open one. */
   const startTrip = async (plan: ShoppingPlan) => {
     if (!list || !result) return;
@@ -687,7 +701,7 @@ export default function ShoppingPage() {
                 <label className="sh-toggle"><input type="checkbox" checked={clubs} onChange={(e) => setClubs(e.target.checked)} /> לחשב מבצעי מועדון</label>
                 <label className="sh-toggle"><input type="checkbox" checked={coupons} onChange={(e) => setCoupons(e.target.checked)} /> לחשב קופונים</label>
               </div>
-              <button type="button" className="sh-btn sh-far-open" onClick={() => setFarOpen(true)}>
+              <button type="button" className="sh-btn sh-home-btn sh-far-open" onClick={() => setFarOpen(true)}>
                 <FaStore aria-hidden /> כמה יעלה לי ב…
               </button>
             </section>
@@ -1161,7 +1175,7 @@ function Line({ line, result, store }: { line: LineResult; result: StoreCardData
 
 /**
  * The shopping list priced at each favorite store, whatever its city, ranked
- * like the store list; ★ removes one, and the search below adds any priced
+ * like the store list; ★ removes one, and the search below (always open) adds any priced
  * store. The favorites go with the request, so a star counts before it's saved.
  */
 function FarSheet({ lines, clubs, coupons, favs, onFav, onClose }: {
@@ -1176,7 +1190,6 @@ function FarSheet({ lines, clubs, coupons, favs, onFav, onClose }: {
   const [error, setError] = useState(false);
   const [reload, setReload] = useState(0);
   const [open, setOpen] = useState<number | null>(null);
-  const [adding, setAdding] = useState(false);
   const [q, setQ] = useState('');
   const [found, setFound] = useState<HereStore[] | null>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
@@ -1227,12 +1240,11 @@ function FarSheet({ lines, clubs, coupons, favs, onFav, onClose }: {
           <StoreCard key={b.store} basket={b} result={data} rank={i} best={best} open={open === b.store}
             toggle={() => setOpen(open === b.store ? null : b.store)} fav={{ on: favs.has(b.store), toggle: () => onFav(b.store) }} />
         ))}
-        {(adding || none) ? (
-          <section className="sh-far-add">
+        <section className="sh-far-add">
             <label className="sh-search-box">
               <FaSearch aria-hidden />
-              <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="רשת, סניף או עיר"
-                aria-label="חיפוש חנות להוספה" autoComplete="off" autoFocus={!none} />
+              <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="הוסף רשת, סניף או עיר"
+                aria-label="חיפוש חנות להוספה" autoComplete="off" />
             </label>
             {found && !found.length && <p className="sh-empty">לא נמצאה חנות.</p>}
             {found && found.length > 0 && (
@@ -1249,9 +1261,6 @@ function FarSheet({ lines, clubs, coupons, favs, onFav, onClose }: {
               </ul>
             )}
           </section>
-        ) : (
-          <button type="button" className="sh-btn sh-btn--ghost sh-far-more" onClick={() => setAdding(true)}><FaPlus aria-hidden /> הוספת חנות</button>
-        )}
       </div>
     </div>
   );

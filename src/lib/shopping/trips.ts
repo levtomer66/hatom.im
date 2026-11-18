@@ -60,6 +60,8 @@ export type TripPatch =
   | { move: { key: string; toStore: number } }
   /** Change an item's quantity (the deal nudge's "+1"); its cost scales with it. */
   | { qty: { key: string; qty: number } }
+  /** Add the list lines the trip doesn't have yet (added after it started), each at its cheapest stop. */
+  | { sync: true }
   /** Close the trip. Older clients also sent {paid}; it's ignored. */
   | { end: true };
 
@@ -144,6 +146,7 @@ export function parseTripPatch(body: unknown): Result<TripPatch> {
     if (!isStr(t.key, 60) || typeof t.qty !== 'number' || !(t.qty > 0) || t.qty > 100) return { ok: false, error: 'qty needs key and 0 < qty ≤ 100' };
     return { ok: true, value: { qty: { key: t.key, qty: t.qty } } };
   }
+  if (b.sync === true) return { ok: true, value: { sync: true } };
   if (b.end) return { ok: true, value: { end: true } };
   return { ok: false, error: 'nothing to do' };
 }
@@ -235,6 +238,33 @@ export function applyStopsChange(stops: TripStop[], p: Extract<TripPatch, { repl
   const unit = item.qty ? item.cost / item.qty : item.cost;
   const changed = { ...item, qty: p.qty.qty, cost: Math.round(unit * p.qty.qty) };
   return stops.map((s, i) => (i === from ? { ...s, items: s.items.map((x) => (x.key === key ? changed : x)) } : s));
+}
+
+/**
+ * A trip after the list grew: each line not on it yet (no stop has it, and it
+ * isn't listed as missing) goes to the stop where it costs least (`costs`:
+ * agorot for its quantity, by store, only the stops that sell it), or to
+ * `missing` when none does. `added` counts the lines placed either way.
+ */
+export function addLinesToTrip(
+  stops: TripStop[],
+  missing: Trip['missing'],
+  adds: { item: Omit<TripItem, 'cost'>; costs: Record<number, number> }[],
+): { stops: TripStop[]; missing: Trip['missing']; added: number } {
+  const known = new Set([...stops.flatMap((s) => s.items.map((i) => i.key)), ...missing.map((m) => m.key)]);
+  const out = stops.map((s) => ({ ...s, items: [...s.items] }));
+  const miss = [...missing];
+  let added = 0;
+  for (const { item, costs } of adds) {
+    if (known.has(item.key)) continue;
+    known.add(item.key);
+    added++;
+    let best: TripStop | null = null;
+    for (const st of out) if (costs[st.store] !== undefined && (!best || costs[st.store] < costs[best.store])) best = st;
+    if (best) best.items.push({ ...item, cost: costs[best.store] });
+    else miss.push({ key: item.key, name: item.name });
+  }
+  return { stops: out, missing: miss, added };
 }
 
 /** The deal nudge for an item, if its deal needs more than it has: "יש לך 2, להוסיף עוד אחד?". */
