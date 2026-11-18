@@ -274,6 +274,16 @@ export interface HereStoresResponse {
   stores: HereStore[];
 }
 
+/**
+ * GET /api/shopping/stores?q=<text> — priced stores in every city whose chain,
+ * branch, city or address has every word of `q` (max 30); without `q`, the
+ * household's favorites. Sorted on the device.
+ */
+export interface StoresResponse {
+  now: string;
+  stores: HereStore[];
+}
+
 /** One list item at the chosen store (here.ts groups them). */
 export interface HereRow {
   key: string;

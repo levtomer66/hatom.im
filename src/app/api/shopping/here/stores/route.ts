@@ -1,16 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireFeatureCaller } from '@/lib/api-caller';
 import { CITIES } from '@/lib/shopping/cities';
-import { israelLocalNow, type StoreDoc } from '@/lib/shopping/snapshot';
-import { storeInfo, type HereStore, type HereStoresResponse } from '@/lib/shopping/api-types';
-import { getStoresFor } from '@/models/ShoppingCatalog';
+import { israelLocalNow } from '@/lib/shopping/snapshot';
+import { storeInfo, type HereStoresResponse } from '@/lib/shopping/api-types';
+import { getStoresFor, storeLoc } from '@/models/ShoppingCatalog';
 import { getStoresWithManualPrices } from '@/models/ShoppingManualPrice';
-
-/** `loc` is written by the ingest (store geocoding); read here before that field is on StoreDoc. */
-const locOf = (s: StoreDoc): HereStore['loc'] => {
-  const loc = (s as StoreDoc & { loc?: { lat?: unknown; lng?: unknown } | null }).loc;
-  return loc && typeof loc.lat === 'number' && typeof loc.lng === 'number' ? { lat: loc.lat, lng: loc.lng } : null;
-};
 
 // GET ?city=<city id> — the city's physical stores for the "אני בסופר"
 // picker, each with its location when known. The page sorts them by distance
@@ -25,7 +19,7 @@ export async function GET(request: NextRequest) {
     const typed = await getStoresWithManualPrices(stores.filter((s) => s.source === 'manual').map((s) => s.k));
     const res: HereStoresResponse = {
       now: israelLocalNow(),
-      stores: stores.map((s) => ({ ...storeInfo(s), loc: locOf(s), priced: s.pricesAt !== null || typed.has(s.k) })),
+      stores: stores.map((s) => ({ ...storeInfo(s), loc: storeLoc(s), priced: s.pricesAt !== null || typed.has(s.k) })),
     };
     return NextResponse.json(res);
   } catch (error) {

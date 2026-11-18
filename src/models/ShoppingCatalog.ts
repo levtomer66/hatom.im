@@ -2,6 +2,7 @@ import clientPromise from '@/lib/mongodb';
 import { COLLECTIONS } from '@/lib/shopping/collections';
 import type { ItemDoc, PromoDoc, StoreDoc } from '@/lib/shopping/snapshot';
 import { SEARCH_CANDIDATES, searchStage } from '@/lib/shopping/search-index';
+import { getStoresWithManualPrices } from '@/models/ShoppingManualPrice';
 
 // Read side of the price data the local ingest job writes
 // (src/lib/shopping/ingest/cli.ts). The app never writes these collections.
@@ -26,6 +27,33 @@ export async function getStoresFor(city: string): Promise<StoreDoc[]> {
     })
     .toArray();
 }
+
+/** The stores among `docs` that have prices: a price file, or (a manual shop) a typed price. */
+async function pricedOnly(docs: StoreDoc[]): Promise<StoreDoc[]> {
+  const typed = await getStoresWithManualPrices(docs.filter((s) => s.source === 'manual' && s.pricesAt === null).map((s) => s.k));
+  return docs.filter((s) => s.pricesAt !== null || typed.has(s.k));
+}
+
+/** Every store with prices, in every city (physical, online, manual with a typed price): the store search. */
+export async function getPricedStores(): Promise<StoreDoc[]> {
+  const docs = await (await getDb())
+    .collection<StoreDoc>(COLLECTIONS.stores)
+    .find({ $or: [{ pricesAt: { $ne: null } }, { source: 'manual' }] })
+    .toArray();
+  return pricedOnly(docs);
+}
+
+/** The stores with these keys that have prices, in `keys` order; unknown or unpriced keys are skipped. */
+export async function getStoresByKeys(keys: number[]): Promise<StoreDoc[]> {
+  if (!keys.length) return [];
+  const docs = await pricedOnly(await (await getDb()).collection<StoreDoc>(COLLECTIONS.stores).find({ k: { $in: keys } }).toArray());
+  const byKey = new Map(docs.map((d) => [d.k, d]));
+  return keys.flatMap((k) => byKey.get(k) ?? []);
+}
+
+/** A store's location when the ingest geocoded it, else null. */
+export const storeLoc = (s: StoreDoc): { lat: number; lng: number } | null =>
+  s.loc && typeof s.loc.lat === 'number' && typeof s.loc.lng === 'number' ? { lat: s.loc.lat, lng: s.loc.lng } : null;
 
 export async function getStoreByKey(k: number): Promise<StoreDoc | null> {
   return (await getDb()).collection<StoreDoc>(COLLECTIONS.stores).findOne({ k });
