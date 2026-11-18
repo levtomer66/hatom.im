@@ -33,12 +33,12 @@ import Navbar from '@/components/Navbar';
 import { CITIES } from '@/lib/shopping/cities';
 import { distanceM } from '@/lib/shopping/places';
 import { SHOPPING_API_PATH } from '@/lib/shopping/config';
-import { HOME_LIST_ID, normalizeQty, type ListLine, type MyItem } from '@/lib/shopping/home';
+import { HOME_LIST_ID, MAX_FAV_STORES, normalizeQty, type ListLine, type MyItem } from '@/lib/shopping/home';
 import type { ShoppingSettings } from '@/lib/shopping/api-types';
-import type { CompareResponse, ShoppingPlan, ItemPrice, ItemResponse, ManualPriceResponse, PriceSource, PromoDetail, SearchHit, StoreInfo } from '@/lib/shopping/api-types';
+import type { CompareResponse, StoreCardData, ShoppingPlan, ItemPrice, ItemResponse, ManualPriceResponse, PriceSource, PromoDetail, SearchHit, StoreInfo } from '@/lib/shopping/api-types';
 import type { LineResult, Offer, PromoRef, StoreBasket } from '@/lib/shopping/pricing';
 import { dealNudge, groupByDepartment, progress, withPending, type PlanKind, type Trip, type TripCreate, type TripItem } from '@/lib/shopping/trips';
-import { cleanAddress, dayMonth, ils, MultiStar, multiNote, photoBroken, qtyLabel, SaleLabel, storeName, Thumb } from './ui';
+import { cleanAddress, dayMonth, FavStar, ils, MultiStar, multiNote, photoBroken, qtyLabel, SaleLabel, storeName, Thumb } from './ui';
 import Here from './Here';
 import MyItemsSheet from './MyItems';
 import Missing from './Missing';
@@ -272,7 +272,7 @@ export default function ShoppingPage() {
         // In the store without signal: the last copy seen on this phone, so an open trip still opens.
         const cached = isNetworkError(e) ? lsJson<HomeView>(LS_HOME_CACHE) : null;
         if (cached) {
-          setHome(cached);
+          setHome({ ...cached, favStores: cached.favStores ?? [] }); // a copy cached before favorites existed
           setToast('אין חיבור. מוצגים הנתונים האחרונים מהטלפון.');
         } else {
           setLoadError(true);
@@ -294,14 +294,14 @@ export default function ShoppingPage() {
     if (home) lsSet(LS_HOME_CACHE, JSON.stringify(home));
   }, [home]);
 
-  // ── save, debounced: the list and My items each have their own timer ──
+  // ── save, debounced: the list, My items and the favorite stores each have their own timer ──
   // Saves replace the whole array, so the page must never save a copy older
   // than the server's: pending saves are sent before any server copy is
   // adopted, and the page reloads when it comes back into view or online
   // (the other phone, or a trip that ended, may have changed the list).
-  type Field = 'list' | 'items';
+  type Field = 'list' | 'items' | 'favStores';
   const timers = useRef<Partial<Record<Field, ReturnType<typeof setTimeout>>>>({});
-  const pendingSave = useRef<{ list?: ListLine[]; items?: MyItem[] }>({});
+  const pendingSave = useRef<{ list?: ListLine[]; items?: MyItem[]; favStores?: number[] }>({});
   const sendSave = useCallback(async (field: Field) => {
     clearTimeout(timers.current[field]);
     const value = pendingSave.current[field];
@@ -316,20 +316,20 @@ export default function ShoppingPage() {
       setSaveError(true);
     }
   }, []);
-  const save = useCallback((field: Field, value: ListLine[] | MyItem[]) => {
+  const save = useCallback((field: Field, value: ListLine[] | MyItem[] | number[]) => {
     clearTimeout(timers.current[field]);
     (pendingSave.current as Record<Field, unknown>)[field] = value;
     timers.current[field] = setTimeout(() => void sendSave(field), 600);
   }, [sendSave]);
   /** Send what's waiting to be saved, now. */
-  const flushSaves = useCallback(() => Promise.all([sendSave('list'), sendSave('items')]), [sendSave]);
+  const flushSaves = useCallback(() => Promise.all([sendSave('list'), sendSave('items'), sendSave('favStores')]), [sendSave]);
   /** The server's copy, after this page's own pending saves have reached it. */
   const refreshHome = useCallback(async () => {
     await flushSaves();
     try {
       const fresh = await loadHome();
       // An edit made while loading wins: it saves after this and the next refresh syncs.
-      if (pendingSave.current.list || pendingSave.current.items) return;
+      if (pendingSave.current.list || pendingSave.current.items || pendingSave.current.favStores) return;
       setHome(fresh);
     } catch {
       /* offline: keep what's on screen */
@@ -361,6 +361,19 @@ export default function ShoppingPage() {
     homeRef.current = { ...h, items };
     setHome(homeRef.current);
     save('items', items);
+  }, [save]);
+  /** The household's favorite stores (any city). */
+  const favs = useMemo(() => new Set(home?.favStores ?? []), [home]);
+  /** ☆ / ★: add or remove a favorite store; at the cap, say so and change nothing. */
+  const toggleFav = useCallback((k: number) => {
+    const h = homeRef.current;
+    if (!h) return;
+    const cur = h.favStores ?? [];
+    if (!cur.includes(k) && cur.length >= MAX_FAV_STORES) return setToast('אפשר עד 10 חנויות מועדפות');
+    const next = cur.includes(k) ? cur.filter((x) => x !== k) : [...cur, k];
+    homeRef.current = { ...h, favStores: next };
+    setHome(homeRef.current);
+    save('favStores', next);
   }, [save]);
 
   /** My items by key (the search marks the ones already saved). */
@@ -676,7 +689,7 @@ export default function ShoppingPage() {
 
             {result && (
               <Results ref={resultsRef} result={result} list={list} updating={stale || comparing} open={open} setOpen={setOpen}
-                onPricesSaved={() => compare()} onStartTrip={startTrip} tripOpen={!!trip} />
+                onPricesSaved={() => compare()} onStartTrip={startTrip} tripOpen={!!trip} favs={favs} onFav={toggleFav} />
             )}
             {!result && hasItems && !compareError && <div className="sh-skeleton" aria-label="משווה מחירים" />}
             {compareError && (
@@ -724,7 +737,7 @@ export default function ShoppingPage() {
             onCode={(code) => { setScanning(false); setProduct({ key: code, scanned: true }); }} />
         )}
         {here && (
-          <Here city={city} listName={list?.name ?? null} onAdd={addToList} onClose={() => setHere(false)}
+          <Here city={city} listName={list?.name ?? null} onAdd={addToList} onClose={() => setHere(false)} favs={favs} onFav={toggleFav}
             onOpenItem={(key, scanned) => setProduct({ key, scanned })}
             tripStores={trip && !trip.endedAt ? Object.fromEntries(trip.stops.map((st) => [st.store, st.items.length])) : {}}
             onOpenTrip={() => { setHere(false); setInStore(true); }} />
@@ -794,7 +807,10 @@ const Results = React.forwardRef<HTMLElement, {
   onPricesSaved: () => void;
   onStartTrip: (plan: ShoppingPlan) => void;
   tripOpen: boolean;
-}>(function Results({ result, list, updating, open, setOpen, onPricesSaved, onStartTrip, tripOpen }, ref) {
+  favs: ReadonlySet<number>;
+  onFav: (k: number) => void;
+}>(function Results({ result, list, updating, open, setOpen, onPricesSaved, onStartTrip, tripOpen, favs, onFav }, ref) {
+  const favOf = (k: number) => ({ on: favs.has(k), toggle: () => onFav(k) });
   const full = result.physical.filter((b) => !b.missing.length);
   const best = full[0];
   const partial = result.physical.filter((b) => b.missing.length);
@@ -840,19 +856,19 @@ const Results = React.forwardRef<HTMLElement, {
         <>
           {full.length > 0 && partial.length > 0 && <h3 className="sh-group-title">יש בהן את כל המוצרים</h3>}
           {full.map((b, i) => (
-            <StoreCard key={b.store} basket={b} result={result} rank={i} best={best}
+            <StoreCard key={b.store} basket={b} result={result} fav={favOf(b.store)} rank={i} best={best}
               open={open === `s${b.store}`} toggle={() => toggle(`s${b.store}`)} />
           ))}
           {partial.length > 0 && <h3 className="sh-group-title">חסרים בהן מוצרים</h3>}
           {partial.map((b, i) => (
-            <StoreCard key={b.store} basket={b} result={result} rank={full.length + i} best={best}
+            <StoreCard key={b.store} basket={b} result={result} fav={favOf(b.store)} rank={full.length + i} best={best}
               open={open === `s${b.store}`} toggle={() => toggle(`s${b.store}`)} />
           ))}
           <section ref={onlineRef} className="sh-online">
             <h3 className="sh-group-title">אונליין</h3>
             {result.online.length
               ? result.online.map((b, i) => (
-                <StoreCard key={b.store} basket={b} result={result} rank={i} best={result.online.find((x) => !x.missing.length)}
+                <StoreCard key={b.store} basket={b} result={result} fav={favOf(b.store)} rank={i} best={result.online.find((x) => !x.missing.length)}
                   open={open === `o${b.store}`} toggle={() => toggle(`o${b.store}`)} />
               ))
               : <p className="sh-empty">אין חנויות אונליין עם מחירים.</p>}
@@ -1038,13 +1054,15 @@ const LOC_NOTE: Record<LocState | 'manual', string> = {
   manual: 'נבחר ידנית',
 };
 
-function StoreCard({ basket, result, rank, best, open, toggle }: {
+function StoreCard({ basket, result, rank, best, open, toggle, fav }: {
   basket: StoreBasket;
-  result: CompareResponse;
+  result: StoreCardData;
   rank: number;
   best: StoreBasket | undefined;
   open: boolean;
   toggle: () => void;
+  /** The ☆ / ★ for this store. */
+  fav?: { on: boolean; toggle: () => void };
 }) {
   const store = result.stores[basket.store];
   const saved = basket.regularTotal - basket.total;
@@ -1053,6 +1071,7 @@ function StoreCard({ basket, result, rank, best, open, toggle }: {
   const address = cleanAddress(store.address);
   return (
     <article className={`sh-card sh-store ${isBest ? 'is-best' : ''}`}>
+      <div className="sh-store-top">
       <button type="button" className="sh-store-head" onClick={toggle} aria-expanded={open}>
         <span className="sh-rank">{rank + 1}</span>
         <span className="sh-store-name">{store.chainName} <span className="sh-branch">{store.name}</span></span>
@@ -1067,12 +1086,14 @@ function StoreCard({ basket, result, rank, best, open, toggle }: {
         </span>
         {saved > 0 && <span className="sh-store-save">מבצעים חוסכים {ils(saved)}</span>}
       </button>
+      {fav && <FavStar on={fav.on} name={storeName(store)} onToggle={fav.toggle} />}
+      </div>
       {open && <Breakdown basket={basket} result={result} />}
     </article>
   );
 }
 
-function Breakdown({ basket, result, onlyAvailable }: { basket: StoreBasket; result: CompareResponse; onlyAvailable?: boolean }) {
+function Breakdown({ basket, result, onlyAvailable }: { basket: StoreBasket; result: StoreCardData; onlyAvailable?: boolean }) {
   // Missing items last: what you can buy here first.
   const lines = [...basket.lines].filter((l) => !onlyAvailable || l.available).sort((a, b) => Number(b.available) - Number(a.available));
   return (
@@ -1082,7 +1103,7 @@ function Breakdown({ basket, result, onlyAvailable }: { basket: StoreBasket; res
   );
 }
 
-function Line({ line, result, store }: { line: LineResult; result: CompareResponse; store: number }) {
+function Line({ line, result, store }: { line: LineResult; result: StoreCardData; store: number }) {
   const it = result.items[line.key];
   const w = it?.w ?? false;
   if (!line.available) {

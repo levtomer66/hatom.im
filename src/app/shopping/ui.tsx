@@ -1,10 +1,11 @@
 'use client';
 
 // Small pieces shared by the /shopping page and its "אני בסופר" screen
-// (Here.tsx): money and date formats, the product photo, the sale mark.
+// (Here.tsx): money and date formats, the product photo, the sale mark,
+// the favorite-store star.
 
 import React, { useState } from 'react';
-import { FaShoppingBasket } from 'react-icons/fa';
+import { FaRegStar, FaShoppingBasket, FaStar } from 'react-icons/fa';
 import type { StoreInfo } from '@/lib/shopping/api-types';
 
 const money = new Intl.NumberFormat('he-IL', { style: 'currency', currency: 'ILS', minimumFractionDigits: 2 });
@@ -82,4 +83,15 @@ export function SaleLabel({ applied, idle, offers }: { applied: boolean; idle: b
   if (idle) return <span className="sh-sale">מבצע בכמות</span>;
   if (offers) return <span className="sh-sale">מבצע מותנה</span>;
   return null;
+}
+
+/** ☆ / ★ on a store row: one tap adds or removes the household's favorite. Its own button, so it never opens the row. */
+export function FavStar({ on, name, onToggle }: { on: boolean; name: string; onToggle: () => void }) {
+  return (
+    <button type="button" className={`sh-icon-btn sh-fav ${on ? 'is-on' : ''}`} aria-pressed={on}
+      aria-label={`${on ? 'הסרה מהמועדפות' : 'הוספה למועדפות'}: ${name}`}
+      onClick={(e) => { e.stopPropagation(); onToggle(); }}>
+      {on ? <FaStar aria-hidden /> : <FaRegStar aria-hidden />}
+    </button>
+  );
 }

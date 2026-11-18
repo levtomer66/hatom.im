@@ -19,6 +19,7 @@
   --sh-miss: #b3261e;
   --sh-wolt: #0077b3;
   --sh-manual: #8a5a00;
+  --sh-fav: #c98a00;
   --sh-r-mark: 6px;
   --sh-r-ctl: 10px;
   --sh-r-group: 14px;
@@ -55,6 +56,7 @@ body:has(.sh-page) { background: #ffffff; }
     --sh-miss: #ff8a80;
     --sh-wolt: #4fc3f7;
     --sh-manual: #f2c14e;
+    --sh-fav: #f2c14e;
   }
   body:has(.sh-page) { background: #111111; }
 }
@@ -1154,6 +1156,14 @@ body:has(.sh-page) { background: #ffffff; }
   cursor: pointer;
 }
 .sh-here-store:hover { background: var(--sh-surface); }
+/* A store row with its ☆ beside it (the star is its own button). */
+.sh-here-store-row { display: flex; align-items: center; border-bottom: 1px solid var(--sh-line); }
+.sh-here-store-row .sh-here-store { flex: 1; min-width: 0; border-bottom: none; }
+.sh-store-top { display: flex; align-items: flex-start; }
+.sh-store-top .sh-store-head { flex: 1; min-width: 0; }
+.sh-store-top .sh-fav { margin-top: 0.375rem; }
+.sh-fav { font-size: 1.125rem; }
+.sh-fav.is-on { color: var(--sh-fav); }
 .sh-here-dist { display: flex; flex: none; flex-direction: column; align-items: flex-end; font-size: 0.9375rem; color: var(--sh-muted); white-space: nowrap; }
 .sh-here-dist small { font-size: 0.75rem; }
 .sh-here-lists { margin: 0.5rem 0 0; flex-wrap: nowrap; overflow-x: auto; }

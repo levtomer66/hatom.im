@@ -5,18 +5,21 @@
 // worth buying here, the deals here on things you buy, and a verdict for any
 // product you scan. Read-only towards the lists apart from "+ לרשימה".
 // The user's position stays on the device: the store list comes with each
-// store's location and is sorted here.
+// store's location and is sorted here. Favorite stores (☆) come first, and
+// the picker's search finds a store in any city.
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { FaArrowRight, FaBarcode, FaChevronDown, FaLocationArrow, FaPlus, FaSearch, FaShoppingCart, FaTimes } from 'react-icons/fa';
 import { SHOPPING_API_PATH } from '@/lib/shopping/config';
-import type { HereDealsResponse, HereResponse, HereRow, HereStore, HereStoresResponse, ItemPrice, ItemResponse, PromoDetail, SearchHit, StoreInfo } from '@/lib/shopping/api-types';
+import type { HereDealsResponse, HereResponse, HereRow, HereStore, HereStoresResponse, ItemPrice, ItemResponse, PromoDetail, SearchHit, StoreInfo, StoresResponse } from '@/lib/shopping/api-types';
+import { CITIES } from '@/lib/shopping/cities';
 import { DEPARTMENTS } from '@/lib/shopping/departments';
 import {
-  dealGap, distanceLabel, endsLabel, groupHere, HERE_REMEMBER_MS, isTwin, nearbyStore, sortStores, verdict, type HereGroup, type LatLng,
+  dealGap, distanceLabel, endsLabel, groupHere, HERE_REMEMBER_MS, isTwin, mergeStores, nearbyStore, sortStores, storeQueryWords, verdict,
+  type HereGroup, type LatLng,
 } from '@/lib/shopping/here';
-import { cleanAddress, dayMonth, ils, MultiStar, multiNote, qtyLabel, SaleLabel, storeName, Thumb } from './ui';
+import { cleanAddress, dayMonth, FavStar, ils, MultiStar, multiNote, qtyLabel, SaleLabel, storeName, Thumb } from './ui';
 
 const Scanner = dynamic(() => import('./Scanner'), { ssr: false });
 
@@ -62,10 +65,13 @@ export interface HereProps {
   onAdd: (item: { key: string; name: string; w: boolean }) => void;
   listName: string | null;
   onClose: () => void;
+  /** The household's favorite stores, and the ☆ / ★ toggle. */
+  favs: ReadonlySet<number>;
+  onFav: (k: number) => void;
 }
 
 export default function Here(props: HereProps) {
-  const { city, onClose } = props;
+  const { city, onClose, favs, onFav } = props;
   const [storeKey, setStoreKey] = useState<number | null>(() => readRemembered(city));
   const [stores, setStores] = useState<HereStore[] | null>(null);
   const [storesError, setStoresError] = useState(false);
@@ -91,18 +97,32 @@ export default function Here(props: HereProps) {
     return () => ctl.abort();
   }, [city]);
 
-  const choose = (k: number | null) => {
-    remember(city, k);
-    setStoreKey(k);
+  // Favorites in any city (the city's own list has only its stores); reloaded when one is starred.
+  const [favStores, setFavStores] = useState<HereStore[]>([]);
+  const favKey = [...favs].join(',');
+  useEffect(() => {
+    const ctl = new AbortController();
+    getJson<StoresResponse>('/stores', ctl.signal).then((r) => setFavStores(r.stores)).catch(() => {});
+    return () => ctl.abort();
+  }, [favKey]);
+  /** A store picked from the search in another city (not in the lists above). */
+  const [picked, setPicked] = useState<HereStore | null>(null);
+  const all = useMemo(() => mergeStores(stores ?? [], favStores, picked ? [picked] : []), [stores, favStores, picked]);
+
+  const choose = (s: HereStore | null) => {
+    remember(city, s?.k ?? null);
+    if (s) setPicked(s);
+    setStoreKey(s?.k ?? null);
   };
 
-  const store = stores?.find((s) => s.k === storeKey) ?? null;
+  const store = all.find((s) => s.k === storeKey) ?? null;
   return (
     <div className="sh-instore sh-here" role="dialog" aria-modal="true" aria-label="אני בסופר">
       {store ? (
         <StoreView {...props} store={store} onChangeStore={() => choose(null)} />
       ) : (
-        <Picker stores={stores} error={storesError} onPick={choose} onClose={onClose} />
+        <Picker stores={stores ? mergeStores(stores, favStores) : null} city={city} favs={favs} onFav={onFav}
+          error={storesError} onPick={choose} onClose={onClose} />
       )}
     </div>
   );
@@ -110,14 +130,30 @@ export default function Here(props: HereProps) {
 
 // ── picking the store ──
 
-function Picker({ stores, error, onPick, onClose }: {
+const cityLabel = (id: string | null) => CITIES.find((c) => c.id === id)?.name ?? '';
+
+function Picker({ stores, city, favs, onFav, error, onPick, onClose }: {
+  /** The city's stores plus the favorites from other cities. */
   stores: HereStore[] | null;
+  city: string;
+  favs: ReadonlySet<number>;
+  onFav: (k: number) => void;
   error: boolean;
-  onPick: (k: number) => void;
+  onPick: (s: HereStore) => void;
   onClose: () => void;
 }) {
   const [pos, setPos] = useState<Pos>({ state: 'idle' });
   const [filter, setFilter] = useState('');
+  /** The search's matches in every city (null until it has 2+ letters). */
+  const [found, setFound] = useState<HereStore[] | null>(null);
+  useEffect(() => {
+    if (!storeQueryWords(filter).length) return setFound(null);
+    const ctl = new AbortController();
+    const t = setTimeout(() => {
+      getJson<StoresResponse>(`/stores?q=${encodeURIComponent(filter.trim())}`, ctl.signal).then((r) => setFound(r.stores)).catch(() => {});
+    }, 250);
+    return () => { clearTimeout(t); ctl.abort(); };
+  }, [filter]);
 
   const locate = useCallback(() => {
     if (!navigator.geolocation) return setPos({ state: 'unavailable' });
@@ -131,11 +167,15 @@ function Picker({ stores, error, onPick, onClose }: {
   useEffect(() => { locate(); }, [locate]);
 
   const me = pos.state === 'found' ? pos.at : null;
-  const sorted = useMemo(() => (stores ? sortStores(stores, me) : []), [stores, me]);
+  const sorted = useMemo(() => (stores ? sortStores(stores, me, favs) : []), [stores, me, favs]);
   const near = nearbyStore(sorted);
   const anyLoc = stores?.some((s) => s.loc) ?? false;
   const q = filter.trim();
-  const shown = q ? sorted.filter((s) => `${s.chainName} ${s.name} ${cleanAddress(s.address)}`.includes(q)) : sorted;
+  const shown = useMemo(() => {
+    if (!q) return sorted;
+    const local = sorted.filter((s) => `${s.chainName} ${s.name} ${cleanAddress(s.address)}`.includes(q));
+    return sortStores(mergeStores(local, found ?? []), me, favs);
+  }, [q, sorted, found, me, favs]);
 
   const note =
     pos.state === 'locating' ? 'מאתר מיקום…'
@@ -157,7 +197,7 @@ function Picker({ stores, error, onPick, onClose }: {
       </header>
       <div className="sh-instore-body">
         {near && !q && (
-          <button type="button" className="sh-resume sh-here-near" onClick={() => onPick(near.k)}>
+          <button type="button" className="sh-resume sh-here-near" onClick={() => onPick(near)}>
             <FaLocationArrow aria-hidden />
             <span>
               <b>נראה שאת/ה ב{storeName(near)}</b>
@@ -166,11 +206,11 @@ function Picker({ stores, error, onPick, onClose }: {
             <span className="sh-resume-go">נכון</span>
           </button>
         )}
-        {stores && stores.length > 6 && (
+        {stores && (
           <label className="sh-search-box sh-here-filter">
             <FaSearch aria-hidden />
             <input type="search" value={filter} onChange={(e) => setFilter(e.target.value)}
-              placeholder="חיפוש חנות" aria-label="חיפוש חנות" autoComplete="off" />
+              placeholder="חיפוש חנות, גם בעיר אחרת" aria-label="חיפוש חנות" autoComplete="off" />
           </label>
         )}
         {error && <p className="sh-error">לא הצלחנו לטעון את החנויות. נסו שוב.</p>}
@@ -178,18 +218,23 @@ function Picker({ stores, error, onPick, onClose }: {
         {stores && !stores.length && <p className="sh-empty">אין לנו חנויות בעיר הזאת.</p>}
         <ul className="sh-here-stores">
           {shown.map((s, i) => (
-            <li key={s.k}>
+            <li key={s.k} className="sh-here-store-li">
               {!s.priced && (i === 0 || shown[i - 1].priced) && <p className="sh-here-unpriced">חנויות שאין לנו מחירים מהן</p>}
-              <button type="button" className="sh-here-store" onClick={() => onPick(s.k)}>
+              <div className="sh-here-store-row">
+              <button type="button" className="sh-here-store" onClick={() => onPick(s)}>
                 <span className="sh-tick-name">
                   <span>{s.chainName} <span className="sh-branch">{s.name}</span></span>
-                  {cleanAddress(s.address) && <small>{cleanAddress(s.address)}</small>}
+                  {(s.city !== city || cleanAddress(s.address)) && (
+                    <small>{[s.city !== city && cityLabel(s.city), cleanAddress(s.address)].filter(Boolean).join(' · ')}</small>
+                  )}
                 </span>
                 <span className="sh-here-dist">
                   {s.distM !== null ? distanceLabel(s.distM) : s.walkMin !== null ? `${s.walkMin} דק׳` : ''}
                   {!s.priced ? <small>אין מחירים</small> : s.source === 'manual' ? <small>מחירים ידניים</small> : null}
                 </span>
               </button>
+              {s.priced && <FavStar on={favs.has(s.k)} name={storeName(s)} onToggle={() => onFav(s.k)} />}
+              </div>
             </li>
           ))}
         </ul>
