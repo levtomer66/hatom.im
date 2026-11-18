@@ -787,6 +787,10 @@ body:has(.sh-page) { background: #ffffff; }
 .sh-sheet-backdrop {
   position: fixed;
   inset: 0;
+  /* The visible part of the screen (page.tsx keeps these in step with visualViewport): above the keyboard. */
+  top: var(--sh-vv-top, 0px);
+  bottom: auto;
+  height: var(--sh-vv-h, 100%);
   z-index: 115;
   display: flex;
   align-items: flex-end;
@@ -800,7 +804,7 @@ body:has(.sh-page) { background: #ffffff; }
   position: relative;
   width: 100%;
   max-width: 600px;
-  max-height: 88dvh;
+  max-height: calc(var(--sh-vv-h, 100dvh) * 0.88);
   overflow-y: auto;
   overscroll-behavior: contain;
   padding: 1.25rem 1rem calc(1.25rem + env(safe-area-inset-bottom));

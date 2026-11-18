@@ -143,6 +143,26 @@ export default function ShoppingPage() {
   /** Where prices are compared: a place set by hand, else the live location (or, server-side, the home spot), and the radius chip. */
   const near = useWhere();
   const { loc, centre, place } = near;
+  // The phone keyboard covers the bottom of the screen without shrinking fixed layers, so a bottom sheet
+  // with a text box (שינוי מיקום, מה חסר?, משק הבית…) would sit behind it. Sheets follow the visible part instead.
+  useEffect(() => {
+    const vv = window.visualViewport;
+    if (!vv) return;
+    const root = document.documentElement;
+    const sync = () => {
+      root.style.setProperty('--sh-vv-top', `${vv.offsetTop}px`);
+      root.style.setProperty('--sh-vv-h', `${vv.height}px`);
+    };
+    sync();
+    vv.addEventListener('resize', sync);
+    vv.addEventListener('scroll', sync);
+    return () => {
+      vv.removeEventListener('resize', sync);
+      vv.removeEventListener('scroll', sync);
+      root.style.removeProperty('--sh-vv-top');
+      root.style.removeProperty('--sh-vv-h');
+    };
+  }, []);
   // "ליד <street, neighbourhood>" for the live position: looked up when it moves ~100 m (place-name route).
   const [placeName, setPlaceName] = useState<string | null>(null);
   const spot = centre ? `${centre.lat.toFixed(3)},${centre.lng.toFixed(3)}` : null;
