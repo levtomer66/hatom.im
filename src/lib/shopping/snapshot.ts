@@ -108,12 +108,27 @@ function searchText(n: string, m: string, names: string[], makers: string[]): st
  * A source's own category wins (Wolt's, voted across venues), then the item's
  * most common name, then any other chain's name — the first that a rule places.
  */
-function itemDepartment(cats: string[], n: string, names: string[]): string | null {
-  const fromCats = mostCommon(cats.map((c) => departmentOfCategory(c) ?? ''));
+function itemDepartment(cats: string[], n: string, names: string[], dept: DepartmentMatchers): string | null {
+  const fromCats = mostCommon(cats.map((c) => dept.ofCategory(c) ?? ''));
   if (fromCats) return fromCats;
-  const direct = departmentOf(n);
+  const direct = dept.ofName(n);
   if (direct) return direct;
-  return mostCommon(names.map((x) => departmentOf(x) ?? '')) || null;
+  return mostCommon(names.map((x) => dept.ofName(x) ?? '')) || null;
+}
+
+/** The two department lookups buildItemDocs asks (departments.ts); a test passes its own to count them. */
+export interface DepartmentMatchers {
+  ofName(name: string): string | null;
+  ofCategory(path: string): string | null;
+}
+
+/** Remembers the answer per distinct string, nulls included. */
+function remembered(fn: (v: string) => string | null): (v: string) => string | null {
+  const seen = new Map<string, string | null>();
+  return (v) => {
+    if (!seen.has(v)) seen.set(v, fn(v));
+    return seen.get(v)!;
+  };
 }
 
 /** `nu` for a food item with a real barcode whose source row passes the checks. */
@@ -174,7 +189,15 @@ export interface NutritionInput {
   stats?: { used: number; notFood: number; implausible: number; otherProduct: number };
 }
 
-export function buildItemDocs(stores: StoreState[], photos: Map<string, BarcodePhoto> = new Map(), nutrition?: NutritionInput): Map<string, ItemDoc> {
+export function buildItemDocs(
+  stores: StoreState[],
+  photos: Map<string, BarcodePhoto> = new Map(),
+  nutrition?: NutritionInput,
+  matchers: DepartmentMatchers = { ofName: departmentOf, ofCategory: departmentOfCategory },
+): Map<string, ItemDoc> {
+  // A name is sold by many stores and matching it walks ~1,000 stems: remember each
+  // answer for this call only (the app imports departments.ts too, so no module cache).
+  const dept: DepartmentMatchers = { ofName: remembered(matchers.ofName), ofCategory: remembered(matchers.ofCategory) };
   const acc = new Map<string, { names: string[]; makers: string[]; cats: string[]; first: CanonItem; p: Record<string, number>; img?: string }>();
   for (const s of stores) {
     for (const it of s.items) {
@@ -194,7 +217,7 @@ export function buildItemDocs(stores: StoreState[], photos: Map<string, BarcodeP
     // The most common real maker; a placeholder only when no chain names one.
     const m = mostCommon(a.makers.map(tidy).filter(realMaker)) || a.first.manufacturer;
     const s = searchText(n, m, a.names, a.makers);
-    const d = itemDepartment(a.cats, n, a.names);
+    const d = itemDepartment(a.cats, n, a.names, dept);
     out.set(key, {
       _id: key,
       n,
