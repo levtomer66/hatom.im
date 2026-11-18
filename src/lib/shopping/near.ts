@@ -146,3 +146,19 @@ export function walkOrder(
   const total = legs.every((l) => l !== null) ? legs.reduce<number>((a, b) => a + (b ?? 0), 0) : null;
   return { order: order.map((s) => s.store), legs, total };
 }
+
+/**
+ * "Near you" as a place name, from an OpenStreetMap reverse-geocode address
+ * (Hebrew): the street and the neighbourhood, else the street or
+ * neighbourhood and the city, else the city. Null when there's nothing to say.
+ */
+export function placeLabel(addr: Record<string, string | undefined>): string | null {
+  const area = addr.neighbourhood || addr.suburb || addr.quarter;
+  const city = addr.city || addr.town || addr.village;
+  const parts = addr.road && area ? [addr.road, area] : [addr.road || area, city];
+  const label = parts.filter(Boolean).join(', ');
+  return label || null;
+}
+
+/** A position to about 100 m (3 decimals): nearby points share one place-name lookup. */
+export const roundCentre = (c: Centre): Centre => ({ lat: Math.round(c.lat * 1000) / 1000, lng: Math.round(c.lng * 1000) / 1000 });

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { nearStores, parseCentre, parseRadius, pickFavs, resolveWhere, walkMinutes, walkOrder, withinRadius, type Centre } from '../shopping/near.ts';
+import { nearStores, parseCentre, parseRadius, pickFavs, placeLabel, resolveWhere, roundCentre, walkMinutes, walkOrder, withinRadius, type Centre } from '../shopping/near.ts';
 
 test('parseCentre: both, neither, one, junk', () => {
   assert.deepEqual(parseCentre(32.0853123, '34.7818456'), { lat: 32.0853, lng: 34.7818 });
@@ -92,4 +92,16 @@ test('withinRadius: the plans’ stores — measured and inside the radius; a fa
   assert.equal(withinRadius({ distM: null }, where), false); // a ★ with no point
   assert.equal(withinRadius({ distM: 6600 }, { ...where, radiusKm: 10 }), true);
   assert.equal(withinRadius({ distM: null }, { centre: null, source: 'none', radiusKm: 1 }), false);
+});
+
+test('placeLabel: street and neighbourhood, else the city; nothing useful → null', () => {
+  assert.equal(placeLabel({ road: 'הרצל', suburb: 'פלורנטין', city: 'תל אביב-יפו' }), 'הרצל, פלורנטין');
+  assert.equal(placeLabel({ road: 'יפו', city: 'ירושלים' }), 'יפו, ירושלים');
+  assert.equal(placeLabel({ neighbourhood: 'בית הכרם', city: 'ירושלים' }), 'בית הכרם, ירושלים');
+  assert.equal(placeLabel({ town: 'מבשרת ציון' }), 'מבשרת ציון');
+  assert.equal(placeLabel({}), null);
+});
+
+test('roundCentre: about 100 m, so nearby points share one lookup', () => {
+  assert.deepEqual(roundCentre({ lat: 32.05612, lng: 34.76987 }), { lat: 32.056, lng: 34.77 });
 });

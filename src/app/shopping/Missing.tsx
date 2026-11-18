@@ -1,38 +1,38 @@
 'use client';
 
-// "מה חסר?": My items as a checklist by department, each at its usual
-// quantity. Ticked ones go on the shopping list; items already on it show
-// ticked and can't be picked again. "בחר הכול" ticks a department, or all. The search at the top adds a new product
-// to My items and ticks it.
+// "מה חסר?": My items as a checklist by department, a live view of the
+// shopping list: ticking puts an item on it at its usual quantity, unticking
+// takes it off, and the steppers change its quantity there. "בחר הכול" ticks a
+// department, or all. The search at the top adds a new product to My items and
+// ticks it. The page owns the list and saves it (debounced, like its own edits).
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { FaCheck, FaMinus, FaPlus, FaSearch, FaTimes } from 'react-icons/fa';
+import { FaMinus, FaPlus, FaSearch, FaTimes } from 'react-icons/fa';
 import { DEPARTMENTS } from '@/lib/shopping/departments';
-import { normalizeQty, type ListLine, type MyItem } from '@/lib/shopping/home';
+import { addToList, normalizeQty, type ListLine, type MyItem } from '@/lib/shopping/home';
 import { SHOPPING_API_PATH } from '@/lib/shopping/config';
 import type { SearchHit } from '@/lib/shopping/api-types';
-import { submitMissing, type HomeMeta, type HomeView } from './home-client';
+import type { HomeMeta } from './home-client';
 import { Thumb } from './ui';
 
 const step = (w: boolean) => (w ? 0.5 : 1);
 const OTHER = { id: 'other', name: 'אחר' };
 
-export default function Missing({ items, list, meta, near, homeId, onSaveItem, onAdded, onClose }: {
+export default function Missing({ items, list, meta, near, onSaveItem, onListChange, onOpenItem, onClose }: {
   items: MyItem[];
   list: ListLine[];
   meta: HomeMeta;
   /** The pricing routes' location query (where.ts nearQuery). */
   near: string;
-  /** The household these items are in (the server refuses the add once the caller is in another). */
-  homeId: string;
   /** Save a new product to My items (the page owns the save). */
   onSaveItem: (hit: { key: string; name: string; w: boolean }) => Promise<void>;
-  onAdded: (home: HomeView) => void;
+  /** Change the shopping list (the page's own updater, so edits made elsewhere aren't lost). */
+  onListChange: (fn: (lines: ListLine[]) => ListLine[]) => void;
+  /** Opens the product window; the photo does it (the name ticks the row). */
+  onOpenItem: (key: string) => void;
   onClose: () => void;
 }) {
-  const onList = useMemo(() => new Set(list.map((l) => l.key)), [list]);
-  /** Ticked keys → the quantity for this shop. */
-  const [picks, setPicks] = useState<Map<string, number>>(new Map());
-  const [saving, setSaving] = useState(false);
+  /** On the list → its quantity there. */
+  const onList = useMemo(() => new Map(list.map((l) => [l.key, l.qty])), [list]);
   const [error, setError] = useState(false);
   const [query, setQuery] = useState('');
   const [hits, setHits] = useState<SearchHit[] | null>(null);
@@ -64,27 +64,20 @@ export default function Missing({ items, list, meta, near, homeId, onSaveItem, o
     return [...DEPARTMENTS, OTHER].filter((d) => by.has(d.id)).map((d) => ({ ...d, items: by.get(d.id)! }));
   }, [items, meta]);
 
-  const toggle = (i: MyItem) => setPicks((m) => {
-    const n = new Map(m);
-    if (n.has(i.key)) n.delete(i.key);
-    else n.set(i.key, i.qty);
-    return n;
-  });
-  /** Items that can still be picked (not on the list already). */
-  const pickable = (of: MyItem[]) => of.filter((i) => !onList.has(i.key));
-  const allPicked = (of: MyItem[]) => { const p = pickable(of); return p.length > 0 && p.every((i) => picks.has(i.key)); };
-  /** Tick every pickable item at its usual quantity (a picked one keeps its quantity), or untick them all. */
-  const setAll = (of: MyItem[], on: boolean) => setPicks((m) => {
-    const n = new Map(m);
-    for (const i of pickable(of)) {
-      if (!on) n.delete(i.key);
-      else if (!n.has(i.key)) n.set(i.key, i.qty);
-    }
-    return n;
+  const line = (i: Pick<MyItem, 'key' | 'name' | 'w' | 'qty'>): ListLine => ({ key: i.key, name: i.name, w: i.w, qty: i.qty });
+  /** Tick: onto the list at the usual quantity (addToList keeps the 100-line cap). Untick: off it. */
+  const toggle = (i: MyItem) => onListChange((lines) =>
+    lines.some((l) => l.key === i.key) ? lines.filter((l) => l.key !== i.key) : addToList(lines, [line(i)]));
+  const allOn = (of: MyItem[]) => of.length > 0 && of.every((i) => onList.has(i.key));
+  /** Put every item of `of` on the list (those there keep their quantity), or take them all off. */
+  const setAll = (of: MyItem[], on: boolean) => onListChange((lines) => {
+    if (on) return addToList(lines, of.map(line));
+    const off = new Set(of.map((i) => i.key));
+    return lines.filter((l) => !off.has(l.key));
   });
   const allButton = (of: MyItem[], label: string) => {
-    if (!pickable(of).length) return null;
-    const on = allPicked(of);
+    if (!of.length) return null;
+    const on = allOn(of);
     return (
       <button type="button" className="sh-link sh-missing-all" onClick={() => setAll(of, !on)} aria-pressed={on}
         aria-label={`${on ? 'ניקוי' : 'בחירת'} הכול: ${label}`}>
@@ -92,15 +85,23 @@ export default function Missing({ items, list, meta, near, homeId, onSaveItem, o
       </button>
     );
   };
-  const stepPick = (i: MyItem, dir: 1 | -1) => setPicks((m) => {
-    const cur = m.get(i.key) ?? i.qty;
-    const q = normalizeQty(cur + dir * step(i.w), i.w);
-    return q === null ? m : new Map(m).set(i.key, q);
-  });
+  /** + on an item not on the list puts it there (at the usual quantity); on the list, ± changes its quantity. */
+  const stepQty = (i: MyItem, dir: 1 | -1) => {
+    if (!onList.has(i.key)) {
+      if (dir === 1) toggle(i);
+      return;
+    }
+    onListChange((lines) => lines.map((l) => {
+      if (l.key !== i.key) return l;
+      const q = normalizeQty(l.qty + dir * step(l.w), l.w);
+      return q === null ? l : { ...l, qty: q };
+    }));
+  };
 
   const addHit = async (h: SearchHit) => {
     setQuery('');
     setHits(null);
+    setError(false);
     if (!items.some((i) => i.key === h.key)) {
       try {
         await onSaveItem(h);
@@ -108,19 +109,8 @@ export default function Missing({ items, list, meta, near, homeId, onSaveItem, o
         return setError(true);
       }
     }
-    if (!onList.has(h.key)) setPicks((m) => new Map(m).set(h.key, items.find((i) => i.key === h.key)?.qty ?? 1));
-  };
-
-  const submit = async () => {
-    if (!picks.size) return;
-    setSaving(true);
-    setError(false);
-    try {
-      onAdded(await submitMissing([...picks].map(([key, qty]) => ({ key, qty })), homeId));
-    } catch {
-      setError(true);
-      setSaving(false);
-    }
+    const usual = items.find((i) => i.key === h.key)?.qty ?? 1;
+    onListChange((lines) => addToList(lines, [{ key: h.key, name: h.name, w: h.w, qty: usual }]));
   };
 
   return (
@@ -165,24 +155,25 @@ export default function Missing({ items, list, meta, near, homeId, onSaveItem, o
             </h3>
             <ul className="sh-items">
               {g.items.map((i) => {
-                const already = onList.has(i.key);
-                const picked = picks.has(i.key);
-                const qty = picks.get(i.key) ?? i.qty;
+                const on = onList.has(i.key);
+                const qty = onList.get(i.key) ?? i.qty;
                 return (
-                  <li key={i.key} className={`sh-item sh-missing-row ${picked || already ? 'is-on' : ''}`}>
-                    <label className="sh-missing-pick">
-                      <input type="checkbox" checked={picked || already} disabled={already} onChange={() => toggle(i)} />
-                      <Thumb src={meta[i.key]?.img} size={36} by={meta[i.key]?.imgBy} />
-                      <span className="sh-item-name">{i.name}{already && <small className="sh-muted"> · כבר ברשימה</small>}</span>
+                  <li key={i.key} className={`sh-item sh-missing-row ${on ? 'is-on' : ''}`}>
+                    <label className="sh-missing-box">
+                      <input id={`sh-miss-${i.key}`} type="checkbox" checked={on} onChange={() => toggle(i)} />
                     </label>
-                    {!already && (
-                      <span className="sh-stepper">
-                        <button type="button" onClick={() => { if (!picked) toggle(i); stepPick(i, 1); }} aria-label={`עוד ${i.name}`}><FaPlus /></button>
-                        <span className="sh-qty" aria-live="polite">{i.w ? `${qty} ק״ג` : qty}</span>
-                        <button type="button" onClick={() => stepPick(i, -1)} disabled={normalizeQty(qty - step(i.w), i.w) === null}
-                          aria-label={`פחות ${i.name}`}><FaMinus /></button>
-                      </span>
-                    )}
+                    <button type="button" className="sh-missing-photo" onClick={() => onOpenItem(i.key)} aria-label={`פרטי המוצר: ${i.name}`}>
+                      <Thumb src={meta[i.key]?.img} size={36} by={meta[i.key]?.imgBy} />
+                    </button>
+                    <label className="sh-missing-pick" htmlFor={`sh-miss-${i.key}`}>
+                      <span className="sh-item-name">{i.name}</span>
+                    </label>
+                    <span className="sh-stepper">
+                      <button type="button" onClick={() => stepQty(i, 1)} aria-label={`עוד ${i.name}`}><FaPlus /></button>
+                      <span className="sh-qty" aria-live="polite">{i.w ? `${qty} ק״ג` : qty}</span>
+                      <button type="button" onClick={() => stepQty(i, -1)} disabled={!on || normalizeQty(qty - step(i.w), i.w) === null}
+                        aria-label={`פחות ${i.name}`}><FaMinus /></button>
+                    </span>
                   </li>
                 );
               })}
@@ -191,11 +182,6 @@ export default function Missing({ items, list, meta, near, homeId, onSaveItem, o
         ))}
 
         {error && <p className="sh-error">לא נשמר, נסו שוב</p>}
-        <div className="sh-missing-foot">
-          <button type="button" className="sh-btn sh-btn--primary" onClick={submit} disabled={!picks.size || saving}>
-            <FaCheck aria-hidden /> הוסף לרשימה ({picks.size})
-          </button>
-        </div>
       </div>
     </div>
   );

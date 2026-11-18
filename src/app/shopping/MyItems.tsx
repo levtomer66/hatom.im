@@ -13,10 +13,12 @@ import { Thumb } from './ui';
 
 const step = (w: boolean) => (w ? 0.5 : 1);
 
-export default function MyItemsSheet({ items, meta, onChange, onClose, children }: {
+export default function MyItemsSheet({ items, meta, onChange, onOpenItem, onClose, children }: {
   items: MyItem[];
   meta: HomeMeta;
   onChange: (items: MyItem[]) => void;
+  /** Opens the product window (its prices at every store). */
+  onOpenItem: (key: string) => void;
   onClose: () => void;
   /** Shown above the items (the list's nutrition summary). */
   children?: ReactNode;
@@ -45,8 +47,10 @@ export default function MyItemsSheet({ items, meta, onChange, onClose, children 
             const atMin = normalizeQty(i.qty - step(i.w), i.w) === null;
             return (
               <li key={i.key} className="sh-item">
-                <Thumb src={meta[i.key]?.img} size={40} by={meta[i.key]?.imgBy} />
-                <span className="sh-item-name">{i.name}</span>
+                <button type="button" className="sh-item-open" onClick={() => onOpenItem(i.key)} aria-label={`פרטי המוצר: ${i.name}`}>
+                  <Thumb src={meta[i.key]?.img} size={40} by={meta[i.key]?.imgBy} />
+                  <span className="sh-item-name">{i.name}</span>
+                </button>
                 <span className="sh-stepper" aria-label="כמות רגילה">
                   <button type="button" onClick={() => stepQty(i.key, 1)} aria-label={`עוד ${i.name}`}><FaPlus /></button>
                   <span className="sh-qty" aria-live="polite">{i.w ? `${i.qty} ק״ג` : i.qty}</span>

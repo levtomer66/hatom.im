@@ -25,7 +25,7 @@
  * the `shopping` permission.
  */
 
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { FaMinus, FaPlus, FaTrash, FaSearch, FaChevronDown, FaTimes, FaCheck, FaBarcode, FaMapMarkerAlt, FaLocationArrow, FaShoppingCart, FaArrowRight, FaEllipsisH, FaListUl, FaStore } from 'react-icons/fa';
 import { storeQueryWords } from '@/lib/shopping/here';
 import { LuRefrigerator } from 'react-icons/lu';
@@ -121,6 +121,8 @@ const Scanner = dynamic(() => import('./Scanner'), { ssr: false });
 type PageList = { id: string; name: string; items: ListLine[] };
 
 const step = (w: boolean) => (w ? 0.5 : 1);
+/** Opens the product window for an item key: any product row on the page can show its prices (comparison lines, plans, "כמה יעלה לי ב…"). */
+const OpenProduct = createContext<((key: string) => void) | null>(null);
 /** The search placeholder types these in turn (the first is also the static one). */
 const SEARCH_PHRASES = ['חיפוש מוצר או ברקוד', 'חלב 3%', 'במבה', 'קפה טורקי', 'לחם מלא', 'עגבניות שרי', 'שוקולד פרה'];
 
@@ -133,12 +135,28 @@ export default function ShoppingPage() {
   const [myItemsOpen, setMyItemsOpen] = useState(false);
   /** "כמה יעלה לי ב…": the list at the favorite stores. */
   const [farOpen, setFarOpen] = useState(false);
+  /** The shopping-list card starts folded to its title; the plans and comparison below show either way. */
+  const [listOpen, setListOpen] = useState(false);
   /** Invites to the caller from other households (cards above the search), and the "משק הבית" sheet. */
   const [incoming, setIncoming] = useState<HouseholdResponse['incoming']>([]);
   const [householdOpen, setHouseholdOpen] = useState(false);
   /** Where prices are compared: a place set by hand, else the live location (or, server-side, the home spot), and the radius chip. */
   const near = useWhere();
   const { loc, centre, place } = near;
+  // "ליד <street, neighbourhood>" for the live position: looked up when it moves ~100 m (place-name route).
+  const [placeName, setPlaceName] = useState<string | null>(null);
+  const spot = centre ? `${centre.lat.toFixed(3)},${centre.lng.toFixed(3)}` : null;
+  useEffect(() => {
+    setPlaceName(null);
+    if (!spot) return;
+    const [lat, lng] = spot.split(',');
+    const ctl = new AbortController();
+    fetch(`${SHOPPING_API_PATH}/place-name?lat=${lat}&lng=${lng}`, { signal: ctl.signal })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((j: { label: string | null } | null) => setPlaceName(j?.label ?? null))
+      .catch(() => {});
+    return () => ctl.abort();
+  }, [spot]);
   /** The address-search sheet: 'here' (where to compare) or 'home' (from משק הבית). */
   const [placeOpen, setPlaceOpen] = useState<'here' | 'home' | null>(null);
   const [loadError, setLoadError] = useState(false);
@@ -151,7 +169,9 @@ export default function ShoppingPage() {
   const searchRef = useRef<HTMLInputElement>(null);
   const placeholder = useTypedPlaceholder(SEARCH_PHRASES, !query);
   /** The product window: an item key or a scanned barcode. */
-  const [product, setProduct] = useState<{ key: string; scanned: boolean } | null>(null);
+  /** The open product window. `inSearch`: opened from a search result, so on a phone it unfolds there instead of as a sheet. */
+  const [product, setProduct] = useState<{ key: string; scanned: boolean; inSearch?: boolean } | null>(null);
+  const openProduct = useCallback((key: string) => setProduct({ key, scanned: false }), []);
   const [scanning, setScanning] = useState(false);
   /** The list's open trip, and whether its in-store screen is showing. */
   const [trip, setTrip] = useState<Trip | null>(null);
@@ -567,6 +587,7 @@ export default function ShoppingPage() {
   return (
     <>
       <Navbar />
+      <OpenProduct.Provider value={openProduct}>
       <main className="sh-page">
         <header className="sh-home-head">
           <h1 className="sh-logo">כיף לי <span>בסופר</span></h1>
@@ -611,9 +632,9 @@ export default function ShoppingPage() {
                   {hits.map((h) => {
                     const isSaved = saved.has(h.key);
                     return (
-                      <li key={h.key} className={`sh-hit ${isSaved ? 'is-in' : ''} ${product?.key === h.key ? 'is-open' : ''}`}>
-                        <button type="button" className="sh-hit-main" aria-expanded={narrow ? product?.key === h.key : undefined}
-                          onClick={() => setProduct(product?.key === h.key && narrow ? null : { key: h.key, scanned: false })}>
+                      <li key={h.key} className={`sh-hit ${isSaved ? 'is-in' : ''} ${product?.inSearch && product.key === h.key ? 'is-open' : ''}`}>
+                        <button type="button" className="sh-hit-main" aria-expanded={narrow ? product?.inSearch && product.key === h.key : undefined}
+                          onClick={() => setProduct(product?.inSearch && product.key === h.key && narrow ? null : { key: h.key, scanned: false, inSearch: true })}>
                           <Thumb src={h.img} size={44} by={h.imgBy} />
                           <span className="sh-hit-name">
                             {h.name}{h.w && <small className="sh-weighed">לפי משקל</small>}
@@ -638,7 +659,7 @@ export default function ShoppingPage() {
                           aria-label={isSaved ? `כבר במוצרים שלי: ${h.name}` : `הוספה למוצרים שלי: ${h.name}`}>
                           {isSaved ? <FaCheck aria-hidden /> : <FaPlus aria-hidden />}
                         </button>
-                        {narrow && product?.key === h.key && (
+                        {narrow && product?.inSearch && product.key === h.key && (
                           <ProductSheet inline itemKey={h.key} scanned={false} near={near.query} saved={saved}
                             onSave={saveItem} onClose={() => setProduct(null)} />
                         )}
@@ -671,16 +692,24 @@ export default function ShoppingPage() {
             {itemCount > 0 && (
             <section className="sh-card" id="sh-list-body" aria-label="רשימת הקניות">
               <div className="sh-list-head">
-                <h2 className="sh-h2">רשימת הקניות <small>· {itemCount}</small></h2>
-                <button type="button" className="sh-btn sh-btn--ghost sh-btn--danger" onClick={clearList}><FaTrash aria-hidden /> נקה רשימה</button>
+                <h2 className="sh-h2">
+                  <button type="button" className="sh-list-toggle" onClick={() => setListOpen(!listOpen)} aria-expanded={listOpen} aria-controls="sh-list-items">
+                    רשימת הקניות <small>· {itemCount}</small>
+                    <FaChevronDown aria-hidden className={`sh-caret ${listOpen ? 'is-open' : ''}`} />
+                  </button>
+                </h2>
+                {listOpen && <button type="button" className="sh-btn sh-btn--ghost sh-btn--danger" onClick={clearList}><FaTrash aria-hidden /> נקה רשימה</button>}
               </div>
+              {listOpen && (<div id="sh-list-items">
               <ul className="sh-items">
                 {list.items.map((i) => {
                   const atMin = normalizeQty(i.qty - step(i.w), i.w) === null;
                   return (
                     <li key={i.key} className="sh-item">
-                      <Thumb src={home.meta[i.key]?.img ?? imgs[i.key]} size={40} by={home.meta[i.key]?.imgBy} />
-                      <span className="sh-item-name">{i.name}</span>
+                      <button type="button" className="sh-item-open" onClick={() => openProduct(i.key)} aria-label={`פרטי המוצר: ${i.name}`}>
+                        <Thumb src={home.meta[i.key]?.img ?? imgs[i.key]} size={40} by={home.meta[i.key]?.imgBy} />
+                        <span className="sh-item-name">{i.name}</span>
+                      </button>
                       <span className="sh-stepper">
                         <button type="button" onClick={() => stepQty(i.key, 1)} aria-label={`עוד ${i.name}`}><FaPlus /></button>
                         <span className="sh-qty" aria-live="polite">{i.w ? `${i.qty} ק״ג` : i.qty}</span>
@@ -697,6 +726,7 @@ export default function ShoppingPage() {
                 <label className="sh-toggle"><input type="checkbox" checked={clubs} onChange={(e) => setClubs(e.target.checked)} /> לחשב מבצעי מועדון</label>
                 <label className="sh-toggle"><input type="checkbox" checked={coupons} onChange={(e) => setCoupons(e.target.checked)} /> לחשב קופונים</label>
               </div>
+              </div>)}
               <button type="button" className="sh-btn sh-home-btn sh-far-open" onClick={() => setFarOpen(true)}>
                 <FaStore aria-hidden /> כמה יעלה לי ב…
               </button>
@@ -720,7 +750,7 @@ export default function ShoppingPage() {
               <div className="sh-loc">
                 <FaMapMarkerAlt aria-hidden />
                 <span>
-                  <b>{place ? `ליד ${place.label}` : centre ? 'ליד המיקום שלך' : home?.homeSpot ? 'ליד הבית' : 'אין מיקום'}</b>
+                  <b>{place ? `ליד ${place.label}` : centre ? (placeName ? `ליד ${placeName}` : 'ליד המיקום שלך') : home?.homeSpot ? 'ליד הבית' : 'אין מיקום'}</b>
                   {!place && <small>{LOC_NOTE[loc]}</small>}
                 </span>
                 {!home?.homeSpot && centre && (
@@ -749,10 +779,6 @@ export default function ShoppingPage() {
             tripStores={trip && !trip.endedAt ? Object.fromEntries(trip.stops.map((st) => [st.store, st.items.length])) : {}}
             onOpenTrip={() => { setHere(false); setInStore(true); }} />
         )}
-        {product && (here || !(narrow && hits?.some((h) => h.key === product.key) && !product.scanned)) && (
-          <ProductSheet itemKey={product.key} scanned={product.scanned} near={near.query} saved={saved}
-            onSave={saveItem} onClose={() => setProduct(null)} />
-        )}
         {trip && inStore && (
           <InStore trip={trip} onTrip={setTrip} onClose={() => setInStore(false)}
             onEnded={() => {
@@ -764,7 +790,7 @@ export default function ShoppingPage() {
             }} />
         )}
         {myItemsOpen && home && (
-          <MyItemsSheet items={home.items} meta={home.meta} onChange={setMyItems} onClose={() => setMyItemsOpen(false)}>
+          <MyItemsSheet items={home.items} meta={home.meta} onChange={setMyItems} onOpenItem={openProduct} onClose={() => setMyItemsOpen(false)}>
             {settings?.nutritionHero && home.list.length > 0 && (
               <NutritionHero lines={home.list.map((i) => ({ key: i.key, qty: i.qty, name: i.name }))} />
             )}
@@ -785,11 +811,17 @@ export default function ShoppingPage() {
             onClose={() => setFarOpen(false)} />
         )}
         {missingOpen && home && (
-          <Missing items={home.items} list={home.list} meta={home.meta} near={near.query} homeId={home.id} onSaveItem={saveItemNow}
-            onAdded={(h) => { setHome(h); setMissingOpen(false); setToast('נוסף לרשימה'); }} onClose={() => setMissingOpen(false)} />
+          <Missing items={home.items} list={home.list} meta={home.meta} near={near.query} onSaveItem={saveItemNow}
+            onListChange={setListLines} onOpenItem={openProduct} onClose={() => setMissingOpen(false)} />
+        )}
+        {/* After the sheets: a product opened from one of them (My items, מה חסר?, כמה יעלה לי ב…) shows on top. */}
+        {product && (here || !(narrow && product.inSearch && hits?.some((h) => h.key === product.key) && !product.scanned)) && (
+          <ProductSheet itemKey={product.key} scanned={product.scanned} near={near.query} saved={saved}
+            onSave={saveItem} onClose={() => setProduct(null)} />
         )}
         {toast && <div className="sh-toast" role="status">{toast}</div>}
       </main>
+      </OpenProduct.Provider>
     </>
   );
 }
@@ -1167,13 +1199,20 @@ function Breakdown({ basket, result, onlyAvailable }: { basket: StoreBasket; res
   );
 }
 
+/** A product's photo and name; a button that opens its product window when the page provides one. */
+function ProductName({ itemKey, children }: { itemKey: string; children: React.ReactNode }) {
+  const open = useContext(OpenProduct);
+  if (!open) return <span className="sh-line-name">{children}</span>;
+  return <button type="button" className="sh-line-name sh-line-open" onClick={() => open(itemKey)}>{children}</button>;
+}
+
 function Line({ line, result, store }: { line: LineResult; result: StoreCardData; store: number }) {
   const it = result.items[line.key];
   const w = it?.w ?? false;
   if (!line.available) {
     return (
       <li className="sh-line is-missing">
-        <span className="sh-line-name"><Thumb src={it?.img} size={36} by={it?.imgBy} /><span>{it?.name ?? line.key}</span></span>
+        <ProductName itemKey={line.key}><Thumb src={it?.img} size={36} by={it?.imgBy} /><span>{it?.name ?? line.key}</span></ProductName>
         <span className="sh-line-price">לא נמכר כאן</span>
       </li>
     );
@@ -1183,7 +1222,7 @@ function Line({ line, result, store }: { line: LineResult; result: StoreCardData
   const deals = [...line.applied, ...line.offers, ...idleRefs(idle, result.promos)];
   return (
     <li className="sh-line">
-      <span className="sh-line-name"><Thumb src={it?.img} size={36} by={it?.imgBy} /><span>{it?.name ?? line.key} <small>{qtyLabel(line.qty, w)}</small></span></span>
+      <ProductName itemKey={line.key}><Thumb src={it?.img} size={36} by={it?.imgBy} /><span>{it?.name ?? line.key} <small>{qtyLabel(line.qty, w)}</small></span></ProductName>
       <PriceReveal label={ils(line.cost)} pop={deals.length ? <DealInfo deals={deals} promos={result.promos} /> : null}>
         <SaleLabel applied={line.applied.length > 0} idle={idle.length > 0} offers={line.offers.length > 0} />
         <span className="sh-line-price">
