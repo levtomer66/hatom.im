@@ -1,6 +1,6 @@
 // "אני בסופר" (docs/shopping-here-mode.md): what's worth buying at the store
-// you're standing in. The verdict for one item, the grouping of the lists'
-// items, merging the lists and sorting stores by distance. Import-free apart
+// you're standing in. The verdict for one item, the grouping of My items
+// (the shopping list first) and sorting stores by distance. Import-free apart
 // from types and the pricing engine (both import-free), for `node --test`.
 
 import type { HereRow, HereStore } from './api-types.ts';
@@ -47,20 +47,17 @@ export function groupHere(rows: HereRow[]): Record<HereGroup, HereRow[]> {
   return out;
 }
 
-/** Each item once across the lists: the largest quantity wanted, and every list it's on. */
-export function mergeLists(lists: { id: string; items: { key: string; qty: number }[] }[]): { key: string; qty: number; listIds: string[] }[] {
-  const byKey = new Map<string, { key: string; qty: number; listIds: string[] }>();
-  for (const l of lists) {
-    for (const i of l.items) {
-      const cur = byKey.get(i.key);
-      if (!cur) byKey.set(i.key, { key: i.key, qty: i.qty, listIds: [l.id] });
-      else {
-        cur.qty = Math.max(cur.qty, i.qty);
-        if (!cur.listIds.includes(l.id)) cur.listIds.push(l.id);
-      }
-    }
-  }
-  return [...byKey.values()];
+/**
+ * The items "אני בסופר" prices: the shopping list's lines first (their
+ * quantity for this shop), then the rest of My items at their usual quantity,
+ * each in its own order.
+ */
+export function hereLines(list: { key: string; qty: number }[], myItems: { key: string; qty: number }[]): { key: string; qty: number; onList: boolean }[] {
+  const onList = new Set(list.map((l) => l.key));
+  return [
+    ...list.map((l) => ({ key: l.key, qty: l.qty, onList: true })),
+    ...myItems.filter((i) => !onList.has(i.key)).map((i) => ({ key: i.key, qty: i.qty, onList: false })),
+  ];
 }
 
 export type LatLng = { lat: number; lng: number };

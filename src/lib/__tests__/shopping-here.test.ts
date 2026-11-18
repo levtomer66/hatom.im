@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  dealGap, distanceLabel, endsLabel, groupHere, isTwin, storeDeals, HERE_WORTH_WALK, mergeLists, metresBetween, nearbyStore, sortStores, tieOf, verdict,
+  dealGap, distanceLabel, endsLabel, groupHere, isTwin, storeDeals, HERE_WORTH_WALK, hereLines, metresBetween, nearbyStore, sortStores, tieOf, verdict,
   type HereRow, type HereStore,
 } from '../shopping/here.ts';
 import type { PromoDoc } from '../shopping/snapshot.ts';
@@ -34,7 +34,7 @@ test('verdict: ₪3 saving on the list quantity is worth the walk', () => {
 });
 
 const row = (key: string, group: HereRow['group'], saving: number): HereRow =>
-  ({ key, qty: 1, listIds: ['l'], here: null, best: null, group, saving });
+  ({ key, qty: 1, onList: true, here: null, best: null, group, saving });
 
 test('groupHere: groups, biggest saving first, then by key', () => {
   const g = groupHere([row('b', 'ok', 100), row('a', 'ok', 100), row('c', 'ok', 250), row('d', 'best', 0), row('e', 'missing', 0)]);
@@ -44,15 +44,18 @@ test('groupHere: groups, biggest saving first, then by key', () => {
   assert.deepEqual(g.missing.map((r) => r.key), ['e']);
 });
 
-test('mergeLists: each item once, largest quantity, every list', () => {
-  const merged = mergeLists([
-    { id: 'a', items: [{ key: 'milk', qty: 2 }, { key: 'eggs', qty: 1 }] },
-    { id: 'b', items: [{ key: 'milk', qty: 3 }] },
+test('hereLines: the shopping list first, then the rest of My items at their usual quantity', () => {
+  const lines = hereLines(
+    [{ key: 'eggs', qty: 2 }, { key: 'bread', qty: 1 }],
+    [{ key: 'milk', qty: 3 }, { key: 'eggs', qty: 1 }, { key: 'salt', qty: 1 }],
+  );
+  assert.deepEqual(lines, [
+    { key: 'eggs', qty: 2, onList: true },
+    { key: 'bread', qty: 1, onList: true },
+    { key: 'milk', qty: 3, onList: false },
+    { key: 'salt', qty: 1, onList: false },
   ]);
-  assert.deepEqual(merged, [
-    { key: 'milk', qty: 3, listIds: ['a', 'b'] },
-    { key: 'eggs', qty: 1, listIds: ['a'] },
-  ]);
+  assert.deepEqual(hereLines([], [{ key: 'milk', qty: 1 }]), [{ key: 'milk', qty: 1, onList: false }]);
 });
 
 const store = (k: number, loc: HereStore['loc'], walkMin: number | null, name = `s${k}`, priced = true): HereStore => ({

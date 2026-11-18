@@ -36,9 +36,13 @@ Below the header, three tabs:
 
 ### 1. כדאי כאן (worth buying here)
 
-From the items on **all** the lists the caller can see (a chip row narrows to
-one list), each priced here and at every physical store in the city,
-deals applied (the same `rankStores` the compare uses, one unit each):
+From **all of My items** (the household's usual products; since 2026-11-18 there
+are no named lists), each priced here and at every physical store in the city,
+deals applied (the same `rankStores` the compare uses, one unit each). When
+there is a shopping list (built in "מה חסר?"), its items come first under
+"רשימת הקניות" at the list's quantity, then the rest under "עוד מהמוצרים
+שלי" at their usual quantity; each part has the groups below. Without a list,
+just the groups. The deals tab's first section is "במוצרים שלי", list first.
 
 | Group | Rule (constants, open to tuning) | Row shows |
 |---|---|---|
@@ -128,14 +132,14 @@ All under `/api/shopping/here/*`, permission `shopping` (`requireFeatureCaller`)
     promos: Record<string, PromoDetail>;
   }
   interface HereRow {
-    key: string; qty: number; listIds: string[];
+    key: string; qty: number; onList: boolean; // list qty, else My items' usual
     here: ItemPrice | null;           // null = not sold here
     best: ItemPrice | null;           // cheapest physical store in the city
     group: 'best' | 'ok' | 'elsewhere' | 'missing';
     saving: number;                   // agorot for the list's qty, 0 in 'best'
   }
   ```
-  Server: the caller's visible lists (`getShoppingLists`), their item keys,
+  Server: the household doc (`getHome`), `hereLines(list, myItems)`,
   `getItems` + `getPromosFor` + `getStoresFor(city)`, then `rankStores` per
   item. The grouping is a pure function `groupHere()` in
   `src/lib/shopping/here.ts` (import-free, unit-tested).
@@ -176,7 +180,8 @@ All under `/api/shopping/here/*`, permission `shopping` (`requireFeatureCaller`)
 ## Decisions (owner, 2026-11-17)
 
 1. **Thresholds** as proposed: `HERE_TIE` = max(₪0.50, 3%), `HERE_WORTH_WALK` = ₪3.
-2. **All lists** feed "כדאי כאן".
+2. **All lists** feed "כדאי כאן". (2026-11-18: all of My items, the shopping
+   list's first.)
 3. **No "קניתי"**: the screen is unrelated to editing lists. It reads them; the
    only write is "+ לרשימה".
 4. **No cart total / "כמה שילמת?"**: dropped as a bad feature. (The trip's

@@ -279,10 +279,10 @@ export interface HereStoresResponse {
 /** One list item at the chosen store (here.ts groups them). */
 export interface HereRow {
   key: string;
-  /** The largest quantity any list wants (units, or kg when weighted). */
+  /** The quantity wanted: the shopping list's, else the usual one from My items (units, or kg when weighted). */
   qty: number;
-  /** Lists it's on. */
-  listIds: string[];
+  /** On the shopping list (else only in My items). */
+  onList: boolean;
   /** One unit's price here (1 kg when weighted), deals applied, or null when the store doesn't sell it. */
   here: ItemPrice | null;
   /** The cheapest physical store's price for one unit (may be this store), or null when none sells it. */
@@ -306,7 +306,7 @@ export interface HereResponse {
   items: Record<string, { name: string; manufacturer: string; w: boolean; img: string | null; imgBy: ImgBy; d: string | null }>;
   /** The caller's lists (for the filter chips). */
   rows: HereRow[];
-  /** Not on any list, bought on a recent trip, and on a deal here now (biggest saving first). */
+  /** Not in My items, bought on a recent trip, and on a deal here now (biggest saving first). */
   before: { key: string; here: ItemPrice }[];
   /** Terms of every deal named above, by promo id. */
   promos: Record<string, PromoDetail>;

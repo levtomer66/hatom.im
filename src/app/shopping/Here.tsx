@@ -217,7 +217,6 @@ function StoreView({ store, city, tripStores, onOpenTrip, onOpenItem, onAdd, lis
   const [data, setData] = useState<HereResponse | null>(null);
   const [error, setError] = useState(false);
   const [tab, setTab] = useState<Tab>('worth');
-  const [showMissing, setShowMissing] = useState(false);
   const [scanning, setScanning] = useState(false);
   const [scanned, setScanned] = useState<string | null>(null);
   const [reload, setReload] = useState(0);
@@ -249,9 +248,13 @@ function StoreView({ store, city, tripStores, onOpenTrip, onOpenItem, onAdd, lis
     [data],
   );
   const groups = useMemo(() => groupHere(rows), [rows]);
+  // The shopping list's items, then the rest of My items (each part grouped on its own).
+  const listRows = useMemo(() => rows.filter((r) => r.onList), [rows]);
+  const restRows = useMemo(() => rows.filter((r) => !r.onList), [rows]);
+  // On a deal here: the shopping list's items first (rows already come list-first).
   const dealRows = rows.filter((r) => r.here && (r.here.applied.length || r.here.idle.length || r.here.offers.some((o) => o.reason !== 'unclear')));
   const onTrip = tripStores[store.k] ?? 0;
-  // The store's other deals: not the lists' items or the past trips' (shown above them).
+  // The store's other deals: not My items or the past trips' (shown above them).
   const otherDeals = useMemo(() => {
     if (!allDeals || !data) return null;
     const shown = new Set([...data.rows.map((r) => r.key), ...data.before.map((d) => d.key)]);
@@ -291,23 +294,20 @@ function StoreView({ store, city, tripStores, onOpenTrip, onOpenItem, onAdd, lis
 
         {data && tab === 'worth' && (
           <>
-            {!rows.length && <p className="sh-empty">הרשימה ריקה. אפשר לחפש או לסרוק מוצר ולראות אם כדאי לקנות אותו כאן.</p>}
-            {(['best', 'ok', 'elsewhere'] as const).map((g) => groups[g].length > 0 && (
-              <section key={g} className={`sh-dept sh-here-group is-${g}`}>
-                <h3>{GROUP_TITLE[g]} <small>{groups[g].length}</small></h3>
-                <ul>{groups[g].map((r) => <WorthRow key={r.key} row={r} data={data} onOpen={() => onOpenItem(r.key, false)} />)}</ul>
-              </section>
-            ))}
-            {groups.missing.length > 0 && (
-              <section className="sh-dept sh-here-group is-missing">
-                <h3>
-                  <button type="button" className="sh-here-fold" onClick={() => setShowMissing(!showMissing)} aria-expanded={showMissing}>
-                    {GROUP_TITLE.missing} <FaChevronDown aria-hidden className={showMissing ? 'is-open' : ''} />
-                  </button>
-                  <small>{groups.missing.length}</small>
-                </h3>
-                {showMissing && <ul>{groups.missing.map((r) => <WorthRow key={r.key} row={r} data={data} onOpen={() => onOpenItem(r.key, false)} />)}</ul>}
-              </section>
+            {!rows.length && <p className="sh-empty">עוד אין מוצרים שלי. אפשר לחפש או לסרוק מוצר ולראות אם כדאי לקנות אותו כאן.</p>}
+            {listRows.length > 0 ? (
+              <>
+                <h2 className="sh-here-part">רשימת הקניות <small>{listRows.length}</small></h2>
+                <WorthGroups rows={listRows} data={data} onOpen={(key) => onOpenItem(key, false)} />
+                {restRows.length > 0 && (
+                  <>
+                    <h2 className="sh-here-part">עוד מהמוצרים שלי <small>{restRows.length}</small></h2>
+                    <WorthGroups rows={restRows} data={data} onOpen={(key) => onOpenItem(key, false)} />
+                  </>
+                )}
+              </>
+            ) : (
+              <WorthGroups rows={restRows} data={data} onOpen={(key) => onOpenItem(key, false)} />
             )}
           </>
         )}
@@ -315,9 +315,9 @@ function StoreView({ store, city, tripStores, onOpenTrip, onOpenItem, onAdd, lis
         {data && tab === 'deals' && (
           <>
             <section className="sh-dept">
-              <h3>ברשימות שלך <small>{dealRows.length}</small></h3>
-              {!dealRows.length && <p className="sh-empty">אין כאן מבצע על מה שברשימות.</p>}
-              <ul>{dealRows.map((r) => <DealRow key={r.key} itemKey={r.key} price={r.here!} qty={r.qty} data={data} onOpen={() => onOpenItem(r.key, false)} />)}</ul>
+              <h3>במוצרים שלי <small>{dealRows.length}</small></h3>
+              {!dealRows.length && <p className="sh-empty">אין כאן מבצע על המוצרים שלי.</p>}
+              <ul>{dealRows.map((r) => <DealRow key={r.key} itemKey={r.key} price={r.here!} qty={r.qty} onList={r.onList} data={data} onOpen={() => onOpenItem(r.key, false)} />)}</ul>
             </section>
             <section className="sh-dept">
               <h3>קנית בעבר <small>{data.before.length}</small></h3>
@@ -513,6 +513,33 @@ function FindBar({ city, onScan, onPick }: { city: string; onScan: () => void; o
 }
 
 /** "₪3.00 פחות ב־רמי לוי (6 דק׳ הליכה)". */
+/** One part's rows by verdict: worth buying here first, "אין כאן" folded. */
+function WorthGroups({ rows, data, onOpen }: { rows: HereRow[]; data: HereResponse; onOpen: (key: string) => void }) {
+  const [showMissing, setShowMissing] = useState(false);
+  const groups = useMemo(() => groupHere(rows), [rows]);
+  return (
+    <>
+      {(['best', 'ok', 'elsewhere'] as const).map((g) => groups[g].length > 0 && (
+        <section key={g} className={`sh-dept sh-here-group is-${g}`}>
+          <h3>{GROUP_TITLE[g]} <small>{groups[g].length}</small></h3>
+          <ul>{groups[g].map((r) => <WorthRow key={r.key} row={r} data={data} onOpen={() => onOpen(r.key)} />)}</ul>
+        </section>
+      ))}
+      {groups.missing.length > 0 && (
+        <section className="sh-dept sh-here-group is-missing">
+          <h3>
+            <button type="button" className="sh-here-fold" onClick={() => setShowMissing(!showMissing)} aria-expanded={showMissing}>
+              {GROUP_TITLE.missing} <FaChevronDown aria-hidden className={showMissing ? 'is-open' : ''} />
+            </button>
+            <small>{groups.missing.length}</small>
+          </h3>
+          {showMissing && <ul>{groups.missing.map((r) => <WorthRow key={r.key} row={r} data={data} onOpen={() => onOpen(r.key)} />)}</ul>}
+        </section>
+      )}
+    </>
+  );
+}
+
 function cheaperAt(row: Pick<HereRow, 'best' | 'saving'>, stores: Record<number, StoreInfo>) {
   const s = row.best ? stores[row.best.store] : undefined;
   return `${ils(row.saving)} פחות ב${storeName(s)}${walkLabel(s)}`;
@@ -560,11 +587,13 @@ function dealsOf(price: ItemPrice, promos: Record<string, PromoDetail>) {
   return all.filter((d) => !seen.has(d.description) && seen.add(d.description));
 }
 
-function DealRow({ itemKey, price, qty, data, onOpen, onAdd, listName }: {
+function DealRow({ itemKey, price, qty, onList = false, data, onOpen, onAdd, listName }: {
   itemKey: string;
   price: ItemPrice;
-  /** The list quantity, or null for an item not on a list. */
+  /** The quantity wanted (the list's, else the usual one), or null for an item not in My items. */
   qty: number | null;
+  /** `qty` is the shopping list's (else My items' usual quantity). */
+  onList?: boolean;
   data: HereResponse;
   onOpen: () => void;
   onAdd?: () => void;
@@ -585,7 +614,7 @@ function DealRow({ itemKey, price, qty, data, onOpen, onAdd, listName }: {
               {d.description} · {endsLabel(d.end, data.now)}
             </small>
           ))}
-          {add !== null && <small className="sh-here-gap">ברשימה {qty}, עוד {add === 1 ? 'אחד' : add} למבצע</small>}
+          {add !== null && <small className="sh-here-gap">{onList ? 'ברשימה' : 'בדרך כלל'} {qty}, עוד {add === 1 ? 'אחד' : add} למבצע</small>}
         </span>
         <span className="sh-here-price">
           <b title={price.multi ? multiNote(price.multi) : undefined}>{ils(price.cost)}{price.multi && <MultiStar />}</b>
@@ -675,7 +704,7 @@ function Verdict({ code, store, city, rows, listName, onAdd, onDetails, onClose,
           <div className="sh-here-verdict-head">
             <Thumb src={it.img} size={56} by={it.imgBy} />
             <div>
-              <p className="sh-muted sh-here-verdict-item">{it.name}{listed && <> · ברשימה {qtyLabel(qty, it.w)}</>}</p>
+              <p className="sh-muted sh-here-verdict-item">{it.name}{listed && <> · {listed.onList ? 'ברשימה' : 'במוצרים שלי'} {qtyLabel(qty, it.w)}</>}</p>
               <p id="sh-verdict-title" className={`sh-end-title sh-here-verdict-title is-${v.group}`}>
                 <span aria-hidden>{VERDICT[v.group].mark}</span> {v.group === 'elsewhere' && bestStore ? `עדיף ב${storeName(bestStore)}` : VERDICT[v.group].title}
               </p>

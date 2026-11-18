@@ -1215,6 +1215,11 @@ body:has(.sh-page) { background: #ffffff; }
 .sh-here-price b { font-weight: 600; }
 .sh-here-price s { font-size: 0.8125rem; color: var(--sh-muted); }
 .sh-here-group.is-best h3 { color: var(--sh-accent); }
+/* "רשימת הקניות" / "עוד מהמוצרים שלי": the two parts of כדאי כאן when there is a list. */
+.sh-here-part { margin: 1.25rem 0 0.25rem; font-size: 1.0625rem; font-weight: 700; color: var(--sh-ink); }
+.sh-here-part:first-child { margin-top: 0.25rem; }
+.sh-here-part small { margin-inline-start: 0.375rem; font-size: 0.8125rem; font-weight: 500; color: var(--sh-muted); }
+.sh-here-part ~ .sh-here-part { padding-top: 1rem; border-top: 1px solid var(--sh-line); }
 .sh-here-row.is-elsewhere .sh-tick-name > small { color: var(--sh-miss); }
 .sh-here-row.is-missing { opacity: 0.7; }
 .sh-here-fold { display: inline-flex; align-items: center; gap: 0.375rem; padding: 0; border: none; background: none; color: inherit; font: inherit; cursor: pointer; }
