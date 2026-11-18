@@ -265,8 +265,11 @@ Identity = Gmail address. Two roles:
   Never comparison sites.
 - **Pins** (`places/pins.json` in the cache dir, personal — never in the repo)
   drive `npm run shopping:discover` (small-shop discovery, OSM + hand-collected
-  Google Maps lists) and limit the ingest to stores near them
-  (`ingest/locate.ts`; `--all-stores` to keep whole cities). A pin's
+  Google Maps lists) and limit the ingest to stores near them. Every keep/drop
+  rule is in `ingest/select.ts` (one selection per chain, `keepRule`,
+  `woltVenueRule`, `fallbackOrder`); the owner's files are read once by
+  `ingest/picks.ts`; `ingest/locate.ts` only places stores. No pins = the run
+  stops. A pin's
   `walkMinutes` limits stores to a routed walking time (`ingest/walk.ts`);
   a chain left with no priced store keeps one (its listed online store, else
   the one nearest a pin that publishes; `fallbackOrder`, docs/sources.md);
@@ -283,14 +286,26 @@ Identity = Gmail address. Two roles:
   there). docs/sources.md § Areas with no pin.
 - **Ingest is a local, manually-run job**, not a Vercel function (Hobby cron
   is daily-only and a full run is ~190 MB of downloads + GBs of XML):
-  `npm run shopping:ingest -- [--dry-run] [--offline] [--chains yohananof,shufersal,wolt] [--max-stores N] [--full] [--all-stores]`.
-  `--offline` rebuilds the docs from saved state without fetching. Test locally
+  `npm run shopping:ingest -- [--dry-run] [--offline] [--chains yohananof,shufersal,wolt] [--full] [--max-stores N --dry-run]`.
+  `--offline` rebuilds the docs from saved state with no network request at all
+  (geocode and walk answer from their caches; a store whose lookup isn't cached
+  stays as saved). `--max-stores` is a sample, so it needs `--dry-run`; raw
+  files are pruned only by a run that fetches and writes. Test locally
   against Docker Mongo with a *copy* of the cache (`SHOPPING_CACHE_DIR`), or
   its `written.json` will make the next Atlas run skip docs.
   Needs a write-capable `MONGODB_URI` in `.env.shopping` (gitignored).
   Cache in `~/.cache/hatom-shopping` (raw files pruned after 7 days and never
   re-downloaded; per-store parsed state; `written.json` hashes). Not in the
   repo: writes under the repo root trigger the `next dev` recompile loop.
+  Modules, by stage (`src/lib/shopping/ingest/`): `cli.ts` is the entry point
+  and the only one with top-level side effects; `run.ts` runs the stages —
+  `picks.ts`, `select.ts`, `locate.ts` + `geo.ts` (the one Nominatim client;
+  a geocode miss is retried after 30 days) + `walk.ts`, `official.ts` (one
+  price-transparency chain), `wolt.ts`, `state.ts` (saved state, read once per
+  run; the registry; keys), `build.ts` (saved state → docs), `write.ts`
+  (indexes, diff, bulk writes), `cache.ts` (paths, `readJson`, the run log),
+  `flags.ts`. All but `cli.ts` are importable from `node --test`; a whole
+  offline run is covered by `shopping-ingest-run.test.ts`.
 - **Mongo M0 budget drives the schema** (512 MB incl. indexes, ~100 ops/s):
   `shoppingItems` is one doc per item with a `p: {storeKey: agorot}` map
   (barcode `_id`; chain-internal codes are `<chainId>:<code>` and never
@@ -348,8 +363,9 @@ Identity = Gmail address. Two roles:
   with `nearFor()` (`near-server.ts`) and reads stores with `getStoresNear()`
   (one `find` over all candidate stores, filtered in JS: no geo index). A store
   with no `loc` counts only when starred. `CITIES` / `StoreDoc.city` are the
-  ingest's internal coverage shortcut now; the app ignores the ingest's `far`
-  flag, and never shows its routed `walkMin` from a pin: `StoreInfo.walkMin` is
+  ingest's internal coverage shortcut now; the ingest no longer writes `far`,
+  `walkMin` or `cityRaw` on store docs (`loc` is the point selection gave the
+  store): `StoreInfo.walkMin` is
   `walkMinutes(distM)` (straight line × 1.3 at 80 m/min), and a split plan is
   shown and walked in `walkOrder` with each leg's distance.
   Spec: `docs/superpowers/specs/2026-11-18-shopping-no-cities-design.md`.
@@ -375,9 +391,9 @@ Identity = Gmail address. Two roles:
   lists (`sortStores(…, favs)`), price rankings keep their order. A store
   outside the pins' coverage is added by the owner via `places/extra.json` + the
   discovery review (the ingest keeps a curated store in any target city, pin
-  or no pin — `keepRule` in `ingest/locate.ts`); a city added only for that
-  sets `picker: false` in `CITIES` (Holon, for Hazi Hinam מרכבה; `--all-stores`
-  leaves such cities out). `GET /api/shopping/stores?q=` searches every
+  or no pin — `keepRule` in `ingest/select.ts`); a city added only for that
+  is a plain `CITIES` entry (Holon, for Hazi Hinam מרכבה): a city keeps no
+  store by itself. `GET /api/shopping/stores?q=` searches every
   priced store anywhere; `POST /api/shopping/far` (the page sends its favorites) prices the list at the
   favorites ("כמה יעלה לי ב…", from the list card). Plans and compare use the
   near set; `/here?store=&r=` measures the radius around that store.

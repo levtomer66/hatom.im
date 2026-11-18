@@ -41,10 +41,9 @@ it in `places/official.json`; two stores at one address — a store and its
 produce store — are two `extra.json` entries that discovery merges into one
 row, and every hand-match on that row is kept): the ingest keeps an official store a curated
 entry points to in any target city, with or without a pin there. A city that
-isn't in `CITIES` yet needs an entry (CBS code + aliases) with `picker: false`,
-so it isn't offered as the user's city (Holon, 2026-11-18). `--all-stores`
-leaves `picker: false` cities out, or it would pull in every chain's stores
-there. Then run the ingest as usual.
+isn't in `CITIES` yet needs an entry (CBS code + aliases; Holon, 2026-11-18):
+adding a city keeps none of its stores by itself, only the ones picked this
+way. Then run the ingest as usual.
 
 **Areas with no pin: Jerusalem (Beit HaKerem, Talpiot) and Mevaseret Zion**
 (2026-11-18). The owner's rule: pins only say which stores to take, and
@@ -72,11 +71,11 @@ the right city. The owner chose:
   3 requests): Mia Market (Talpiot), Teimim, Anise and Maadanei Tsidkiyaho
   (Beit HaKerem), Anise and Maadanei Eliyaho (Mevaseret). A Wolt venue in a
   city with no pin is kept when its entry is included (`woltVenueRule`,
-  `ingest/locate.ts`); in a pinned city the walk limit still applies.
+  `ingest/select.ts`); in a pinned city the walk limit still applies.
 
-With no pin in their city, the official stores and Wolt venues there are
-`far` (`isFar`): searchable, never in the plans, until the plans use live
-location.
+Whether one of these stores is in a plan is the app's call, from the user's
+live location and radius: the ingest marks no store as far (see "Which stores
+the ingest keeps" below).
 
 **Walk limit.** A pin with `walkMinutes` keeps only stores within that walk,
 measured as a walking route by the OpenStreetMap foot router
@@ -85,14 +84,46 @@ store farther than `walkMinutes × 60 × 1.5 m` straight-line is never routed.
 Official and Wolt stores are held to it; neighbourhood (manual) shops follow
 `decisions.json`, the owner's curated list, and an official store a curated
 entry points to is always kept — Google and OSM routes differ by about a
-minute at the edge.
+minute at the edge. The walk only decides whether a store is kept: no walking
+time is written to the store doc (the app estimates one from the user's live
+location).
 
-**The ingest keeps only stores near the pins** when `pins.json` exists
-(`--all-stores` to keep whole cities). Store files have addresses but no
-coordinates, so `ingest/locate.ts` places each store by the discovery
-match, else a Nominatim lookup of the cleaned address (cached per query in
-`places/geocode.json`). Online stores always pass. A store it can't place is
-logged and left out.
+**Which stores the ingest keeps** is decided in one place,
+`ingest/select.ts`, from the owner's files read once by `ingest/picks.ts`
+(`pins.json`, the review files, `decisions.json`, `official.json`,
+`wolt.json`). There is no mode without pins: no `pins.json` stops the run
+with the file to create. For an official store, in this order:
+
+1. an online store: kept when it is a pickup point in a target city or on the
+   chain's `onlineStores` list (`keepOnlineStore`);
+2. a store the owner included in the review (or hand-matched on an included
+   row): kept, in any target city, at the review row's point;
+3. a store in a city with no pin, or one the owner skipped: left out;
+4. the rest are placed and kept when within the pin's walk (or inside its
+   circle / area for a pin with no `walkMinutes`). A store that can't be
+   placed is logged, and left out under a walk limit (it can't be shown to
+   meet it) or kept under an area pin.
+
+A chain fetched in a run is selected once, on its Stores file, before its
+price listing is asked for. Stores of chains not fetched in a run (other
+`--chains`, `--offline`, a chain that failed) are selected again from their
+saved records, so a changed decision or pin takes effect without fetching;
+Wolt venues and manual shops of such a run stay as saved. Each chain logs one
+line with the count per reason (`included`, `near a pin`, `online`, …) and
+the run logs a "stores kept" total.
+
+Store files have addresses but no coordinates, so `ingest/locate.ts` places
+each store by the discovery match, else a Nominatim lookup of the cleaned
+address (`ingest/geo.ts`, the one Nominatim client; cached per query in
+`places/geocode.json`: a hit forever, a miss for 30 days). The point chosen
+there is the store doc's `loc`; it is derived on every run, so a corrected
+review row moves the store.
+
+**`--offline` makes no network request at all.** Address lookups and walks
+answer from `geocode.json` and `walk.json` only, and the photo-only Wolt
+venues from the week's cached responses. A store whose lookup isn't cached
+keeps its saved verdict (it stays, and the log says so): an offline run never
+drops a store for a missing cache entry.
 
 **Every chain keeps one store** (owner's rule, 2026-11-18). After the keep
 pass, a chain with no priced store (none near a pin or curated, or only ones
@@ -104,7 +135,7 @@ PriceFull — never one the owner skipped in the review. The log says "kept as
 the chain's only store". The registry remembers it (`keptAs: 'fallback'`),
 so a run of other chains or `--offline` keeps it until a store of that
 chain is reached by a pin. Rules: `fallbackOrder` / `keepFallbacks` in
-`ingest/locate.ts`. Not applied on `--max-stores` or `--all-stores` runs.
+`ingest/select.ts`. A fallback whose price file can't be read is not kept.
 Checked 2026-11-18: Osher Ad kept store 24 (קרמינצקי 3, Tel Aviv) as its
 fallback until Talpiot 26 was curated, which retired it (the fallback goes once
 another kept store has prices); the owner kept 24 by curating it too
@@ -113,11 +144,18 @@ has none, by the owner's choice**: only Poleg (14) and Akko (21) publish a
 PriceFull, neither in a target city, so each run warns "keshet: no store in the
 target cities publishes a PriceFull" — expected.
 
-**Far stores** (`far: true` on the store doc, `isFar`): a chain's only store,
-a store in a city with no pin, or one past the pin's walk limit + 2 minutes
-(curated far stores such as Yochananof 54). They show in search, the product
-view and the store search, and are never in the plans. Online stores and
-neighbourhood shops are never far.
+**No `far`, `walkMin` or `cityRaw` on store docs** (removed 2026-11-18). The
+app prices by live location, a radius and ★ favorites: a store is in the
+plans when it is within the user's radius, wherever the pins are. The ingest
+also dropped the `{ city: 1 }` index on `shoppingStores` (nothing queries
+stores by city); `StoreDoc.city` stays, for the town name in the store search.
+
+**Flags.** `--chains a,b`, `--full`, `--dry-run` (no Mongo; nothing saved),
+`--offline` (above), and `--max-stores N` — a sampling smoke run, only with
+`--dry-run`. Raw files are pruned only by a run that fetches and writes, not
+on `--dry-run` or `--offline`. `--all-stores` and `--cities` were removed: a
+store outside the pins is picked by hand (`extra.json` + `official.json` +
+`decisions.json`), never by taking a whole city.
 
 **Verified 2026-11-15** by downloading each chain's latest `Stores` file
 (plus PriceFull/PromoFull for Yochananof). Store counts below are for the
@@ -128,9 +166,9 @@ Yochananof, Rami Levy, Tiv Taam, Dor Alon, Fresh Market, Keshet and Osher Ad
 (added 2026-11-16 — all parse with the default field aliases); Carrefour
 (PublishPrice), Victory and Mahsani HaShuk (Laibcatalog), Bareket and City
 Market (Bina), added 2026-11-17 for branches near the pins; Good Pharm and
-Super-Pharm; Hazi Hinam (own site, added 2026-11-18 — it has no branch in the
-picker cities, so only its Holon מרכבה store and that branch's produce store
-are kept, as far stores; Holon is a `picker: false` city). Super Sapir and
+Super-Pharm; Hazi Hinam (own site, added 2026-11-18 — it has no branch near a
+pin, so only its Holon מרכבה store and that branch's produce store are kept,
+picked by hand; Holon is a target city with no pin). Super Sapir and
 Zol VeBegadol (Bina, added 2026-11-18 for their Jerusalem / Mevaseret
 branches; see "Areas with no pin" above).
 
@@ -180,7 +218,7 @@ Rough total: **~215 TLV + ~40 RG + ~65 BS stores** across 20 chains.
 
 Hazi Hinam (13 stores, the whole chain — re-checked 2026-11-18: Holon, Rishon
 LeZion, Rehovot, Petah Tikva, Hod HaSharon and online delivery 103; ingested
-for the Holon far store, see above), H. Cohen,
+for the Holon store the owner picked, see above), H. Cohen,
 Stop Market (`Stop_Market`), Politzer (`politzer`), Shefa Birkat Hashem,
 Shuk HaIr, Zol VeBegadol, Meshnat Yosef 1/2, City Market Shops (empty file).
 
