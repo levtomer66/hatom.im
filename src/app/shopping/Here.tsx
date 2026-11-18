@@ -247,6 +247,7 @@ function StoreView({ store, city, tripStores, onOpenTrip, onOpenItem, onAdd, lis
     () => data?.rows ?? [],
     [data],
   );
+  // The tab counts what to buy here: the cheapest, and "סביר" (not worth the walk).
   const groups = useMemo(() => groupHere(rows), [rows]);
   // The shopping list's items, then the rest of My items (each part grouped on its own).
   const listRows = useMemo(() => rows.filter((r) => r.onList), [rows]);
@@ -273,7 +274,7 @@ function StoreView({ store, city, tripStores, onOpenTrip, onOpenItem, onAdd, lis
       </header>
       <div className="sh-seg sh-instore-tabs" role="tablist">
         <button type="button" role="tab" aria-selected={tab === 'worth'} className={tab === 'worth' ? 'is-on' : ''} onClick={() => setTab('worth')}>
-          כדאי כאן {data && <small>{groups.best.length}</small>}
+          כדאי כאן {data && <small>{groups.best.length + groups.ok.length}</small>}
         </button>
         <button type="button" role="tab" aria-selected={tab === 'deals'} className={tab === 'deals' ? 'is-on' : ''} onClick={() => setTab('deals')}>
           מבצעים {data && <small>{dealRows.length + data.before.length + (otherDeals?.length ?? 0)}</small>}
