@@ -35,6 +35,13 @@ its own online store showing prices; 8 on Wolt.
 Shops the map searches miss (e.g. a supermarket OSM tags as a department
 store) go in `places/extra.json` and are listed like any other discovered shop.
 
+**A far store** (a branch outside the pinned area, for "כמה יעלה לי ב…") goes
+in `places/extra.json` the same way. Include it in the review (or hand-match
+it in `places/official.json`): the ingest keeps an official store a curated
+entry points to in any target city, with or without a pin there. A city that
+isn't in `CITIES` yet needs an entry (CBS code + aliases) with `picker: false`,
+so it isn't offered as the user's city. Then run the ingest as usual.
+
 **Walk limit.** A pin with `walkMinutes` keeps only stores within that walk,
 measured as a walking route by the OpenStreetMap foot router
 (routing.openstreetmap.de, cached per point pair in `places/walk.json`); a

@@ -120,7 +120,9 @@ All under `/api/shopping/here/*`, permission `shopping` (`requireFeatureCaller`)
 - `GET /api/shopping/here/stores?city=<id>` → `StoreInfo[]` for the city's
   physical stores, each with `loc: { lat, lng } | null`. The client sorts by
   distance. (Could instead be a `loc` on `StoreInfo` everywhere.)
-- `GET /api/shopping/here?store=<k>&city=<id>[&list=<id>]` →
+- `GET /api/shopping/here?store=<k>` (since 2026-11-18 the store's own city
+  picks the stores it's compared with; the picker also searches every city via
+  `GET /api/shopping/stores?q=`) →
   ```ts
   interface HereResponse {
     now: string;

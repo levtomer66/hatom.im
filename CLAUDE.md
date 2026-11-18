@@ -334,15 +334,26 @@ Identity = Gmail address. Two roles:
   ones stay); every trip has `listId: 'home'`. The doc is built once from the
   old `shoppingLists` (left untouched, read only by that migration).
   Spec: `docs/superpowers/specs/2026-11-18-shopping-my-items-design.md`.
+- **Favorite stores** (`shoppingHome.favStores`, store keys, max 10, the
+  household's): ☆/★ on every store row; favorites first in distance-sorted
+  lists (`sortStores(…, favs)`), price rankings keep their order. A far store
+  is a regular store: the owner adds it via `places/extra.json` + the
+  discovery review (the ingest keeps a curated store in any target city, pin
+  or no pin — `keepRule` in `ingest/locate.ts`); a city added only for that
+  sets `picker: false` in `CITIES`. `GET /api/shopping/stores?q=` searches every
+  priced store in every city; `POST /api/shopping/far` prices the list at the
+  favorites ("כמה יעלה לי ב…", from the list card). Plans and compare stay on
+  the user's city; `/here?store=` compares a store with its own city.
+  Spec: `docs/superpowers/specs/2026-11-18-shopping-favorite-stores-design.md`.
   `/api/shopping/compare` loads only the
   basket items, their promos (`items` index) and the city's stores, then runs
   `rankStores` and the plans in the request. Physical and online stores are
   ranked separately; stores whose `pricesAt` is null are never shown.
   The read model is `src/models/ShoppingCatalog.ts`; the app never writes the
   ingest collections.
-- **Result views**: per item (`perItem`, each item's cheapest stores), per
-  list (best single store), per stores (every item at its cheapest, grouped
-  by store, plus the exact two-store splits), and online. Every price carries
+- **Result views**: the plan cards ("הכי זול" / "חנות אחת"), then "כל החנויות"
+  on one page: physical stores ranked for the whole list, online, the stores
+  priced by hand. Every price carries
   its source (`StoreInfo.source`, from `priceSourceOf` in `collections.ts`: official / wolt /
   manual), rendered only by `<SourceBadge>`. Search is in `src/lib/shopping/search-rank.ts`: `searchPatterns()` turns
   each word into a spelling-tolerant regex (optional ו/י, final letters, ה/א
