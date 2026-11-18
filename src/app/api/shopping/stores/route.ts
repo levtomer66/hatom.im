@@ -10,10 +10,11 @@ import { householdFor } from '@/models/ShoppingHome';
 /** Search results returned at most. */
 const MAX_RESULTS = 30;
 
-const cityName = (s: StoreDoc) => CITIES.find((c) => c.id === s.city)?.name ?? (s.kind === 'online' ? 'אונליין' : '');
+/** The town, for matching search words only (the address often lacks it); never sent. */
+const townName = (s: StoreDoc) => CITIES.find((c) => c.id === s.city)?.name ?? (s.kind === 'online' ? 'אונליין' : '');
 const hereStore = (s: StoreDoc): HereStore => ({ ...storeInfo(s), loc: storeLoc(s), priced: true });
 
-// GET ?q=<text> — every priced store, in any city, whose chain, branch, city
+// GET ?q=<text> — every priced store, anywhere, whose chain, branch, town
 // or address has every word of q (2+ letters each; shorter queries return
 // nothing, not every store). Without q: the household's favorites, in the
 // order starred. The page sorts by distance on the device.
@@ -27,7 +28,7 @@ export async function GET(request: NextRequest) {
     else if (!storeQueryWords(q).length) stores = [];
     else {
       stores = (await getPricedStores())
-        .filter((s) => storeMatches(q, { chainName: s.chainName, name: s.name, address: s.address, cityName: cityName(s) }))
+        .filter((s) => storeMatches(q, { chainName: s.chainName, name: s.name, address: s.address, cityName: townName(s) }))
         .slice(0, MAX_RESULTS);
     }
     const res: StoresResponse = { now: israelLocalNow(), stores: stores.map(hereStore) };

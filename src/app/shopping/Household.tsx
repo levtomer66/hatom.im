@@ -2,11 +2,13 @@
 
 // Households (docs/superpowers/specs/2026-11-18-shopping-households-design.md):
 // the card for an invite to the caller, and the "משק הבית" sheet — members,
-// pending invites, inviting by email, leaving.
+// pending invites, inviting by email, leaving, and the home spot (where "near"
+// is when there's no live location: docs/superpowers/specs/2026-11-18-shopping-no-cities-design.md).
 import { useEffect, useRef, useState } from 'react';
-import { FaTimes, FaUserPlus } from 'react-icons/fa';
+import { FaHome, FaTimes, FaUserPlus } from 'react-icons/fa';
 import type { HouseholdResponse } from '@/lib/shopping/api-types';
 import { SHOPPING_API_PATH } from '@/lib/shopping/config';
+import type { Centre } from '@/lib/shopping/near';
 
 /** POST /household; throws the server's message (Hebrew where it has one). */
 export async function householdAction(body: Record<string, unknown>): Promise<HouseholdResponse> {
@@ -47,8 +49,16 @@ export function InviteCard({ invite, onAnswer }: {
 }
 
 /** The "משק הבית" sheet. `onChanged` runs after leaving, so the page reloads its data. */
-export function HouseholdSheet({ onClose, onChanged, beforeLeave }: {
+export function HouseholdSheet({ onClose, onChanged, beforeLeave, homeSpot, live, onHomeSpot, nearestHome, onSaveHere }: {
   onClose: () => void;
+  /** The household's saved home spot, the device's live location, and saving (null clears). */
+  homeSpot: Centre | null;
+  live: Centre | null;
+  onHomeSpot: (spot: Centre | null) => Promise<void>;
+  /** The nearest priced store to the home spot, when the page knows it. */
+  nearestHome: string | null;
+  /** Saves the live location, or reads it once when there is none. */
+  onSaveHere: () => void;
   onChanged: () => void;
   /** Sends the page's pending saves, so they land in this household before leaving it. */
   beforeLeave?: () => Promise<unknown>;
@@ -120,6 +130,20 @@ export function HouseholdSheet({ onClose, onChanged, beforeLeave }: {
               </label>
               <button type="submit" className="sh-btn sh-btn--primary" disabled={busy || !email.trim()}>+ הזמנה במייל</button>
             </form>
+            <section className="sh-home-spot" aria-label="הבית">
+              <h3 className="sh-section-title"><FaHome aria-hidden /> הבית</h3>
+              <p className="sh-home-spot-text">
+                {homeSpot
+                  ? <>הבית נשמר{nearestHome ? <> · ליד {nearestHome}</> : null}</>
+                  : 'כשאין מיקום (או מ־Claude / ChatGPT) משווים ליד הבית. עוד לא נשמר.'}
+              </p>
+              <div className="sh-home-spot-actions">
+                <button type="button" className="sh-btn" onClick={onSaveHere}>
+                  {homeSpot ? (live ? 'שינוי למיקום הנוכחי' : 'שינוי') : 'שמירת המיקום הנוכחי כבית'}
+                </button>
+                {homeSpot && <button type="button" className="sh-link" onClick={() => void onHomeSpot(null)}>מחיקה</button>}
+              </div>
+            </section>
             {h.members.length > 1 && (
               <button type="button" className="sh-btn sh-btn--ghost sh-btn--danger sh-household-leave" disabled={busy} onClick={leave}>עזיבת משק הבית</button>
             )}

@@ -6,6 +6,7 @@ import { dealMinQty, type AppliedPromo, type Offer, type StoreBasket } from './p
 import type { PromoDoc, StoreDoc } from './snapshot.ts';
 import type { Nutrition } from './nutrition.ts';
 import type { Invite } from './household.ts';
+import type { Where } from './near.ts';
 
 export type { PriceSource } from './collections.ts';
 
@@ -27,14 +28,14 @@ export interface SearchHit {
   name: string;
   manufacturer: string;
   w: boolean;
-  /** One unit's (1 kg's) lowest and highest price in the city's stores, deals applied (agorot), or null. */
+  /** One unit's (1 kg's) lowest and highest price in the near stores, deals applied (agorot), or null. */
   minPrice: number | null;
   maxPrice: number | null;
-  /** Stores in the city that sell it. */
+  /** Near stores that sell it. */
   stores: number;
-  /** Sources the price range above comes from (empty when not sold in the city). */
+  /** Sources the price range above comes from (empty when no near store sells it). */
   sources: PriceSource[];
-  /** The store with the lowest price (chain and branch), or null when not sold in the city. */
+  /** The store with the lowest price (chain and branch), or null when no near store sells it. */
   cheapest: { chainName: string; name: string } | null;
   /** The cheapest price is a deal's. */
   onSale: boolean;
@@ -51,14 +52,15 @@ export interface StoreInfo {
   chainName: string;
   name: string;
   address: string;
-  city: string | null;
   kind: 'physical' | 'online';
   /** Israel local "YYYY-MM-DDTHH:mm" of the price file, or null (always null for manual stores). */
   pricesAt: string | null;
   /** Where its prices come from — label every price with it. */
   source: PriceSource;
-  /** Walking minutes from the nearest of the city's pins (ingest), or null (online, unknown). */
+  /** Walking minutes from the nearest pin (ingest), or null (online, unknown). */
   walkMin: number | null;
+  /** Metres from the request's centre (your location or the home spot), or null (online, no point, no centre). */
+  distM: number | null;
 }
 
 /** PUT /api/shopping/manual-prices — set (or, with null, clear) one price at a manual store. */
@@ -116,11 +118,12 @@ export function idleDeals(
 }
 
 /** The page's view of a store doc. */
-export const storeInfo = (s: StoreDoc): StoreInfo => ({
+export const storeInfo = (s: StoreDoc & { distM?: number | null }): StoreInfo => ({
   k: s.k, chainId: s.chainId, chainName: s.chainName, name: s.name, address: s.address,
-  city: s.city, kind: s.kind, pricesAt: s.pricesAt, source: s.source ?? 'official',
+  kind: s.kind, pricesAt: s.pricesAt, source: s.source ?? 'official',
   // Written by the ingest since dcfc209 (feature/shopping-ingest); read here before that type is merged.
   walkMin: (s as StoreDoc & { walkMin?: number | null }).walkMin ?? null,
+  distM: s.distM ?? null,
 });
 
 export interface ManualPriceRequest {
@@ -138,8 +141,15 @@ export interface ManualPriceResponse {
   at: string;
 }
 
+/**
+ * POST /api/shopping/compare. `lat`/`lng`: where you are (rounded server-side,
+ * never stored); without them the household's home spot. `r`: radius in km
+ * (1, 2, 5 or 10; default 1).
+ */
 export interface CompareRequest {
-  city: string;
+  lat?: number;
+  lng?: number;
+  r?: number;
   lines: { key: string; qty: number }[];
   /** Apply club promos too. */
   clubs?: boolean;
@@ -155,13 +165,13 @@ export interface ItemOption {
   effectiveUnit: number;
 }
 
-/** The "per item" view: where each item is cheapest among the city's physical stores. */
+/** The "per item" view: where each item is cheapest among the near physical stores. */
 export interface ItemBest {
   key: string;
   qty: number;
   /** Cheapest first, at most ITEM_OPTIONS_SHOWN. Empty when no store sells it. */
   options: ItemOption[];
-  /** Physical stores in the city that sell it. */
+  /** Near physical stores that sell it. */
   stores: number;
 }
 
@@ -196,16 +206,17 @@ export interface Plans {
 
 export interface CompareResponse {
   now: string;
-  city: string;
+  /** Which stores counted: the centre, where it came from, and the radius. */
+  where: Where;
   stores: Record<number, StoreInfo>;
   /** `d`: department id (departments.ts) when known. */
   items: Record<string, { name: string; manufacturer: string; w: boolean; img: string | null; imgBy?: ImgBy; d?: string | null }>;
-  /** Physical stores in the city, cheapest first. */
+  /** Near physical stores (and ★), cheapest first. */
   physical: StoreBasket[];
   /** Online stores, cheapest first. */
   online: StoreBasket[];
   /**
-   * The city's manual stores (prices typed by users), fewest missing first.
+   * The near manual stores (prices typed by users), fewest missing first.
    * `missing` = the lines still to price; set one with
    * PUT /api/shopping/manual-prices { store, item, price } (agorot, null clears).
    * A manual store with nothing missing also appears in `physical`.
@@ -226,7 +237,7 @@ export type StoreCardData = Pick<CompareResponse, 'now' | 'stores' | 'items' | '
 
 /**
  * POST /api/shopping/far { stores, lines, clubs?, coupons? } — "כמה יעלה לי ב…": the
- * list at each of the household's favorite stores (any city), complete
+ * list at each of the household's favorite stores (wherever they are), complete
  * baskets cheapest first, then those missing items.
  */
 export type FarResponse = StoreCardData & { baskets: StoreBasket[] };
@@ -245,10 +256,10 @@ export interface ItemPrice {
   multi?: { qty: number; unit: number; total: number } | null;
 }
 
-/** GET /api/shopping/item?key=<item key or scanned barcode>&city=<city id>. 404 when no such item. */
+/** GET /api/shopping/item?key=<item key or scanned barcode>&lat&lng&r. 404 when no such item. */
 export interface ItemResponse {
   now: string;
-  city: string;
+  where: Where;
   item: {
     key: string; name: string; manufacturer: string; w: boolean; img: string | null; imgBy: ImgBy; barcode: boolean;
     /** Nutrition per 100 g (100 ml for drinks), or null when no source has it. */
@@ -261,7 +272,7 @@ export interface ItemResponse {
     d: string | null;
   };
   stores: Record<number, StoreInfo>;
-  /** The city's physical stores selling it (manual shops where it's priced), cheapest first. */
+  /** The near physical stores selling it (manual shops where it's priced), cheapest first. */
   physical: ItemPrice[];
   /** Online stores selling it, cheapest first. */
   online: ItemPrice[];
@@ -279,15 +290,15 @@ export interface HereStore extends StoreInfo {
   priced: boolean;
 }
 
-/** GET /api/shopping/here/stores?city=<city id> — the city's physical stores, for the picker (sorted on the device). */
+/** GET /api/shopping/here/stores?lat&lng — physical stores within 10 km of you (else the home spot), plus ★, for the picker (sorted on the device). */
 export interface HereStoresResponse {
   now: string;
   stores: HereStore[];
 }
 
 /**
- * GET /api/shopping/stores?q=<text> — priced stores in every city whose chain,
- * branch, city or address has every word of `q` (max 30); without `q`, the
+ * GET /api/shopping/stores?q=<text> — priced stores anywhere whose chain,
+ * branch, town or address has every word of `q` (max 30); without `q`, the
  * household's favorites. Sorted on the device.
  */
 /**
@@ -325,13 +336,15 @@ export interface HereRow {
 }
 
 /**
- * GET /api/shopping/here?store=<store key>&city=<city id> — every item on the
- * caller's lists priced here and at the city's other physical stores, and the
+ * GET /api/shopping/here?store=<store key>&r=<km> — every item on the
+ * caller's lists priced here and at the physical stores within r of this one
+ * (plus ★), and the
  * items bought on past trips that are on a deal here now.
  */
 export interface HereResponse {
   now: string;
-  city: string;
+  /** Centred on the store itself. */
+  where: Where;
   store: StoreInfo;
   /** Every store named in `rows`. */
   stores: Record<number, StoreInfo>;
@@ -345,7 +358,7 @@ export interface HereResponse {
 }
 
 /**
- * GET /api/shopping/here/deals?store=<store key>&city=<city id> — every item's
+ * GET /api/shopping/here/deals?store=<store key> — every item's
  * best deal at the store now, biggest share saved first (here.ts storeDeals).
  */
 export interface HereDealsResponse {
@@ -387,9 +400,4 @@ export type NutritionResponse = Record<string, ItemNutrition>;
 export interface ShoppingSettings {
   /** Show the list's nutrition totals above it. Off by default. */
   nutritionHero: boolean;
-  /**
-   * The city to price in when a client doesn't say (the MCP tools, Shortcuts):
-   * a cities.ts id, or null. The page detects its own city on the device.
-   */
-  city: string | null;
 }

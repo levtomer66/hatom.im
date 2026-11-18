@@ -3,6 +3,8 @@
 // `node --test`. Stored as one Mongo doc (src/models/ShoppingHome.ts).
 // Spec: docs/superpowers/specs/2026-11-18-shopping-my-items-design.md
 
+import { parseCentre, type Centre } from './near.ts';
+
 /** A line on the shopping list — the shape the comparison takes. */
 export interface ListLine {
   /** Item key: a barcode, or "<chainId>:<code>" for chain-internal items. */
@@ -25,6 +27,8 @@ export interface ShoppingHome {
   list: ListLine[];
   /** Favorite store keys (any city), at most MAX_FAV_STORES, in the order starred. */
   favStores: number[];
+  /** Where "near" is when there's no live location (Shortcuts, MCP, GPS denied); null until a member saves it. */
+  homeSpot: Centre | null;
   updatedAt: string;
 }
 
@@ -55,6 +59,14 @@ function parseLine(raw: unknown): Result<ListLine> {
 }
 
 /** The list from a PATCH body: the same item twice merges into one line (quantities add). */
+/** The home spot from a PATCH body: a { lat, lng } point (rounded), or null to clear it. */
+export function parseHomeSpot(v: unknown): Result<Centre | null> {
+  if (v === null) return { ok: true, value: null };
+  const p = v && typeof v === 'object' ? (v as Record<string, unknown>) : {};
+  const c = parseCentre(p.lat, p.lng);
+  return c && typeof c === 'object' ? { ok: true, value: c } : { ok: false, error: 'מיקום לא תקין' };
+}
+
 /** The household's favorite store keys: integers, deduped (first kept), at most MAX_FAV_STORES. */
 export function parseFavStores(v: unknown): Result<number[]> {
   if (!Array.isArray(v)) return { ok: false, error: 'favStores must be an array' };

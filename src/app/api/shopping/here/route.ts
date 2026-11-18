@@ -6,7 +6,8 @@ import { israelLocalNow } from '@/lib/shopping/snapshot';
 import { idleDeals, imgByOf, promoDetails, storeInfo, type HereResponse, type HereRow, type ItemPrice, type StoreInfo } from '@/lib/shopping/api-types';
 import { hereLines, verdict } from '@/lib/shopping/here';
 import { withManualPrices } from '@/lib/shopping/manual';
-import { getItems, getPromosFor, getStoreByKey, getStoresFor } from '@/models/ShoppingCatalog';
+import { getCandidateStores, getItems, getPromosFor, getStoreByKey, storeLoc } from '@/models/ShoppingCatalog';
+import { nearStores, parseRadius, type Where } from '@/lib/shopping/near';
 import { getManualPrices } from '@/models/ShoppingManualPrice';
 import { householdFor } from '@/models/ShoppingHome';
 import { getRecentTicked } from '@/models/ShoppingTrip';
@@ -15,9 +16,9 @@ import { getRecentTicked } from '@/models/ShoppingTrip';
 const BEFORE_SCAN = 300;
 const BEFORE_SHOWN = 30;
 
-// GET ?store=<store key> — "אני בסופר": every one of the
+// GET ?store=<store key>&r=<km> — "אני בסופר": every one of the
 // household's My items (the shopping list's first, at the list's quantity)
-// priced here and at the city's other physical stores, one unit each (1 kg when weighted), deals applied as in the product
+// priced here and at the physical stores within r km of this one (plus ★), one unit each (1 kg when weighted), deals applied as in the product
 // view, grouped by here.ts' verdict. Plus the items bought on recent trips
 // that are on a deal here now. Read-only: nothing here changes My items or the list.
 export async function GET(request: NextRequest) {
@@ -27,14 +28,15 @@ export async function GET(request: NextRequest) {
   if (!Number.isInteger(storeKey)) return NextResponse.json({ error: 'store is required' }, { status: 400 });
 
   try {
-    // The store's own city (it may not be the user's): its stores are what "cheaper elsewhere" means.
+    // "Cheaper elsewhere" is measured around the store you're standing in, not around you.
     const picked = await getStoreByKey(storeKey);
-    if (!picked || picked.kind !== 'physical' || picked.city === null) return NextResponse.json({ error: 'No such store' }, { status: 404 });
-    const city = picked.city;
-    const [stores, home] = await Promise.all([getStoresFor(city), householdFor(caller.userEmail)]);
-    const physical = stores.filter((s) => s.kind === 'physical' && s.city === city);
-    const store = physical.find((s) => s.k === storeKey);
-    if (!store) return NextResponse.json({ error: 'No such store' }, { status: 404 });
+    if (!picked || picked.kind !== 'physical') return NextResponse.json({ error: 'No such store' }, { status: 404 });
+    const [candidates, home] = await Promise.all([getCandidateStores(), householdFor(caller.userEmail)]);
+    const where: Where = { centre: storeLoc(picked), source: 'live', radiusKm: parseRadius(request.nextUrl.searchParams.get('r')) };
+    const near = nearStores(candidates.map((s) => ({ ...s, loc: storeLoc(s) })), where, home.favStores).filter((s) => s.kind === 'physical');
+    // The store itself always counts, even without a point (it then has no radius around it).
+    const physical = near.some((s) => s.k === storeKey) ? near : [{ ...picked, loc: storeLoc(picked), distM: 0 }, ...near];
+    const store = physical.find((s) => s.k === storeKey)!;
 
     const lines = hereLines(home.list, home.items);
     const mine = new Set(lines.map((l) => l.key));
@@ -91,7 +93,7 @@ export async function GET(request: NextRequest) {
     const shown = new Set([...rows.map((r) => r.key), ...deals.map((d) => d.key)]);
     const res: HereResponse = {
       now,
-      city,
+      where,
       store: storeInfo(store),
       stores: Object.fromEntries(physical.filter((s) => named.has(s.k)).map((s): [number, StoreInfo] => [s.k, storeInfo(s)])),
       items: Object.fromEntries(docs.filter((d) => shown.has(d._id)).map((d) => [d._id, {

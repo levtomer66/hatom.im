@@ -26,7 +26,7 @@ test('progress sums ticked costs against the estimate', () => {
 });
 
 const body = {
-  listId: '6afaca2b35b3a389faf7fa6d', plan: 'cheapest', city: 'tel-aviv', estimate: 1500,
+  listId: '6afaca2b35b3a389faf7fa6d', plan: 'cheapest', estimate: 1500,
   stops: [{ store: 3, storeName: 'שופרסל', items: [{ key: '7290000066318', name: 'במבה', qty: 2, cost: 1380, d: 'snacks', img: null }] }],
   missing: [{ key: '1', name: 'x' }],
 };
@@ -34,6 +34,10 @@ const body = {
 test('a valid trip parses; bad ones say why', () => {
   const r = parseTripCreate(body);
   assert.equal(r.ok, true);
+  // No city since 2026-11-18; an old client's city is neither required nor kept.
+  const old = parseTripCreate({ ...body, city: 'tel-aviv' });
+  assert.equal(old.ok, true);
+  assert.equal(old.ok && 'city' in old.value, false);
   assert.equal(parseTripCreate({ ...body, plan: 'any' }).ok, false);
   assert.equal(parseTripCreate({ ...body, stops: [] }).ok, false);
   const dup = { ...body, stops: [body.stops[0], { ...body.stops[0], store: 4 }] };

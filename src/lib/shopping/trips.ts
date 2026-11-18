@@ -34,7 +34,8 @@ export interface Trip {
   id: string;
   listId: string;
   plan: PlanKind;
-  city: string;
+  /** Trips started before 2026-11-18 carry the old city; no longer written or read. */
+  city?: string;
   stops: TripStop[];
   /** Items no stop sells, kept so the checklist can mention them. */
   missing: { key: string; name: string }[];
@@ -49,7 +50,7 @@ export interface Trip {
   endedAt: string | null;
 }
 
-export type TripCreate = Pick<Trip, 'listId' | 'plan' | 'city' | 'stops' | 'missing' | 'estimate'>;
+export type TripCreate = Pick<Trip, 'listId' | 'plan' | 'stops' | 'missing' | 'estimate'>;
 
 export type TripPatch =
   | { tick: { key: string; on: boolean } }
@@ -92,7 +93,6 @@ export function parseTripCreate(body: unknown): Result<TripCreate> {
   const b = body as Record<string, unknown>;
   if (!isStr(b.listId, 40)) return { ok: false, error: 'listId is required' };
   if (b.plan !== 'cheapest' && b.plan !== 'one-store') return { ok: false, error: 'plan must be cheapest or one-store' };
-  if (!isStr(b.city, 40)) return { ok: false, error: 'city is required' };
   if (!Array.isArray(b.stops) || !b.stops.length || b.stops.length > MAX_STOPS) return { ok: false, error: `1–${MAX_STOPS} stops` };
   const stops: TripStop[] = [];
   const seen = new Set<string>();
@@ -114,7 +114,7 @@ export function parseTripCreate(body: unknown): Result<TripCreate> {
       .map((m) => ({ key: m.key as string, name: m.name as string }))
     : [];
   if (!isAgorot(b.estimate)) return { ok: false, error: 'estimate must be agorot' };
-  return { ok: true, value: { listId: b.listId, plan: b.plan, city: b.city, stops, missing, estimate: b.estimate } };
+  return { ok: true, value: { listId: b.listId, plan: b.plan, stops, missing, estimate: b.estimate } };
 }
 
 export function parseTripPatch(body: unknown): Result<TripPatch> {

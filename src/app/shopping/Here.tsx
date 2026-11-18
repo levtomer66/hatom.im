@@ -4,16 +4,17 @@
 // first when the phone shares its location), then see what on your lists is
 // worth buying here, the deals here on things you buy, and a verdict for any
 // product you scan. Read-only towards the lists apart from "+ לרשימה".
-// The user's position stays on the device: the store list comes with each
-// store's location and is sorted here. Favorite stores (☆) come first, and
-// the picker's search finds a store in any city.
+// The picker lists the stores within 10 km of you (the page's location, sent
+// only to our API, never stored; else the household's home spot) with each
+// store's location, sorted here. Favorite stores (☆) come first, and the
+// picker's search finds a store anywhere. "Cheaper elsewhere", the search and
+// the scan verdict measure the page's radius around the store, not around you.
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { FaArrowRight, FaBarcode, FaChevronDown, FaLocationArrow, FaPlus, FaSearch, FaShoppingCart, FaTimes } from 'react-icons/fa';
 import { SHOPPING_API_PATH } from '@/lib/shopping/config';
 import type { HereDealsResponse, HereResponse, HereRow, HereStore, HereStoresResponse, ItemPrice, ItemResponse, PromoDetail, SearchHit, StoreInfo, StoresResponse } from '@/lib/shopping/api-types';
-import { CITIES } from '@/lib/shopping/cities';
 import { DEPARTMENTS } from '@/lib/shopping/departments';
 import {
   dealGap, distanceLabel, endsLabel, groupHere, HERE_REMEMBER_MS, inStorePickable, isTwin, mergeStores, nearbyStore, sortStores, storeQueryWords, verdict,
@@ -25,20 +26,20 @@ const Scanner = dynamic(() => import('./Scanner'), { ssr: false });
 
 const LS_HERE = 'shopping:here';
 
-interface Remembered { city: string; store: number; at: number }
+interface Remembered { store: number; at: number }
 
-const readRemembered = (city: string): number | null => {
+const readRemembered = (): number | null => {
   try {
     const r = JSON.parse(localStorage.getItem(LS_HERE) ?? 'null') as Remembered | null;
-    return r && r.city === city && Date.now() - r.at < HERE_REMEMBER_MS ? r.store : null;
+    return r && typeof r.store === 'number' && Date.now() - r.at < HERE_REMEMBER_MS ? r.store : null;
   } catch {
     return null;
   }
 };
-const remember = (city: string, store: number | null) => {
+const remember = (store: number | null) => {
   try {
     if (store === null) localStorage.removeItem(LS_HERE);
-    else localStorage.setItem(LS_HERE, JSON.stringify({ city, store, at: Date.now() } satisfies Remembered));
+    else localStorage.setItem(LS_HERE, JSON.stringify({ store, at: Date.now() } satisfies Remembered));
   } catch {
     /* private mode */
   }
@@ -55,7 +56,10 @@ type Pos = { state: 'idle' | 'locating' | 'denied' | 'unavailable' } | { state: 
 const walkLabel = (s: StoreInfo | undefined) => (s?.walkMin != null ? ` (${s.walkMin} דק׳ הליכה)` : '');
 
 export interface HereProps {
-  city: string;
+  /** The pricing routes' location query (where.ts nearQuery): the picker's centre. */
+  near: string;
+  /** The page's radius chip (km): "cheaper elsewhere" looks this far around the store. */
+  radius: number;
   /** Item keys on the open trip's stops, by store (to hand over to the trip's checklist). */
   tripStores: Record<number, number>;
   onOpenTrip: () => void;
@@ -71,8 +75,8 @@ export interface HereProps {
 }
 
 export default function Here(props: HereProps) {
-  const { city, onClose, favs, onFav } = props;
-  const [storeKey, setStoreKey] = useState<number | null>(() => readRemembered(city));
+  const { near, onClose, favs, onFav } = props;
+  const [storeKey, setStoreKey] = useState<number | null>(() => readRemembered());
   const [stores, setStores] = useState<HereStore[] | null>(null);
   const [storesError, setStoresError] = useState(false);
 
@@ -91,13 +95,13 @@ export default function Here(props: HereProps) {
     const ctl = new AbortController();
     setStores(null);
     setStoresError(false);
-    getJson<HereStoresResponse>(`/here/stores?city=${city}`, ctl.signal)
+    getJson<HereStoresResponse>(`/here/stores?${near}`, ctl.signal)
       .then((r) => setStores(r.stores))
       .catch(() => { if (!ctl.signal.aborted) setStoresError(true); });
     return () => ctl.abort();
-  }, [city]);
+  }, [near]);
 
-  // Favorites in any city (the city's own list has only its stores); reloaded when one is starred.
+  // Favorites wherever they are (the list above holds only the nearby ones); reloaded when one is starred.
   const [favStores, setFavStores] = useState<HereStore[]>([]);
   const favKey = [...favs].join(',');
   useEffect(() => {
@@ -105,12 +109,12 @@ export default function Here(props: HereProps) {
     getJson<StoresResponse>('/stores', ctl.signal).then((r) => setFavStores(inStorePickable(r.stores))).catch(() => {});
     return () => ctl.abort();
   }, [favKey]);
-  /** A store picked from the search in another city (not in the lists above). */
+  /** A store picked from the search, farther away (not in the lists above). */
   const [picked, setPicked] = useState<HereStore | null>(null);
   const all = useMemo(() => mergeStores(stores ?? [], favStores, picked ? [picked] : []), [stores, favStores, picked]);
 
   const choose = (s: HereStore | null) => {
-    remember(city, s?.k ?? null);
+    remember(s?.k ?? null);
     if (s) setPicked(s);
     setStoreKey(s?.k ?? null);
   };
@@ -121,7 +125,7 @@ export default function Here(props: HereProps) {
       {store ? (
         <StoreView {...props} store={store} onChangeStore={() => choose(null)} />
       ) : (
-        <Picker stores={stores ? mergeStores(stores, favStores) : null} city={city} favs={favs} onFav={onFav}
+        <Picker stores={stores ? mergeStores(stores, favStores) : null} favs={favs} onFav={onFav}
           error={storesError} onPick={choose} onClose={onClose} />
       )}
     </div>
@@ -130,12 +134,9 @@ export default function Here(props: HereProps) {
 
 // ── picking the store ──
 
-const cityLabel = (id: string | null) => CITIES.find((c) => c.id === id)?.name ?? '';
-
-function Picker({ stores, city, favs, onFav, error, onPick, onClose }: {
-  /** The city's stores plus the favorites from other cities. */
+function Picker({ stores, favs, onFav, error, onPick, onClose }: {
+  /** The stores near you plus the favorites, wherever they are. */
   stores: HereStore[] | null;
-  city: string;
   favs: ReadonlySet<number>;
   onFav: (k: number) => void;
   error: boolean;
@@ -144,7 +145,7 @@ function Picker({ stores, city, favs, onFav, error, onPick, onClose }: {
 }) {
   const [pos, setPos] = useState<Pos>({ state: 'idle' });
   const [filter, setFilter] = useState('');
-  /** The search's matches in every city (null until it has 2+ letters). */
+  /** The search's matches anywhere (null until it has 2+ letters). */
   const [found, setFound] = useState<HereStore[] | null>(null);
   useEffect(() => {
     if (!storeQueryWords(filter).length) return setFound(null);
@@ -211,12 +212,12 @@ function Picker({ stores, city, favs, onFav, error, onPick, onClose }: {
           <label className="sh-search-box sh-here-filter">
             <FaSearch aria-hidden />
             <input type="search" value={filter} onChange={(e) => setFilter(e.target.value)}
-              placeholder="חיפוש חנות, גם בעיר אחרת" aria-label="חיפוש חנות" autoComplete="off" />
+              placeholder="חיפוש חנות, גם רחוקה" aria-label="חיפוש חנות" autoComplete="off" />
           </label>
         )}
         {error && <p className="sh-error">לא הצלחנו לטעון את החנויות. נסו שוב.</p>}
         {!stores && !error && <div className="sh-skeleton" aria-label="טוען" />}
-        {stores && !stores.length && <p className="sh-empty">אין לנו חנויות בעיר הזאת.</p>}
+        {stores && !stores.length && <p className="sh-empty">אין לנו חנויות עד 10 ק״מ ממך. אפשר לחפש חנות למעלה.</p>}
         <ul className="sh-here-stores">
           {shown.map((s, i) => (
             <li key={s.k} className="sh-here-store-li">
@@ -225,9 +226,7 @@ function Picker({ stores, city, favs, onFav, error, onPick, onClose }: {
               <button type="button" className="sh-here-store" onClick={() => onPick(s)}>
                 <span className="sh-tick-name">
                   <span>{s.chainName} <span className="sh-branch">{s.name}</span></span>
-                  {(s.city !== city || cleanAddress(s.address)) && (
-                    <small>{[s.city !== city && cityLabel(s.city), cleanAddress(s.address)].filter(Boolean).join(' · ')}</small>
-                  )}
+                  {cleanAddress(s.address) && <small>{cleanAddress(s.address)}</small>}
                 </span>
                 <span className="sh-here-dist">
                   {s.distM !== null ? distanceLabel(s.distM) : s.walkMin !== null ? `${s.walkMin} דק׳` : ''}
@@ -256,12 +255,12 @@ const GROUP_TITLE: Record<HereGroup, string> = {
   missing: 'אין כאן',
 };
 
-function StoreView({ store, city: userCity, tripStores, onOpenTrip, onOpenItem, onAdd, listName, onClose, onChangeStore }: HereProps & {
+function StoreView({ store, near: userNear, radius, tripStores, onOpenTrip, onOpenItem, onAdd, listName, onClose, onChangeStore }: HereProps & {
   store: HereStore;
   onChangeStore: () => void;
 }) {
-  // A store in another city is priced and compared there (search, scan, "cheaper elsewhere").
-  const city = store.city ?? userCity;
+  // Search, scan and "cheaper elsewhere" look around this store (else around you, for a store with no point).
+  const near = store.loc ? `lat=${store.loc.lat}&lng=${store.loc.lng}&r=${radius}` : userNear;
   const [data, setData] = useState<HereResponse | null>(null);
   const [error, setError] = useState(false);
   const [tab, setTab] = useState<Tab>('worth');
@@ -275,11 +274,11 @@ function StoreView({ store, city: userCity, tripStores, onOpenTrip, onOpenItem, 
   useEffect(() => {
     const ctl = new AbortController();
     setError(false);
-    getJson<HereResponse>(`/here?store=${store.k}`, ctl.signal)
+    getJson<HereResponse>(`/here?store=${store.k}&r=${radius}`, ctl.signal)
       .then(setData)
       .catch(() => { if (!ctl.signal.aborted) setError(true); });
     return () => ctl.abort();
-  }, [store.k, city, reload]);
+  }, [store.k, radius, reload]);
 
   useEffect(() => {
     if (tab !== 'deals' || allDeals) return;
@@ -289,7 +288,7 @@ function StoreView({ store, city: userCity, tripStores, onOpenTrip, onOpenItem, 
       .then(setAllDeals)
       .catch(() => { if (!ctl.signal.aborted) setAllDealsError(true); });
     return () => ctl.abort();
-  }, [tab, allDeals, store.k, city]);
+  }, [tab, allDeals, store.k]);
 
   const rows = useMemo(
     () => data?.rows ?? [],
@@ -386,12 +385,12 @@ function StoreView({ store, city: userCity, tripStores, onOpenTrip, onOpenItem, 
           <p className="sh-credit">חלק מהתמונות: Open Food Facts, ברישיון CC BY-SA.</p>
         )}
       </div>
-      <FindBar city={city} onScan={() => setScanning(true)} onPick={setScanned} />
+      <FindBar near={near} onScan={() => setScanning(true)} onPick={setScanned} />
       {scanning && (
         <Scanner onClose={() => setScanning(false)} onCode={(code) => { setScanning(false); setScanned(code); }} />
       )}
       {scanned && (
-        <Verdict code={scanned} store={store} city={city} rows={data?.rows ?? []} listName={listName}
+        <Verdict code={scanned} store={store} near={near} rows={data?.rows ?? []} listName={listName}
           onAdd={onAdd} onDetails={(key) => onOpenItem(key, true)} onClose={() => setScanned(null)}
           onScanAgain={() => { setScanned(null); setScanning(true); }} />
       )}
@@ -484,7 +483,7 @@ function OtherDeals({ deals, data, error, onOpen, onAdd, listName }: {
  * The bar at the bottom: type a product name (the main page's search) or a
  * barcode, or open the camera. Picking a result shows its verdict here.
  */
-function FindBar({ city, onScan, onPick }: { city: string; onScan: () => void; onPick: (key: string) => void }) {
+function FindBar({ near, onScan, onPick }: { near: string; onScan: () => void; onPick: (key: string) => void }) {
   const [q, setQ] = useState('');
   const [hits, setHits] = useState<SearchHit[] | null>(null);
   const [busy, setBusy] = useState(false);
@@ -499,7 +498,7 @@ function FindBar({ city, onScan, onPick }: { city: string; onScan: () => void; o
     const timer = setTimeout(async () => {
       setBusy(true);
       try {
-        setHits(await getJson<SearchHit[]>(`/search?q=${encodeURIComponent(t)}&city=${city}`, ctl.signal));
+        setHits(await getJson<SearchHit[]>(`/search?q=${encodeURIComponent(t)}&${near}`, ctl.signal));
       } catch {
         /* aborted or offline */
       } finally {
@@ -510,7 +509,7 @@ function FindBar({ city, onScan, onPick }: { city: string; onScan: () => void; o
       clearTimeout(timer);
       ctl.abort();
     };
-  }, [q, city]);
+  }, [q, near]);
 
   const pick = (key: string) => {
     setQ('');
@@ -689,10 +688,10 @@ const VERDICT: Record<HereGroup, { title: string; mark: string }> = {
 
 type Alt = { key: string; name: string; w: boolean; img: string | null; price: number };
 
-function Verdict({ code, store, city, rows, listName, onAdd, onDetails, onClose, onScanAgain }: {
+function Verdict({ code, store, near, rows, listName, onAdd, onDetails, onClose, onScanAgain }: {
   code: string;
   store: StoreInfo;
-  city: string;
+  near: string;
   rows: HereRow[];
   listName: string | null;
   onAdd: HereProps['onAdd'];
@@ -708,11 +707,11 @@ function Verdict({ code, store, city, rows, listName, onAdd, onDetails, onClose,
     const ctl = new AbortController();
     setState('loading');
     setTwin(null);
-    getJson<ItemResponse>(`/item?key=${encodeURIComponent(code)}&city=${city}`, ctl.signal)
+    getJson<ItemResponse>(`/item?key=${encodeURIComponent(code)}&${near}`, ctl.signal)
       .then((d) => { setData(d); setState('ok'); })
       .catch((e: Error) => { if (!ctl.signal.aborted) setState(e.message === '404' ? 'missing' : 'error'); });
     return () => ctl.abort();
-  }, [code, city]);
+  }, [code, near]);
 
   const it = data?.item;
   const listed = it ? rows.find((r) => r.key === it.key) : undefined;

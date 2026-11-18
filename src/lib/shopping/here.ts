@@ -107,9 +107,9 @@ export function storeMatches(q: string, s: { chainName: string; name: string; ad
   return words.every((w) => hay.includes(w));
 }
 
-/** Stores you can stand in, for "אני בסופר": physical, with a city (an online favorite or search result is left out). */
-export const inStorePickable = <S extends { kind: 'physical' | 'online'; city: string | null }>(stores: S[]): S[] =>
-  stores.filter((s) => s.kind === 'physical' && s.city !== null);
+/** Stores you can stand in, for "אני בסופר": physical ones (an online favorite or search result is left out). */
+export const inStorePickable = <S extends { kind: 'physical' | 'online' }>(stores: S[]): S[] =>
+  stores.filter((s) => s.kind === 'physical');
 
 /** Store lists joined, each store once (its first occurrence). */
 export function mergeStores<S extends { k: number }>(...lists: S[][]): S[] {

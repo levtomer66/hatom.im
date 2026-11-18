@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// POST { plan, city, stops, missing, estimate } — start a trip on the
+// POST { plan, stops, missing, estimate } — start a trip on the
 // chosen plan, or join the open one (every trip is on the household list;
 // a `listId` in the body is ignored) (200 with it instead of 201).
 export async function POST(request: NextRequest) {

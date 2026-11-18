@@ -59,7 +59,7 @@ test('hereLines: the shopping list first, then the rest of My items at their usu
 });
 
 const store = (k: number, loc: HereStore['loc'], walkMin: number | null, name = `s${k}`, priced = true): HereStore => ({
-  k, chainId: 'c', chainName: 'רשת', name, address: '', city: 'tlv', kind: 'physical', pricesAt: null, source: 'official', walkMin, loc, priced,
+  k, chainId: 'c', chainName: 'רשת', name, address: '', kind: 'physical', pricesAt: null, source: 'official', walkMin, distM: null, loc, priced,
 });
 
 test('metresBetween: about 111 km per degree of latitude', () => {
@@ -191,9 +191,9 @@ test('mergeStores keeps one copy of each store, first list first', () => {
   assert.deepEqual(mergeStores([{ k: 1 }, { k: 2 }], [{ k: 2 }, { k: 3 }]).map((s) => s.k), [1, 2, 3]);
 });
 
-test('inStorePickable: only physical stores with a city (an online favorite is not a store you stand in)', () => {
+test('inStorePickable: only physical stores (an online favorite is not a store you stand in)', () => {
   const shop = store(1, null, null);
-  const online = { ...store(2, null, null), kind: 'online' as const, city: null };
-  const noCity = { ...store(3, null, null), city: null };
-  assert.deepEqual(inStorePickable([shop, online, noCity]).map((s) => s.k), [1]);
+  const online = { ...store(2, null, null), kind: 'online' as const };
+  const elsewhere = store(3, null, null);
+  assert.deepEqual(inStorePickable([shop, online, elsewhere]).map((s) => s.k), [1, 3]);
 });
