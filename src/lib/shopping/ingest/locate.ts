@@ -49,6 +49,22 @@ export function keepRule(
   if (s.cityId === null || !ctx.pinnedCities.has(s.cityId) || ctx.skipped.has(s.key)) return 'drop';
   return 'locate';
 }
+/**
+ * Whether the ingest keeps a Wolt venue (places/wolt.json). Wolt pages carry
+ * no coordinates, so an unplaced venue (no discovery entry) is dropped. In a
+ * city with no pin (Jerusalem, Mevaseret Zion: shops the owner named there)
+ * a venue whose entry was included in the review is kept, like a curated
+ * official store; in a pinned city it must be within the pin's walk.
+ */
+export function woltVenueRule(
+  v: { cityId: string; placed: boolean; included: boolean },
+  pinnedCities: ReadonlySet<string>,
+): 'keep' | 'drop' | 'locate' {
+  if (!v.placed) return 'drop';
+  if (!pinnedCities.has(v.cityId)) return v.included ? 'keep' : 'drop';
+  return 'locate';
+}
+
 // ── a chain with no store near a pin keeps one ───────────────────────────
 // Every chain we ingest ends up with at least one priced store (owner's rule,
 // 2026-11-18). After the keep pass, a chain with no priced store keeps its

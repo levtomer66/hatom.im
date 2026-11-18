@@ -51,6 +51,8 @@ export interface RawPlace {
   category: string;
   /** Source id: OSM "N123"/"W123", Google the place name+coords. */
   ref: string;
+  /** City id of a shop added by hand (places/extra.json) when it isn't the pin's. */
+  city?: string;
 }
 
 export interface Place {
@@ -65,6 +67,8 @@ export interface Place {
   sources: PlaceSource[];
   refs: string[];
   distanceM: number;
+  /** City id, when an added entry set one (else the pin's city). */
+  city?: string;
 }
 
 /** Ray casting over a GeoJSON ring ([lng, lat] pairs). */
@@ -150,6 +154,7 @@ export function mergePlaces(raw: RawPlace[], centre: { lat: number; lng: number 
       if (!hit.refs.includes(r.ref)) hit.refs.push(r.ref);
       if (r.category && !hit.categories.includes(r.category)) hit.categories.push(r.category);
       if (!hit.address && r.address) hit.address = r.address;
+      if (!hit.city && r.city) hit.city = r.city;
       continue;
     }
     out.push({
@@ -163,10 +168,18 @@ export function mergePlaces(raw: RawPlace[], centre: { lat: number; lng: number 
       sources: [r.source],
       refs: [r.ref],
       distanceM: Math.round(distanceM(centre, r)),
+      ...(r.city ? { city: r.city } : {}),
     });
   }
   return out.sort((a, b) => a.distanceM - b.distanceM);
 }
+
+/**
+ * The city a discovered shop is in: its added entry's `city`, else its pin's.
+ * Shops in a city with no pin (Jerusalem, Mevaseret Zion) are added by hand
+ * under another pin, so the pin's city would be wrong.
+ */
+export const placeCity = (place: { city?: string }, pin: { city: string }) => place.city ?? pin.city;
 
 // ---- which retailer is it? ----------------------------------------------
 

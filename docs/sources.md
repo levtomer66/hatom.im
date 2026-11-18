@@ -46,6 +46,38 @@ so it isn't offered as the user's city (Holon, 2026-11-18). `--all-stores`
 leaves `picker: false` cities out, or it would pull in every chain's stores
 there. Then run the ingest as usual.
 
+**Areas with no pin: Jerusalem (Beit HaKerem, Talpiot) and Mevaseret Zion**
+(2026-11-18). The owner's rule: pins only say which stores to take, and
+walking times come from the user's live location, so these areas have no pin.
+Everything in them is named by hand in `places/extra.json` under an existing
+pin (`tlv-florentin`) with its own `city` (a `CITIES` id), which discovery
+copies onto the review row; `placeCity` (`places.ts`) prefers it over the
+pin's city, so the hand-priced shops and the official-store matching land in
+the right city. The owner chose:
+
+- **24 official stores**, each hand-matched in `places/official.json` and
+  included: Talpiot — Rami Levy 1, 2, 706; Shufersal 45, 260; Carrefour 128;
+  Yochananof 20; Osher Ad 26; Mahsani HaShuk 212; Dor Alon 801; Super-Pharm
+  95, 285, 176; Super Sapir 26. Beit HaKerem — Carrefour 457; Mahsani HaShuk
+  202; Super-Pharm 121. Mevaseret — Rami Levy 7; Shufersal 50; Victory 38;
+  Super-Pharm 248, 250; Zol VeBegadol 25. Also Super Sapir 2 (צומת פת).
+  Points: Nominatim, by house or mall where OSM has it, else the street
+  (Carrefour 128, Yochananof 20, Rami Levy 7/706, Super-Pharm 248, Mahsani
+  212, Zol VeBegadol 25) or the neighbourhood (Carrefour 457 / Super-Pharm 121
+  on אבי זוהר, missing from OSM); Super Sapir 2 is placed at the junction.
+- **22 small shops** found by an OSM discovery run with three throwaway pins on
+  a copy of the cache (never in `pins.json`); every named one was included.
+  None is on Wolt, so they are hand-priced (`manual`).
+- **6 Wolt venues** OSM missed (Wolt's retail listing at each area's centre,
+  3 requests): Mia Market (Talpiot), Teimim, Anise and Maadanei Tsidkiyaho
+  (Beit HaKerem), Anise and Maadanei Eliyaho (Mevaseret). A Wolt venue in a
+  city with no pin is kept when its entry is included (`woltVenueRule`,
+  `ingest/locate.ts`); in a pinned city the walk limit still applies.
+
+With no pin in their city, the official stores and Wolt venues there are
+`far` (`isFar`): searchable, never in the plans, until the plans use live
+location.
+
 **Walk limit.** A pin with `walkMinutes` keeps only stores within that walk,
 measured as a walking route by the OpenStreetMap foot router
 (routing.openstreetmap.de, cached per point pair in `places/walk.json`); a
@@ -73,7 +105,10 @@ the chain's only store". The registry remembers it (`keptAs: 'fallback'`),
 so a run of other chains or `--offline` keeps it until a store of that
 chain is reached by a pin. Rules: `fallbackOrder` / `keepFallbacks` in
 `ingest/locate.ts`. Not applied on `--max-stores` or `--all-stores` runs.
-Checked 2026-11-18: Osher Ad keeps store 24 (קרמינצקי 3, Tel Aviv). **Keshet
+Checked 2026-11-18: Osher Ad kept store 24 (קרמינצקי 3, Tel Aviv) as its
+fallback until Talpiot 26 was curated, which retired it (the fallback goes once
+another kept store has prices); the owner kept 24 by curating it too
+(`extra.json` + `official.json`). **Keshet
 has none, by the owner's choice**: only Poleg (14) and Akko (21) publish a
 PriceFull, neither in a target city, so each run warns "keshet: no store in the
 target cities publishes a PriceFull" — expected.
@@ -95,8 +130,9 @@ Yochananof, Rami Levy, Tiv Taam, Dor Alon, Fresh Market, Keshet and Osher Ad
 Market (Bina), added 2026-11-17 for branches near the pins; Good Pharm and
 Super-Pharm; Hazi Hinam (own site, added 2026-11-18 — it has no branch in the
 picker cities, so only its Holon מרכבה store and that branch's produce store
-are kept, as far stores; Holon is a `picker: false` city). Next: the other
-Bina chains (King Store, Super Sapir, …).
+are kept, as far stores; Holon is a `picker: false` city). Super Sapir and
+Zol VeBegadol (Bina, added 2026-11-18 for their Jerusalem / Mevaseret
+branches; see "Areas with no pin" above).
 
 ## Access methods
 
@@ -147,6 +183,15 @@ LeZion, Rehovot, Petah Tikva, Hod HaSharon and online delivery 103; ingested
 for the Holon far store, see above), H. Cohen,
 Stop Market (`Stop_Market`), Politzer (`politzer`), Shefa Birkat Hashem,
 Shuk HaIr, Zol VeBegadol, Meshnat Yosef 1/2, City Market Shops (empty file).
+
+Re-checked for Jerusalem / Mevaseret on 2026-11-18 (Stores files of that
+day): Super Sapir (2 צומת פת, 26 בית הנציב, more elsewhere in the city) and
+Zol VeBegadol (25 Mevaseret, 24 in Jerusalem) are ingested for the owner's
+picks. King Store (200 Wadi al-Joz), Maayan 2000 (19 stores) and Shefa Birkat
+Hashem (5) have Jerusalem branches outside Beit HaKerem and Talpiot. Shuk HaIr,
+Stop Market, Politzer and H. Cohen have none in Jerusalem or Mevaseret.
+Netiv HaHesed (no client yet) wasn't checked. Yellow has a Talpiot store
+(Derech Hevron 99, seen on Wolt), behind the password below.
 
 ### Not verified
 
@@ -201,9 +246,9 @@ imports; Rami Levy has no produce photos).
 
 `City` is a CBS settlement code in most chains, a Hebrew name in some (Mahsani HaShuk), and `0` for many (Yochananof: all 51 stores).
 
-1. **A non-zero code wins:** 5000 = תל אביב-יפו, 8600 = רמת גן, 9000 = באר שבע. Stores named "…באר שבע" whose code is 666 (Omer) or 1271 (Lehavim) are *not* Be'er Sheva.
+1. **A non-zero code wins:** 5000 = תל אביב-יפו, 8600 = רמת גן, 9000 = באר שבע, 3000 = ירושלים, 1015 = מבשרת ציון. Stores named "…באר שבע" whose code is 666 (Omer) or 1271 (Lehavim) are *not* Be'er Sheva.
 2. **Hebrew name in `City`:** match against the alias list (תל אביב / תל-אביב / תל אביב-יפו / ת"א / יפו, רמת גן / ר"ג, באר שבע / ב"ש).
-3. **`City` is `0` or empty:** match the alias list against the **store name** as whole words. Never use the address: Keshet store 005 is at "תל אביב 11", a street in Haifa. Plain substring search on "יפו" also matches "איפוס" and "הציפורים".
+3. **`City` is `0` or empty:** match the alias list against the **store name** as whole words. Never use the address: Keshet store 005 is at "תל אביב 11", a street in Haifa. Plain substring search on "יפו" also matches "איפוס" and "הציפורים". A city name followed by a house number in the store name is a street too: City Market 11 (City 0) is named "ראשל"צ ירושלים 120". Almost every city has a ירושלים street ("שד' ירושלים" in Ramla, Kiryat Motzkin, Be'er Sheva, Netanya…); with a code or a Hebrew City value those never reach the name.
 4. If a store still lands in the wrong city, add a per-store override in `cities.ts` (none needed so far).
 5. **Online stores** (`StoreType` 2) are always ingested, whatever their city, and listed separately (`kind: 'online'`): Shufersal ONLINE (413, coded Petah Tikva) and Yochananof הדרים פיקאפ (150, City 0).
 

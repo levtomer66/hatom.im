@@ -31,7 +31,8 @@ import { parsePriceFile, parsePromoFile, parseStoresFile, type CanonItem, type C
 import { buildItemDocs, buildPromoDocs, buildStoreDocs, diffDocs, israelLocalNow, type StoreState } from '../snapshot.ts';
 import { Throttle, clientFor, errorMessage, type RemoteFile, type SourceClient } from './sources.ts';
 import { fetchWoltVenue, type WoltVenueConfig } from './wolt.ts';
-import { fallbackOrder, isFar, keepFallbacks, needsFallback, pinFilter, type FallbackCandidate } from './locate.ts';
+import { placeCity } from '../places.ts';
+import { fallbackOrder, isFar, keepFallbacks, needsFallback, pinFilter, woltVenueRule, type FallbackCandidate } from './locate.ts';
 import { RAMI_LEVY_IMG, cachedPhotos, readOffNutrition, readRamiLevy } from './off.ts';
 
 const RAW_RETENTION_DAYS = 7;
@@ -261,11 +262,14 @@ async function ingestWolt(chain: ChainConfig, cityIds: Set<string>, maxStores: n
   if (PINS) {
     // Wolt pages carry no coordinates; a venue is placed by the discovery entry it was approved from.
     const at = placeCoords();
+    const decisions = readJson<Record<string, string>>(join(CACHE, 'places', 'decisions.json'), {});
+    const pinnedCities = new Set(PINS.pins.map((p) => p.city));
     const kept: WoltVenueConfig[] = [];
     for (const v of venues) {
       const p = v.placeId ? at.get(v.placeId) : undefined;
-      if (p && (await PINS.near(v.cityId, p))) kept.push(v);
-      else log(`  ${v.slug}: ${p ? 'outside the pin' : 'no discovery entry to place it'} — left out`);
+      const rule = woltVenueRule({ cityId: v.cityId, placed: !!p, included: !!v.placeId && decisions[v.placeId] === 'include' }, pinnedCities);
+      if (rule === 'keep' || (rule === 'locate' && (await PINS.near(v.cityId, p!)))) kept.push(v);
+      else log(`  ${v.slug}: ${!p ? 'no discovery entry to place it' : pinnedCities.has(v.cityId) ? 'outside the pin' : 'not included in the review'} — left out`);
     }
     venues = kept;
   }
@@ -369,15 +373,18 @@ function ingestManual(chain: ChainConfig, cityIds: Set<string>): StoreRecord[] {
   // A venue with `manualToo` sells only part of the shop on Wolt (e.g. just produce): keep the manual shop too.
   const woltPlaces = new Set(readJson<WoltVenueConfig[]>(join(places, 'wolt.json'), []).filter((v) => !v.manualToo).map((v) => v.placeId).filter(Boolean));
   const out = new Map<string, StoreRecord>();
-  for (const pin of pins.filter((p) => cityIds.has(p.city))) {
-    type Row = { id: string; name: string; address: string; refs: string[]; status: string; lat: number; lng: number };
+  for (const pin of pins) {
+    type Row = { id: string; name: string; address: string; refs: string[]; status: string; lat: number; lng: number; city?: string };
     for (const r of readJson<Row[]>(join(places, `${pin.id}.review.json`), [])) {
+      // A shop added under another city's pin carries its own city (places/extra.json).
+      const city = placeCity(r, pin);
+      if (!cityIds.has(city)) continue;
       if (r.status === 'ingested' || !r.refs.some((ref) => decisions[ref] === 'include')) continue;
       if (r.refs.some((ref) => woltPlaces.has(ref))) continue;
       const id = createHash('sha1').update(r.id).digest('hex').slice(0, 10);
       out.set(id, {
-        chainId: chain.chainId, storeId: id, subChainId: '', name: r.name, address: r.address, city: pin.city, kind: 'physical',
-        chainSlug: chain.slug, chainName: chain.name, cityId: pin.city, at: { lat: r.lat, lng: r.lng },
+        chainId: chain.chainId, storeId: id, subChainId: '', name: r.name, address: r.address, city, kind: 'physical',
+        chainSlug: chain.slug, chainName: chain.name, cityId: city, at: { lat: r.lat, lng: r.lng },
       });
     }
   }
