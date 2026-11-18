@@ -10,6 +10,7 @@ import {
   israelLocalNow,
   type StoreState,
 } from '../shopping/snapshot.ts';
+import { departmentOf, departmentOfCategory } from '../shopping/departments.ts';
 
 const item = (key: string, priceAgorot: number, name = key): CanonItem => ({
   key,
@@ -195,18 +196,23 @@ test('buildStoreDocs carries the publish time of the price and promo files', () 
   assert.equal(d.city, 'beer-sheva');
   assert.equal(d.pricesAt, '2026-11-15T00:40');
   assert.equal(d.promosAt, null);
-  assert.equal(d.far, false);
+  // What nobody reads is not written: no `far`, `walkMin` or `cityRaw` (the app prices by live location).
+  assert.deepEqual(Object.keys(d).sort(), [
+    '_id', 'address', 'chainId', 'chainName', 'chainSlug', 'city', 'k', 'kind', 'loc', 'name',
+    'priceFile', 'pricesAt', 'promoFile', 'promosAt', 'source', 'storeId',
+  ]);
+  assert.equal(d.loc, null);
 });
 
-test('buildStoreDocs carries the far flag the ingest set', () => {
+test('buildStoreDocs: loc is the record\'s point, rounded to 5 decimals', () => {
   const docs = buildStoreDocs(
     [{
       chainId: '7290785400000', storeId: '104', subChainId: '000', name: 'קולינריק רמת גן', address: 'ביאליק 39', city: '0', kind: 'physical',
-      chainSlug: 'keshet', chainName: 'קשת טעמים', cityId: 'ramat-gan', priceFile: null, promoFile: null, far: true,
+      chainSlug: 'keshet', chainName: 'קשת טעמים', cityId: 'ramat-gan', priceFile: null, promoFile: null, loc: { lat: 32.0841234, lng: 34.8134567 },
     }],
     { '7290785400000:104': 9 },
   );
-  assert.equal(docs.get('7290785400000:104')!.far, true);
+  assert.deepEqual(docs.get('7290785400000:104')!.loc, { lat: 32.08412, lng: 34.81346 });
 });
 
 test('buildItemDocs: a first barcode photo beats the priced source\'s own, which beats the others', () => {
@@ -246,4 +252,34 @@ test('buildItemDocs: nutrition only on food items whose source row passes the ch
   assert.equal(docs.get('7290000000035')!.nu, undefined);
   assert.equal(docs.get('7290000000042')!.nu, undefined);
   assert.deepEqual(stats, { used: 1, notFood: 1, implausible: 1, otherProduct: 1 });
+});
+
+// One product name is sold by many stores: its department is matched once per
+// buildItemDocs call, not once per store (62% of an offline rebuild, 2026-11-18).
+test('buildItemDocs: each distinct name and category is matched to a department once, with the same docs', () => {
+  const sold = (k: number, name: string, category?: string): StoreState =>
+    store(k, 'A', [{ ...item('7290000000011', 500, name), ...(category ? { category } : {}) }, item('7290000000028', 300, 'נוזל כלים לימון')]);
+  const stores = [
+    sold(1, 'חלב 3%'), sold(2, 'חלב 3%'), sold(3, 'חלב 3% בקרטון'),
+    sold(4, 'חלב 3%', 'מוצרי חלב / חלב'), sold(5, 'חלב 3%', 'מוצרי חלב / חלב'),
+  ];
+  const calls = { name: [] as string[], category: [] as string[] };
+  const counted = buildItemDocs(stores, new Map(), undefined, {
+    ofName: (n) => (calls.name.push(n), departmentOf(n)),
+    ofCategory: (c) => (calls.category.push(c), departmentOfCategory(c)),
+  });
+  assert.deepEqual(calls.category, ['מוצרי חלב / חלב']);
+  // The first item's category places it, so its names are never asked; the second has one name.
+  assert.deepEqual(calls.name, ['נוזל כלים לימון']);
+  assert.deepEqual(counted, buildItemDocs(stores));
+  assert.equal(counted.get('7290000000011')!.d, 'dairy');
+  assert.equal(counted.get('7290000000028')!.d, 'cleaning');
+
+  // No category: the most common name, then the others — each asked once even when it repeats.
+  calls.name.length = 0;
+  const unplaced = [1, 2, 3].map((k) => store(k, 'A', [item('7290000000035', 500, k === 3 ? 'שוקולד חלב' : 'מוצר ללא שם מוכר')]));
+  const docs = buildItemDocs(unplaced, new Map(), undefined, { ofName: (n) => (calls.name.push(n), departmentOf(n)), ofCategory: departmentOfCategory });
+  assert.deepEqual(calls.name, ['מוצר ללא שם מוכר', 'שוקולד חלב']);
+  assert.equal(docs.get('7290000000035')!.d, 'snacks');
+  assert.deepEqual(docs, buildItemDocs(unplaced));
 });

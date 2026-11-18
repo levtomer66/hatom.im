@@ -5,7 +5,7 @@ import { gunzipSync } from 'node:zlib';
 import { join } from 'node:path';
 import { decodeXmlBytes } from '../shopping/xml.ts';
 import { parseFileName, parseStoresFile } from '../shopping/normalize.ts';
-import { CITIES, cityOf, ingestCityIds } from '../shopping/cities.ts';
+import { CITIES, cityOf, isTargetCity } from '../shopping/cities.ts';
 import { chainBySlug } from '../shopping/chains.ts';
 import { haziHinamListingUrl, parseHaziHinamListing } from '../shopping/ingest/sources.ts';
 
@@ -52,20 +52,17 @@ test('Hazi Hinam StoresFull: a Stores file, 13 stores, names read despite "<Stor
   assert.equal(stores.find((s) => s.storeId === '103')?.kind, 'online');
 });
 
-test('Holon (CBS 6600) is a city, kept out of the picker; only its stores land there', () => {
+test('Holon (CBS 6600) is a target city like any other; only its stores land there', () => {
+  // It was added for Hazi Hinam מרכבה, which the owner picked by hand. There is no
+  // city picker any more, so the city carries no flag for it.
   const holon = CITIES.find((c) => c.id === 'holon');
-  assert.equal(holon?.picker, false);
+  assert.deepEqual(Object.keys(holon!).sort(), ['aliases', 'codes', 'id', 'name']);
+  assert.equal(isTargetCity('holon'), true);
+  assert.equal(isTargetCity('rishon-lezion'), false);
   const byId = (id: string) => cityOf(stores.find((s) => s.storeId === id)!);
   assert.equal(byId('204'), 'holon'); // כל בו חצי חינם מרכבה
   assert.equal(byId('217'), 'holon'); // its produce store, same address
   assert.equal(byId('201'), null); // Rishon LeZion is not a target city
-});
-
-test('--all-stores keeps whole picker cities, not a city added for far stores', () => {
-  assert.ok(ingestCityIds({ allStores: false }).has('holon'));
-  const all = ingestCityIds({ allStores: true });
-  assert.ok(!all.has('holon'));
-  assert.ok(all.has('tel-aviv') && all.has('ramat-gan') && all.has('beer-sheva'));
 });
 
 test('hazi-hinam chain uses its own listing client', () => {

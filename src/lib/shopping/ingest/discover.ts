@@ -20,37 +20,31 @@
 // Official store lists come from the Stores files the price ingest already
 // downloaded (raw/<chain>/Stores*), in this cache and in SHOPPING_EXTRA_CACHE_DIRS.
 
-import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
-import { homedir } from 'node:os';
+import { existsSync, mkdirSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
-import { gunzipSync } from 'node:zlib';
 import { parseArgs } from 'node:util';
 import { CHAINS } from '../chains.ts';
 import { cityOf } from '../cities.ts';
-import { decodeXmlBytes, isGzip } from '../xml.ts';
 import { parseStoresFile } from '../normalize.ts';
 import {
   brandOf, circleBox, distanceM, inRing, matchOfficial, mergePlaces, placeCity, ringBox,
   type OfficialStore, type Pin, type Place, type RawPlace,
 } from '../places.ts';
+import { cachePaths, readJson, toXml, writeJson } from './cache.ts';
+import { nominatim } from './geo.ts';
+import type { ReviewRow } from './picks.ts';
 
-const NOMINATIM = 'https://nominatim.openstreetmap.org/search';
 const USER_AGENT = 'hatom-shopping-discover/0.1';
-const REQUEST_GAP_MS = 1100; // Nominatim policy: at most 1 request/s.
 const OSM_MAX_AGE_DAYS = 7;
 /** Nominatim special phrases → OSM shop=* values. */
 const OSM_CATEGORIES = ['supermarket', 'convenience store', 'greengrocer', 'butcher', 'delicatessen'];
 
 const { values: args } = parseArgs({ options: { pin: { type: 'string' } } });
 
-const CACHE = process.env.SHOPPING_CACHE_DIR || join(homedir(), '.cache', 'hatom-shopping');
-const PLACES = join(CACHE, 'places');
+const { root: CACHE, places: PLACES } = cachePaths();
 const OSM_DIR = join(PLACES, 'osm');
 const GOOGLE_DIR = join(PLACES, 'google');
 for (const d of [OSM_DIR, GOOGLE_DIR]) mkdirSync(d, { recursive: true });
-
-const readJson = <T>(file: string, fallback: T): T => (existsSync(file) ? (JSON.parse(readFileSync(file, 'utf8')) as T) : fallback);
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 const pinsFile = join(PLACES, 'pins.json');
 if (!existsSync(pinsFile)) {
@@ -82,9 +76,7 @@ function officialStores(): OfficialStore[] {
   }
   const out: OfficialStore[] = [];
   for (const [chainSlug, path] of latest) {
-    let bytes: Uint8Array = readFileSync(path);
-    if (isGzip(bytes)) bytes = gunzipSync(bytes);
-    for (const s of parseStoresFile(decodeXmlBytes(bytes)).stores) {
+    for (const s of parseStoresFile(toXml(new Uint8Array(readFileSync(path)))).stores) {
       out.push({ chainSlug, storeId: s.storeId, name: s.name, address: s.address, cityId: cityOf(s) });
     }
   }
@@ -106,21 +98,8 @@ interface NominatimRow {
   address?: { road?: string; house_number?: string };
 }
 
-let lastRequest = 0;
-async function nominatim(params: Record<string, string>): Promise<NominatimRow[]> {
-  const wait = lastRequest + REQUEST_GAP_MS - Date.now();
-  if (wait > 0) await sleep(wait);
-  lastRequest = Date.now();
-  const url = `${NOMINATIM}?${new URLSearchParams({ format: 'jsonv2', limit: '50', bounded: '1', addressdetails: '1', countrycodes: 'il', ...params })}`;
-  for (let attempt = 1; ; attempt++) {
-    const res = await fetch(url, { headers: { 'User-Agent': USER_AGENT, 'Accept-Language': 'he' } });
-    if (res.ok) return (await res.json()) as NominatimRow[];
-    // 429/503 = slow down; back off 10 s, 20 s, 40 s before giving up.
-    if ((res.status !== 429 && res.status !== 503) || attempt > 3) throw new Error(`Nominatim ${res.status}`);
-    await sleep(10_000 * 2 ** (attempt - 1));
-    lastRequest = Date.now();
-  }
-}
+/** One request at a time, 1.5 s apart, backing off on 429 / 503 (ingest/geo.ts). */
+const search = nominatim(USER_AGENT);
 
 async function osmPlaces(pin: Pin, box: [number, number, number, number]): Promise<RawPlace[]> {
   const [w, s, e, n] = box;
@@ -140,8 +119,8 @@ async function osmPlaces(pin: Pin, box: [number, number, number, number]): Promi
       if (existsSync(file) && Date.now() - statSync(file).mtimeMs < OSM_MAX_AGE_DAYS * 86_400_000) {
         rows = readJson(file, []);
       } else {
-        rows = await nominatim({ q: cat, viewbox: q.join(',') });
-        writeFileSync(file, JSON.stringify(rows));
+        rows = await search<NominatimRow>({ format: 'jsonv2', limit: '50', bounded: '1', addressdetails: '1', countrycodes: 'il', q: cat, viewbox: q.join(',') });
+        writeJson(file, rows);
         if (rows.length >= 50) console.log(`! ${pin.id}: ${cat} quadrant ${qi} hit the 50-result cap`);
       }
       for (const r of rows) {
@@ -185,14 +164,7 @@ function googlePlaces(pin: Pin): RawPlace[] {
 
 // ---- run ------------------------------------------------------------------
 
-type Status = 'ingested' | 'publishes' | 'none';
-
-interface ReviewRow extends Place {
-  status: Status;
-  retailer: string | null;
-  official: OfficialStore | null;
-  decision: 'include' | 'skip' | 'pending';
-}
+type Status = ReviewRow['status'];
 
 const official = officialStores();
 // Hand matches for shops whose address differs from the chain's file (a
@@ -240,7 +212,7 @@ for (const pin of pins) {
     const decision = p.refs.map((r) => decisions[r]).find(Boolean) ?? 'pending';
     return { ...p, status, retailer: brand?.retailer ?? null, official: match, decision };
   });
-  writeFileSync(join(PLACES, `${pin.id}.review.json`), JSON.stringify(rows, null, 1));
+  writeJson(join(PLACES, `${pin.id}.review.json`), rows, 1);
 
   const label = { ingested: 'ingested', publishes: 'publishes', none: 'no data' } as const;
   console.log(`\n${pin.id} — ${pin.label}: ${rows.length} shops (${google.length ? 'google + osm' : 'osm only — no google/*.tsv yet'})`);

@@ -9,12 +9,6 @@ export interface CityConfig {
   codes: string[];
   /** Spellings seen in City fields and store names, matched as whole words. */
   aliases: string[];
-  /**
-   * Offered in the city picker (default true). A city added only so a far
-   * store the owner curated can be ingested sets false: its few stores are
-   * found through the store search, not by switching to the city.
-   */
-  picker?: boolean;
 }
 
 export const CITIES: CityConfig[] = [
@@ -37,15 +31,14 @@ export const CITIES: CityConfig[] = [
     aliases: ['באר שבע', 'באר-שבע', 'ב"ש', 'beer sheva', "be'er sheva"],
   },
   {
-    // Far stores only: Hazi Hinam מרכבה (2026-11-18).
+    // No pin there: only the stores the owner picked by hand (Hazi Hinam מרכבה, 2026-11-18).
     id: 'holon',
     name: 'חולון',
     codes: ['6600'],
     aliases: ['חולון', 'holon'],
-    picker: false,
   },
   {
-    // Only Beit HaKerem and Talpiot are pinned (2026-11-18).
+    // No pin there: the Beit HaKerem and Talpiot stores are picked by hand (2026-11-18).
     id: 'jerusalem',
     name: 'ירושלים',
     codes: ['3000'],
@@ -59,13 +52,8 @@ export const CITIES: CityConfig[] = [
   },
 ];
 
-/**
- * Cities the ingest reads Stores files for. With pins, a picker: false city
- * only yields the far stores the owner curated (ingest/locate.ts keepRule);
- * --all-stores (no pins) keeps whole cities, so it leaves those cities out.
- */
-export const ingestCityIds = ({ allStores }: { allStores: boolean }) =>
-  new Set(CITIES.filter((c) => !allStores || c.picker !== false).map((c) => c.id));
+/** Whether an id names a target city (the owner's files carry city ids typed by hand). */
+export const isTargetCity = (id: string | null | undefined): boolean => CITIES.some((c) => c.id === id);
 
 /** Store names that are bookkeeping/test entries, not shops. */
 const NOT_A_STORE = /(איפוס|ספירות מלאי|test venue|\bטסט\b|בדיקה)/i;

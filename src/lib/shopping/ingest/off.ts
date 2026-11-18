@@ -7,10 +7,11 @@
 //   photos/off.json       { at: "YYYY-MM-DD", photos: { [barcode]: url } } — from the monthly CSV export
 //   nutrition/off.json    { at, rows: { [barcode]: { n: OFF product name, nu: Nutrition } } } — same export
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync, writeFileSync } from 'node:fs';
 import type { BarcodePhoto } from '../snapshot.ts';
 import type { Nutrition } from '../nutrition.ts';
 import { join } from 'node:path';
+import { readJson } from './cache.ts';
 
 export const RAMI_LEVY_IMG = (barcode: string, size: 'small' | 'large' = 'small') =>
   `https://img.rami-levy.co.il/product/${barcode}/${size}.jpg`;
@@ -22,8 +23,6 @@ export const photosDir = (cacheDir: string) => {
   mkdirSync(dir, { recursive: true });
   return dir;
 };
-
-const readJson = <T,>(p: string, fallback: T): T => (existsSync(p) ? (JSON.parse(readFileSync(p, 'utf8')) as T) : fallback);
 
 export const readRamiLevy = (cacheDir: string) => readJson<ProbeCache>(join(photosDir(cacheDir), 'ramilevy.json'), {});
 export const writeRamiLevy = (cacheDir: string, c: ProbeCache) => writeFileSync(join(photosDir(cacheDir), 'ramilevy.json'), JSON.stringify(c));
