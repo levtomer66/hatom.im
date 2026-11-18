@@ -210,10 +210,12 @@ const GROUP_TITLE: Record<HereGroup, string> = {
   missing: 'אין כאן',
 };
 
-function StoreView({ store, city, tripStores, onOpenTrip, onOpenItem, onAdd, listName, onClose, onChangeStore }: HereProps & {
+function StoreView({ store, city: userCity, tripStores, onOpenTrip, onOpenItem, onAdd, listName, onClose, onChangeStore }: HereProps & {
   store: HereStore;
   onChangeStore: () => void;
 }) {
+  // A store in another city is priced and compared there (search, scan, "cheaper elsewhere").
+  const city = store.city ?? userCity;
   const [data, setData] = useState<HereResponse | null>(null);
   const [error, setError] = useState(false);
   const [tab, setTab] = useState<Tab>('worth');
@@ -227,7 +229,7 @@ function StoreView({ store, city, tripStores, onOpenTrip, onOpenItem, onAdd, lis
   useEffect(() => {
     const ctl = new AbortController();
     setError(false);
-    getJson<HereResponse>(`/here?store=${store.k}&city=${city}`, ctl.signal)
+    getJson<HereResponse>(`/here?store=${store.k}`, ctl.signal)
       .then(setData)
       .catch(() => { if (!ctl.signal.aborted) setError(true); });
     return () => ctl.abort();
@@ -237,7 +239,7 @@ function StoreView({ store, city, tripStores, onOpenTrip, onOpenItem, onAdd, lis
     if (tab !== 'deals' || allDeals) return;
     const ctl = new AbortController();
     setAllDealsError(false);
-    getJson<HereDealsResponse>(`/here/deals?store=${store.k}&city=${city}`, ctl.signal)
+    getJson<HereDealsResponse>(`/here/deals?store=${store.k}`, ctl.signal)
       .then(setAllDeals)
       .catch(() => { if (!ctl.signal.aborted) setAllDealsError(true); });
     return () => ctl.abort();

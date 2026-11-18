@@ -1,13 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireFeatureCaller } from '@/lib/api-caller';
-import { CITIES } from '@/lib/shopping/cities';
 import { priceStore, shownUnit, type PricedItem, type PricingOptions } from '@/lib/shopping/pricing';
 import type { PromoDoc } from '@/lib/shopping/snapshot';
 import { israelLocalNow } from '@/lib/shopping/snapshot';
 import { idleDeals, imgByOf, promoDetails, storeInfo, type HereResponse, type HereRow, type ItemPrice, type StoreInfo } from '@/lib/shopping/api-types';
 import { hereLines, verdict } from '@/lib/shopping/here';
 import { withManualPrices } from '@/lib/shopping/manual';
-import { getItems, getPromosFor, getStoresFor } from '@/models/ShoppingCatalog';
+import { getItems, getPromosFor, getStoreByKey, getStoresFor } from '@/models/ShoppingCatalog';
 import { getManualPrices } from '@/models/ShoppingManualPrice';
 import { HOME_LIST_ID } from '@/lib/shopping/home';
 import { getHome } from '@/models/ShoppingHome';
@@ -17,7 +16,7 @@ import { getRecentTicked } from '@/models/ShoppingTrip';
 const BEFORE_SCAN = 300;
 const BEFORE_SHOWN = 30;
 
-// GET ?store=<store key>&city=<city id> — "אני בסופר": every one of the
+// GET ?store=<store key> — "אני בסופר": every one of the
 // household's My items (the shopping list's first, at the list's quantity)
 // priced here and at the city's other physical stores, one unit each (1 kg when weighted), deals applied as in the product
 // view, grouped by here.ts' verdict. Plus the items bought on recent trips
@@ -25,16 +24,18 @@ const BEFORE_SHOWN = 30;
 export async function GET(request: NextRequest) {
   const caller = await requireFeatureCaller(request, 'shopping');
   if (caller instanceof NextResponse) return caller;
-  const city = request.nextUrl.searchParams.get('city') ?? '';
   const storeKey = Number(request.nextUrl.searchParams.get('store'));
-  if (!CITIES.some((c) => c.id === city)) return NextResponse.json({ error: 'Unknown city' }, { status: 400 });
   if (!Number.isInteger(storeKey)) return NextResponse.json({ error: 'store is required' }, { status: 400 });
 
   try {
+    // The store's own city (it may not be the user's): its stores are what "cheaper elsewhere" means.
+    const picked = await getStoreByKey(storeKey);
+    if (!picked || picked.kind !== 'physical' || picked.city === null) return NextResponse.json({ error: 'No such store' }, { status: 404 });
+    const city = picked.city;
     const [stores, home] = await Promise.all([getStoresFor(city), getHome()]);
     const physical = stores.filter((s) => s.kind === 'physical' && s.city === city);
     const store = physical.find((s) => s.k === storeKey);
-    if (!store) return NextResponse.json({ error: 'No such store in this city' }, { status: 404 });
+    if (!store) return NextResponse.json({ error: 'No such store' }, { status: 404 });
 
     const lines = hereLines(home.list, home.items);
     const mine = new Set(lines.map((l) => l.key));
