@@ -530,7 +530,7 @@ function FindBar({ near, onScan, onPick }: { near: string; onScan: () => void; o
                 <Thumb src={h.img} size={36} by={h.imgBy} />
                 <span className="sh-tick-name">
                   <span>{h.name}</span>
-                  {h.minPrice !== null && <small>{h.minPrice === h.maxPrice ? ils(h.minPrice) : `${ils(h.minPrice)}–${ils(h.maxPrice!)}`} בעיר</small>}
+                  {h.minPrice !== null && <small>{h.minPrice === h.maxPrice ? ils(h.minPrice) : `${ils(h.minPrice)}–${ils(h.maxPrice!)}`} בסביבה</small>}
                 </span>
               </button>
             </li>
@@ -599,7 +599,7 @@ function WorthRow({ row, data, onOpen }: { row: HereRow; data: HereResponse; onO
   const here = row.here;
   let sub: string;
   if (row.group === 'missing') {
-    sub = row.best ? `הכי זול: ${ils(row.best.cost)} ב${storeName(data.stores[row.best.store])}` : 'לא נמכר בעיר';
+    sub = row.best ? `הכי זול: ${ils(row.best.cost)} ב${storeName(data.stores[row.best.store])}` : 'לא נמכר בסביבה';
   } else if (row.group === 'best') {
     sub = !row.best || row.best.store === data.store.k || row.best.cost >= here!.cost
       ? 'הכי זול באזור'
@@ -772,7 +772,7 @@ function Verdict({ code, store, near, rows, listName, onAdd, onDetails, onClose,
               : `כמעט כמו ב${storeName(bestStore)} (${ils(best.cost)}).`)}
             {v.group === 'ok' && <>{cheaperAt({ best, saving: v.saving }, data!.stores)}. לא שווה הליכה.</>}
             {v.group === 'elsewhere' && best && <>{ils(best.cost)} ב{storeName(bestStore)}{walkLabel(bestStore)}: {ils(v.saving)} פחות{qty !== 1 ? ` על ${qtyLabel(qty, it.w)}` : ''}.</>}
-            {v.group === 'missing' && (best ? <>הכי זול באזור: {ils(best.cost)} ב{storeName(bestStore)}{walkLabel(bestStore)}.</> : 'לא נמכר בחנויות בעיר.')}
+            {v.group === 'missing' && (best ? <>הכי זול באזור: {ils(best.cost)} ב{storeName(bestStore)}{walkLabel(bestStore)}.</> : 'לא נמכר בחנויות בסביבה.')}
           </p>
           {twin && (
             <p className="sh-here-twin">או כאן: <b>{twin.name}</b> ב־{ils(twin.price)}{twin.w ? ' לק״ג' : ''}</p>

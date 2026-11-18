@@ -631,7 +631,7 @@ export default function ShoppingPage() {
                                 {h.stores === 1 && h.cheapest && <span className="sh-hit-cheapest">{h.cheapest.chainName} {h.cheapest.name}</span>}
                                 {h.sources.filter((s) => s !== 'official').map((s) => <SourceTag key={s} source={s} />)}
                               </>
-                            ) : <span>לא נמכר בעיר</span>}
+                            ) : <span>לא נמכר בסביבה</span>}
                           </span>
                         </button>
                         <button type="button" className="sh-hit-btn sh-hit-btn--add" onClick={() => saveItem(h)}
@@ -1535,7 +1535,7 @@ function ProductSheet({ itemKey, scanned, near, saved, onSave, onClose, inline }
             </button>
             <NutritionPanel item={it}
               best={data.physical[0] ? { cost: data.physical[0].cost, store: storeName(data.stores[data.physical[0].store]) } : null} />
-            <PriceTable title="בחנויות בעיר" rows={data.physical} data={data} empty="לא נמכר בחנויות בעיר." />
+            <PriceTable title="בחנויות קרובות" rows={data.physical} data={data} empty="לא נמכר בחנויות הקרובות." />
             {data.online.length > 0 && <PriceTable title="אונליין" rows={data.online} data={data} />}
           </>
         )}
