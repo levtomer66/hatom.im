@@ -58,7 +58,7 @@ ignored.
 |---|---|
 | `GET search?q=&lat=&lng=&r=` | Products matching every word, priced at the near stores (`SearchHit[]`). |
 | `GET item?key=&lat=&lng=&r=` | One product at every near store (`ItemResponse`); `key` may be a barcode. |
-| `POST compare` `{ lat?, lng?, r?, lines: [{key, qty}], clubs?, coupons? }` | A basket at every near store, and plans (`CompareResponse`). |
+| `POST compare` `{ lat?, lng?, r?, favs?, lines: [{key, qty}], clubs?, coupons? }` | A basket at every near store, and plans (`CompareResponse`). `favs`: favorite store keys to count instead of the saved ones (the page sends its current stars). |
 | `GET here/stores?lat=&lng=` | "אני בסופר" picker: physical stores within 10 km, plus ★ (`HereStoresResponse`). |
 | `GET here?store=&r=` | "אני בסופר": My items here vs the stores within `r` km of that store, plus ★ (`HereResponse`). |
 | `GET home` | The caller's household: My items, the list, the favorite stores and the home spot (`{ id, members, invites, items, list, favStores, homeSpot, updatedAt, meta }`; `meta` = department and photo per key). Every route here is scoped to the caller's household. |
