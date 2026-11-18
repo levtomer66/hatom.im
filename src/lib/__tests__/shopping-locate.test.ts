@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { curation, fallbackOrder, isFar, keepFallbacks, keepRule, needsFallback, type FallbackCandidate } from '../shopping/ingest/locate.ts';
+import { curation, fallbackOrder, isFar, keepFallbacks, keepRule, needsFallback, woltVenueRule, type FallbackCandidate } from '../shopping/ingest/locate.ts';
 
 const ctx = { pinnedCities: new Set(['tel-aviv']), curated: new Set(['yohananof/7']), skipped: new Set(['yohananof/9']) };
 
@@ -115,4 +115,15 @@ test('needsFallback: only a chain whose kept stores have no prices at all, today
   assert.equal(needsFallback([{ publishesToday: true, savedPrices: false }]), false); // a new store's first file
   assert.equal(needsFallback([{ publishesToday: false, savedPrices: false }]), true); // Yochananof 150: never published
   assert.equal(needsFallback([]), true); // Osher Ad: nothing near a pin
+});
+
+// Wolt venues in Jerusalem / Mevaseret (no pin there, by the owner's choice):
+// one whose discovery entry the owner included is kept like a curated store.
+test('woltVenueRule: an included venue is kept in a city with no pin; pinned cities keep the walk check', () => {
+  const pinnedCities = new Set(['tel-aviv']);
+  assert.equal(woltVenueRule({ cityId: 'jerusalem', placed: true, included: true }, pinnedCities), 'keep');
+  assert.equal(woltVenueRule({ cityId: 'jerusalem', placed: true, included: false }, pinnedCities), 'drop');
+  assert.equal(woltVenueRule({ cityId: 'jerusalem', placed: false, included: true }, pinnedCities), 'drop');
+  assert.equal(woltVenueRule({ cityId: 'tel-aviv', placed: true, included: true }, pinnedCities), 'locate');
+  assert.equal(woltVenueRule({ cityId: 'tel-aviv', placed: false, included: true }, pinnedCities), 'drop');
 });

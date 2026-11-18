@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  brandOf, circleBox, distanceM, inRing, matchOfficial, mergePlaces, cleanStoreStreet, pinContains, storeGeocodeQueries, streetOf, walkPrefilterM,
+  brandOf, circleBox, distanceM, inRing, matchOfficial, mergePlaces, cleanStoreStreet, pinContains, placeCity, storeGeocodeQueries, streetOf, walkPrefilterM,
   type OfficialStore, type Place, type RawPlace,
 } from '../shopping/places.ts';
 
@@ -110,4 +110,29 @@ test('corner addresses: the street before "פינת" is the one matched', () => 
   assert.equal(streetOf("ביאליק פינת, רחוב זאב ז'בוטינסקי"), 'ביאליק');
   const stores = [store('511', 'הרצל 91,עובר להרצל 114)'), store('513', 'פרנקל 15')];
   assert.equal(matchOfficial(place('הרצל פינת, דרך שלמה 91'), stores)?.storeId, '511');
+});
+
+// ── a shop added by hand in another city (places/extra.json `city`) ──────
+// Jerusalem shops hang off a Tel Aviv pin (no pin in Jerusalem, by the owner's
+// choice), so the entry's own city must win over the pin's.
+test('mergePlaces carries an added entry\'s city; placeCity prefers it over the pin\'s', () => {
+  const [jlm, plain] = mergePlaces(
+    [
+      raw({ source: 'added', name: 'סופר אופיר', ref: 'A:סופר אופיר@31.8,35.15', city: 'mevaseret-zion' }),
+      raw({ name: 'מכולת', ref: 'N9', lat: centre.lat + 0.01 }),
+    ],
+    centre,
+  );
+  assert.equal(jlm.city, 'mevaseret-zion');
+  assert.equal(plain.city, undefined);
+  const pin = { city: 'tel-aviv' };
+  assert.equal(placeCity(jlm, pin), 'mevaseret-zion');
+  assert.equal(placeCity(plain, pin), 'tel-aviv');
+  // An OSM twin of the added shop doesn't drop the city.
+  const [merged] = mergePlaces(
+    [raw({ name: 'סופר אופיר', ref: 'N5' }), raw({ source: 'added', name: 'סופר אופיר', ref: 'A:x', city: 'jerusalem' })],
+    centre,
+  );
+  assert.equal(merged.refs.length, 2);
+  assert.equal(merged.city, 'jerusalem');
 });

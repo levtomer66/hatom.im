@@ -276,6 +276,11 @@ Identity = Gmail address. Two roles:
   review row counts, since discovery merges entries at one address (Hazi Hinam's
   store and its produce store). An official store matched to a shop
   the owner skipped is left out, like an included one is kept, without re-routing.
+  Pins only pick stores; the owner adds no pin for an area just to cover it.
+  Jerusalem (Beit HaKerem, Talpiot) and Mevaseret Zion have none: their
+  stores, shops and Wolt venues are `extra.json` entries with their own `city`
+  (`placeCity` beats the pin's city; `woltVenueRule` keeps an included venue
+  there). docs/sources.md § Areas with no pin.
 - **Ingest is a local, manually-run job**, not a Vercel function (Hobby cron
   is daily-only and a full run is ~190 MB of downloads + GBs of XML):
   `npm run shopping:ingest -- [--dry-run] [--offline] [--chains yohananof,shufersal,wolt] [--max-stores N] [--full] [--all-stores]`.
