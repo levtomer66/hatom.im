@@ -12,8 +12,7 @@
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { CITIES } from '../cities.ts';
-import { storeId } from '../collections.ts';
-import { distanceM, pinContains, storeGeocodeQueries, walkPrefilterM, type Pin } from '../places.ts';
+import { distanceM, pinContains, storeGeocodeQueries, walkPrefilterM } from '../places.ts';
 import type { Picks } from './picks.ts';
 import { walkRouter } from './walk.ts';
 
@@ -22,7 +21,7 @@ const USER_AGENT = 'hatom-shopping-ingest/0.1';
 const GAP_MS = 1500; // Nominatim policy: at most 1 request/s; leave headroom.
 const MISS_TTL_MS = 86_400_000;
 
-interface LocatableStore {
+export interface LocatableStore {
   chainId: string;
   storeId: string;
   chainSlug: string;
@@ -35,111 +34,30 @@ interface LocatableStore {
 
 type Point = { lat: number; lng: number };
 
-/**
- * Whether the ingest keeps a store without placing it: online stores and
- * stores the owner included in the discovery review are kept (in any target
- * city, pinned or not: a far store is added that way); a store in a city
- * with no pin, or one the review skipped, is dropped; the rest are placed
- * and kept when near a pin.
- */
-export function keepRule(
-  s: { kind: 'physical' | 'online'; key: string; cityId: string | null },
-  ctx: { pinnedCities: ReadonlySet<string>; curated: ReadonlySet<string>; skipped: ReadonlySet<string> },
-): 'keep' | 'drop' | 'locate' {
-  if (s.kind === 'online' || ctx.curated.has(s.key)) return 'keep';
-  if (s.cityId === null || !ctx.pinnedCities.has(s.cityId) || ctx.skipped.has(s.key)) return 'drop';
-  return 'locate';
-}
-/**
- * Whether the ingest keeps a Wolt venue (places/wolt.json). Wolt pages carry
- * no coordinates, so an unplaced venue (no discovery entry) is dropped. In a
- * city with no pin (Jerusalem, Mevaseret Zion: shops the owner named there)
- * a venue whose entry was included in the review is kept, like a curated
- * official store; in a pinned city it must be within the pin's walk.
- */
-export function woltVenueRule(
-  v: { cityId: string; placed: boolean; included: boolean },
-  pinnedCities: ReadonlySet<string>,
-): 'keep' | 'drop' | 'locate' {
-  if (!v.placed) return 'drop';
-  if (!pinnedCities.has(v.cityId)) return v.included ? 'keep' : 'drop';
-  return 'locate';
-}
-
-// ── a chain with no store near a pin keeps one ───────────────────────────
-// Every chain we ingest ends up with at least one priced store (owner's rule,
-// 2026-11-18). After the keep pass, a chain with no priced store keeps its
-// listed online store, else its physical store nearest any pin (straight
-// line), that publishes a PriceFull: the ingest checks fallbackOrder() in
-// turn.
-
-export interface FallbackCandidate {
-  key: string; // "<chainSlug>/<storeId>"
-  storeId: string;
-  kind: 'physical' | 'online';
-  /** On the chain's onlineStores list (chains.ts). */
-  listedOnline: boolean;
-  /** Straight-line metres to the nearest pin in any city; null when the store can't be placed. */
-  distM: number | null;
-  /** In a city with a pin. */
-  pinnedCity: boolean;
-  /** Skipped in the discovery review: the owner said no to it. */
-  skipped: boolean;
-}
-
-/**
- * Whether a chain needs its fallback store: none of the stores it kept has
- * prices — neither a PriceFull in today's listing nor prices saved from an
- * earlier run (a store that skips a day keeps yesterday's, so it still counts).
- */
-export const needsFallback = (kept: { publishesToday: boolean; savedPrices: boolean }[]) =>
-  !kept.some((s) => s.publishesToday || s.savedPrices);
-
-/** The candidates in the order the ingest tries them (the first that publishes a PriceFull wins). */
-export function fallbackOrder(cands: FallbackCandidate[]): string[] {
-  const rank = (c: FallbackCandidate) => (c.kind === 'online' ? 0 : c.distM !== null ? 1 : c.pinnedCity ? 2 : 3);
-  return cands
-    .filter((c) => !c.skipped && (c.kind === 'physical' || c.listedOnline))
-    .sort((a, b) => rank(a) - rank(b) || (a.distM ?? 0) - (b.distM ?? 0) || Number(a.storeId) - Number(b.storeId) || a.storeId.localeCompare(b.storeId))
-    .map((c) => c.key);
-}
-
-/**
- * The saved fallback stores to keep when the registry is re-filtered (chains
- * not fetched this run, --offline): each one stays while its chain has no
- * other kept store with prices; once a pin reaches a store, the fallback goes.
- */
-export function keepFallbacks(
-  stores: { key: string; chainSlug: string; keptAs?: 'fallback'; priced: boolean }[],
-  kept: ReadonlySet<string>,
-): Set<string> {
-  const covered = new Set(stores.filter((s) => s.priced && kept.has(s.key) && s.keptAs !== 'fallback').map((s) => s.chainSlug));
-  return new Set(stores.filter((s) => s.keptAs === 'fallback' && s.priced && !covered.has(s.chainSlug)).map((s) => s.key));
-}
-
 /** A hit is kept forever; a miss (`p: null`) only for MISS_TTL_MS. */
 type GeocodeCache = Record<string, { p: Point | null; at: string }>;
 
 const readJson = <T,>(p: string, fallback: T): T => (existsSync(p) ? (JSON.parse(readFileSync(p, 'utf8')) as T) : fallback);
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-export interface PinFilter {
-  pins: Pin[];
-  /** Official stores ("<chainSlug>/<storeId>") the owner skipped in the review. */
-  skipped: ReadonlySet<string>;
+/**
+ * Places stores. `'uncached'` = the answer is not in the cache and the run
+ * may not ask for it (an offline run): the caller keeps the saved verdict.
+ */
+export interface Locator {
+  /** Where an official store is: the discovery match, else its cached or looked-up address; null when it can't be placed. */
+  pointOf(store: LocatableStore): Promise<Point | null | 'uncached'>;
+  /** The address lookups pointOf tries for a store, for the log. */
+  queriesOf(store: LocatableStore): string[];
+  /** Whether a point is within one of the city's pins (walking time when the pin sets one). */
+  near(cityId: string | null, at: Point): Promise<boolean | 'uncached'>;
   /** Straight-line metres from a point to the nearest pin in any city. */
   nearestPinM(at: Point): number;
-  /** Whether the store is near a pin; logs every store it can't place. */
-  keep(stores: LocatableStore[], warn: (msg: string) => void): Promise<Set<string>>;
-  /** Whether a point is within one of the city's pins (walking time when the pin sets one). */
-  near(cityId: string | null, at: Point): Promise<boolean>;
-  /** Where an official store is: the discovery match, else its cached or looked-up address. */
-  pointOf(store: LocatableStore): Promise<Point | null>;
 }
 
-export function pinFilter(placesDir: string, picks: Picks): PinFilter {
+export function locator(placesDir: string, picks: Picks): Locator {
   const { pins, rings } = picks;
-  const { matched, curated, skipped } = picks.curation();
+  const { matched } = picks.curation();
 
   const cachePath = join(placesDir, 'geocode.json');
   const cache = readJson<GeocodeCache>(cachePath, {});
@@ -183,48 +101,20 @@ export function pinFilter(placesDir: string, picks: Picks): PinFilter {
     return false;
   }
 
+  function queriesOf(s: LocatableStore): string[] {
+    const city = CITIES.find((c) => c.id === s.cityId);
+    return city ? storeGeocodeQueries(s, city.name.replace('-יפו', '')) : [];
+  }
+
   async function pointOf(s: LocatableStore): Promise<Point | null> {
     const m = matched.get(`${s.chainSlug}/${s.storeId}`);
     if (m) return m;
-    const city = CITIES.find((c) => c.id === s.cityId);
-    if (!city) return null;
-    for (const q of storeGeocodeQueries(s, city.name.replace('-יפו', ''))) {
+    for (const q of queriesOf(s)) {
       const at = await geocode(q);
       if (at) return at;
     }
     return null;
   }
 
-  return {
-    pins,
-    skipped,
-    nearestPinM: (at) => Math.round(Math.min(...pins.map((p) => distanceM(p, at)))),
-    near,
-    pointOf,
-    async keep(stores, warn) {
-      const out = new Set<string>();
-      const pinnedCities = new Set(pins.map((p) => p.city));
-      for (const s of stores) {
-        const rule = keepRule({ kind: s.kind, key: `${s.chainSlug}/${s.storeId}`, cityId: s.cityId }, { pinnedCities, curated, skipped });
-        if (rule === 'keep') out.add(storeId(s));
-        if (rule !== 'locate') continue;
-        const cityPins = pins.filter((p) => p.city === s.cityId);
-        const city = CITIES.find((c) => c.id === s.cityId)!;
-        const queries = storeGeocodeQueries(s, city.name.replace('-יפו', ''));
-        let at = matched.get(`${s.chainSlug}/${s.storeId}`) ?? null;
-        for (const q of queries) {
-          if (at) break;
-          at = await geocode(q);
-        }
-        if (!at) {
-          const strict = cityPins.some((p) => p.walkMinutes);
-          warn(`${s.chainSlug} store ${s.storeId} (${s.name} / ${s.address}): can't place it (tried ${queries.map((q) => `"${q}"`).join(', ') || 'nothing'}); ${strict ? 'left out' : 'kept'}`);
-          if (!strict) out.add(storeId(s));
-          continue;
-        }
-        if (await near(s.cityId, at)) out.add(storeId(s));
-      }
-      return out;
-    },
-  };
+  return { pointOf, queriesOf, near, nearestPinM: (at) => Math.round(Math.min(...pins.map((p) => distanceM(p, at)))) };
 }

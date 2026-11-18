@@ -21,15 +21,16 @@ import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { gunzipSync, gzipSync } from 'node:zlib';
 import { BSON, MongoClient, type AnyBulkWriteOperation, type Db, type Document } from 'mongodb';
-import { CHAINS, chainBySlug, keepOnlineStore, type ChainConfig } from '../chains.ts';
+import { CHAINS, chainBySlug, type ChainConfig } from '../chains.ts';
 import { COLLECTIONS, SNAPSHOT_COLLECTIONS, storeId, type StoreId } from '../collections.ts';
-import { cityOf, isTargetCity } from '../cities.ts';
+import { cityOf } from '../cities.ts';
 import { decodeXmlBytes, isGzip } from '../xml.ts';
 import { parsePriceFile, parsePromoFile, parseStoresFile, type CanonItem, type CanonPromo, type CanonStore } from '../normalize.ts';
 import { buildItemDocs, buildPromoDocs, buildStoreDocs, diffDocs, israelLocalNow, type StoreState } from '../snapshot.ts';
 import { Throttle, clientFor, errorMessage, type RemoteFile, type SourceClient } from './sources.ts';
-import { fetchWoltVenue, type WoltVenueConfig } from './wolt.ts';
-import { fallbackOrder, keepFallbacks, needsFallback, pinFilter, woltVenueRule, type FallbackCandidate } from './locate.ts';
+import { fetchWoltVenue } from './wolt.ts';
+import { locator } from './locate.ts';
+import { describeKept, fallbackOrder, needsFallback, selector, type Dropped, type KeepReason } from './select.ts';
 import { ensureIndexes } from './write.ts';
 import { parseIngestFlags, type IngestFlags } from './flags.ts';
 import { loadPicks, type Picks } from './picks.ts';
@@ -66,7 +67,7 @@ try {
 } catch (e) {
   stop(errorMessage(e));
 }
-const PINS = pinFilter(join(CACHE, 'places'), PICKS);
+const SELECT = selector(PICKS, locator(join(CACHE, 'places'), PICKS));
 
 const runId = new Date().toISOString().replace(/[:.]/g, '-');
 const logFile = join(LOGS, `${runId}.log`);
@@ -156,35 +157,27 @@ interface StoreRecord extends CanonStore {
   chainName: string;
   /** Target city id; null for an online store outside the target cities. */
   cityId: string | null;
-  /** Map point, when the source places it (discovery review rows); official stores are placed by the pin filter. */
+  /** Map point, set when the store is selected (ingest/select.ts); it becomes the store doc's `loc`. */
   at?: { lat: number; lng: number };
   /** Kept as the chain's only store: no store of the chain near a pin has prices (ingest/locate.ts fallbackOrder). */
   keptAs?: 'fallback';
 }
+
+/** Why each store of this run's registry is kept, for the run summary. */
+const keptWhy = new Map<string, KeepReason>();
 
 /**
  * The store a chain keeps when none near a pin has prices: the first of
  * fallbackOrder() that publishes a PriceFull. Listing-based clients answer from
  * one cached listing; Shufersal asks per store, nearest first, so it stops early.
  */
-async function fallbackFor(chain: ChainConfig, cands: StoreRecord[], client: SourceClient) {
-  const pinnedCities = new Set(PINS.pins.map((p) => p.city));
-  const byKey = new Map<string, { s: StoreRecord; distM: number | null }>();
-  const list: FallbackCandidate[] = [];
-  for (const s of cands) {
-    const at = s.kind === 'physical' ? (s.at ?? (await PINS.pointOf(s))) : null;
-    const distM = at ? PINS.nearestPinM(at) : null;
-    const key = `${chain.slug}/${s.storeId}`;
-    byKey.set(key, { s, distM });
-    list.push({
-      key, storeId: s.storeId, kind: s.kind, listedOnline: (chain.onlineStores ?? []).includes(s.storeId), distM,
-      pinnedCity: s.cityId !== null && pinnedCities.has(s.cityId), skipped: PINS.skipped.has(key),
-    });
-  }
-  for (const key of fallbackOrder(list)) {
-    const { s, distM } = byKey.get(key)!;
-    const file = (await client.latestFor('PriceFull', [s.storeId])).get(s.storeId);
-    if (file) return { store: { ...s, keptAs: 'fallback' as const }, file, distM };
+async function fallbackFor(dropped: Dropped<StoreRecord>[], client: SourceClient) {
+  const cands = await SELECT.fallbackCandidates(dropped);
+  const byKey = new Map(cands.map((c) => [c.cand.key, c]));
+  for (const key of fallbackOrder(cands.map((c) => c.cand))) {
+    const { store, cand } = byKey.get(key)!;
+    const file = (await client.latestFor('PriceFull', [store.storeId])).get(store.storeId);
+    if (file) return { store: { ...store, keptAs: 'fallback' as const }, file, distM: cand.distM };
   }
   return null;
 }
@@ -197,31 +190,33 @@ async function ingestChain(chain: ChainConfig, maxStores: number | null): Promis
   if (!storesFile) throw new Error(`${chain.slug}: no Stores file listed`);
   const parsed = parseStoresFile(toXml(await fetchCached(chain, storesFile, (f) => client.download(f))));
   const seen = new Set<string>(); // some Stores files list a store more than once
-  const inCities: StoreRecord[] = parsed.stores
+  const listed: StoreRecord[] = parsed.stores
     .filter((s) => !seen.has(s.storeId) && !!seen.add(s.storeId))
-    .map((s) => ({ ...s, chainSlug: chain.slug, chainName: chain.name, cityId: cityOf(s) }))
-    // Online stores are listed separately (kind: 'online'): those serving the target cities (chains.ts).
-    .filter((s) => (s.kind === 'online' ? keepOnlineStore(chain, s.storeId, s.cityId) : s.cityId !== null));
-  const near = await PINS.keep(inCities, warn);
-  let targets = inCities.filter((s) => near.has(storeId(s)));
-  log(`${chain.slug}: ${targets.length} of ${inCities.length} target-city stores are near a pin or online`);
-  if (maxStores !== null) targets = targets.slice(0, maxStores);
-  log(`${chain.slug}: ${parsed.stores.length} stores listed, ${targets.length} in target cities or online (${storesFile.name})`);
+    .map((s) => ({ ...s, chainSlug: chain.slug, chainName: chain.name, cityId: cityOf(s) }));
+  // The one selection of this chain's stores (ingest/select.ts), before the price listing is asked for.
+  const sel = await SELECT.selectOfficial(listed);
+  for (const x of [...sel.kept, ...sel.dropped]) if (x.note) warn(x.note);
+  const kept = maxStores === null ? sel.kept : sel.kept.slice(0, maxStores);
+  let targets = kept.map((k) => k.store);
+  for (const k of kept) keptWhy.set(storeId(k.store), k.reason);
+  const candidates = listed.length - sel.dropped.filter((d) => d.reason === 'no-city' || d.reason === 'online-unlisted').length;
+  log(`${chain.slug}: ${parsed.stores.length} stores listed (${storesFile.name}), ${candidates} in target cities or online; kept ${targets.length}: ${describeKept(kept)}`);
 
   const prices = await client.latestFor('PriceFull', targets.map((s) => s.storeId));
   // Every chain keeps a priced store.
   const keptPriced = targets.map((s) => ({ publishesToday: prices.has(s.storeId), savedPrices: !!loadState(s)?.priceFile }));
   if (needsFallback(keptPriced)) {
-    const kept = new Set(targets.map((s) => s.storeId));
-    const fb = await fallbackFor(chain, inCities.filter((s) => !kept.has(s.storeId)), client);
+    const fb = await fallbackFor(sel.dropped, client);
     if (fb) {
       targets = [...targets, fb.store];
+      keptWhy.set(storeId(fb.store), 'fallback');
       prices.set(fb.store.storeId, fb.file);
       log(`  ${fb.store.storeId} ${fb.store.name}: kept as the chain's only store (${fb.distM === null ? 'not placed' : `${(fb.distM / 1000).toFixed(1)} km from the nearest pin`})`);
     } else warn(`${chain.slug}: no store in the target cities publishes a PriceFull — the chain has no store`);
   }
   const promos = await client.latestFor('PromoFull', targets.map((s) => s.storeId));
 
+  const out: StoreRecord[] = [];
   for (const s of targets) {
     const prev = loadState(s);
     const priceFile = prices.get(s.storeId) ?? null;
@@ -249,8 +244,11 @@ async function ingestChain(chain: ChainConfig, maxStores: number | null): Promis
     }
     saveState(next);
     log(`  ${s.storeId.padStart(4)} ${(s.cityId ?? s.kind).padEnd(10)} ${s.name} — ${next.items.length} items, ${next.promos.length} promos`);
+    // A fallback exists to give its chain prices: one whose file could not be read is not kept.
+    if (s.keptAs === 'fallback' && !next.priceFile) warn(`${chain.slug} store ${s.storeId}: the chain's only store has no prices — left out`);
+    else out.push(s);
   }
-  return targets;
+  return out;
 }
 
 /**
@@ -258,16 +256,9 @@ async function ingestChain(chain: ChainConfig, maxStores: number | null): Promis
  * its previous items, like a chain store whose PriceFull is missing.
  */
 async function ingestWolt(chain: ChainConfig, maxStores: number | null): Promise<StoreRecord[]> {
-  let venues: WoltVenueConfig[] = [];
-  // Wolt pages carry no coordinates; a venue is placed by the discovery entry it was approved from.
-  const { pinnedCities } = PICKS;
-  for (const v of PICKS.woltVenues.filter((v) => isTargetCity(v.cityId) && !v.photosOnly)) {
-    const p = v.placeId ? PICKS.placePoint(v.placeId) : undefined;
-    const rule = woltVenueRule({ cityId: v.cityId, placed: !!p, included: !!v.placeId && PICKS.included(v.placeId) }, pinnedCities);
-    if (rule === 'keep' || (rule === 'locate' && (await PINS.near(v.cityId, p!)))) venues.push(v);
-    else log(`  ${v.slug}: ${!p ? 'no discovery entry to place it' : pinnedCities.has(v.cityId) ? 'outside the pin' : 'not included in the review'} — left out`);
-  }
-  if (maxStores !== null) venues = venues.slice(0, maxStores);
+  const sel = await SELECT.selectWolt();
+  for (const d of sel.dropped) log(`  ${d.venue.slug}: ${d.why} — left out`);
+  const venues = maxStores === null ? sel.kept : sel.kept.slice(0, maxStores);
   log(`${chain.slug}: ${venues.length} venues in target cities (places/wolt.json)`);
   const rawDir = join(RAW, chain.slug);
   mkdirSync(rawDir, { recursive: true });
@@ -276,11 +267,10 @@ async function ingestWolt(chain: ChainConfig, maxStores: number | null): Promise
   const throttle = new Throttle(REQUEST_GAP_MS);
   const previous = readJson<Record<string, StoreRecord>>(join(STATE, 'stores.json'), {});
   const out: StoreRecord[] = [];
-  for (const v of venues) {
-    const at = v.placeId ? PICKS.placePoint(v.placeId) : undefined;
+  for (const { venue: v, at } of venues) {
     const rec: StoreRecord = {
       chainId: chain.chainId, storeId: v.slug, subChainId: '', name: v.slug, address: '', city: v.cityId, kind: 'physical',
-      chainSlug: chain.slug, chainName: chain.name, cityId: v.cityId, ...(at ? { at } : {}),
+      chainSlug: chain.slug, chainName: chain.name, cityId: v.cityId, at,
     };
     const prev = loadState(rec);
     const next: SavedStoreState = prev ?? { chainId: chain.chainId, storeId: v.slug, priceFile: null, promoFile: null, items: [], promos: [] };
@@ -345,7 +335,7 @@ async function woltPhotos(offline: boolean): Promise<Map<string, string>> {
  * listed with no items; users type their prices in the app (shoppingManualPrices).
  */
 function ingestManual(chain: ChainConfig): StoreRecord[] {
-  const out = PICKS.manualShops().map((m): StoreRecord => ({
+  const out = SELECT.selectManual().map((m): StoreRecord => ({
     chainId: chain.chainId, storeId: m.id, subChainId: '', name: m.name, address: m.address, city: m.city, kind: 'physical',
     chainSlug: chain.slug, chainName: chain.name, cityId: m.city, at: m.at,
   }));
@@ -424,24 +414,27 @@ async function main() {
     for (const id of Object.keys(registry)) {
       if (ranChainIds.has(registry[id].chainId)) delete registry[id];
     }
-    for (const s of fresh) registry[storeId(s)] = s;
-    // Online stores left from before the per-chain list (chains.ts onlineStores).
-    for (const s of Object.values(registry)) {
-      if (s.kind === 'online' && !keepOnlineStore(chainBySlug(s.chainSlug), s.storeId, s.cityId)) delete registry[storeId(s)];
+    // Saved stores of chains not fetched this run (other --chains, or --offline) are
+    // selected again from their records, so a changed decision or pin takes effect
+    // without fetching. Wolt and manual stores of such a run stay as saved.
+    const saved = Object.values(registry).filter((s) => s.chainSlug !== 'wolt' && s.chainSlug !== 'manual');
+    const sel = await SELECT.selectSaved(saved, (s) => !!loadState(s)?.priceFile);
+    for (const d of sel.dropped) {
+      if (d.note) warn(d.note);
+      delete registry[storeId(d.store)];
     }
-    // Stores of chains not run this time (or an --offline run) are held to the pins too.
+    for (const k of sel.kept) {
+      if (k.note) warn(k.note);
+      if (k.reason === 'fallback') log(`  ${k.store.chainSlug} ${k.store.storeId} ${k.store.name}: kept as the chain's only store`);
+      registry[storeId(k.store)] = k.store;
+      keptWhy.set(storeId(k.store), k.reason);
+    }
+    if (saved.length) log(`saved stores of chains not fetched this run: kept ${sel.kept.length} of ${saved.length}: ${describeKept(sel.kept)}`);
+    for (const s of fresh) registry[storeId(s)] = s;
     {
-      const others = Object.values(registry).filter((s) => s.chainSlug !== 'wolt' && s.chainSlug !== 'manual');
-      const near = await PINS.keep(others, warn);
-      // A chain's only store (kept as a fallback) stays while no other store of the chain has prices.
-      const fallbacks = keepFallbacks(
-        others.map((s) => ({ key: storeId(s), chainSlug: s.chainSlug, keptAs: s.keptAs, priced: !!loadState(s)?.priceFile })),
-        near,
-      );
-      for (const s of others) {
-        if (fallbacks.has(storeId(s))) log(`  ${s.chainSlug} ${s.storeId} ${s.name}: kept as the chain's only store`);
-        else if (!near.has(storeId(s))) delete registry[storeId(s)];
-      }
+      const official = Object.values(registry).filter((s) => s.chainSlug !== 'wolt' && s.chainSlug !== 'manual');
+      const count = (slug: string) => Object.values(registry).filter((s) => s.chainSlug === slug).length;
+      log(`stores kept: ${Object.keys(registry).length} — ${describeKept(official.flatMap((s) => (keptWhy.has(storeId(s)) ? [{ reason: keptWhy.get(storeId(s))! }] : [])))}, ${count('wolt')} Wolt venues, ${count('manual')} manual shops`);
     }
 
     // 3. Short store keys — Mongo is the authority when we have it.
@@ -498,15 +491,9 @@ async function main() {
     }
     const promoStats = { droppedCoupons: 0 };
     const promos = buildPromoDocs(states, nowLocal, promoStats);
-    // Where each physical store is, for the app's distance sort.
-    const where = new Map<string, { lat: number; lng: number }>();
-    for (const { s } of loaded) {
-      if (s.kind !== 'physical') continue;
-      const at = s.at ?? (await PINS.pointOf(s));
-      if (at) where.set(storeId(s), at);
-    }
+    // `loc` is the record's point: where selection placed the store (ingest/select.ts).
     const storeDocs = buildStoreDocs(
-      loaded.map(({ s, st }) => ({ ...s, priceFile: st?.priceFile ?? null, promoFile: st?.promoFile ?? null, loc: where.get(storeId(s)) ?? null })),
+      loaded.map(({ s, st }) => ({ ...s, priceFile: st?.priceFile ?? null, promoFile: st?.promoFile ?? null, loc: s.at ?? null })),
       keys,
     );
     const chainDocs = new Map(CHAINS.map((c) => [c.chainId, { _id: c.chainId, slug: c.slug, name: c.name }]));
