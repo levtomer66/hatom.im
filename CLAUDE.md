@@ -326,8 +326,21 @@ Identity = Gmail address. Two roles:
 - **API and MCP**: `docs/shopping-api.md`. The search, item and compare routes
   and the MCP tools (`src/lib/shopping/mcp-tools.ts`) share one set of queries,
   `src/lib/shopping/service.ts` — change pricing there, not in a route. Tools
-  take a free-text product (best search match, runner-ups named) and an
-  optional `city` that falls back to the user's saved `settings.city`.
+  take a free-text product (best search match, runner-ups named) and optional
+  `lat`/`lng`/`radius_km`, else the household's home spot.
+- **The near set** replaced cities for the user (no picker, no `settings.city`,
+  no `shopping_set_city`): physical stores within a straight-line radius
+  (1 km default; chips 2/5/10, `shopping:radius` in localStorage) of the
+  centre, plus the ★ favorites wherever they are, plus every online store
+  (`nearStores` in `src/lib/shopping/near.ts`, import-free). The centre is the
+  `lat`/`lng` the request sends (the page's live location, never stored), else
+  the household's home spot (`shoppingHome.homeSpot`, set in ⚙ → משק הבית);
+  without either, favorites + online. Every pricing route and tool resolves it
+  with `nearFor()` (`near-server.ts`) and reads stores with `getStoresNear()`
+  (one `find` over all candidate stores, filtered in JS: no geo index). A store
+  with no `loc` counts only when starred. `CITIES` / `StoreDoc.city` are the
+  ingest's internal coverage shortcut now; the app ignores the ingest's `far`
+  flag. Spec: `docs/superpowers/specs/2026-11-18-shopping-no-cities-design.md`.
 - **UI** at `SHOPPING_BASE_PATH` (`src/lib/shopping/config.ts`; the middleware
   `matcher` literal must move with it). There are no named lists: each
   **household** (one `shoppingHome` doc, model `src/models/ShoppingHome.ts`,
@@ -347,20 +360,18 @@ Identity = Gmail address. Two roles:
   `docs/superpowers/specs/2026-11-18-shopping-households-design.md`.
 - **Favorite stores** (`shoppingHome.favStores`, store keys, max 10, the
   household's): ☆/★ on every store row; favorites first in distance-sorted
-  lists (`sortStores(…, favs)`), price rankings keep their order. A far store
-  is a regular store with `far: true` on its doc (`isFar` in `ingest/locate.ts`:
-  past the walk limit, no pin in its city, or a chain's only store), which the
-  plans skip: the owner adds it via `places/extra.json` + the
+  lists (`sortStores(…, favs)`), price rankings keep their order. A store
+  outside the pins' coverage is added by the owner via `places/extra.json` + the
   discovery review (the ingest keeps a curated store in any target city, pin
   or no pin — `keepRule` in `ingest/locate.ts`); a city added only for that
   sets `picker: false` in `CITIES` (Holon, for Hazi Hinam מרכבה; `--all-stores`
   leaves such cities out). `GET /api/shopping/stores?q=` searches every
-  priced store in every city; `POST /api/shopping/far` (the page sends its favorites) prices the list at the
-  favorites ("כמה יעלה לי ב…", from the list card). Plans and compare stay on
-  the user's city; `/here?store=` compares a store with its own city.
+  priced store anywhere; `POST /api/shopping/far` (the page sends its favorites) prices the list at the
+  favorites ("כמה יעלה לי ב…", from the list card). Plans and compare use the
+  near set; `/here?store=&r=` measures the radius around that store.
   Spec: `docs/superpowers/specs/2026-11-18-shopping-favorite-stores-design.md`.
   `/api/shopping/compare` loads only the
-  basket items, their promos (`items` index) and the city's stores, then runs
+  basket items, their promos (`items` index) and the near stores, then runs
   `rankStores` and the plans in the request. Physical and online stores are
   ranked separately; stores whose `pricesAt` is null are never shown.
   The read model is `src/models/ShoppingCatalog.ts`; the app never writes the
@@ -397,8 +408,8 @@ Identity = Gmail address. Two roles:
   Neighbourhood shops are priced by hand in <ManualPrices> (one PUT to
   `/api/shopping/manual-prices` per field, then a re-compare); the contract
   is in the header comment of `src/app/shopping/page.tsx`.
-- **One product** (`GET /api/shopping/item?key&city`, the eye button and the
-  camera scanner): one unit priced at every store in the city with promos,
+- **One product** (`GET /api/shopping/item?key&lat&lng&r`, the eye button and the
+  camera scanner): one unit priced at every near store with promos,
   manual prices included. A one-unit price is always per unit: a multi-buy
   ("2 ב-10") counts at its per-unit price with an asterisk, its terms on
   hover/tap (`shownUnit`/`multiBuyUnit`) — product view, search, "אני בסופר". A scanned code is tried as-is and without leading
