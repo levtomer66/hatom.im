@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
 
   try {
     const store = await getStoreByKey(storeKey);
-    if (!store || store.kind !== 'physical' || store.city === null) {
+    if (!store || store.kind !== 'physical') {
       return NextResponse.json({ error: 'No such store' }, { status: 404 });
     }
     const now = israelLocalNow();

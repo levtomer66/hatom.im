@@ -25,6 +25,7 @@ interface HomeDocument {
   items: MyItem[];
   list: ListLine[];
   favStores?: number[];
+  homeSpot?: { lat: number; lng: number } | null;
   updatedAt: string;
 }
 
@@ -37,7 +38,7 @@ async function getCollection() {
 
 const plain = (d: HomeDocument): Household => ({
   id: d._id, members: d.members ?? [], invites: d.invites ?? [],
-  items: d.items, list: d.list, favStores: d.favStores ?? [], updatedAt: d.updatedAt,
+  items: d.items, list: d.list, favStores: d.favStores ?? [], homeSpot: d.homeSpot ?? null, updatedAt: d.updatedAt,
 });
 
 /**
@@ -75,7 +76,7 @@ export async function householdFor(email: string): Promise<Household> {
   const found = await col.findOne({ members: me });
   if (found) return plain(found);
   const doc: HomeDocument = {
-    _id: new ObjectId().toHexString(), members: [me], invites: [], items: [], list: [], favStores: [], updatedAt: new Date().toISOString(),
+    _id: new ObjectId().toHexString(), members: [me], invites: [], items: [], list: [], favStores: [], homeSpot: null, updatedAt: new Date().toISOString(),
   };
   try {
     await col.insertOne(doc);
@@ -98,7 +99,7 @@ export async function withMeta(h: Household): Promise<ShoppingHomeView> {
   return { ...h, meta: await getItemMeta(keys) };
 }
 
-async function set(id: string, fields: Partial<Pick<HomeDocument, 'items' | 'list' | 'favStores'>>): Promise<Household> {
+async function set(id: string, fields: Partial<Pick<HomeDocument, 'items' | 'list' | 'favStores' | 'homeSpot'>>): Promise<Household> {
   const doc = await (await getCollection()).findOneAndUpdate(
     { _id: id },
     { $set: { ...fields, updatedAt: new Date().toISOString() } },
@@ -109,7 +110,7 @@ async function set(id: string, fields: Partial<Pick<HomeDocument, 'items' | 'lis
 }
 
 export const setList = (id: string, list: ListLine[]) => set(id, { list });
-export const setHome = (id: string, fields: { items?: MyItem[]; list?: ListLine[]; favStores?: number[] }) => set(id, fields);
+export const setHome = (id: string, fields: { items?: MyItem[]; list?: ListLine[]; favStores?: number[]; homeSpot?: { lat: number; lng: number } | null }) => set(id, fields);
 
 export async function addLines(id: string, lines: ListLine[]): Promise<Household> {
   const h = await getHousehold(id);

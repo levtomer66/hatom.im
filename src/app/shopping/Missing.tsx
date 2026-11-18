@@ -16,11 +16,12 @@ import { Thumb } from './ui';
 const step = (w: boolean) => (w ? 0.5 : 1);
 const OTHER = { id: 'other', name: 'אחר' };
 
-export default function Missing({ items, list, meta, city, homeId, onSaveItem, onAdded, onClose }: {
+export default function Missing({ items, list, meta, near, homeId, onSaveItem, onAdded, onClose }: {
   items: MyItem[];
   list: ListLine[];
   meta: HomeMeta;
-  city: string;
+  /** The pricing routes' location query (where.ts nearQuery). */
+  near: string;
   /** The household these items are in (the server refuses the add once the caller is in another). */
   homeId: string;
   /** Save a new product to My items (the page owns the save). */
@@ -48,11 +49,11 @@ export default function Missing({ items, list, meta, city, homeId, onSaveItem, o
     if (q.length < 2) return setHits(null);
     const ctl = new AbortController();
     const t = setTimeout(() => {
-      fetch(`${SHOPPING_API_PATH}/search?q=${encodeURIComponent(q)}&city=${city}`, { signal: ctl.signal })
+      fetch(`${SHOPPING_API_PATH}/search?q=${encodeURIComponent(q)}&${near}`, { signal: ctl.signal })
         .then((r) => (r.ok ? r.json() : null)).then((h) => h && setHits(h)).catch(() => {});
     }, 250);
     return () => { clearTimeout(t); ctl.abort(); };
-  }, [query, city]);
+  }, [query, near]);
 
   const groups = useMemo(() => {
     const by = new Map<string, MyItem[]>();

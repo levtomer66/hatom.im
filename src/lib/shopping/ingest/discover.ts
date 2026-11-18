@@ -10,7 +10,8 @@
 //                                browser: name \t lat \t lng \t "category · address"
 //   osm/<pin>-<cat>-<q>.json     Nominatim responses (fetched here, kept 7 days)
 //   extra.json                   shops the map searches miss, added by hand:
-//                                [{ pin, name, lat, lng, address, category? }]
+//                                [{ pin, name, lat, lng, address, category?, city? }]
+//                                (city: a CITIES id when the shop isn't in the pin's city)
 //   decisions.json               { [placeId]: "include" | "skip" } — your answers
 //   official.json                { [placeId]: "<chainSlug>/<storeId>" } — hand matches
 //                                to an official store whose address doesn't match
@@ -29,7 +30,7 @@ import { cityOf } from '../cities.ts';
 import { decodeXmlBytes, isGzip } from '../xml.ts';
 import { parseStoresFile } from '../normalize.ts';
 import {
-  brandOf, circleBox, distanceM, inRing, matchOfficial, mergePlaces, ringBox,
+  brandOf, circleBox, distanceM, inRing, matchOfficial, mergePlaces, placeCity, ringBox,
   type OfficialStore, type Pin, type Place, type RawPlace,
 } from '../places.ts';
 
@@ -220,20 +221,21 @@ for (const pin of pins) {
   }
 
   const google = googlePlaces(pin);
-  const added = readJson<{ pin: string; name: string; lat: number; lng: number; address: string; category?: string }[]>(join(PLACES, 'extra.json'), [])
+  const added = readJson<{ pin: string; name: string; lat: number; lng: number; address: string; category?: string; city?: string }[]>(join(PLACES, 'extra.json'), [])
     .filter((x) => x.pin === pin.id)
     .map((x): RawPlace => ({
       source: 'added', name: x.name, lat: x.lat, lng: x.lng, address: x.address, category: x.category ?? 'added by hand',
       ref: `A:${x.name}@${x.lat.toFixed(5)},${x.lng.toFixed(5)}`,
+      ...(x.city ? { city: x.city } : {}),
     }));
   // Added shops are kept even outside the search box: they were named on purpose.
   const raw = [...added, ...[...google, ...(await osmPlaces(pin, box))].filter(inside)];
   const places = mergePlaces(raw, pin);
-  const cityStores = official.filter((s) => s.cityId === pin.city);
 
   const rows: ReviewRow[] = places.map((p) => {
     const brand = brandOf(p.names);
-    const match = handMatch(p) ?? (brand?.chainSlug ? matchOfficial(p, cityStores.filter((s) => s.chainSlug === brand.chainSlug)) : null);
+    const city = placeCity(p, pin);
+    const match = handMatch(p) ?? (brand?.chainSlug ? matchOfficial(p, official.filter((s) => s.cityId === city && s.chainSlug === brand.chainSlug)) : null);
     const status: Status = match ? 'ingested' : brand ? 'publishes' : 'none';
     const decision = p.refs.map((r) => decisions[r]).find(Boolean) ?? 'pending';
     return { ...p, status, retailer: brand?.retailer ?? null, official: match, decision };

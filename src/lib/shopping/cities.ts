@@ -44,6 +44,19 @@ export const CITIES: CityConfig[] = [
     aliases: ['חולון', 'holon'],
     picker: false,
   },
+  {
+    // Only Beit HaKerem and Talpiot are pinned (2026-11-18).
+    id: 'jerusalem',
+    name: 'ירושלים',
+    codes: ['3000'],
+    aliases: ['ירושלים', 'י-ם', 'י"ם', 'jerusalem'],
+  },
+  {
+    id: 'mevaseret-zion',
+    name: 'מבשרת ציון',
+    codes: ['1015'],
+    aliases: ['מבשרת ציון', 'מבשרת', 'mevaseret'],
+  },
 ];
 
 /**
@@ -69,12 +82,25 @@ const normalize = (s: string) =>
 const hasWord = (hay: string, alias: string) => hay.includes(normalize(alias));
 
 /**
+ * A city name followed by a house number is a street ("ראשל"צ ירושלים 120"
+ * is on ירושלים street in Rishon LeZion), so a store name doesn't count it.
+ */
+const hasCityWord = (hay: string, alias: string) => {
+  const a = normalize(alias);
+  for (let i = hay.indexOf(a); i !== -1; i = hay.indexOf(a, i + 1)) {
+    if (!/^\d/.test(hay.slice(i + a.length))) return true;
+  }
+  return false;
+};
+
+/**
  * The city id a store belongs to, or null.
  * 1. A non-zero City code is authoritative (a store *named* "…באר שבע" with
  *    code 666 is in Omer).
  * 2. A Hebrew City value is matched against the aliases.
  * 3. Only when City is empty/0 do we fall back to the store name — never the
- *    address (a store at "תל אביב 11" is on a street in Haifa).
+ *    address (a store at "תל אביב 11" is on a street in Haifa) — and a city
+ *    name followed by a number there is a street too.
  */
 export function cityOf(store: { city: string; name: string }): string | null {
   const city = store.city.trim();
@@ -87,5 +113,5 @@ export function cityOf(store: { city: string; name: string }): string | null {
     return CITIES.find((c) => c.aliases.some((a) => hasWord(hay, a)))?.id ?? null;
   }
   const hay = normalize(store.name);
-  return CITIES.find((c) => c.aliases.some((a) => hasWord(hay, a)))?.id ?? null;
+  return CITIES.find((c) => c.aliases.some((a) => hasCityWord(hay, a)))?.id ?? null;
 }

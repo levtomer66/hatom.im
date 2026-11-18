@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  addToList, homeFromLists, farStores, linesAdded, parseFavStores, parseList, parseMyItems, parsePicks, pickMissing, removeBought,
+  addToList, homeFromLists, farStores, linesAdded, parseFavStores, parseHomeSpot, parseList, parseMyItems, parsePicks, pickMissing, removeBought,
   type ListLine, type MyItem,
 } from '../shopping/home.ts';
 
@@ -96,4 +96,12 @@ test('farStores reads the favorites from the /far body, so pricing never waits f
   assert.deepEqual(farStores({ stores: [5, 2, 5], lines: [] }), { ok: true, value: [5, 2] });
   assert.equal(farStores({ lines: [] }).ok, false);
   assert.equal(farStores({ stores: Array.from({ length: 11 }, (_, i) => i) }).ok, false);
+});
+
+test('parseHomeSpot: a point (rounded) or null to clear; a half or junk is an error', () => {
+  assert.deepEqual(parseHomeSpot(null), { ok: true, value: null });
+  assert.deepEqual(parseHomeSpot({ lat: 32.08531, lng: 34.78184 }), { ok: true, value: { lat: 32.0853, lng: 34.7818 } });
+  assert.equal(parseHomeSpot({ lat: 32 }).ok, false);
+  assert.equal(parseHomeSpot('x').ok, false);
+  assert.equal(parseHomeSpot({}).ok, false);
 });

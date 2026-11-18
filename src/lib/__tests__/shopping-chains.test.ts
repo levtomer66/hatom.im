@@ -23,6 +23,11 @@ test('the Bina, Laibcatalog and PublishPrice chains carry what their fetcher nee
   const kinds = new Map(CHAINS.map((c) => [c.slug, c.source]));
   assert.deepEqual(kinds.get('bareket'), { kind: 'bina', host: 'superbareket' });
   assert.deepEqual(kinds.get('city-market'), { kind: 'bina', host: 'citymarketkiryatgat' });
+  // Jerusalem / Mevaseret branches (2026-11-18): Super Sapir 2 + 26, Zol VeBegadol 25.
+  assert.deepEqual(kinds.get('super-sapir'), { kind: 'bina', host: 'supersapir' });
+  assert.deepEqual(kinds.get('zol-vebegadol'), { kind: 'bina', host: 'zolvebegadol' });
+  assert.equal(chainBySlug('super-sapir')?.chainId, '7290058156016');
+  assert.equal(chainBySlug('zol-vebegadol')?.chainId, '7290058173198');
   assert.deepEqual(kinds.get('victory'), { kind: 'laibcatalog' });
   assert.deepEqual(kinds.get('mahsani-hashuk'), { kind: 'laibcatalog' });
   assert.deepEqual(kinds.get('carrefour'), { kind: 'publishprice', site: 'carrefour' });

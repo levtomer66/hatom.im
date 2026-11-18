@@ -21,7 +21,7 @@ export type HomeView = Household & { meta: HomeMeta };
 export const loadHome = () => api<HomeView>('/home');
 
 /** `home`: the household the edit was made in; the server refuses it (409) once the caller is in another. */
-export const saveHome = (patch: { items?: MyItem[]; list?: ListLine[]; favStores?: number[]; home?: string }) =>
+export const saveHome = (patch: { items?: MyItem[]; list?: ListLine[]; favStores?: number[]; homeSpot?: { lat: number; lng: number } | null; home?: string }) =>
   api<HomeView>('/home', { method: 'PATCH', body: JSON.stringify(patch) });
 
 /** "הוסף לרשימה": picked My items onto the list (items already there keep their quantity). */

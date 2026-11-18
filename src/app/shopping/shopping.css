@@ -181,9 +181,21 @@ body:has(.sh-page) { background: #ffffff; }
 .sh-loc > span { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 0.5rem; min-width: 0; }
 .sh-loc b { font-weight: 600; color: var(--sh-ink); }
 .sh-loc small { font-size: 0.8125rem; }
-.sh-loc-change { min-height: 36px; margin-inline-start: auto; font-size: 0.875rem; }
-.sh-loc-pick { display: flex; flex-wrap: wrap; gap: 0.5rem; margin: -0.25rem 0 0.75rem; }
-.sh-loc-pick .sh-chip { min-height: 40px; font-size: 0.875rem; }
+.sh-loc-home { min-height: 36px; margin-inline-start: auto; font-size: 0.875rem; white-space: nowrap; }
+.sh-loc-change { flex: none; }
+.sh-loc-home + .sh-loc-change { margin-inline-start: 0; }
+.sh-loc > span + .sh-loc-change { margin-inline-start: auto; }
+
+/* "חנויות עד 1 · 2 · 5 · 10 ק״מ" above the results. */
+.sh-radius { display: flex; flex-wrap: wrap; align-items: center; gap: 0.375rem; margin: 0 0 0.75rem; }
+.sh-radius-label { font-size: 0.8125rem; color: var(--sh-muted); margin-inline-end: 0.125rem; }
+.sh-radius .sh-chip { min-height: 36px; font-size: 0.8125rem; }
+
+/* The home spot in the משק הבית sheet. */
+.sh-home-spot { margin: 1rem 0; }
+.sh-home-spot .sh-section-title { display: flex; align-items: center; gap: 0.375rem; }
+.sh-home-spot-text { margin: 0.25rem 0 0.5rem; font-size: 0.875rem; color: var(--sh-muted); }
+.sh-home-spot-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem; }
 
 /* segmented (the result tabs build on it) */
 .sh-seg {
@@ -321,7 +333,6 @@ body:has(.sh-page) { background: #ffffff; }
   margin-top: 2.5rem; padding-top: 0.75rem; border-top: 1px solid var(--sh-line);
 }
 .sh-home-foot .sh-loc { flex: 1; min-width: 0; margin: 0; }
-.sh-home-foot .sh-loc-pick { flex-basis: 100%; order: 3; margin: 0.25rem 0 0; }
 .sh-home-foot .sh-settings { position: relative; top: auto; inset-inline-end: auto; z-index: 10; } /* under the search results (20) */
 .sh-home-foot .sh-settings-pop { top: auto; bottom: calc(100% + 4px); }
 
@@ -552,7 +563,13 @@ body:has(.sh-page) { background: #ffffff; }
 .sh-plan-note.is-miss { color: var(--sh-miss); font-weight: 500; }
 .sh-plan-detail { margin-top: 1rem; }
 .sh-plan-stop + .sh-plan-stop { margin-top: 1rem; }
+/* The walk to each stop of a split ("ממך: 650 מ׳ · ~11 דק׳"). */
+.sh-plan-leg { margin: 0.75rem 0 0.375rem; font-size: 0.8125rem; color: var(--sh-muted); }
+.sh-plan-leg:first-child { margin-top: 0; }
 .sh-plan-stop-head { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: baseline; gap: 0.5rem; margin: 0 0 0.125rem; font-size: 1rem; }
+/* A one-store plan has no rank: keep the name and price in their own columns, or the price lands in the shrinking one and spills off the screen. */
+.sh-plan-stop-head .sh-store-name { grid-column: 2; }
+.sh-plan-stop-head .sh-store-total { grid-column: 3; }
 .sh-plan-stop-meta { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem; font-size: 0.8125rem; color: var(--sh-muted); }
 .sh-plan-missing { margin-top: 1rem; }
 .sh-plan-missing ul { margin: 0.375rem 0 0; padding: 0; list-style: none; }
@@ -849,6 +866,9 @@ body:has(.sh-page) { background: #ffffff; }
 /* the product inline under its result (phone) */
 .sh-sheet--inline {
   position: relative;
+  /* Not .sh-sheet's 100%: with the side margins that is 16px wider than the
+     result row, and the scrolling results list then scrolls sideways. */
+  width: auto;
   max-height: none;
   margin: 0 0.5rem 0.75rem 0.5rem;
   padding: 1rem 0.75rem;
@@ -1394,3 +1414,15 @@ body:has(.sh-page) { background: #ffffff; }
 /* A unit price that takes buying several ("2 ב-10" → ₪5*); the terms are in the hover/tap note. */
 .sh-star { margin-inline-start: 0.0625rem; color: var(--sh-accent); font-weight: 700; }
 .sh-multi-note { display: block; margin-bottom: 0.375rem; font-weight: 600; }
+
+/* "שינוי מיקום": the address search sheet. */
+.sh-place-mine { width: 100%; margin-bottom: 0.75rem; }
+.sh-place-form { display: flex; gap: 0.5rem; align-items: stretch; }
+.sh-place-form .sh-search-box { flex: 1; min-width: 0; }
+.sh-place-form .sh-search-box input { flex: 1; min-width: 0; }
+.sh-place-busy { flex: none; font-size: 0.75rem; color: var(--sh-muted); }
+.sh-place .sh-place-row .sh-btn { width: auto; flex: none; display: inline-flex; align-items: center; gap: 0.375rem; min-height: var(--sh-tap); font-size: 0.9375rem; }
+.sh-place-list { list-style: none; margin: 0.75rem 0 0; padding: 0; display: grid; gap: 0.5rem; }
+.sh-place-row { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; padding: 0.5rem 0; border-bottom: 1px solid var(--sh-line, rgba(127,127,127,0.2)); }
+.sh-place-label { flex: 1 1 12rem; min-width: 0; }
+.sh-place-note { margin: 0.75rem 0 0; font-size: 0.75rem; color: var(--sh-muted); }

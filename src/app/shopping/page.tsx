@@ -11,7 +11,7 @@
  * ── Manual prices ──
  *
  * Neighbourhood shops have no price file; we type their prices in.
- * `CompareResponse.manual` lists the city's manual stores (fewest missing
+ * `CompareResponse.manual` lists the near manual stores (fewest missing
  * first; `missing` = items nobody priced there yet), and <ManualPrices> saves
  * one price at a time:
  *
@@ -31,8 +31,8 @@ import { storeQueryWords } from '@/lib/shopping/here';
 import { LuRefrigerator } from 'react-icons/lu';
 import dynamic from 'next/dynamic';
 import Navbar from '@/components/Navbar';
-import { CITIES } from '@/lib/shopping/cities';
-import { distanceM } from '@/lib/shopping/places';
+import { RADII_KM, distanceM, walkMinutes, walkOrder, type Centre } from '@/lib/shopping/near';
+import { distanceLabel } from '@/lib/shopping/here';
 import { SHOPPING_API_PATH } from '@/lib/shopping/config';
 import { MAX_FAV_STORES, normalizeQty, type ListLine, type MyItem } from '@/lib/shopping/home';
 import type { ShoppingSettings } from '@/lib/shopping/api-types';
@@ -47,6 +47,8 @@ import Missing from './Missing';
 import { api, loadHome, saveHome, type HomeView } from './home-client';
 import { NutritionHero, NutritionPanel, SettingsMenu } from './Nutrition';
 import { useTypedPlaceholder } from './typed-placeholder';
+import { readLocation, useWhere, type LocState } from './where';
+import { PlaceSheet } from './PlaceSheet';
 
 /** "2026-11-28T23:59" → "28.11" */
 const stamp = (local: string) => `${dayMonth(local)} ${local.slice(11, 16)}`;
@@ -90,32 +92,6 @@ const lsDel = (k: string) => {
 };
 /** No connection, as opposed to the server saying no (api() throws Error(status) then). */
 const isNetworkError = (e: unknown) => e instanceof TypeError || (typeof navigator !== 'undefined' && !navigator.onLine);
-const LS_CITY = 'shopping:city';
-/** 'manual' once someone picks a city by hand; then we stop detecting. */
-const LS_CITY_MODE = 'shopping:city-mode';
-
-/** City centres (public coordinates) for picking the nearest city to the viewer. */
-const CITY_CENTRES: Record<string, { lat: number; lng: number }> = {
-  'tel-aviv': { lat: 32.0853, lng: 34.7818 },
-  'ramat-gan': { lat: 32.0684, lng: 34.8248 },
-  'beer-sheva': { lat: 31.2518, lng: 34.7913 },
-};
-/** Farther than this from every centre: we have no prices for where you are. */
-const NEAR_CITY_M = 25_000;
-
-type LocState = 'idle' | 'locating' | 'found' | 'far' | 'denied' | 'unavailable';
-
-/** The city nearest to a point, or null when it's farther than NEAR_CITY_M. */
-function nearestCity(p: { lat: number; lng: number }): string | null {
-  let best: { id: string; d: number } | null = null;
-  for (const c of CITIES) {
-    const centre = CITY_CENTRES[c.id];
-    if (!centre) continue;
-    const d = distanceM(p, centre);
-    if (!best || d < best.d) best = { id: c.id, d };
-  }
-  return best && best.d <= NEAR_CITY_M ? best.id : null;
-}
 /** The store count last picked on the "הכי זול" card. */
 const PLAN_STORES_KEY = 'sh-plan-stores';
 const lsGet = (k: string) => {
@@ -160,10 +136,11 @@ export default function ShoppingPage() {
   /** Invites to the caller from other households (cards above the search), and the "משק הבית" sheet. */
   const [incoming, setIncoming] = useState<HouseholdResponse['incoming']>([]);
   const [householdOpen, setHouseholdOpen] = useState(false);
-  const [city, setCity] = useState<string>(CITIES[0].id);
-  const [cityMode, setCityMode] = useState<'auto' | 'manual'>('auto');
-  const [loc, setLoc] = useState<LocState>('idle');
-  const [pickingCity, setPickingCity] = useState(false);
+  /** Where prices are compared: a place set by hand, else the live location (or, server-side, the home spot), and the radius chip. */
+  const near = useWhere();
+  const { loc, centre, place } = near;
+  /** The address-search sheet: 'here' (where to compare) or 'home' (from משק הבית). */
+  const [placeOpen, setPlaceOpen] = useState<'here' | 'home' | null>(null);
   const [loadError, setLoadError] = useState(false);
   const [saveError, setSaveError] = useState(false);
 
@@ -184,7 +161,7 @@ export default function ShoppingPage() {
   /** The caller's preferences (the ⚙ menu); null until loaded. */
   const [settings, setSettings] = useState<ShoppingSettings | null>(null);
   useEffect(() => {
-    api<ShoppingSettings>('/settings').then(setSettings).catch(() => setSettings({ nutritionHero: false, city: null }));
+    api<ShoppingSettings>('/settings').then(setSettings).catch(() => setSettings({ nutritionHero: false }));
   }, []);
   const changeSettings = (patch: Partial<ShoppingSettings>) => {
     setSettings((s) => (s ? { ...s, ...patch } : s));
@@ -237,42 +214,8 @@ export default function ShoppingPage() {
     if (result) rememberImgs(Object.entries(result.items).map(([k, v]) => [k, v.img]));
   }, [result, rememberImgs]);
 
-  // ── city: detected from the device location unless picked by hand ──
-  function detectCity() {
-    if (!navigator.geolocation) return setLoc('unavailable');
-    setLoc('locating');
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        const id = nearestCity({ lat: pos.coords.latitude, lng: pos.coords.longitude });
-        if (id) {
-          setCity(id);
-          setLoc('found');
-        } else {
-          setLoc('far');
-        }
-      },
-      (err) => setLoc(err.code === err.PERMISSION_DENIED ? 'denied' : 'unavailable'),
-      { enableHighAccuracy: false, timeout: 10_000, maximumAge: 60 * 60 * 1000 },
-    );
-  }
-  const pickCity = (id: string) => {
-    setCity(id);
-    setCityMode('manual');
-    setPickingCity(false);
-  };
-  const useMyLocation = () => {
-    setCityMode('auto');
-    setPickingCity(false);
-    detectCity();
-  };
-
   // ── load My items and the list ──
   useEffect(() => {
-    const savedCity = lsGet(LS_CITY);
-    const manual = lsGet(LS_CITY_MODE) === 'manual';
-    if (manual) setCityMode('manual');
-    else detectCity();
-    if (savedCity && CITIES.some((c) => c.id === savedCity && c.picker !== false)) setCity(savedCity);
     loadHome()
       .then(setHome)
       .catch((e) => {
@@ -287,9 +230,6 @@ export default function ShoppingPage() {
         }
       });
   }, []);
-
-  useEffect(() => lsSet(LS_CITY, city), [city]);
-  useEffect(() => lsSet(LS_CITY_MODE, cityMode), [cityMode]);
 
   useEffect(() => {
     if (!toast) return;
@@ -395,7 +335,7 @@ export default function ShoppingPage() {
     setHome(homeRef.current);
     save('items', items);
   }, [save]);
-  /** The household's favorite stores (any city). */
+  /** The household's favorite stores (wherever they are). */
   const favs = useMemo(() => new Set(home?.favStores ?? []), [home]);
   /** ☆ / ★: add or remove a favorite store; at the cap, say so and change nothing. */
   const toggleFav = useCallback((k: number) => {
@@ -408,6 +348,25 @@ export default function ShoppingPage() {
     setHome(homeRef.current);
     save('favStores', next);
   }, [save]);
+
+  /** Save (or, with null, clear) the household's home spot: where "near" is when there's no live location. */
+  const saveHomeSpot = useCallback(async (spot: Centre | null) => {
+    const h = homeRef.current;
+    if (!h) return;
+    try {
+      const res = await saveHome({ homeSpot: spot, home: h.id });
+      setHome((cur) => (cur ? { ...cur, homeSpot: res.homeSpot } : res));
+      setToast(spot ? 'הבית נשמר' : 'הבית נמחק');
+    } catch {
+      setToast('לא נשמר. נסו שוב.');
+    }
+  }, []);
+  /** "שמירת המיקום כבית": the place or live location in use, else one fresh read. */
+  const saveHomeHere = useCallback(() => {
+    (centre ? Promise.resolve(centre) : readLocation())
+      .then(saveHomeSpot)
+      .catch(() => setToast('אין גישה למיקום. אפשר לאפשר אותה בהגדרות הדפדפן.'));
+  }, [centre, saveHomeSpot]);
 
   /** My items by key (the search marks the ones already saved). */
   const saved = useMemo(() => new Map(home?.items.map((i) => [i.key, i.qty]) ?? []), [home]);
@@ -494,7 +453,7 @@ export default function ShoppingPage() {
     const t = setTimeout(async () => {
       setSearching(true);
       try {
-        const res = await fetch(`${SHOPPING_API_PATH}/search?q=${encodeURIComponent(q)}&city=${city}`, { signal: ctl.signal });
+        const res = await fetch(`${SHOPPING_API_PATH}/search?q=${encodeURIComponent(q)}&${near.query}`, { signal: ctl.signal });
         if (res.ok) setHits(await res.json());
       } catch {
         /* aborted or offline */
@@ -506,7 +465,7 @@ export default function ShoppingPage() {
       clearTimeout(t);
       ctl.abort();
     };
-  }, [query, city]);
+  }, [query, near.query]);
 
   // ── the list's open trip ──
   // The household's id: the trips' listId, and the key of the trip kept on the phone.
@@ -549,7 +508,7 @@ export default function ShoppingPage() {
     if (!list || !result) return;
     if (trip) return setInStore(true);
     try {
-      const t = await api<Trip>('/trips', { method: 'POST', body: JSON.stringify(tripSnapshot(result, plan, list.id, city)) });
+      const t = await api<Trip>('/trips', { method: 'POST', body: JSON.stringify(tripSnapshot(result, plan, list.id)) });
       setTrip(t);
       setInStore(true);
     } catch {
@@ -559,13 +518,13 @@ export default function ShoppingPage() {
 
   // ── compare ──
   const sig = useMemo(
-    () => JSON.stringify([city, clubs, coupons, list?.items.map((i) => [i.key, i.qty]) ?? []]),
-    [city, clubs, coupons, list],
+    () => JSON.stringify([near.query, centre ? null : home?.homeSpot ?? null, home?.favStores ?? [], clubs, coupons, list?.items.map((i) => [i.key, i.qty]) ?? []]),
+    [near.query, centre, home?.homeSpot, home?.favStores, clubs, coupons, list],
   );
-  /** The city of the result on screen: a new city picks its tab again. */
-  const shownCity = useRef<string | null>(null);
+  /** Where the result on screen was priced: a new place or radius closes the open card. */
+  const shownWhere = useRef<string | null>(null);
   useEffect(() => {
-    shownCity.current = result?.city ?? null;
+    shownWhere.current = result ? whereKey(result) : null;
   }, [result]);
   const compare = useCallback(async () => {
     if (!list?.items.length) return;
@@ -574,11 +533,12 @@ export default function ShoppingPage() {
     try {
       const res = await api<CompareResponse>('/compare', {
         method: 'POST',
-        body: JSON.stringify({ city, clubs, coupons, lines: list.items.map(({ key, qty }) => ({ key, qty })) }),
+        // The current favorites: a star just tapped counts before its debounced save lands.
+        body: JSON.stringify({ ...(centre ?? {}), r: near.radius, favs: homeRef.current?.favStores ?? [], clubs, coupons, lines: list.items.map(({ key, qty }) => ({ key, qty })) }),
       });
       setResult(res);
       setComparedSig(sig);
-      if (shownCity.current !== res.city) {
+      if (shownWhere.current !== whereKey(res)) {
         setOpen(null);
       }
     } catch {
@@ -586,9 +546,9 @@ export default function ShoppingPage() {
     } finally {
       setComparing(false);
     }
-  }, [city, clubs, coupons, list, sig]);
+  }, [centre, near.radius, clubs, coupons, list, sig]);
 
-  // There's no compare button: the results follow the list, the city and the
+  // There's no compare button: the results follow the list, the location, the radius and the
   // club/coupon options, debounced like the autosave (and on first load).
   const stale = !!result && comparedSig !== sig;
   const hasItems = !!list?.items.length;
@@ -671,7 +631,7 @@ export default function ShoppingPage() {
                                 {h.stores === 1 && h.cheapest && <span className="sh-hit-cheapest">{h.cheapest.chainName} {h.cheapest.name}</span>}
                                 {h.sources.filter((s) => s !== 'official').map((s) => <SourceTag key={s} source={s} />)}
                               </>
-                            ) : <span>לא נמכר בעיר</span>}
+                            ) : <span>לא נמכר בסביבה</span>}
                           </span>
                         </button>
                         <button type="button" className="sh-hit-btn sh-hit-btn--add" onClick={() => saveItem(h)}
@@ -679,7 +639,7 @@ export default function ShoppingPage() {
                           {isSaved ? <FaCheck aria-hidden /> : <FaPlus aria-hidden />}
                         </button>
                         {narrow && product?.key === h.key && (
-                          <ProductSheet inline itemKey={h.key} scanned={false} city={city} saved={saved}
+                          <ProductSheet inline itemKey={h.key} scanned={false} near={near.query} saved={saved}
                             onSave={saveItem} onClose={() => setProduct(null)} />
                         )}
                       </li>
@@ -743,6 +703,7 @@ export default function ShoppingPage() {
             </section>
             )}
 
+            {hasItems && <RadiusChips radius={near.radius} onPick={near.setRadius} />}
             {result && (
               <Results ref={resultsRef} result={result} list={list} updating={stale || comparing} open={open} setOpen={setOpen}
                 onPricesSaved={() => compare()} onStartTrip={startTrip} tripOpen={!!trip} favs={favs} onFav={toggleFav} />
@@ -759,28 +720,18 @@ export default function ShoppingPage() {
               <div className="sh-loc">
                 <FaMapMarkerAlt aria-hidden />
                 <span>
-                  <b>{CITIES.find((c) => c.id === city)?.name}</b>
-                  <small>{LOC_NOTE[cityMode === 'manual' ? 'manual' : loc]}</small>
+                  <b>{place ? `ליד ${place.label}` : centre ? 'ליד המיקום שלך' : home?.homeSpot ? 'ליד הבית' : 'אין מיקום'}</b>
+                  {!place && <small>{LOC_NOTE[loc]}</small>}
                 </span>
-                <button type="button" className="sh-link sh-loc-change" onClick={() => setPickingCity(!pickingCity)}
-                  aria-expanded={pickingCity} aria-controls="sh-loc-pick">
-                  {pickingCity ? 'סגירה' : 'שינוי'}
+                {!home?.homeSpot && centre && (
+                  <button type="button" className="sh-link sh-loc-home" onClick={saveHomeHere}>שמירה כבית</button>
+                )}
+                <button type="button" className="sh-link sh-loc-home" onClick={() => setPlaceOpen('here')}>שינוי מיקום</button>
+                <button type="button" className="sh-icon-btn sh-loc-change" onClick={() => (place ? near.setPlace(null) : near.locate())}
+                  disabled={!place && loc === 'locating'} aria-label="המיקום שלי" title="המיקום שלי">
+                  <FaLocationArrow aria-hidden />
                 </button>
               </div>
-              {pickingCity && (
-                <div className="sh-loc-pick" id="sh-loc-pick" role="radiogroup" aria-label="עיר">
-                  <button type="button" className={`sh-chip ${cityMode === 'auto' ? 'is-on' : ''}`} onClick={useMyLocation}
-                    role="radio" aria-checked={cityMode === 'auto'}>
-                    <FaLocationArrow aria-hidden /> לפי המיקום
-                  </button>
-                  {CITIES.filter((c) => c.picker !== false).map((c) => (
-                    <button key={c.id} type="button" role="radio" aria-checked={cityMode === 'manual' && city === c.id}
-                      className={`sh-chip ${cityMode === 'manual' && city === c.id ? 'is-on' : ''}`} onClick={() => pickCity(c.id)}>
-                      {c.name}
-                    </button>
-                  ))}
-                </div>
-              )}
               <SettingsMenu settings={settings} onChange={changeSettings} onHousehold={() => setHouseholdOpen(true)} />
             </footer>
           </>
@@ -793,13 +744,13 @@ export default function ShoppingPage() {
             onCode={(code) => { setScanning(false); setProduct({ key: code, scanned: true }); }} />
         )}
         {here && (
-          <Here city={city} listName={list?.name ?? null} onAdd={addToList} onClose={() => setHere(false)} favs={favs} onFav={toggleFav}
+          <Here near={near.query} radius={near.radius} listName={list?.name ?? null} onAdd={addToList} onClose={() => setHere(false)} favs={favs} onFav={toggleFav}
             onOpenItem={(key, scanned) => setProduct({ key, scanned })}
             tripStores={trip && !trip.endedAt ? Object.fromEntries(trip.stops.map((st) => [st.store, st.items.length])) : {}}
             onOpenTrip={() => { setHere(false); setInStore(true); }} />
         )}
         {product && (here || !(narrow && hits?.some((h) => h.key === product.key) && !product.scanned)) && (
-          <ProductSheet itemKey={product.key} scanned={product.scanned} city={city} saved={saved}
+          <ProductSheet itemKey={product.key} scanned={product.scanned} near={near.query} saved={saved}
             onSave={saveItem} onClose={() => setProduct(null)} />
         )}
         {trip && inStore && (
@@ -820,14 +771,21 @@ export default function ShoppingPage() {
           </MyItemsSheet>
         )}
         {householdOpen && (
-          <HouseholdSheet onClose={() => setHouseholdOpen(false)} beforeLeave={flushSaves} onChanged={() => { setHouseholdOpen(false); void refreshHome(); }} />
+          <HouseholdSheet homeSpot={home?.homeSpot ?? null} onHomeSpot={saveHomeSpot} onSaveHere={saveHomeHere}
+            onByAddress={() => { setHouseholdOpen(false); setPlaceOpen('home'); }}
+            nearestHome={result?.where.source === 'home' ? nearestName(result) : null}
+            onClose={() => setHouseholdOpen(false)} beforeLeave={flushSaves} onChanged={() => { setHouseholdOpen(false); void refreshHome(); }} />
+        )}
+        {placeOpen && (
+          <PlaceSheet mode={placeOpen} place={place} onUse={near.setPlace} onMyLocation={() => near.setPlace(null)}
+            onSaveHome={(p) => saveHomeSpot({ lat: p.lat, lng: p.lng })} onClose={() => setPlaceOpen(null)} />
         )}
         {farOpen && list && list.items.length > 0 && (
-          <FarSheet lines={list.items} clubs={clubs} coupons={coupons} favs={favs} onFav={toggleFav}
+          <FarSheet live={centre} lines={list.items} clubs={clubs} coupons={coupons} favs={favs} onFav={toggleFav}
             onClose={() => setFarOpen(false)} />
         )}
         {missingOpen && home && (
-          <Missing items={home.items} list={home.list} meta={home.meta} city={city} homeId={home.id} onSaveItem={saveItemNow}
+          <Missing items={home.items} list={home.list} meta={home.meta} near={near.query} homeId={home.id} onSaveItem={saveItemNow}
             onAdded={(h) => { setHome(h); setMissingOpen(false); setToast('נוסף לרשימה'); }} onClose={() => setMissingOpen(false)} />
         )}
         {toast && <div className="sh-toast" role="status">{toast}</div>}
@@ -887,7 +845,7 @@ const Results = React.forwardRef<HTMLElement, {
 
   return (
     <section ref={ref} className={`sh-results ${updating ? 'is-updating' : ''}`} aria-live="polite" aria-busy={updating}>
-      {hasPlans && <PlansView key={result.city} result={result} updating={updating} onStart={onStartTrip} tripOpen={tripOpen} />}
+      {hasPlans && <PlansView key={whereKey(result)} result={result} updating={updating} onStart={onStartTrip} tripOpen={tripOpen} />}
       {hasPlans && (
         <button type="button" className="sh-all-toggle" onClick={() => setShowAll(!showAll)} aria-expanded={showAll}>
           {showAll ? 'הסתרת כל החנויות' : 'כל החנויות והשוואה מפורטת'}
@@ -896,11 +854,15 @@ const Results = React.forwardRef<HTMLElement, {
       )}
       {!hasPlans && (
         <div className="sh-hero is-partial">
-          <span className="sh-hero-kicker">אין עדיין מחירים בחנויות שליד הבית</span>
+          <span className="sh-hero-kicker">
+            {result.where.source === 'none' ? 'אין מיקום להשוואה' : `אין מחירים בחנויות עד ${result.where.radiusKm} ק״מ`}
+          </span>
           <span className="sh-hero-meta">
-            {result.manual.length > 0
-              ? <>לחנויות השכונתיות כאן אין קובץ מחירים. אפשר להקליד מחירים למטה, ובינתיים להשוות אונליין.</>
-              : <>אפשר להשוות בינתיים בחנויות אונליין.</>}
+            {result.where.source === 'none'
+              ? <>אפשר לאפשר מיקום, לבחור כתובת או לשמור בית (למטה). בינתיים: החנויות המועדפות ואונליין.</>
+              : result.manual.length > 0
+                ? <>לחנויות השכונתיות כאן אין קובץ מחירים. אפשר להקליד מחירים למטה, להרחיב את הטווח, ובינתיים להשוות אונליין.</>
+                : <>{result.where.radiusKm < 10 ? 'אפשר להרחיב את הטווח למעלה, ' : ''}ובינתיים להשוות בחנויות אונליין.</>}
           </span>
           {bestOnline && (
             <button type="button" className="sh-hero-split" onClick={() => onlineRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}>
@@ -939,7 +901,7 @@ const Results = React.forwardRef<HTMLElement, {
         </>
       )}
       {result.manual.length > 0 && (
-        <ManualStores key={`m-${result.city}`} baskets={result.manual} result={result} list={list} onSaved={onPricesSaved}
+        <ManualStores key={`m-${whereKey(result)}`} baskets={result.manual} result={result} list={list} onSaved={onPricesSaved}
           startOpen={!hasPlans} />
       )}
     </section>
@@ -968,7 +930,12 @@ function PlansView({ result, updating, onStart, tripOpen }: {
   if (!oneStore) return null;
   const count = picked && byCount[picked] ? picked : worth > 1 ? worth : counts[0];
   const cheapest = count ? byCount[count] ?? null : null;
-  const plan = choice === 'cheapest' && cheapest ? cheapest : oneStore;
+  const chosen = choice === 'cheapest' && cheapest ? cheapest : oneStore;
+  // A split is shown and walked in walking order: nearest to you first, then store to store.
+  const walk = walkOrder(result.where.centre, chosen.stops.map((st) => ({ store: st.store, loc: result.stores[st.store]?.loc ?? null })));
+  const plan: ShoppingPlan = chosen.stops.length > 1
+    ? { ...chosen, stops: walk.order.map((k) => chosen.stops.find((st) => st.store === k)!) }
+    : chosen;
   const saving = cheapest ? oneStore.total - cheapest.total : 0;
   const more = cheapest ? oneStore.missing.length - cheapest.missing.length : 0;
   const pays = !!cheapest && count <= worth;
@@ -991,9 +958,9 @@ function PlansView({ result, updating, onStart, tripOpen }: {
     lsSet(PLAN_STORES_KEY, String(k));
   };
   const one = result.stores[oneStore.stops[0].store];
-  // Walking: the one store's minutes; for a split, the stops' minutes from home summed (store-to-store isn't routed).
-  const splitWalk = cheapest?.stops.every((st) => result.stores[st.store]?.walkMin != null)
-    ? cheapest.stops.reduce((m, st) => m + (result.stores[st.store].walkMin ?? 0), 0) : null;
+  // Walking: the one store's estimate; for a split, the whole walk (you → each store in walking order), estimated.
+  const splitTotal = cheapest ? walkOrder(result.where.centre, cheapest.stops.map((st) => ({ store: st.store, loc: result.stores[st.store]?.loc ?? null }))).total : null;
+  const splitWalk = splitTotal != null ? walkMinutes(splitTotal) : null;
   const selectCheapest = () => {
     if (cheapest) setChoice('cheapest');
   };
@@ -1031,8 +998,8 @@ function PlansView({ result, updating, onStart, tripOpen }: {
           )}
           <span className="sh-plan-sub">
             {cheapest ? (chips ? null : `${cheapest.stops.length} חנויות`) : storeName(one)}
-            {cheapest && splitWalk != null && <>{chips ? '' : ', '}כ־{splitWalk} דק׳ הליכה</>}
-            {!cheapest && one?.walkMin != null && <>, {one.walkMin} דק׳ הליכה</>}
+            {cheapest && splitWalk != null && <>{chips ? '' : ', '}~{splitWalk} דק׳ הליכה בסך הכול</>}
+            {!cheapest && one?.walkMin != null && <>, ~{one.walkMin} דק׳ הליכה</>}
           </span>
           <span className={`sh-plan-note ${cheapest && (pays || more > 0) ? 'is-good' : ''}`}>{cheapNote}</span>
         </div>
@@ -1041,7 +1008,7 @@ function PlansView({ result, updating, onStart, tripOpen }: {
           <span className="sh-plan-kind">חנות אחת</span>
           <b className="sh-plan-total">{ils(oneStore.total)}</b>
           <span className="sh-plan-sub">{storeName(one)}</span>
-          {one?.walkMin != null && <span className="sh-plan-sub">{one.walkMin} דק׳ הליכה</span>}
+          {one && walkText(one) && <span className="sh-plan-sub">{walkText(one)}</span>}
           <span className={`sh-plan-note ${oneStore.missing.length ? 'is-miss' : ''}`}>
             {oneStore.missing.length ? `חסרים ${oneStore.missing.length}` : 'יש בה הכול'}
           </span>
@@ -1054,7 +1021,13 @@ function PlansView({ result, updating, onStart, tripOpen }: {
 
       <div className="sh-plan-detail">
         {plan.stops.map((stop, i) => (
-          <section key={stop.store} className="sh-plan-stop">
+          <React.Fragment key={stop.store}>
+          {plan.stops.length > 1 && walk.legs[i] != null && (
+            <p className="sh-plan-leg">
+              {i === 0 ? 'ממך' : '↓ מהחנות הקודמת'}: {distanceLabel(walk.legs[i]!)} · ~{walkMinutes(walk.legs[i]!)} דק׳ הליכה
+            </p>
+          )}
+          <section className="sh-plan-stop">
             <h3 className="sh-plan-stop-head">
               {plan.stops.length > 1 && <span className="sh-rank">{i + 1}</span>}
               <span className="sh-store-name">{storeName(result.stores[stop.store])}</span>
@@ -1062,13 +1035,14 @@ function PlansView({ result, updating, onStart, tripOpen }: {
             </h3>
             {result.stores[stop.store] && (
               <span className="sh-plan-stop-meta">
-                {result.stores[stop.store].walkMin != null && <span className="sh-walk">{result.stores[stop.store].walkMin} דק׳ הליכה</span>}
+                {plan.stops.length === 1 && walkText(result.stores[stop.store]) && <span className="sh-walk">{walkText(result.stores[stop.store])}</span>}
                 <SourceBadge store={result.stores[stop.store]} now={result.now} />
                 {cleanAddress(result.stores[stop.store].address) && <span className="sh-addr">{cleanAddress(result.stores[stop.store].address)}</span>}
               </span>
             )}
             <Breakdown basket={stop.basket} result={result} onlyAvailable />
           </section>
+          </React.Fragment>
         ))}
         {plan.missing.length > 0 && <MissingHere keys={plan.missing} result={result} />}
       </div>
@@ -1106,16 +1080,43 @@ const realMaker = (m: string | null | undefined) => {
 
 
 
-/** The small line next to the city name. */
-const LOC_NOTE: Record<LocState | 'manual', string> = {
+/** The small line next to where the page prices. */
+const LOC_NOTE: Record<LocState, string> = {
   idle: '',
   locating: 'מאתר מיקום…',
-  found: 'לפי המיקום שלך',
-  far: 'אין לנו מחירים באזור שלך',
+  found: '',
   denied: 'בלי גישה למיקום',
   unavailable: 'המיקום לא זמין',
-  manual: 'נבחר ידנית',
 };
+
+/** "1.4 ק״מ · ~23 דק׳ הליכה" from the centre (estimated walk), or '' without one. */
+function walkText(s: StoreInfo | undefined): string {
+  return s?.distM != null ? `${distanceLabel(s.distM)} · ~${walkMinutes(s.distM)} דק׳ הליכה` : '';
+}
+
+/** The nearest physical store a result priced (for "הבית נשמר · ליד …"), or null. */
+function nearestName(r: CompareResponse): string | null {
+  const s = Object.values(r.stores).filter((x) => x.kind === 'physical' && x.distM != null).sort((a, b) => a.distM! - b.distM!)[0];
+  return s ? storeName(s) : null;
+}
+
+/** Where a result was priced, as a key: a new place or radius resets what's open. */
+const whereKey = (r: { where: CompareResponse['where'] }) => `${r.where.source}|${r.where.centre?.lat},${r.where.centre?.lng}|${r.where.radiusKm}`;
+
+/** "עד 1 · 2 · 5 · 10 ק״מ": which stores count, remembered on this device. */
+function RadiusChips({ radius, onPick }: { radius: number; onPick: (r: number) => void }) {
+  return (
+    <div className="sh-radius" role="radiogroup" aria-label="מרחק מהמיקום">
+      <span className="sh-radius-label">חנויות עד</span>
+      {RADII_KM.map((r) => (
+        <button key={r} type="button" role="radio" aria-checked={radius === r}
+          className={`sh-chip ${radius === r ? 'is-on' : ''}`} onClick={() => onPick(r)}>
+          {r} ק״מ
+        </button>
+      ))}
+    </div>
+  );
+}
 
 function StoreCard({ basket, result, rank, best, open, toggle, fav }: {
   basket: StoreBasket;
@@ -1143,7 +1144,7 @@ function StoreCard({ basket, result, rank, best, open, toggle, fav }: {
         <span className="sh-store-meta">
           {basket.missing.length > 0 && <span className="sh-badge-miss">חסרים {basket.missing.length}</span>}
           {more > 0 && <span className="sh-more">+{ils(more)}</span>}
-          {store.walkMin != null && <span className="sh-walk">{store.walkMin} דק׳</span>}
+          {walkText(store) && <span className="sh-walk">{walkText(store)}</span>}
           <SourceBadge store={store} now={result.now} />
           {address && <span className="sh-addr">{address}</span>}
         </span>
@@ -1213,12 +1214,14 @@ function Line({ line, result, store }: { line: LineResult; result: StoreCardData
 // ── "כמה יעלה לי ב…": the list at the favorite stores ──
 
 /**
- * The shopping list priced at each favorite store, whatever its city, ranked
+ * The shopping list priced at each favorite store, wherever it is, ranked
  * like the store list; ★ removes one, and the search below (always open) adds any priced
  * store. The favorites go with the request, so a star counts before it's saved.
  */
-function FarSheet({ lines, clubs, coupons, favs, onFav, onClose }: {
+function FarSheet({ lines, clubs, coupons, favs, onFav, onClose, live }: {
   lines: ListLine[];
+  /** The device's location, for each found store's distance; null when unknown. */
+  live: Centre | null;
   clubs: boolean;
   coupons: boolean;
   favs: ReadonlySet<number>;
@@ -1266,7 +1269,7 @@ function FarSheet({ lines, clubs, coupons, favs, onFav, onClose }: {
 
   const none = favs.size === 0;
   const best = data?.baskets.find((b) => !b.missing.length);
-  const cityOfStore = (s: HereStore) => CITIES.find((c) => c.id === s.city)?.name ?? (s.kind === 'online' ? 'אונליין' : '');
+  const whereOf = (s: HereStore) => (s.kind === 'online' ? 'אונליין' : live && s.loc ? distanceLabel(distanceM(live, s.loc)) : '');
   return (
     <div className="sh-sheet-backdrop" onClick={onClose}>
       <div className="sh-sheet sh-far" role="dialog" aria-modal="true" aria-labelledby="sh-far-title" onClick={(e) => e.stopPropagation()}>
@@ -1292,7 +1295,7 @@ function FarSheet({ lines, clubs, coupons, favs, onFav, onClose }: {
                   <li key={s.k} className="sh-here-store-row">
                     <span className="sh-tick-name sh-far-found">
                       <span>{s.chainName} <span className="sh-branch">{s.name}</span></span>
-                      <small>{[cityOfStore(s), cleanAddress(s.address)].filter(Boolean).join(' · ')}</small>
+                      <small>{[whereOf(s), cleanAddress(s.address)].filter(Boolean).join(' · ')}</small>
                     </span>
                     <FavStar on={favs.has(s.k)} name={storeName(s)} onToggle={() => onFav(s.k)} />
                   </li>
@@ -1319,7 +1322,7 @@ function ManualStores({ baskets, result, list, onSaved, startOpen }: {
   startOpen?: boolean;
 }) {
   const [expanded, setExpanded] = useState(!!startOpen);
-  // A city can have dozens; the API puts the best-priced first, so show those.
+  // A radius can hold dozens; the API puts the best-priced first, so show those.
   const [all, setAll] = useState(false);
   const [editing, setEditing] = useState<number | null>(null);
   // Hiding a single shop behind "show more" isn't worth a tap.
@@ -1434,13 +1437,14 @@ function ManualPrices({ store, basket, list, onSaved }: {
 
 // ── one product: every store's price ──
 
-function ProductSheet({ itemKey, scanned, city, saved, onSave, onClose, inline }: {
+function ProductSheet({ itemKey, scanned, near, saved, onSave, onClose, inline }: {
   itemKey: string;
   /** Under its search result (phone) instead of a window over the page. */
   inline?: boolean;
   /** It came from the camera: say "barcode not found" rather than "product not found". */
   scanned: boolean;
-  city: string;
+  /** The pricing routes' location query (where.ts nearQuery). */
+  near: string;
   /** My items by key: the button says when the product is already saved. */
   saved: Map<string, number>;
   onSave: (item: { key: string; name: string; w: boolean }) => void;
@@ -1455,7 +1459,7 @@ function ProductSheet({ itemKey, scanned, city, saved, onSave, onClose, inline }
   useEffect(() => {
     const ctl = new AbortController();
     setState('loading');
-    fetch(`${SHOPPING_API_PATH}/item?key=${encodeURIComponent(itemKey)}&city=${city}`, { signal: ctl.signal })
+    fetch(`${SHOPPING_API_PATH}/item?key=${encodeURIComponent(itemKey)}&${near}`, { signal: ctl.signal })
       .then(async (res) => {
         if (res.status === 404) return setState('missing');
         if (!res.ok) throw new Error(String(res.status));
@@ -1466,7 +1470,7 @@ function ProductSheet({ itemKey, scanned, city, saved, onSave, onClose, inline }
         if (!ctl.signal.aborted) setState('error');
       });
     return () => ctl.abort();
-  }, [itemKey, city]);
+  }, [itemKey, near]);
 
   const panelRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -1531,7 +1535,7 @@ function ProductSheet({ itemKey, scanned, city, saved, onSave, onClose, inline }
             </button>
             <NutritionPanel item={it}
               best={data.physical[0] ? { cost: data.physical[0].cost, store: storeName(data.stores[data.physical[0].store]) } : null} />
-            <PriceTable title="בחנויות בעיר" rows={data.physical} data={data} empty="לא נמכר בחנויות בעיר." />
+            <PriceTable title="בחנויות קרובות" rows={data.physical} data={data} empty="לא נמכר בחנויות הקרובות." />
             {data.online.length > 0 && <PriceTable title="אונליין" rows={data.online} data={data} />}
           </>
         )}
@@ -1655,11 +1659,10 @@ function PriceTable({ title, rows, data, empty }: { title: string; rows: ItemPri
 // ── a trip: the plan taken into the store ──
 
 /** What a trip keeps of the plan: each stop's items with name, quantity, estimated cost and department. */
-function tripSnapshot(result: CompareResponse, plan: ShoppingPlan, listId: string, city: string): TripCreate {
+function tripSnapshot(result: CompareResponse, plan: ShoppingPlan, listId: string): TripCreate {
   return {
     listId,
     plan: plan.kind as PlanKind,
-    city,
     stops: plan.stops.map((s) => ({
       store: s.store,
       storeName: storeName(result.stores[s.store]),

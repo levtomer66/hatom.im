@@ -3,6 +3,7 @@ import { COLLECTIONS } from '@/lib/shopping/collections';
 import type { ItemDoc, PromoDoc, StoreDoc } from '@/lib/shopping/snapshot';
 import { SEARCH_CANDIDATES, searchStage } from '@/lib/shopping/search-index';
 import { getStoresWithManualPrices } from '@/models/ShoppingManualPrice';
+import { nearStores, type Where } from '@/lib/shopping/near';
 
 // Read side of the price data the local ingest job writes
 // (src/lib/shopping/ingest/cli.ts). The app never writes these collections.
@@ -12,20 +13,20 @@ async function getDb() {
 }
 
 /**
- * Stores that serve `city`: its physical stores plus every online store —
- * those with published prices, and the city's manual stores, which are listed
- * even before anyone has typed a price.
+ * Every store a near set can draw on: stores with published prices (physical
+ * and online), and manual stores, which are listed even before anyone has
+ * typed a price. A few hundred docs; one find.
  */
-export async function getStoresFor(city: string): Promise<StoreDoc[]> {
+export async function getCandidateStores(): Promise<StoreDoc[]> {
   return (await getDb())
     .collection<StoreDoc>(COLLECTIONS.stores)
-    .find({
-      $or: [
-        { pricesAt: { $ne: null }, $or: [{ city, kind: 'physical' }, { kind: 'online' }] },
-        { source: 'manual', city },
-      ],
-    })
+    .find({ $or: [{ pricesAt: { $ne: null } }, { source: 'manual' }] })
     .toArray();
+}
+
+/** The near set (near.ts): physical stores within the radius of `where`, ★ wherever they are, every online store. */
+export async function getStoresNear(where: Where, favs: number[]): Promise<(StoreDoc & { distM: number | null })[]> {
+  return nearStores((await getCandidateStores()).map((s) => ({ ...s, loc: storeLoc(s) })), where, favs);
 }
 
 /** The stores among `docs` that have prices: a price file, or (a manual shop) a typed price. */

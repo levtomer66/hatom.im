@@ -6,12 +6,12 @@
 // searched and the best match used, with the runner-ups named so the model
 // can correct. Server-only; the queries are the page's (service.ts).
 
-import { CITIES } from '@/lib/shopping/cities';
 import { MAX_LIST_ITEMS, MAX_QTY, linesAdded, normalizeQty, type ListLine } from '@/lib/shopping/home';
 import type { SearchHit, StoreInfo } from '@/lib/shopping/api-types';
 import { compareBasket, itemPrices, searchProducts } from '@/lib/shopping/service';
+import { RADII_KM, type Near, type Where } from '@/lib/shopping/near';
+import { nearFor } from '@/lib/shopping/near-server';
 import { ensureMyItems, householdFor, setList } from '@/models/ShoppingHome';
-import { getShoppingSettings, updateShoppingSettings } from '@/models/ShoppingUserSettings';
 
 export interface ShoppingToolCaller {
   userEmail: string;
@@ -33,7 +33,8 @@ const SOURCE_NOTE: Record<string, string> = { official: '', wolt: ' (Wolt delive
 
 function storeLabel(s: StoreInfo | undefined): string {
   if (!s) return 'unknown store';
-  const where = s.kind === 'online' ? 'online' : s.walkMin !== null ? `${s.walkMin} min walk` : s.address;
+  const where = s.kind === 'online' ? 'online'
+    : s.distM !== null ? `${(s.distM / 1000).toFixed(1)} km, ~${s.walkMin} min walk` : s.address;
   // Branch names often repeat the chain ("סופר-פארם פלורנטין", "שופרסל ONLINE").
   const name = s.name.replace(/\s+/g, ' ').trim();
   const label = name.startsWith(s.chainName) ? name : `${s.chainName} ${name}`;
@@ -43,30 +44,17 @@ function storeLabel(s: StoreInfo | undefined): string {
 /** A maker worth naming: has letters, isn't a placeholder. */
 const maker = (m: string) => (/[a-zא-ת]{2}/i.test(m) && !/^(לא ידוע|כללי|unknown)$/i.test(m.trim()) ? m.trim() : '');
 
-const CITY_ALIASES: Record<string, string> = {
-  'tel aviv': 'tel-aviv', telaviv: 'tel-aviv', 'תל אביב': 'tel-aviv', 'תל אביב-יפו': 'tel-aviv', 'ת"א': 'tel-aviv', tlv: 'tel-aviv',
-  'ramat gan': 'ramat-gan', 'רמת גן': 'ramat-gan', 'ר"ג': 'ramat-gan',
-  'beer sheva': 'beer-sheva', "be'er sheva": 'beer-sheva', beersheba: 'beer-sheva', 'באר שבע': 'beer-sheva', 'ב"ש': 'beer-sheva',
-};
-const CITY_LIST = CITIES.map((c) => `${c.id} (${c.name})`).join(', ');
-
-function parseCity(raw: string): string | null {
-  const k = raw.toLowerCase().replace(/["׳״]/g, (c) => (c === '״' ? '"' : c)).trim();
-  if (CITIES.some((c) => c.id === k)) return k;
-  return CITY_ALIASES[k] ?? null;
+/** Where to price: the given point, else the household's home spot; favorites and online always. */
+async function nearArgs(args: Record<string, unknown>, caller: ShoppingToolCaller): Promise<Near> {
+  const near = await nearFor(caller.userEmail, { lat: args.lat, lng: args.lng, r: args.radius_km });
+  if (typeof near === 'string') throw new Error(`${near}: pass both lat and lng (decimal degrees), or neither to use the home spot.`);
+  return near;
 }
 
-/** The city given, else the caller's saved one, else an error the model can act on. */
-async function cityFor(args: Record<string, unknown>, caller: ShoppingToolCaller): Promise<string> {
-  const given = str(args, 'city');
-  if (given) {
-    const c = parseCity(given);
-    if (!c) throw new Error(`Unknown city "${given}". Cities: ${CITY_LIST}.`);
-    return c;
-  }
-  const saved = (await getShoppingSettings(caller.userEmail)).city;
-  if (saved) return saved;
-  throw new Error(`Which city should I price in? Pass city (${CITY_LIST}), or save one with shopping_set_city.`);
+/** The area a tool priced, in words the model can repeat. */
+export function areaLabel(where: Where): string {
+  if (where.source === 'none') return 'favorite and online stores only — no home spot is saved (set it on the page: ⚙ → משק הבית)';
+  return `stores within ${where.radiusKm} km of ${where.source === 'home' ? 'home' : 'the given point'}, plus favorites`;
 }
 
 /** The caller's household's one shopping list (built from My items on the page with "מה חסר?"). */
@@ -83,8 +71,8 @@ const isKey = (s: string) => /^\d{8,14}$/.test(s) || /^\d{13}:[^\s]+$/.test(s) |
  * top hit no nearby store sells gives way to the first one that is sold.
  * The runner-ups go back to the model so it can correct a wrong pick.
  */
-async function resolveProduct(q: string, city: string): Promise<{ hit: SearchHit; others: SearchHit[] } | null> {
-  const hits = await searchProducts(q.slice(0, 80), city);
+async function resolveProduct(q: string, near: Near): Promise<{ hit: SearchHit; others: SearchHit[] } | null> {
+  const hits = await searchProducts(q.slice(0, 80), near);
   if (!hits.length) return null;
   const hit = hits[0].stores > 0 ? hits[0] : (hits.slice(0, 5).find((h) => h.stores > 0) ?? hits[0]);
   return { hit, others: hits.filter((h) => h !== hit).slice(0, 3) };
@@ -102,27 +90,29 @@ const listLine = (it: ListLine) => `${it.name} × ${it.qty}${it.w ? ' kg' : ''} 
 
 // ── tools ────────────────────────────────────────────────────────────────
 
-const cityProp = {
-  type: 'string',
-  description: `City to price in: ${CITY_LIST}. Optional when the user saved one (shopping_set_city).`,
+/** Optional location args; without them the household's home spot is used. */
+const nearProps = {
+  lat: { type: 'number', description: 'Latitude of where to price, if the user said where they are. Omit to use the household\'s saved home spot.' },
+  lng: { type: 'number', description: 'Longitude, with lat.' },
+  radius_km: { type: 'number', enum: [...RADII_KM], description: 'How far to look, in km (default 1). Favorite stores count wherever they are.' },
 };
 
 export const SHOPPING_TOOLS: ShoppingTool[] = [
   {
     name: 'shopping_search',
     description:
-      'Search grocery products by name (Hebrew or English, typos ok) or barcode. Returns the best matches with their price range in the city, how many nearby stores sell them, the cheapest store, and each product\'s key for the other shopping tools.',
+      'Search grocery products by name (Hebrew or English, typos ok) or barcode. Returns the best matches with their price range in nearby stores, how many nearby stores sell them, the cheapest store, and each product\'s key for the other shopping tools.',
     inputSchema: {
       type: 'object',
-      properties: { query: { type: 'string', description: 'Product name words or a barcode, e.g. "קוטג 5%" or "bamba".' }, city: cityProp },
+      properties: { query: { type: 'string', description: 'Product name words or a barcode, e.g. "קוטג 5%" or "bamba".' }, ...nearProps },
       required: ['query'],
       additionalProperties: false,
     },
     handler: async (args, caller) => {
       const q = str(args, 'query');
       if (!q) throw new Error('query is required.');
-      const city = await cityFor(args, caller);
-      const hits = (await searchProducts(q.slice(0, 80), city)).slice(0, 8);
+      const near = await nearArgs(args, caller);
+      const hits = (await searchProducts(q.slice(0, 80), near)).slice(0, 8);
       if (!hits.length) return `No products match "${q}".`;
       return hits.map((h, i) => `${i + 1}. ${hitLine(h)}`).join('\n');
     },
@@ -136,7 +126,7 @@ export const SHOPPING_TOOLS: ShoppingTool[] = [
       properties: {
         product: { type: 'string', description: 'Product key, barcode, or name (the best match is used).' },
         price: { type: 'number', description: 'Optional: a price in shekels the user saw, to judge whether it is cheap.' },
-        city: cityProp,
+        ...nearProps,
       },
       required: ['product'],
       additionalProperties: false,
@@ -144,20 +134,20 @@ export const SHOPPING_TOOLS: ShoppingTool[] = [
     handler: async (args, caller) => {
       const product = str(args, 'product');
       if (!product) throw new Error('product is required.');
-      const city = await cityFor(args, caller);
+      const near = await nearArgs(args, caller);
       let key = product;
       let note = '';
-      if (!isKey(product) || !(await itemPrices(product, city))) {
-        const r = await resolveProduct(product, city);
+      if (!isKey(product) || !(await itemPrices(product, near))) {
+        const r = await resolveProduct(product, near);
         if (!r) return `No product matches "${product}".`;
         key = r.hit.key;
         if (r.others.length) note = `\n(Took the best match for "${product}". Other matches: ${r.others.map((o) => `${o.name} [key ${o.key}]`).join('; ')}.)`;
       }
-      const res = await itemPrices(key, city);
+      const res = await itemPrices(key, near);
       if (!res) return `No product with key ${key}.`;
       const unit = res.item.w ? '/kg' : '';
       const head = `${res.item.name}${maker(res.item.manufacturer) ? ` (${maker(res.item.manufacturer)})` : ''} [key ${res.item.key}]`;
-      if (!res.physical.length && !res.online.length) return `${head}: not sold in any store near ${city}.${note}`;
+      if (!res.physical.length && !res.online.length) return `${head}: not sold in any of the ${areaLabel(near.where)}.${note}`;
       const row = (p: (typeof res.physical)[number]) => {
         const deal = p.cost < p.regularUnit ? ` (deal; regular ${shekels(p.regularUnit)})` : '';
         const multi = p.multi ? ` — when buying ${p.multi.qty} (${shekels(p.multi.total)} together)` : '';
@@ -226,7 +216,7 @@ export const SHOPPING_TOOLS: ShoppingTool[] = [
             additionalProperties: false,
           },
         },
-        city: cityProp,
+        ...nearProps,
       },
       required: ['items'],
       additionalProperties: false,
@@ -235,13 +225,13 @@ export const SHOPPING_TOOLS: ShoppingTool[] = [
       const wanted = Array.isArray(args.items) ? (args.items as Record<string, unknown>[]) : [];
       if (!wanted.length) throw new Error('items is required.');
       const list = await theList(caller);
-      const city = await cityFor(args, caller);
+      const near = await nearArgs(args, caller);
       const items = [...list.items];
       const report: string[] = [];
       for (const w of wanted.slice(0, 30)) {
         const product = str(w, 'product');
         if (!product) continue;
-        const r = await resolveProduct(product, city);
+        const r = await resolveProduct(product, near);
         if (!r) {
           report.push(`✗ "${product}": no matching product — not added.`);
           continue;
@@ -327,7 +317,7 @@ export const SHOPPING_TOOLS: ShoppingTool[] = [
     inputSchema: {
       type: 'object',
       properties: {
-        city: cityProp,
+        ...nearProps,
         clubs: { type: 'boolean', description: 'Include club-member deals (default false).' },
       },
       additionalProperties: false,
@@ -335,14 +325,14 @@ export const SHOPPING_TOOLS: ShoppingTool[] = [
     handler: async (args, caller) => {
       const list = await theList(caller);
       if (!list.items.length) return `"${list.name}" is empty — nothing to compare.`;
-      const city = await cityFor(args, caller);
+      const near = await nearArgs(args, caller);
       const res = await compareBasket({
-        city, lines: list.items.map((it) => ({ key: it.key, qty: it.qty })), clubs: args.clubs === true, coupons: false,
+        near, lines: list.items.map((it) => ({ key: it.key, qty: it.qty })), clubs: args.clubs === true, coupons: false,
       });
       const name = (k: string) => res.items[k]?.name ?? k;
       const st = (k: number) => storeLabel(res.stores[k]);
       const missing = (m: string[]) => (m.length ? ` — lacks ${m.length}: ${m.slice(0, 5).map(name).join(', ')}${m.length > 5 ? '…' : ''}` : '');
-      const out: string[] = [`"${list.name}" — ${list.items.length} items, ${city}:`];
+      const out: string[] = [`"${list.name}" — ${list.items.length} items, ${areaLabel(near.where)}:`];
       const one = res.plans.oneStore;
       if (!one) return `${out[0]}\nNo nearby store sells anything on this list.`;
       out.push(`One store: ${shekels(one.total)} at ${st(one.stops[0].store)}${missing(one.missing)}.`);
@@ -359,17 +349,6 @@ export const SHOPPING_TOOLS: ShoppingTool[] = [
       out.push('Top stores:', ...res.physical.slice(0, 5).map((b, i) => `${i + 1}. ${shekels(b.total)} at ${st(b.store)}${missing(b.missing)}`));
       if (res.online.length) out.push(`Online: ${shekels(res.online[0].total)} at ${st(res.online[0].store)}${missing(res.online[0].missing)}.`);
       return out.join('\n');
-    },
-  },
-  {
-    name: 'shopping_set_city',
-    description: `Save the city the shopping tools price in when no city is given: ${CITY_LIST}.`,
-    inputSchema: { type: 'object', properties: { city: { type: 'string' } }, required: ['city'], additionalProperties: false },
-    handler: async (args, caller) => {
-      const c = parseCity(str(args, 'city'));
-      if (!c) throw new Error(`Unknown city. Cities: ${CITY_LIST}.`);
-      await updateShoppingSettings(caller.userEmail, { city: c });
-      return `Saved: shopping prices are for ${CITIES.find((x) => x.id === c)!.name}.`;
     },
   },
 ];

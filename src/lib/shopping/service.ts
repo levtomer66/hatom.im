@@ -1,6 +1,6 @@
 // The shopping queries the page's API routes and the MCP tools share: search,
 // one item's prices and a basket comparison. Each takes already-validated
-// input (a known city, sane keys and quantities); the routes and tools do
+// input (a resolved near set — nearFor — sane keys and quantities); the routes and tools do
 // the validating and the HTTP / text around it. Server-only (reads Mongo).
 
 import { ITEM_OPTIONS_SHOWN, RESULTS_PER_SECTION } from '@/lib/shopping/config';
@@ -18,7 +18,8 @@ import { priceSourceOf } from '@/lib/shopping/collections';
 import { rankHits, searchPatterns } from '@/lib/shopping/search-rank';
 import { withManualPrices } from '@/lib/shopping/manual';
 import { isLiquid, nutritionOf, packGrams } from '@/lib/shopping/nutrition';
-import { findItems, getItems, getPromosFor, getStoresFor, searchItemsAtlas } from '@/models/ShoppingCatalog';
+import { findItems, getItems, getPromosFor, getStoresNear, searchItemsAtlas } from '@/models/ShoppingCatalog';
+import { withinRadius, type Near } from '@/lib/shopping/near';
 import { getManualPrices } from '@/models/ShoppingManualPrice';
 
 // ── search ───────────────────────────────────────────────────────────────
@@ -35,11 +36,11 @@ export const MAX_HITS = 30;
 /**
  * Items whose name or maker matches every word, spelling-tolerant (see
  * searchPatterns), best name match first (rankHits), then the most widely
- * sold, with one unit's price range in the city and its cheapest store —
+ * sold, with one unit's price range in the near stores and its cheapest store —
  * deals and hand-typed prices included, as the product view prices it.
  * `q`: words or a barcode, trimmed to 80 characters by the caller.
  */
-export async function searchProducts(q: string, city: string): Promise<SearchHit[]> {
+export async function searchProducts(q: string, near: Near): Promise<SearchHit[]> {
   const barcode = /^\d{8,14}$/.test(q) ? q : null;
   const terms = searchPatterns(q);
   let loose: string[] | undefined;
@@ -47,7 +48,7 @@ export async function searchProducts(q: string, city: string): Promise<SearchHit
 
   // Atlas Search first (fuzzy, so no retry pass); the regex search where
   // there is no Atlas Search (Docker) or for a barcode.
-  const [atlas, stores] = await Promise.all([barcode ? null : searchItemsAtlas(q), getStoresFor(city)]);
+  const [atlas, stores] = await Promise.all([barcode ? null : searchItemsAtlas(q), getStoresNear(near.where, near.favs)]);
   const found = atlas ?? (await findItems(terms, barcode));
   let docs = found;
   if (atlas) loose = searchPatterns(q, { typos: true }); // rank Atlas's fuzzy matches like typo matches
@@ -124,18 +125,18 @@ function candidates(raw: string): string[] {
 }
 
 /**
- * One unit of one item (1 kg when weighted) priced at every store serving
- * the city that sells it, promos applied, cheapest first. Manual shops count
+ * One unit of one item (1 kg when weighted) priced at every near store
+ * that sells it, promos applied, cheapest first. Manual shops count
  * where it's priced. null when there's no such item.
  */
-export async function itemPrices(raw: string, city: string): Promise<ItemResponse | null> {
+export async function itemPrices(raw: string, near: Near): Promise<ItemResponse | null> {
   const tries = candidates(raw);
   const found = await getItems(tries);
   const doc = tries.map((k) => found.find((d) => d._id === k)).find(Boolean);
   if (!doc) return null;
   const key = doc._id;
 
-  const [stores, promos] = await Promise.all([getStoresFor(city), getPromosFor([key])]);
+  const [stores, promos] = await Promise.all([getStoresNear(near.where, near.favs), getPromosFor([key])]);
   const manualKeys = stores.filter((s) => s.source === 'manual').map((s) => s.k);
   const typed = await getManualPrices(manualKeys, [key]);
   const items = withManualPrices(new Map([[key, doc]]), typed);
@@ -160,7 +161,7 @@ export async function itemPrices(raw: string, city: string): Promise<ItemRespons
 
   return {
     now,
-    city,
+    where: near.where,
     item: {
       key, name: doc.n, manufacturer: doc.m, w: doc.w, img: doc.img ?? null, imgBy: imgByOf(doc), barcode: doc.bc,
       nu: nutritionOf(doc), pack: packGrams(doc.q, doc.uq), liquid: isLiquid(doc.uq, doc.d), d: doc.d ?? null,
@@ -175,7 +176,7 @@ export async function itemPrices(raw: string, city: string): Promise<ItemRespons
 // ── a basket ─────────────────────────────────────────────────────────────
 
 export interface CompareRequest {
-  city: string;
+  near: Near;
   lines: BasketLine[];
   clubs: boolean;
   coupons: boolean;
@@ -233,16 +234,16 @@ function buildPlans(
 }
 
 /**
- * The basket priced at every store serving the city: physical and online
+ * The basket priced at every near store (near.ts): physical and online
  * stores ranked separately, the plans among the physical ones, and each line's cheapest stores. Manual stores (prices typed by
  * users) are always in `manual`, with what's unpriced in `missing`; one that
  * prices every line also competes in `physical` and the plans.
  */
 /**
  * A basket request's lines and toggles, validated: shared by POST /compare
- * (which also needs a known city) and POST /far. A string is the error.
+ * (which hands lat / lng / r to nearFor) and POST /far. A string is the error.
  */
-export function parseBasketRequest(body: unknown): Omit<CompareRequest, 'city'> & { city: unknown } | string {
+export function parseBasketRequest(body: unknown): Omit<CompareRequest, 'near'> & { lat: unknown; lng: unknown; r: unknown; favs: unknown } | string {
   if (!body || typeof body !== 'object') return 'body must be an object';
   const b = body as Record<string, unknown>;
   if (!Array.isArray(b.lines) || !b.lines.length || b.lines.length > MAX_LIST_ITEMS) return 'lines must be a non-empty array';
@@ -252,11 +253,11 @@ export function parseBasketRequest(body: unknown): Omit<CompareRequest, 'city'> 
     if (typeof l.qty !== 'number' || !(l.qty > 0) || l.qty > MAX_QTY) return `bad quantity for ${l.key}`;
     lines.push({ key: l.key, qty: l.qty });
   }
-  return { city: b.city, lines, clubs: b.clubs === true, coupons: b.coupons === true };
+  return { lat: b.lat, lng: b.lng, r: b.r, favs: b.favs, lines, clubs: b.clubs === true, coupons: b.coupons === true };
 }
 
 /** The basket's items (with prices typed at `manualKeys`), their promos and the pricing options. */
-async function loadBasket(req: Omit<CompareRequest, 'city'>, manualKeys: number[]) {
+async function loadBasket(req: Omit<CompareRequest, 'near'>, manualKeys: number[]) {
   const keys = [...new Set(req.lines.map((l) => l.key))];
   const [itemDocs, promos] = await Promise.all([getItems(keys), getPromosFor(keys)]);
   const typed = await getManualPrices(manualKeys, keys);
@@ -310,8 +311,8 @@ export async function priceLinesAt(
   });
 }
 
-/** "כמה יעלה לי ב…": the basket at each of `stores` (the favorites, any city), ranked like the store list. */
-export async function priceAtStores(stores: StoreDoc[], req: Omit<CompareRequest, 'city'>): Promise<FarResponse> {
+/** "כמה יעלה לי ב…": the basket at each of `stores` (the favorites, wherever they are), ranked like the store list. */
+export async function priceAtStores(stores: StoreDoc[], req: Omit<CompareRequest, 'near'>): Promise<FarResponse> {
   const { itemDocs, items, promos, now, opts } = await loadBasket(req, stores.filter((s) => s.source === 'manual').map((s) => s.k));
   const baskets = rankStores(stores.map((s) => s.k), req.lines, items, promos, opts);
   return {
@@ -323,7 +324,7 @@ export async function priceAtStores(stores: StoreDoc[], req: Omit<CompareRequest
 }
 
 export async function compareBasket(req: CompareRequest): Promise<CompareResponse> {
-  const stores = await getStoresFor(req.city);
+  const stores = await getStoresNear(req.near.where, req.near.favs);
   const manualKeys = stores.filter((s) => s.source === 'manual').map((s) => s.k);
   const { itemDocs, items, promos, now, opts } = await loadBasket(req, manualKeys);
   const manual = rankStores(manualKeys, req.lines, items, promos, opts);
@@ -337,9 +338,9 @@ export async function compareBasket(req: CompareRequest): Promise<CompareRespons
   const physical = rankStores(physicalKeys, req.lines, items, promos, opts).filter(sellsAny);
   const online = rankStores(onlineKeys, req.lines, items, promos, opts).filter(sellsAny);
 
-  // Far stores (outside the walk limit: curated far stores, a chain's only store) never win a plan.
-  const far = new Set(stores.filter((s) => s.far).map((s) => s.k));
-  const plans = buildPlans(physical.filter((b) => !far.has(b.store)), req.lines, items, promos, opts);
+  // The plans use only the stores within the radius: a ★ farther away is listed, never planned.
+  const inRadius = new Set(stores.filter((s) => withinRadius(s, req.near.where)).map((s) => s.k));
+  const plans = buildPlans(physical.filter((b) => inRadius.has(b.store)), req.lines, items, promos, opts);
 
   // Deals a shown line doesn't use yet (a "3 ב־100" with one pack in the list).
   const shownBaskets = [
@@ -350,7 +351,7 @@ export async function compareBasket(req: CompareRequest): Promise<CompareRespons
 
   return {
     now,
-    city: req.city,
+    where: req.near.where,
     stores: Object.fromEntries(stores.map((s): [number, StoreInfo] => [s.k, storeInfo(s)])),
     items: card.items,
     physical: physical.slice(0, RESULTS_PER_SECTION),

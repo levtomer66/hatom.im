@@ -15,9 +15,10 @@ the trip in [shopping-in-store-mode.md](shopping-in-store-mode.md):
   (it does not need a list). On a phone it is the fourth item of the bottom bar.
 - **Store picker**, a bottom sheet:
   - Sorted by **live distance** when the browser grants location
-    (`navigator.geolocation`, already asked for city detection). The sort runs
-    **on the device**: the page gets every city store's coordinates and never
-    sends the user's position to the server.
+    (`navigator.geolocation`). Since 2026-11-18 (no cities) the page sends its
+    location to `/here/stores`, which returns the stores within 10 km (else of
+    the household's home spot) plus ★, each with its coordinates; the sort
+    runs on the device. The location is never stored.
   - Without location: sorted by `walkMin` (from the pins), then name.
   - The nearest store within ~80 m is preselected: "נראה שאתה ב**רמי לוי
     פלורנטין** – נכון?" with one tap to confirm.
@@ -37,7 +38,7 @@ Below the header, three tabs:
 ### 1. כדאי כאן (worth buying here)
 
 From **all of My items** (the household's usual products; since 2026-11-18 there
-are no named lists), each priced here and at every physical store in the city,
+are no named lists), each priced here and at every physical store within the page's radius of this store (plus ★),
 deals applied (the same `rankStores` the compare uses, one unit each). When
 there is a shopping list (built in "מה חסר?"), its items come first under
 "רשימת הקניות" at the list's quantity, then the rest under "עוד מהמוצרים
@@ -89,8 +90,8 @@ camera, not the full product sheet:
 - If a trip is open and the item is planned at another stop: "מתוכנן לקנות
   ב־X ב־₪Y".
 
-The verdict compares against **physical stores in the city** (already limited
-to the pins' walking radius by the ingest). Online stores are not part of the
+The verdict compares against **physical stores within the radius of this store**
+(the page's 1/2/5/10 km chip) plus the household's ★ favorites. Online stores are not part of the
 verdict; the full sheet still lists them.
 
 ## More ideas (asked: "can you think of more?")
@@ -117,11 +118,11 @@ Recommended for v1 are marked ★.
 
 All under `/api/shopping/here/*`, permission `shopping` (`requireFeatureCaller`).
 
-- `GET /api/shopping/here/stores?city=<id>` → `StoreInfo[]` for the city's
-  physical stores, each with `loc: { lat, lng } | null`. The client sorts by
-  distance. (Could instead be a `loc` on `StoreInfo` everywhere.)
-- `GET /api/shopping/here?store=<k>` (since 2026-11-18 the store's own city
-  picks the stores it's compared with; the picker also searches every city via
+- `GET /api/shopping/here/stores?lat=&lng=` → the physical stores within 10 km
+  (else of the home spot) plus ★, each with `loc: { lat, lng } | null`. The
+  client sorts by distance.
+- `GET /api/shopping/here?store=<k>&r=<km>` (compared with the stores within
+  `r` km of that store, plus ★; the picker also searches every store via
   `GET /api/shopping/stores?q=`) →
   ```ts
   interface HereResponse {
@@ -136,18 +137,18 @@ All under `/api/shopping/here/*`, permission `shopping` (`requireFeatureCaller`)
   interface HereRow {
     key: string; qty: number; onList: boolean; // list qty, else My items' usual
     here: ItemPrice | null;           // null = not sold here
-    best: ItemPrice | null;           // cheapest physical store in the city
+    best: ItemPrice | null;           // cheapest near physical store
     group: 'best' | 'ok' | 'elsewhere' | 'missing';
     saving: number;                   // agorot for the list's qty, 0 in 'best'
   }
   ```
   Server: the household doc (`getHome`), `hereLines(list, myItems)`,
-  `getItems` + `getPromosFor` + `getStoresFor(city)`, then `rankStores` per
+  `getItems` + `getPromosFor` + `getCandidateStores()` → `nearStores` around the store, then `rankStores` per
   item. The grouping is a pure function `groupHere()` in
   `src/lib/shopping/here.ts` (import-free, unit-tested).
 - `GET /api/shopping/here/deals?store=<k>&d=<dept>&page=<n>` → tab 2 section 3,
   from the precomputed per-store deals doc (below), 30 per page.
-- The scan card reuses `GET /api/shopping/item?key=&city=` and computes the
+- The scan card reuses `GET /api/shopping/item?key=&lat=&lng=&r=` (centred on the store) and computes the
   verdict on the client with the same `verdict()` helper from `here.ts`
   (the item route already returns every physical store's price).
 - `POST /api/shopping/price-reports` `{ store, item, price }` (idea 3).
