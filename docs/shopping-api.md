@@ -49,8 +49,10 @@ agorot. The shapes are in `src/lib/shopping/api-types.ts`.
 | `GET search?q=&city=` | Products matching every word (`SearchHit[]`). |
 | `GET item?key=&city=` | One product at every store (`ItemResponse`); `key` may be a barcode. |
 | `POST compare` `{ city, lines: [{key, qty}], clubs?, coupons? }` | A basket at every store, and plans (`CompareResponse`). |
-| `GET home` | My items, the list and the favorite stores (`{ items, list, favStores, updatedAt, meta }`; `meta` = department and photo per key). |
+| `GET home` | The caller's household: My items, the list and the favorite stores (`{ id, members, invites, items, list, favStores, updatedAt, meta }`; `meta` = department and photo per key). Every route here is scoped to the caller's household. |
 | `PATCH home` `{ items?, list?, favStores? }` | Replace My items, the list and/or the favorite stores (store keys, max 10). |
+| `GET household` | Members (with names), pending invites, and invites to the caller (`HouseholdResponse`). |
+| `POST household` `{ invite }` \| `{ cancel }` \| `{ accept }` \| `{ decline }` \| `{ leave: true }` | Invite an email with shopping access, cancel it, answer an invite, or leave (answers with `HouseholdResponse`). |
 | `GET stores?q=` | Priced stores in every city matching every word of `q` (2+ letters; max 30); without `q`, the favorites (`StoresResponse`). |
 | `POST far` `{ stores, lines: [{key, qty}], clubs?, coupons? }` | "כמה יעלה לי ב…": the list at each of `stores` (the favorites, any city; `FarResponse`). |
 | `POST home/list` `{ add: [{key, qty}] }` | Put My items on the list ("מה חסר?"); items already there keep their quantity. |

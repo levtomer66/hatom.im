@@ -20,7 +20,7 @@ several independent features under separate routes:
 | `/birthday-quiz`   | Host-driven Hebrew family quiz (permission `birthday-quiz`). Questions + pure reducer in `src/lib/birthday-quiz.ts`. |
 | `/laundry`         | Step-by-step laundry guide for our LG washer (permission `laundry`). Loads, doses + step builder in `src/lib/laundry.ts`; photos in `public/laundry/`. |
 | `/calendar`        | Milestones calendar: birthdays, anniversaries, one-off events (permission `calendar`). Mongo `calendarEvents`; date math in `src/lib/calendar.ts`. |
-| `/shopping`        | Grocery price comparison across chains (permission `shopping`). Household My items + one list in Mongo `shoppingHome`. price data written by a local ingest job. |
+| `/shopping`        | Grocery price comparison across chains (permission `shopping`). Per-household My items + one list in Mongo `shoppingHome`; price data written by a local ingest job. |
 
 Default branch is `main`. Pushes to `main` auto-deploy to Production via
 Vercel's GitHub integration. There is no separate `master` branch.
@@ -325,15 +325,22 @@ Identity = Gmail address. Two roles:
   take a free-text product (best search match, runner-ups named) and an
   optional `city` that falls back to the user's saved `settings.city`.
 - **UI** at `SHOPPING_BASE_PATH` (`src/lib/shopping/config.ts`; the middleware
-  `matcher` literal must move with it). There are no named lists: one
-  household doc (`shoppingHome`, `_id: 'home'`, model `src/models/ShoppingHome.ts`,
-  pure rules in `src/lib/shopping/home.ts`) holds **My items** (usual products
-  with a usual quantity; search, scan and the product window save there) and
-  the **one shopping list**, filled from My items by "מה חסר?". Everyone with
-  `shopping` shares both. Ending a trip `$pull`s the ticked lines (not-there
-  ones stay); every trip has `listId: 'home'`. The doc is built once from the
-  old `shoppingLists` (left untouched, read only by that migration).
-  Spec: `docs/superpowers/specs/2026-11-18-shopping-my-items-design.md`.
+  `matcher` literal must move with it). There are no named lists: each
+  **household** (one `shoppingHome` doc, model `src/models/ShoppingHome.ts`,
+  pure rules in `src/lib/shopping/home.ts` and `household.ts`) holds its
+  `members`, pending `invites`, **My items** (usual products with a usual
+  quantity; search, scan and the product window save there) and the **one
+  shopping list**, filled from My items by "מה חסר?". A person is in exactly
+  one (unique index on `members`); every route and MCP tool resolves the
+  caller's with `householdFor(email)`, which makes an empty one on a first
+  visit. Joining is by invite (⚙ → משק הבית; the invitee accepts a card on
+  /shopping; their old household is deleted if they were alone in it); no one
+  removes another member. Today's household kept `_id: 'home'` and started
+  with Tomer and Tom (`FOUNDING_MEMBERS`); it was built once from the old
+  `shoppingLists` (left untouched). Trips carry `listId` = the household id;
+  ending one `$pull`s the ticked lines (not-there ones stay).
+  Specs: `docs/superpowers/specs/2026-11-18-shopping-my-items-design.md`,
+  `docs/superpowers/specs/2026-11-18-shopping-households-design.md`.
 - **Favorite stores** (`shoppingHome.favStores`, store keys, max 10, the
   household's): ☆/★ on every store row; favorites first in distance-sorted
   lists (`sortStores(…, favs)`), price rankings keep their order. A far store
