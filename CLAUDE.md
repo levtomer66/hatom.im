@@ -270,7 +270,9 @@ Identity = Gmail address. Two roles:
   `walkMinutes` limits stores to a routed walking time (`ingest/walk.ts`);
   `places/extra.json` adds shops the map searches miss, and `places/official.json`
   hand-matches a shop to an official store whose address doesn't match
-  (`"<placeRef>": "<chainSlug>/<storeId>"`). An official store matched to a shop
+  (`"<placeRef>": "<chainSlug>/<storeId>"`); every hand-match on an included
+  review row counts, since discovery merges entries at one address (Hazi Hinam's
+  store and its produce store). An official store matched to a shop
   the owner skipped is left out, like an included one is kept, without re-routing.
 - **Ingest is a local, manually-run job**, not a Vercel function (Hobby cron
   is daily-only and a full run is ~190 MB of downloads + GBs of XML):
