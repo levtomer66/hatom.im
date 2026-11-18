@@ -70,6 +70,14 @@ export interface FallbackCandidate {
   skipped: boolean;
 }
 
+/**
+ * Whether a chain needs its fallback store: none of the stores it kept has
+ * prices — neither a PriceFull in today's listing nor prices saved from an
+ * earlier run (a store that skips a day keeps yesterday's, so it still counts).
+ */
+export const needsFallback = (kept: { publishesToday: boolean; savedPrices: boolean }[]) =>
+  !kept.some((s) => s.publishesToday || s.savedPrices);
+
 /** The candidates in the order the ingest tries them (the first that publishes a PriceFull wins). */
 export function fallbackOrder(cands: FallbackCandidate[]): string[] {
   const rank = (c: FallbackCandidate) => (c.kind === 'online' ? 0 : c.distM !== null ? 1 : c.pinnedCity ? 2 : 3);

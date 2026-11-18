@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { curation, fallbackOrder, isFar, keepFallbacks, keepRule, type FallbackCandidate } from '../shopping/ingest/locate.ts';
+import { curation, fallbackOrder, isFar, keepFallbacks, keepRule, needsFallback, type FallbackCandidate } from '../shopping/ingest/locate.ts';
 
 const ctx = { pinnedCities: new Set(['tel-aviv']), curated: new Set(['yohananof/7']), skipped: new Set(['yohananof/9']) };
 
@@ -107,4 +107,12 @@ test('keepFallbacks: a kept store with no prices does not count as the chain hav
     { key: 'yohananof/40', chainSlug: 'yohananof', keptAs: 'fallback' as const, priced: true },
   ];
   assert.deepEqual([...keepFallbacks(stores, new Set(['yohananof/150']))], ['yohananof/40']);
+});
+
+test('needsFallback: only a chain whose kept stores have no prices at all, today\'s or saved', () => {
+  // Fresh Market 2026-11-18: both Super Yuda stores skipped a day's PriceFull but keep yesterday's prices.
+  assert.equal(needsFallback([{ publishesToday: false, savedPrices: true }, { publishesToday: false, savedPrices: true }]), false);
+  assert.equal(needsFallback([{ publishesToday: true, savedPrices: false }]), false); // a new store's first file
+  assert.equal(needsFallback([{ publishesToday: false, savedPrices: false }]), true); // Yochananof 150: never published
+  assert.equal(needsFallback([]), true); // Osher Ad: nothing near a pin
 });
