@@ -174,3 +174,28 @@ point" / "favorites only — no home spot set". `shopping_set_city` and its
 
 `docs/shopping-api.md` (params, MCP table, no city list) and the CLAUDE.md
 shopping section (city → near set; `far` ignored by the app).
+
+## Addendum (owner, 2026-11-18, after the first review on :3110)
+
+- **Walking time is live, not the pin's.** Every store's distance is measured
+  from the current centre, and its walking time is an estimate from that
+  distance: `walkMinutes(m) = max(1, round(m × 1.3 / 80))` (street detour
+  factor 1.3, 80 m a minute). `StoreInfo.walkMin` now carries that estimate
+  (null without a centre or a point); the ingest's routed `walkMin` from a pin
+  is no longer shown anywhere (page, trips, MCP). Labels read
+  "1.4 ק״מ · ~23 דק׳ הליכה".
+- **The split plan shows the walk between stores.** "הכי זול" over 2–3 stores
+  orders its stops as a walk — nearest to the centre first, then the store
+  nearest to that one (`walkOrder` in near.ts) — and shows each leg
+  ("↓ 650 מ׳ · ~11 דק׳") and the total walk. `StoreInfo` gains `loc` (store
+  addresses are public). Without a centre the walk starts at the first stop.
+- **Manual location by address search.** The footer's "שינוי מיקום" opens a
+  sheet: type an address, search (on submit), pick one of up to 5 results in
+  Israel. The picked point becomes the centre ("ליד ‹address›"), remembered on
+  the device (localStorage `shopping:place`) until "המיקום שלי". The same sheet
+  saves the picked point (or the GPS one) as the home spot — so a home spot can
+  be set without GPS. Geocoding goes through our own
+  `GET /api/shopping/geocode?q=` to OpenStreetMap Nominatim (Israel only,
+  Hebrew, generic app User-Agent, no user identity; typed text only): the
+  browser never calls a third party and the CSP is unchanged. Results are
+  cached in memory; the route allows one upstream call a second.

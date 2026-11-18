@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { nearStores, parseCentre, parseRadius, pickFavs, resolveWhere, type Centre } from '../shopping/near.ts';
+import { nearStores, parseCentre, parseRadius, pickFavs, resolveWhere, walkMinutes, walkOrder, type Centre } from '../shopping/near.ts';
 
 test('parseCentre: both, neither, one, junk', () => {
   assert.deepEqual(parseCentre(32.0853123, '34.7818456'), { lat: 32.0853, lng: 34.7818 });
@@ -56,4 +56,31 @@ test('pickFavs: the page’s current favorites when sent (a star just tapped cou
   assert.deepEqual(pickFavs('x', [1, 2]), [1, 2]);
   assert.deepEqual(pickFavs([1, 'a', 2.5, 3], [9]), [9]); // junk → the saved ones
   assert.equal(pickFavs(Array.from({ length: 20 }, (_, i) => i), []).length, 10);
+});
+
+test('walkMinutes: straight line × 1.3 at 80 m a minute, at least 1', () => {
+  assert.equal(walkMinutes(1000), 16); // 1300 m / 80
+  assert.equal(walkMinutes(1400), 23);
+  assert.equal(walkMinutes(10), 1);
+  assert.equal(walkMinutes(0), 1);
+});
+
+test('walkOrder: nearest to the centre first, then nearest to the last stop; legs in metres', () => {
+  const c = { lat: 32.08, lng: 34.78 };
+  const north = (m: number) => ({ lat: c.lat + m / 111_195, lng: c.lng });
+  const stops = [{ store: 1, loc: north(2000) }, { store: 2, loc: north(500) }, { store: 3, loc: north(1200) }];
+  const w = walkOrder(c, stops);
+  assert.deepEqual(w.order, [2, 3, 1]);
+  assert.deepEqual(w.legs.map((m) => Math.round(m! / 10) * 10), [500, 700, 800]); // you→2, 2→3, 3→1
+  assert.ok(Math.abs(w.total! - 2000) < 5);
+});
+
+test('walkOrder: without a centre the walk starts at the first stop; a stop with no point ends the walk unmeasured', () => {
+  const p = (m: number) => ({ lat: 32 + m / 111_195, lng: 34.8 });
+  const w = walkOrder(null, [{ store: 1, loc: p(0) }, { store: 2, loc: p(900) }, { store: 3, loc: null }]);
+  assert.deepEqual(w.order, [1, 2, 3]);
+  assert.equal(w.legs[0], null); // no centre: no first leg
+  assert.ok(Math.abs(w.legs[1]! - 900) < 5);
+  assert.equal(w.legs[2], null);
+  assert.equal(w.total, null); // not every leg known
 });

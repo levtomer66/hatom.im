@@ -93,3 +93,47 @@ export function nearStores<S extends { k: number; kind: 'physical' | 'online'; l
   }
   return out;
 }
+
+/** Streets aren't straight: a walk is about this much longer than the straight line. */
+const DETOUR = 1.3;
+const WALK_M_PER_MIN = 80;
+
+/** Estimated walking minutes for a straight-line distance (at least 1). */
+export function walkMinutes(m: number): number {
+  return Math.max(1, Math.round((m * DETOUR) / WALK_M_PER_MIN));
+}
+
+/**
+ * A split plan's stops as a walk: nearest to the centre first (without a
+ * centre, the first stop given), then each time the stop nearest to the last
+ * one; stops with no point go last, in the order given. `legs[i]` is metres
+ * from the previous point (the centre for the first) to `order[i]`, null when
+ * either end has no point; `total` is their sum, null unless every leg is known.
+ */
+export function walkOrder(
+  centre: Centre | null,
+  stops: { store: number; loc: Centre | null }[],
+): { order: number[]; legs: (number | null)[]; total: number | null } {
+  const placed = stops.filter((s) => s.loc) as { store: number; loc: Centre }[];
+  const rest = stops.filter((s) => !s.loc);
+  const order: { store: number; loc: Centre | null }[] = [];
+  let at: Centre | null = centre;
+  const left = [...placed];
+  while (left.length) {
+    let i = 0;
+    if (at) {
+      const from = at;
+      left.forEach((s, j) => { if (distanceM(from, s.loc) < distanceM(from, left[i].loc)) i = j; });
+    }
+    const [next] = left.splice(i, 1);
+    order.push(next);
+    at = next.loc;
+  }
+  order.push(...rest);
+  const legs = order.map((s, i) => {
+    const prev = i === 0 ? centre : order[i - 1].loc;
+    return prev && s.loc ? Math.round(distanceM(prev, s.loc)) : null;
+  });
+  const total = legs.every((l) => l !== null) ? legs.reduce<number>((a, b) => a + (b ?? 0), 0) : null;
+  return { order: order.map((s) => s.store), legs, total };
+}

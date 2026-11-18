@@ -31,7 +31,7 @@ import { storeQueryWords } from '@/lib/shopping/here';
 import { LuRefrigerator } from 'react-icons/lu';
 import dynamic from 'next/dynamic';
 import Navbar from '@/components/Navbar';
-import { RADII_KM, distanceM, type Centre } from '@/lib/shopping/near';
+import { RADII_KM, distanceM, walkMinutes, walkOrder, type Centre } from '@/lib/shopping/near';
 import { distanceLabel } from '@/lib/shopping/here';
 import { SHOPPING_API_PATH } from '@/lib/shopping/config';
 import { MAX_FAV_STORES, normalizeQty, type ListLine, type MyItem } from '@/lib/shopping/home';
@@ -48,6 +48,7 @@ import { api, loadHome, saveHome, type HomeView } from './home-client';
 import { NutritionHero, NutritionPanel, SettingsMenu } from './Nutrition';
 import { useTypedPlaceholder } from './typed-placeholder';
 import { readLocation, useWhere, type LocState } from './where';
+import { PlaceSheet } from './PlaceSheet';
 
 /** "2026-11-28T23:59" → "28.11" */
 const stamp = (local: string) => `${dayMonth(local)} ${local.slice(11, 16)}`;
@@ -135,9 +136,11 @@ export default function ShoppingPage() {
   /** Invites to the caller from other households (cards above the search), and the "משק הבית" sheet. */
   const [incoming, setIncoming] = useState<HouseholdResponse['incoming']>([]);
   const [householdOpen, setHouseholdOpen] = useState(false);
-  /** Where prices are compared: the live location (or, server-side, the home spot) and the radius chip. */
+  /** Where prices are compared: a place set by hand, else the live location (or, server-side, the home spot), and the radius chip. */
   const near = useWhere();
-  const { live, loc } = near;
+  const { loc, centre, place } = near;
+  /** The address-search sheet: 'here' (where to compare) or 'home' (from משק הבית). */
+  const [placeOpen, setPlaceOpen] = useState<'here' | 'home' | null>(null);
   const [loadError, setLoadError] = useState(false);
   const [saveError, setSaveError] = useState(false);
 
@@ -358,12 +361,12 @@ export default function ShoppingPage() {
       setToast('לא נשמר. נסו שוב.');
     }
   }, []);
-  /** "שמירת המיקום כבית": the live location, else one fresh read. */
+  /** "שמירת המיקום כבית": the place or live location in use, else one fresh read. */
   const saveHomeHere = useCallback(() => {
-    (live ? Promise.resolve(live) : readLocation())
+    (centre ? Promise.resolve(centre) : readLocation())
       .then(saveHomeSpot)
       .catch(() => setToast('אין גישה למיקום. אפשר לאפשר אותה בהגדרות הדפדפן.'));
-  }, [live, saveHomeSpot]);
+  }, [centre, saveHomeSpot]);
 
   /** My items by key (the search marks the ones already saved). */
   const saved = useMemo(() => new Map(home?.items.map((i) => [i.key, i.qty]) ?? []), [home]);
@@ -515,8 +518,8 @@ export default function ShoppingPage() {
 
   // ── compare ──
   const sig = useMemo(
-    () => JSON.stringify([near.query, live ? null : home?.homeSpot ?? null, home?.favStores ?? [], clubs, coupons, list?.items.map((i) => [i.key, i.qty]) ?? []]),
-    [near.query, live, home?.homeSpot, home?.favStores, clubs, coupons, list],
+    () => JSON.stringify([near.query, centre ? null : home?.homeSpot ?? null, home?.favStores ?? [], clubs, coupons, list?.items.map((i) => [i.key, i.qty]) ?? []]),
+    [near.query, centre, home?.homeSpot, home?.favStores, clubs, coupons, list],
   );
   /** Where the result on screen was priced: a new place or radius closes the open card. */
   const shownWhere = useRef<string | null>(null);
@@ -531,7 +534,7 @@ export default function ShoppingPage() {
       const res = await api<CompareResponse>('/compare', {
         method: 'POST',
         // The current favorites: a star just tapped counts before its debounced save lands.
-        body: JSON.stringify({ ...(live ?? {}), r: near.radius, favs: homeRef.current?.favStores ?? [], clubs, coupons, lines: list.items.map(({ key, qty }) => ({ key, qty })) }),
+        body: JSON.stringify({ ...(centre ?? {}), r: near.radius, favs: homeRef.current?.favStores ?? [], clubs, coupons, lines: list.items.map(({ key, qty }) => ({ key, qty })) }),
       });
       setResult(res);
       setComparedSig(sig);
@@ -543,7 +546,7 @@ export default function ShoppingPage() {
     } finally {
       setComparing(false);
     }
-  }, [live, near.radius, clubs, coupons, list, sig]);
+  }, [centre, near.radius, clubs, coupons, list, sig]);
 
   // There's no compare button: the results follow the list, the location, the radius and the
   // club/coupon options, debounced like the autosave (and on first load).
@@ -717,16 +720,15 @@ export default function ShoppingPage() {
               <div className="sh-loc">
                 <FaMapMarkerAlt aria-hidden />
                 <span>
-                  <b>{live ? 'ליד המיקום שלך' : home?.homeSpot ? 'ליד הבית' : 'אין מיקום'}</b>
-                  <small>{LOC_NOTE[loc]}</small>
+                  <b>{place ? `ליד ${place.label}` : centre ? 'ליד המיקום שלך' : home?.homeSpot ? 'ליד הבית' : 'אין מיקום'}</b>
+                  {!place && <small>{LOC_NOTE[loc]}</small>}
                 </span>
-                {!home?.homeSpot && (live || loc !== 'locating') && (
-                  <button type="button" className="sh-link sh-loc-home" onClick={saveHomeHere}>
-                    {live ? 'שמירת המיקום כבית' : 'שמירת בית'}
-                  </button>
+                {!home?.homeSpot && centre && (
+                  <button type="button" className="sh-link sh-loc-home" onClick={saveHomeHere}>שמירה כבית</button>
                 )}
-                <button type="button" className="sh-icon-btn sh-loc-change" onClick={near.locate} disabled={loc === 'locating'}
-                  aria-label="איתור המיקום מחדש" title="איתור המיקום מחדש">
+                <button type="button" className="sh-link sh-loc-home" onClick={() => setPlaceOpen('here')}>שינוי מיקום</button>
+                <button type="button" className="sh-icon-btn sh-loc-change" onClick={() => (place ? near.setPlace(null) : near.locate())}
+                  disabled={!place && loc === 'locating'} aria-label="המיקום שלי" title="המיקום שלי">
                   <FaLocationArrow aria-hidden />
                 </button>
               </div>
@@ -769,12 +771,17 @@ export default function ShoppingPage() {
           </MyItemsSheet>
         )}
         {householdOpen && (
-          <HouseholdSheet homeSpot={home?.homeSpot ?? null} live={live} onHomeSpot={saveHomeSpot} onSaveHere={saveHomeHere}
+          <HouseholdSheet homeSpot={home?.homeSpot ?? null} onHomeSpot={saveHomeSpot} onSaveHere={saveHomeHere}
+            onByAddress={() => { setHouseholdOpen(false); setPlaceOpen('home'); }}
             nearestHome={result?.where.source === 'home' ? nearestName(result) : null}
             onClose={() => setHouseholdOpen(false)} beforeLeave={flushSaves} onChanged={() => { setHouseholdOpen(false); void refreshHome(); }} />
         )}
+        {placeOpen && (
+          <PlaceSheet mode={placeOpen} place={place} onUse={near.setPlace} onMyLocation={() => near.setPlace(null)}
+            onSaveHome={(p) => saveHomeSpot({ lat: p.lat, lng: p.lng })} onClose={() => setPlaceOpen(null)} />
+        )}
         {farOpen && list && list.items.length > 0 && (
-          <FarSheet live={live} lines={list.items} clubs={clubs} coupons={coupons} favs={favs} onFav={toggleFav}
+          <FarSheet live={centre} lines={list.items} clubs={clubs} coupons={coupons} favs={favs} onFav={toggleFav}
             onClose={() => setFarOpen(false)} />
         )}
         {missingOpen && home && (
@@ -923,7 +930,12 @@ function PlansView({ result, updating, onStart, tripOpen }: {
   if (!oneStore) return null;
   const count = picked && byCount[picked] ? picked : worth > 1 ? worth : counts[0];
   const cheapest = count ? byCount[count] ?? null : null;
-  const plan = choice === 'cheapest' && cheapest ? cheapest : oneStore;
+  const chosen = choice === 'cheapest' && cheapest ? cheapest : oneStore;
+  // A split is shown and walked in walking order: nearest to you first, then store to store.
+  const walk = walkOrder(result.where.centre, chosen.stops.map((st) => ({ store: st.store, loc: result.stores[st.store]?.loc ?? null })));
+  const plan: ShoppingPlan = chosen.stops.length > 1
+    ? { ...chosen, stops: walk.order.map((k) => chosen.stops.find((st) => st.store === k)!) }
+    : chosen;
   const saving = cheapest ? oneStore.total - cheapest.total : 0;
   const more = cheapest ? oneStore.missing.length - cheapest.missing.length : 0;
   const pays = !!cheapest && count <= worth;
@@ -946,9 +958,9 @@ function PlansView({ result, updating, onStart, tripOpen }: {
     lsSet(PLAN_STORES_KEY, String(k));
   };
   const one = result.stores[oneStore.stops[0].store];
-  // Walking: the one store's minutes; for a split, the stops' minutes from home summed (store-to-store isn't routed).
-  const splitWalk = cheapest?.stops.every((st) => result.stores[st.store]?.walkMin != null)
-    ? cheapest.stops.reduce((m, st) => m + (result.stores[st.store].walkMin ?? 0), 0) : null;
+  // Walking: the one store's estimate; for a split, the whole walk (you → each store in walking order), estimated.
+  const splitTotal = cheapest ? walkOrder(result.where.centre, cheapest.stops.map((st) => ({ store: st.store, loc: result.stores[st.store]?.loc ?? null }))).total : null;
+  const splitWalk = splitTotal != null ? walkMinutes(splitTotal) : null;
   const selectCheapest = () => {
     if (cheapest) setChoice('cheapest');
   };
@@ -986,8 +998,8 @@ function PlansView({ result, updating, onStart, tripOpen }: {
           )}
           <span className="sh-plan-sub">
             {cheapest ? (chips ? null : `${cheapest.stops.length} חנויות`) : storeName(one)}
-            {cheapest && splitWalk != null && <>{chips ? '' : ', '}כ־{splitWalk} דק׳ הליכה</>}
-            {!cheapest && one?.walkMin != null && <>, {one.walkMin} דק׳ הליכה</>}
+            {cheapest && splitWalk != null && <>{chips ? '' : ', '}~{splitWalk} דק׳ הליכה בסך הכול</>}
+            {!cheapest && one?.walkMin != null && <>, ~{one.walkMin} דק׳ הליכה</>}
           </span>
           <span className={`sh-plan-note ${cheapest && (pays || more > 0) ? 'is-good' : ''}`}>{cheapNote}</span>
         </div>
@@ -996,7 +1008,7 @@ function PlansView({ result, updating, onStart, tripOpen }: {
           <span className="sh-plan-kind">חנות אחת</span>
           <b className="sh-plan-total">{ils(oneStore.total)}</b>
           <span className="sh-plan-sub">{storeName(one)}</span>
-          {one?.walkMin != null && <span className="sh-plan-sub">{one.walkMin} דק׳ הליכה</span>}
+          {one && walkText(one) && <span className="sh-plan-sub">{walkText(one)}</span>}
           <span className={`sh-plan-note ${oneStore.missing.length ? 'is-miss' : ''}`}>
             {oneStore.missing.length ? `חסרים ${oneStore.missing.length}` : 'יש בה הכול'}
           </span>
@@ -1009,7 +1021,13 @@ function PlansView({ result, updating, onStart, tripOpen }: {
 
       <div className="sh-plan-detail">
         {plan.stops.map((stop, i) => (
-          <section key={stop.store} className="sh-plan-stop">
+          <React.Fragment key={stop.store}>
+          {plan.stops.length > 1 && walk.legs[i] != null && (
+            <p className="sh-plan-leg">
+              {i === 0 ? 'ממך' : '↓ מהחנות הקודמת'}: {distanceLabel(walk.legs[i]!)} · ~{walkMinutes(walk.legs[i]!)} דק׳ הליכה
+            </p>
+          )}
+          <section className="sh-plan-stop">
             <h3 className="sh-plan-stop-head">
               {plan.stops.length > 1 && <span className="sh-rank">{i + 1}</span>}
               <span className="sh-store-name">{storeName(result.stores[stop.store])}</span>
@@ -1017,13 +1035,14 @@ function PlansView({ result, updating, onStart, tripOpen }: {
             </h3>
             {result.stores[stop.store] && (
               <span className="sh-plan-stop-meta">
-                {result.stores[stop.store].walkMin != null && <span className="sh-walk">{result.stores[stop.store].walkMin} דק׳ הליכה</span>}
+                {plan.stops.length === 1 && walkText(result.stores[stop.store]) && <span className="sh-walk">{walkText(result.stores[stop.store])}</span>}
                 <SourceBadge store={result.stores[stop.store]} now={result.now} />
                 {cleanAddress(result.stores[stop.store].address) && <span className="sh-addr">{cleanAddress(result.stores[stop.store].address)}</span>}
               </span>
             )}
             <Breakdown basket={stop.basket} result={result} onlyAvailable />
           </section>
+          </React.Fragment>
         ))}
         {plan.missing.length > 0 && <MissingHere keys={plan.missing} result={result} />}
       </div>
@@ -1069,6 +1088,11 @@ const LOC_NOTE: Record<LocState, string> = {
   denied: 'בלי גישה למיקום',
   unavailable: 'המיקום לא זמין',
 };
+
+/** "1.4 ק״מ · ~23 דק׳ הליכה" from the centre (estimated walk), or '' without one. */
+function walkText(s: StoreInfo | undefined): string {
+  return s?.distM != null ? `${distanceLabel(s.distM)} · ~${walkMinutes(s.distM)} דק׳ הליכה` : '';
+}
 
 /** The nearest physical store a result priced (for "הבית נשמר · ליד …"), or null. */
 function nearestName(r: CompareResponse): string | null {
@@ -1120,9 +1144,7 @@ function StoreCard({ basket, result, rank, best, open, toggle, fav }: {
         <span className="sh-store-meta">
           {basket.missing.length > 0 && <span className="sh-badge-miss">חסרים {basket.missing.length}</span>}
           {more > 0 && <span className="sh-more">+{ils(more)}</span>}
-          {store.distM != null
-            ? <span className="sh-walk">{distanceLabel(store.distM)}</span>
-            : store.walkMin != null && <span className="sh-walk">{store.walkMin} דק׳</span>}
+          {walkText(store) && <span className="sh-walk">{walkText(store)}</span>}
           <SourceBadge store={store} now={result.now} />
           {address && <span className="sh-addr">{address}</span>}
         </span>

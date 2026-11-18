@@ -16,7 +16,7 @@ shared by everyone with that permission.
 ## MCP tools (`/api/mcp`)
 
 Answers are plain text the model reads back: prices in ₪, each store with
-its walking time, Wolt prices marked as delivery prices and typed prices as
+its distance and estimated walking time, Wolt prices marked as delivery prices and typed prices as
 typed. Products can be named in free text (Hebrew or English, typos ok), a
 barcode or an item key; free text takes the search's best match (the page's
 ranking) and the answer names the runner-ups so the model can correct it.
@@ -50,7 +50,9 @@ agorot. The shapes are in `src/lib/shopping/api-types.ts`.
 The pricing routes take `lat`, `lng` (both or neither; only for that request,
 never stored) and `r` (km: 1, 2, 5 or 10; anything else = 1). Without
 `lat`/`lng` they use the household's home spot; responses say which in
-`where: { centre, source: 'live' | 'home' | 'none', radiusKm }`. Only one of
+`where: { centre, source: 'live' | 'home' | 'none', radiusKm }`. Each store
+carries `distM` (metres from the centre), `walkMin` (an estimate:
+straight line × 1.3 at 80 m a minute — not a route) and `loc`. Only one of
 `lat`/`lng`, or a non-coordinate, is a 400. A `city` from an old client is
 ignored.
 
@@ -69,4 +71,5 @@ ignored.
 | `POST far` `{ stores, lines: [{key, qty}], clubs?, coupons? }` | "כמה יעלה לי ב…": the list at each of `stores` (the favorites, wherever they are; `FarResponse`). |
 | `POST home/list` `{ add: [{key, qty}] }` | Put My items on the list ("מה חסר?"); items already there keep their quantity. |
 | `GET/PUT settings` `{ nutritionHero? }` | The caller's preferences. |
+| `GET geocode?q=` | Up to 5 places in Israel for an address (`{ places: [{ label, lat, lng }] }`), via OpenStreetMap Nominatim on our side (typed text only; cached; one upstream call a second). |
 | `PUT manual-prices` `{ store, item, price }` | Type a neighbourhood shop's price (agorot; null clears). |

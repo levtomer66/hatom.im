@@ -14,6 +14,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { FaArrowRight, FaBarcode, FaChevronDown, FaLocationArrow, FaPlus, FaSearch, FaShoppingCart, FaTimes } from 'react-icons/fa';
 import { SHOPPING_API_PATH } from '@/lib/shopping/config';
+import { walkMinutes } from '@/lib/shopping/near';
 import type { HereDealsResponse, HereResponse, HereRow, HereStore, HereStoresResponse, ItemPrice, ItemResponse, PromoDetail, SearchHit, StoreInfo, StoresResponse } from '@/lib/shopping/api-types';
 import { DEPARTMENTS } from '@/lib/shopping/departments';
 import {
@@ -53,7 +54,7 @@ async function getJson<T>(path: string, signal?: AbortSignal): Promise<T> {
 
 type Pos = { state: 'idle' | 'locating' | 'denied' | 'unavailable' } | { state: 'found'; at: LatLng };
 
-const walkLabel = (s: StoreInfo | undefined) => (s?.walkMin != null ? ` (${s.walkMin} דק׳ הליכה)` : '');
+const walkLabel = (s: StoreInfo | undefined) => (s?.walkMin != null ? ` (~${s.walkMin} דק׳ הליכה)` : '');
 
 export interface HereProps {
   /** The pricing routes' location query (where.ts nearQuery): the picker's centre. */
@@ -229,7 +230,7 @@ function Picker({ stores, favs, onFav, error, onPick, onClose }: {
                   {cleanAddress(s.address) && <small>{cleanAddress(s.address)}</small>}
                 </span>
                 <span className="sh-here-dist">
-                  {s.distM !== null ? distanceLabel(s.distM) : s.walkMin !== null ? `${s.walkMin} דק׳` : ''}
+                  {s.distM !== null ? `${distanceLabel(s.distM)} · ~${walkMinutes(s.distM)} דק׳` : ''}
                   {!s.priced ? <small>אין מחירים</small> : s.source === 'manual' ? <small>מחירים ידניים</small> : null}
                 </span>
               </button>

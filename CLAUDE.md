@@ -333,14 +333,19 @@ Identity = Gmail address. Two roles:
   (1 km default; chips 2/5/10, `shopping:radius` in localStorage) of the
   centre, plus the ★ favorites wherever they are, plus every online store
   (`nearStores` in `src/lib/shopping/near.ts`, import-free). The centre is the
-  `lat`/`lng` the request sends (the page's live location, never stored), else
+  `lat`/`lng` the request sends (the page's live location, or a place set by
+  hand through the address search — `PlaceSheet`, `/api/shopping/geocode` →
+  Nominatim, remembered on the device; never stored server-side), else
   the household's home spot (`shoppingHome.homeSpot`, set in ⚙ → משק הבית);
   without either, favorites + online. Every pricing route and tool resolves it
   with `nearFor()` (`near-server.ts`) and reads stores with `getStoresNear()`
   (one `find` over all candidate stores, filtered in JS: no geo index). A store
   with no `loc` counts only when starred. `CITIES` / `StoreDoc.city` are the
   ingest's internal coverage shortcut now; the app ignores the ingest's `far`
-  flag. Spec: `docs/superpowers/specs/2026-11-18-shopping-no-cities-design.md`.
+  flag, and never shows its routed `walkMin` from a pin: `StoreInfo.walkMin` is
+  `walkMinutes(distM)` (straight line × 1.3 at 80 m/min), and a split plan is
+  shown and walked in `walkOrder` with each leg's distance.
+  Spec: `docs/superpowers/specs/2026-11-18-shopping-no-cities-design.md`.
 - **UI** at `SHOPPING_BASE_PATH` (`src/lib/shopping/config.ts`; the middleware
   `matcher` literal must move with it). There are no named lists: each
   **household** (one `shoppingHome` doc, model `src/models/ShoppingHome.ts`,

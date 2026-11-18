@@ -33,7 +33,8 @@ const SOURCE_NOTE: Record<string, string> = { official: '', wolt: ' (Wolt delive
 
 function storeLabel(s: StoreInfo | undefined): string {
   if (!s) return 'unknown store';
-  const where = s.kind === 'online' ? 'online' : s.walkMin !== null ? `${s.walkMin} min walk` : s.address;
+  const where = s.kind === 'online' ? 'online'
+    : s.distM !== null ? `${(s.distM / 1000).toFixed(1)} km, ~${s.walkMin} min walk` : s.address;
   // Branch names often repeat the chain ("סופר-פארם פלורנטין", "שופרסל ONLINE").
   const name = s.name.replace(/\s+/g, ' ').trim();
   const label = name.startsWith(s.chainName) ? name : `${s.chainName} ${name}`;

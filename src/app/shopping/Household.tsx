@@ -49,16 +49,17 @@ export function InviteCard({ invite, onAnswer }: {
 }
 
 /** The "משק הבית" sheet. `onChanged` runs after leaving, so the page reloads its data. */
-export function HouseholdSheet({ onClose, onChanged, beforeLeave, homeSpot, live, onHomeSpot, nearestHome, onSaveHere }: {
+export function HouseholdSheet({ onClose, onChanged, beforeLeave, homeSpot, onHomeSpot, nearestHome, onSaveHere, onByAddress }: {
   onClose: () => void;
-  /** The household's saved home spot, the device's live location, and saving (null clears). */
+  /** The household's saved home spot, and saving it (null clears). */
   homeSpot: Centre | null;
-  live: Centre | null;
   onHomeSpot: (spot: Centre | null) => Promise<void>;
   /** The nearest priced store to the home spot, when the page knows it. */
   nearestHome: string | null;
-  /** Saves the live location, or reads it once when there is none. */
+  /** Saves the location in use, or reads it once when there is none. */
   onSaveHere: () => void;
+  /** Opens the address search to set the home spot. */
+  onByAddress: () => void;
   onChanged: () => void;
   /** Sends the page's pending saves, so they land in this household before leaving it. */
   beforeLeave?: () => Promise<unknown>;
@@ -139,8 +140,9 @@ export function HouseholdSheet({ onClose, onChanged, beforeLeave, homeSpot, live
               </p>
               <div className="sh-home-spot-actions">
                 <button type="button" className="sh-btn" onClick={onSaveHere}>
-                  {homeSpot ? (live ? 'שינוי למיקום הנוכחי' : 'שינוי') : 'שמירת המיקום הנוכחי כבית'}
+                  {homeSpot ? 'שינוי למיקום הנוכחי' : 'שמירת המיקום הנוכחי כבית'}
                 </button>
+                <button type="button" className="sh-btn" onClick={onByAddress}>לפי כתובת</button>
                 {homeSpot && <button type="button" className="sh-link" onClick={() => void onHomeSpot(null)}>מחיקה</button>}
               </div>
             </section>

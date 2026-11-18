@@ -6,7 +6,7 @@ import { dealMinQty, type AppliedPromo, type Offer, type StoreBasket } from './p
 import type { PromoDoc, StoreDoc } from './snapshot.ts';
 import type { Nutrition } from './nutrition.ts';
 import type { Invite } from './household.ts';
-import type { Where } from './near.ts';
+import { walkMinutes, type Centre, type Where } from './near.ts';
 
 export type { PriceSource } from './collections.ts';
 
@@ -57,10 +57,12 @@ export interface StoreInfo {
   pricesAt: string | null;
   /** Where its prices come from — label every price with it. */
   source: PriceSource;
-  /** Walking minutes from the nearest pin (ingest), or null (online, unknown). */
+  /** Estimated walking minutes from the request's centre (walkMinutes(distM)), or null with distM. */
   walkMin: number | null;
-  /** Metres from the request's centre (your location or the home spot), or null (online, no point, no centre). */
+  /** Metres from the request's centre (your location, a place you set, or the home spot), or null (online, no point, no centre). */
   distM: number | null;
+  /** Where the store is (public), for the walk between a split plan's stops; null when unknown or online. */
+  loc: Centre | null;
 }
 
 /** PUT /api/shopping/manual-prices — set (or, with null, clear) one price at a manual store. */
@@ -121,9 +123,10 @@ export function idleDeals(
 export const storeInfo = (s: StoreDoc & { distM?: number | null }): StoreInfo => ({
   k: s.k, chainId: s.chainId, chainName: s.chainName, name: s.name, address: s.address,
   kind: s.kind, pricesAt: s.pricesAt, source: s.source ?? 'official',
-  // Written by the ingest since dcfc209 (feature/shopping-ingest); read here before that type is merged.
-  walkMin: (s as StoreDoc & { walkMin?: number | null }).walkMin ?? null,
+  // Live from the centre; the ingest's routed walkMin from a pin is not shown (spec addendum).
+  walkMin: s.distM != null ? walkMinutes(s.distM) : null,
   distM: s.distM ?? null,
+  loc: s.loc && typeof s.loc.lat === 'number' && typeof s.loc.lng === 'number' ? { lat: s.loc.lat, lng: s.loc.lng } : null,
 });
 
 export interface ManualPriceRequest {
