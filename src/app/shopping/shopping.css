@@ -215,11 +215,15 @@ body:has(.sh-page) { background: #ffffff; }
   gap: 0.625rem;
   padding: 0 0.875rem;
   border: 1px solid var(--sh-line);
-  border-radius: var(--sh-r-ctl);
+  border-radius: 999px;
   background: var(--sh-surface);
   color: var(--sh-muted);
+  transition: box-shadow 0.15s, background 0.15s;
 }
-.sh-search-box:focus-within { border-color: var(--sh-accent); background: var(--sh-bg); box-shadow: 0 0 0 3px var(--sh-accent-soft); }
+/* No blue focus border: the box lifts with a soft neutral shadow instead (the
+   page-wide :focus-visible outline is turned off for the input below). */
+.sh-search-box:focus-within { background: var(--sh-bg); box-shadow: 0 1px 6px rgb(0 0 0 / 0.14); }
+.sh-search-box input:focus-visible { outline: none; }
 .sh-search-box .sh-icon-btn { margin-inline-end: -0.625rem; }
 .sh-search-box input {
   flex: 1;

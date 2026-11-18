@@ -44,6 +44,7 @@ import MyItemsSheet from './MyItems';
 import Missing from './Missing';
 import { api, loadHome, saveHome, type HomeView } from './home-client';
 import { NutritionHero, NutritionPanel, SettingsMenu } from './Nutrition';
+import { useTypedPlaceholder } from './typed-placeholder';
 
 /** "2026-11-28T23:59" → "28.11" */
 const stamp = (local: string) => `${dayMonth(local)} ${local.slice(11, 16)}`;
@@ -143,6 +144,8 @@ type PageList = { id: string; name: string; items: ListLine[] };
 
 type Tab = 'item' | 'list' | 'stores' | 'online';
 const step = (w: boolean) => (w ? 0.5 : 1);
+/** The search placeholder types these in turn (the first is also the static one). */
+const SEARCH_PHRASES = ['חיפוש מוצר או ברקוד', 'חלב 3%', 'במבה', 'קפה טורקי', 'לחם מלא', 'עגבניות שרי', 'שוקולד פרה'];
 
 export default function ShoppingPage() {
   /** The household's My items and its one shopping list (null until loaded). */
@@ -163,6 +166,7 @@ export default function ShoppingPage() {
   const [searching, setSearching] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
+  const placeholder = useTypedPlaceholder(SEARCH_PHRASES, !query);
   /** The product window: an item key or a scanned barcode. */
   const [product, setProduct] = useState<{ key: string; scanned: boolean } | null>(null);
   const [scanning, setScanning] = useState(false);
@@ -571,7 +575,7 @@ export default function ShoppingPage() {
                     if (e.key === 'Escape') clearSearch();
                     if (e.key === 'Enter' && hits?.length) saveItem(hits[0]);
                   }}
-                  placeholder="חיפוש מוצר או ברקוד" aria-label="חיפוש מוצר" enterKeyHint="search" autoComplete="off" />
+                  placeholder={placeholder} aria-label="חיפוש מוצר או ברקוד" enterKeyHint="search" autoComplete="off" />
                 {searching && <span className="sh-spinner" aria-hidden />}
                 {query ? (
                   <button type="button" className="sh-icon-btn" onClick={clearSearch} aria-label="ניקוי החיפוש"><FaTimes /></button>
