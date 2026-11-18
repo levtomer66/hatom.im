@@ -25,8 +25,8 @@
   --sh-r-group: 14px;
   --sh-tap: 44px;
 
-  min-height: 100vh;
-  min-height: 100dvh;
+  /* No min-height: the body already has the page's background, and a full-screen
+     page under the site navbar made an empty home page scroll by the navbar's height. */
   max-width: 600px;
   margin: 0 auto;
   padding: 1rem 1rem calc(2rem + env(safe-area-inset-bottom));
