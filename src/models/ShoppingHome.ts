@@ -1,7 +1,7 @@
 import { ObjectId } from 'mongodb';
 import clientPromise from '@/lib/mongodb';
 import { MAX_MY_ITEMS, addToList, homeFromLists, type ListLine, type MyItem } from '@/lib/shopping/home';
-import type { Household, Invite } from '@/lib/shopping/household';
+import { acceptPlan, MAX_INVITES, MAX_MEMBERS, type Household, type Invite } from '@/lib/shopping/household';
 import { getItemMeta } from '@/models/ShoppingCatalog';
 import { getAllShoppingListsForMigration } from '@/models/ShoppingList';
 
@@ -136,4 +136,69 @@ export async function pullBought(id: string, ticked: string[], notThere: string[
     { _id: id },
     { $pull: { list: { key: { $in: gone } } }, $set: { updatedAt: new Date().toISOString() } },
   );
+}
+
+// ── invites ──
+
+/** A pending invite on household `id`; false when it's there already or the caps are full (checked again here, atomically). */
+export async function addInvite(id: string, invite: Invite): Promise<boolean> {
+  const res = await (await getCollection()).updateOne(
+    { _id: id, 'invites.email': { $ne: invite.email }, members: { $ne: invite.email }, [`invites.${MAX_INVITES - 1}`]: { $exists: false } },
+    { $push: { invites: invite } },
+  );
+  return res.modifiedCount === 1;
+}
+
+export async function cancelInvite(id: string, email: string): Promise<void> {
+  await (await getCollection()).updateOne({ _id: id }, { $pull: { invites: { email } } });
+}
+
+/** Invites to `email` from other households. */
+export async function incomingInvites(email: string): Promise<{ id: string; by: string; at: string }[]> {
+  await prepare();
+  const me = email.toLowerCase();
+  const docs = await (await getCollection()).find({ 'invites.email': me }, { projection: { invites: 1 } }).toArray();
+  return docs.flatMap((d) => (d.invites ?? []).filter((i) => i.email === me).map((i) => ({ id: d._id, by: i.by, at: i.at })));
+}
+
+export async function declineInvite(email: string, toId: string): Promise<void> {
+  await cancelInvite(toId, email.toLowerCase());
+}
+
+/**
+ * Join household `toId` on its invite. In order, so a failure never leaves
+ * the caller in no household: claim the invite (gone or full → null, nothing
+ * changed); leave the current household (deleted when they were alone in it —
+ * acceptPlan); join. If joining fails (the household vanished), they get a
+ * new empty household and null.
+ */
+export async function acceptInvite(email: string, toId: string): Promise<Household | null> {
+  const me = email.toLowerCase();
+  const current = await householdFor(me);
+  if (current.id === toId) return current;
+  const col = await getCollection();
+  const claimed = await col.findOneAndUpdate(
+    { _id: toId, 'invites.email': me, [`members.${MAX_MEMBERS - 1}`]: { $exists: false } },
+    { $pull: { invites: { email: me } } },
+  );
+  if (!claimed) return null;
+  const left = acceptPlan(current, me).deleteFrom
+    ? (await col.deleteOne({ _id: current.id, members: [me] })).deletedCount
+    : 0;
+  if (!left) await col.updateOne({ _id: current.id }, { $pull: { members: me } }); // someone else joined it meanwhile
+  const joined = await col.updateOne({ _id: toId }, { $addToSet: { members: me } });
+  if (!joined.matchedCount) {
+    await householdFor(me);
+    return null;
+  }
+  return getHousehold(toId);
+}
+
+/** Leave a household others are in; the caller gets a new empty one. Null when they're its only member. */
+export async function leaveHousehold(email: string): Promise<Household | null> {
+  const me = email.toLowerCase();
+  const h = await householdFor(me);
+  if (h.members.length < 2) return null;
+  await (await getCollection()).updateOne({ _id: h.id, 'members.1': { $exists: true } }, { $pull: { members: me } });
+  return householdFor(me);
 }

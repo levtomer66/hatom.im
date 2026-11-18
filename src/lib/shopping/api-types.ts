@@ -5,6 +5,7 @@ import type { PriceSource } from './collections.ts';
 import { dealMinQty, type AppliedPromo, type Offer, type StoreBasket } from './pricing.ts';
 import type { PromoDoc, StoreDoc } from './snapshot.ts';
 import type { Nutrition } from './nutrition.ts';
+import type { Invite } from './household.ts';
 
 export type { PriceSource } from './collections.ts';
 
@@ -289,6 +290,19 @@ export interface HereStoresResponse {
  * branch, city or address has every word of `q` (max 30); without `q`, the
  * household's favorites. Sorted on the device.
  */
+/**
+ * GET /api/shopping/household — the caller's household: its members (with
+ * display names), its pending invites, and invites to the caller from other
+ * households (`loses`: My items + list lines deleted with the caller's
+ * current household if they accept). POST answers with the same shape.
+ */
+export interface HouseholdResponse {
+  id: string;
+  members: { email: string; name: string }[];
+  invites: Invite[];
+  incoming: { id: string; by: string; byName: string; at: string; loses: number }[];
+}
+
 export interface StoresResponse {
   now: string;
   stores: HereStore[];
