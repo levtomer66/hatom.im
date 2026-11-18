@@ -2,6 +2,7 @@ import { ObjectId } from 'mongodb';
 import clientPromise from '@/lib/mongodb';
 import { WorkoutStats } from '@/lib/workout-stats';
 import type { VolumeRecordRow } from '@/lib/workout-records';
+import type { BragPick } from '@/lib/workout-brag';
 
 // Motivation feed: one shared, completed workout. A post is a server-computed
 // SNAPSHOT taken at share time — the feed never joins the workouts collection,
@@ -23,6 +24,10 @@ export interface WorkoutFeedPost {
   workoutDate: string;         // Workout.date (YYYY-MM-DD) — primary sort key
   workoutStartedAt: string;    // Workout.createdAt (ISO) — sort tiebreaker
   stats: WorkoutStats;
+  brag?: BragPick | null;      // the workout's joke, copied at share time
+  // Sharer's choice: may others open the logged sets? Absent on posts shared
+  // before the option existed — those count as shared (isSetsShared).
+  includeSets?: boolean;
   sharedAt: string;            // ISO, audit only — NEVER used for ordering
   likes: string[];             // session emails that liked this post; count = length
 }
@@ -202,4 +207,8 @@ export async function deleteFeedPost(workoutId: string, userId: string): Promise
   const col = await getCollection();
   const result = await col.deleteOne({ workoutId, userId });
   return result.deletedCount === 1;
+}
+
+export function isSetsShared(post: Pick<WorkoutFeedPost, 'includeSets'>): boolean {
+  return post.includeSets !== false;
 }

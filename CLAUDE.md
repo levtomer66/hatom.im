@@ -184,6 +184,17 @@ Identity = Gmail address. Two roles:
   clipped to each month's days (`rangeStart`/`rangeEnd`, `partial: true`).
   Parse `YYYY-MM-DD` with `parseLocalDate()`, not `new Date(str)` (UTC) —
   `formatDate()` already does this for bare date strings.
+- **Finish-workout joke** (`src/lib/workout-brag.ts`, import-free): picked
+  once by the server on first completion (`PUT /api/workout/workouts/[id]`),
+  steering away from the user's last 15, and stored as `Workout.brag`
+  (copied to the feed post on share). It's a pick (family + sentence index +
+  object), not text, so either language renders it. Sentences are referenced
+  by index: append new ones, don't reorder or delete. Older workouts get a
+  seeded fallback.
+- **Feed sets**: a post's "Show sets" reads the workout live via
+  `GET /api/workout/feed/[workoutId]`, refused (403) when the sharer unticked
+  "Include logged sets" (`includeSets: false`; posts shared before the option
+  count as shared).
 - Alias collision bug fixed once: `lat-pulldown` → `wide-grip-lat-pulldown`.
   Template read/write goes through `resolveExerciseId()` + dedupe helper so
   templates can't hold both forms at once. Don't regress.

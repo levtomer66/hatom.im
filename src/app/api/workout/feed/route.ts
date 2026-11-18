@@ -62,7 +62,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// POST /api/workout/feed  { workoutId }
+// POST /api/workout/feed  { workoutId, includeSets? }
 // Shares a completed workout the caller owns. The stats are a server-computed
 // snapshot; the client can't inject numbers.
 export async function POST(request: NextRequest) {
@@ -107,6 +107,9 @@ export async function POST(request: NextRequest) {
         ? new Date(workout.createdAt).toISOString()
         : new Date(workout.date).toISOString(),
       stats,
+      brag: workout.brag ?? null,
+      // Opt-out: the share UI's checkbox defaults to on.
+      includeSets: body?.includeSets !== false,
     });
     return NextResponse.json(toFeedItem(post, userId), { status: 201 });
   } catch (error) {

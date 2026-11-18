@@ -5,6 +5,10 @@ import { requireSignedIn } from '@/lib/auth-helpers';
 import { recomputeAndStorePersonalBests } from '@/lib/workout-pb';
 import { sanitizeExercisesStepIds } from '@/lib/workout-progression';
 import { updateFeedPostWorkoutName } from '@/models/WorkoutFeedPost';
+import { computeWorkoutStats } from '@/lib/workout-stats';
+import { chooseBrag, type BragPick } from '@/lib/workout-brag';
+import { bragFactsFor } from '@/lib/workout-brag-facts';
+import type { Workout } from '@/types/workout';
 
 // Connect to MongoDB using mongoose
 async function connectDB() {
@@ -81,6 +85,11 @@ export async function PUT(
     delete updateData.id;
     delete updateData.createdAt;
     delete updateData.userId; // immutable: tied to the signed-in user
+    // The joke is the server's pick (below); the client only reports its
+    // local hour so the time-of-day jokes know when "late" is.
+    delete updateData.brag;
+    const localHour = typeof body.localHour === 'number' ? body.localHour : null;
+    delete updateData.localHour;
 
     // Calisthenics: keep each set's stepId only if it names a real rung on
     // that exercise's ladder; unknown/stale ids drop to null. In place.
@@ -94,6 +103,22 @@ export async function PUT(
 
     if (!workout) {
       return NextResponse.json({ error: 'Workout not found' }, { status: 404 });
+    }
+
+    // First completion: pick the finish-workout joke once and store it, so
+    // the summary, history and feed all show the same line. Re-completing a
+    // resumed workout keeps its joke. Best-effort: no joke is not an error
+    // (the UI falls back to a seeded one).
+    if (workout.isCompleted && !owned.workout.isCompleted && !owned.workout.brag) {
+      try {
+        const brag = await pickBragFor(id, userId, workout as unknown as Workout, localHour);
+        // Raw collection: `brag` is Mixed and server-owned, and a dev server's
+        // cached model (HMR) may predate the field and strip it.
+        await WorkoutModel.collection.updateOne({ _id: new mongoose.Types.ObjectId(id) }, { $set: { brag } });
+        (workout as { brag?: BragPick }).brag = brag;
+      } catch (bragError) {
+        console.error('Brag pick after complete failed (non-fatal):', bragError);
+      }
     }
 
     // A rename after sharing (freestyle "save as template") would otherwise
@@ -166,4 +191,21 @@ export async function DELETE(
       { status: 500 }
     );
   }
+}
+
+// How many past jokes the picker steers away from.
+const BRAG_MEMORY = 15;
+
+async function pickBragFor(id: string, userId: string, workout: Workout, localHour: number | null): Promise<BragPick> {
+  const others = { userId, isCompleted: true, _id: { $ne: new mongoose.Types.ObjectId(id) } };
+  const [recentDocs, prev] = await Promise.all([
+    WorkoutModel.collection
+      .find({ ...others, brag: { $exists: true } }, { projection: { brag: 1 }, sort: { updatedAt: -1 }, limit: BRAG_MEMORY })
+      .toArray(),
+    WorkoutModel.findOne(others, { exercises: 1, bodyweightKg: 1 })
+      .sort({ date: -1, createdAt: -1 }).lean(),
+  ]);
+  const recent = recentDocs.map((d) => d.brag as BragPick | undefined).filter((b): b is BragPick => !!b);
+  const prevVolumeKg = prev ? computeWorkoutStats(prev).totalVolumeKg : null;
+  return chooseBrag(bragFactsFor(workout, { prevVolumeKg, localHour }), recent);
 }

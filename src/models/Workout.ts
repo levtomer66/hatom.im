@@ -101,6 +101,12 @@ const WorkoutSchema = new Schema<WorkoutDocument>({
     type: String,
     required: false,
   },
+  // Finish-workout joke (BragPick, src/lib/workout-brag.ts). Set only by the
+  // server on completion; no default so older docs simply lack it.
+  brag: {
+    type: Schema.Types.Mixed,
+    required: false,
+  },
 }, {
   timestamps: { createdAt: 'createdAt', updatedAt: 'updatedAt' },
 });

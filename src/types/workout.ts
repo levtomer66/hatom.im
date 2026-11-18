@@ -1,3 +1,5 @@
+import type { BragPick } from '@/lib/workout-brag';
+
 // Display unit for weights. Storage is always kg — this is a per-device
 // display preference. Input values typed in lb are converted to kg before
 // they hit Mongo, and kg values from the DB are converted to lb for
@@ -414,6 +416,10 @@ export interface Workout {
   // offline-queue safely replay a POST /workouts that the original
   // request may have actually completed (response just never arrived).
   clientRequestId?: string | null;
+  // The finish-workout joke, picked once by the server when the workout is
+  // completed (avoiding the user's recent ones) and rendered by
+  // renderBrag() in src/lib/workout-brag.ts. Absent on older workouts.
+  brag?: BragPick | null;
 }
 
 // Personal Best record

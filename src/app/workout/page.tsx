@@ -31,6 +31,7 @@ import Header from '@/components/workout/Header';
 import BottomNav from '@/components/workout/BottomNav';
 import SortableExerciseCard from '@/components/workout/SortableExerciseCard';
 import ExercisePicker from '@/components/workout/ExercisePicker';
+import IncludeSetsToggle from '@/components/workout/IncludeSetsToggle';
 import TemplateSelector from '@/components/workout/TemplateSelector';
 import TemplateEditor from '@/components/workout/TemplateEditor';
 import {
@@ -49,7 +50,8 @@ import {
 import { EXERCISE_LIBRARY, getExerciseById, resolveExerciseId } from '@/data/exercise-library';
 import { getProgression, getProgressionStep, stepIndex } from '@/lib/workout-progression';
 import { getLocalizedExercise, getLocalizedStepName } from '@/lib/exercise-translations';
-import { getVolumeBrag } from '@/lib/workout-volume-jokes';
+import { bragLine } from '@/lib/workout-brag';
+import { exerciseNameFor } from '@/lib/workout-brag-names';
 import { computeWorkoutStats } from '@/lib/workout-stats';
 import { formatVolume } from '@/lib/weight';
 import { useVolumeRecords } from '@/lib/useVolumeRecords';
@@ -250,25 +252,30 @@ export default function WorkoutsPage() {
   }, [customExercises, exerciseLoad, bodyweightKg]);
 
   // Auto-save workout changes
-  const saveWorkout = useCallback(async (workout: Workout) => {
+  // Resolves to the server's copy (null on failure) — the Complete handler
+  // reads the joke the server picked from it. `extra` rides along in the
+  // body without becoming part of the workout (e.g. localHour).
+  const saveWorkout = useCallback(async (workout: Workout, extra?: Record<string, unknown>): Promise<Workout | null> => {
     // Invariant: an active workout always has a server id — createWorkout now
     // refuses to start a session when the create couldn't reach the server.
     // If this ever fires, a phantom (offline-created) session slipped through
     // and its edits are being dropped; log it instead of failing silently.
     if (!workout.id) {
       console.warn('saveWorkout called without a workout id — edit dropped', workout);
-      return;
+      return null;
     }
 
     setIsSaving(true);
     try {
-      await fetch(`/api/workout/workouts/${workout.id}`, {
+      const res = await fetch(`/api/workout/workouts/${workout.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(stampWorkoutLoad(workout)),
+        body: JSON.stringify({ ...stampWorkoutLoad(workout), ...extra }),
       });
+      return res.ok ? ((await res.json()) as Workout) : null;
     } catch (error) {
       console.error('Error saving workout:', error);
+      return null;
     } finally {
       setIsSaving(false);
     }
@@ -521,8 +528,11 @@ export default function WorkoutsPage() {
     const exercises = activeWorkout.exercises.map((ex, i) => ({ ...ex, order: i + 1 }));
     // Freeze the load context + bodyweight so the summary's volume matches what
     // gets persisted (saveWorkout stamps the same way for the server).
-    const updated = stampWorkoutLoad({ ...activeWorkout, exercises, isCompleted: true });
-    await saveWorkout(updated);
+    const stamped = stampWorkoutLoad({ ...activeWorkout, exercises, isCompleted: true });
+    const saved = await saveWorkout(stamped, { localHour: new Date().getHours() });
+    // Keep the local copy (it's what the user just saw) plus the joke the
+    // server picked; offline, the summary falls back to a seeded joke.
+    const updated: Workout = { ...stamped, brag: saved?.brag ?? null };
 
     // Detect progression unlocks BEFORE refreshing PBs — `personalBests`
     // still holds the pre-workout frontier here. An unlock = a set logged at
@@ -1074,6 +1084,7 @@ function CompletionSummary({
   const { language } = useWorkoutLanguage();
   const { unit } = useWorkoutUnit();
   const [shareState, setShareState] = useState<'idle' | 'sharing' | 'shared'>('idle');
+  const [includeSets, setIncludeSets] = useState(true);
   const [saveName, setSaveName] = useState('');
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   // Latched at mount: a successful save stamps templateId onto the summary
@@ -1096,7 +1107,7 @@ function CompletionSummary({
       const res = await fetch('/api/workout/feed', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ workoutId: workout.id }),
+        body: JSON.stringify({ workoutId: workout.id, includeSets }),
       });
       // 409 = already shared → still a success from the user's point of view.
       setShareState(res.ok || res.status === 409 ? 'shared' : 'idle');
@@ -1110,11 +1121,11 @@ function CompletionSummary({
 
   const volumeDisplay = formatVolume(stats.totalVolumeKg, unit);
 
-  // Funny "you basically lifted 4 hippos" line. Deterministic per workout
-  // so re-opening the same summary shows the same brag.
+  // The finish-workout joke the server picked on completion (seeded
+  // fallback when it couldn't, e.g. offline).
   const brag = useMemo(
-    () => getVolumeBrag(stats.totalVolumeKg, language, workout.id),
-    [stats.totalVolumeKg, language, workout.id]
+    () => bragLine(workout.brag, stats.totalVolumeKg, workout.id, language, exerciseNameFor(language)),
+    [workout.brag, stats.totalVolumeKg, language, workout.id]
   );
 
   return (
@@ -1208,6 +1219,9 @@ function CompletionSummary({
           >
             {shareState === 'shared' ? t('feed.shared') : t('feed.share')}
           </button>
+          {shareState !== 'shared' && (
+            <IncludeSetsToggle checked={includeSets} onChange={setIncludeSets} disabled={shareState !== 'idle'} />
+          )}
           {/* How far this share pushed the feed's 1-ton car (1 000 kg = 1 m). */}
           {shareState === 'shared' && stats.totalVolumeKg > 0 && (
             <div className="workout-summary-car" role="status">

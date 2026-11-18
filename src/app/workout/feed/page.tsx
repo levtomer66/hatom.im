@@ -6,7 +6,8 @@ import { useWorkoutUser } from '@/context/WorkoutUserContext';
 import { useWorkoutLanguage } from '@/context/WorkoutLanguageContext';
 import { useWorkoutUnit } from '@/context/WorkoutUnitContext';
 import { useT, formatDate, getLocalizedTemplateName } from '@/lib/workout-i18n';
-import { getVolumeBrag } from '@/lib/workout-volume-jokes';
+import { bragLine } from '@/lib/workout-brag';
+import { exerciseNameFor } from '@/lib/workout-brag-names';
 import Header from '@/components/workout/Header';
 import BottomNav from '@/components/workout/BottomNav';
 import MovingCar from '@/components/workout/MovingCar';
@@ -14,6 +15,9 @@ import FeedRecords from '@/components/workout/FeedRecords';
 import { formatVolume } from '@/lib/weight';
 import { useVolumeRecords } from '@/lib/useVolumeRecords';
 import { RECORD_ICON, recordBadgeFor } from '@/lib/workout-records';
+import ExerciseCard from '@/components/workout/ExerciseCard';
+import { EXERCISE_LIBRARY } from '@/data/exercise-library';
+import type { ExerciseDefinition, WorkoutExercise } from '@/types/workout';
 
 // Shape of one GET /api/workout/feed item (server attaches displayName).
 // Declared locally so this client page never imports the server-only model.
@@ -30,6 +34,8 @@ interface FeedItem {
     exercisesTotal: number;
     totalVolumeKg: number;
   };
+  brag?: unknown;     // stored joke pick; absent on older posts
+  includeSets?: boolean; // false = sharer kept the sets private; absent = shared
   sharedAt: string;
   displayName: string;
   likeCount: number;
@@ -37,6 +43,17 @@ interface FeedItem {
 }
 
 const PAGE_SIZE = 20;
+
+// GET /api/workout/feed/[workoutId] — the sets behind one post, fetched the
+// first time someone opens it.
+type PostSets =
+  | { status: 'loading' }
+  | { status: 'error' }
+  | { status: 'ready'; exercises: WorkoutExercise[]; map: Record<string, ExerciseDefinition> };
+
+const LIBRARY_MAP: Record<string, ExerciseDefinition> = Object.fromEntries(
+  EXERCISE_LIBRARY.map((e) => [e.id, e]),
+);
 
 export default function FeedPage() {
   const router = useRouter();
@@ -62,6 +79,31 @@ export default function FeedPage() {
   const [carRefresh, setCarRefresh] = useState(0);
   const records = useVolumeRecords(!!currentUser, carRefresh);
   const nextSkipRef = useRef(0);
+  // Which posts are expanded, and their sets (cached per workout).
+  const [openIds, setOpenIds] = useState<Set<string>>(new Set());
+  const [setsById, setSetsById] = useState<Record<string, PostSets>>({});
+
+  const toggleSets = useCallback((workoutId: string) => {
+    setOpenIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(workoutId)) next.delete(workoutId);
+      else next.add(workoutId);
+      return next;
+    });
+    if (setsById[workoutId]?.status === 'ready' || setsById[workoutId]?.status === 'loading') return;
+    setSetsById((prev) => ({ ...prev, [workoutId]: { status: 'loading' } }));
+    fetch(`/api/workout/feed/${workoutId}`)
+      .then((r) => (r.ok ? r.json() : Promise.reject(r.status)))
+      .then((data: { exercises: WorkoutExercise[]; customExercises: { id: string; name: string }[] }) => {
+        const map = { ...LIBRARY_MAP };
+        for (const c of data.customExercises ?? []) {
+          map[c.id] = { id: c.id, name: c.name, categories: [], isCustom: true };
+        }
+        const exercises = [...data.exercises].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+        setSetsById((prev) => ({ ...prev, [workoutId]: { status: 'ready', exercises, map } }));
+      })
+      .catch(() => setSetsById((prev) => ({ ...prev, [workoutId]: { status: 'error' } })));
+  }, [setsById]);
   const inFlightRef = useRef(false);
 
   // Load one page (fetches PAGE_SIZE + 1 to detect "has more" without a
@@ -188,7 +230,7 @@ export default function FeedPage() {
           <div className="feed-list">
             {posts.map((post) => {
               const mine = post.userId === currentUser.id;
-              const brag = getVolumeBrag(post.stats.totalVolumeKg, language, post.workoutId);
+              const brag = bragLine(post.brag, post.stats.totalVolumeKg, post.workoutId, language, exerciseNameFor(language));
               const badge = recordBadgeFor(records, post);
               return (
                 <div key={post.id} className="feed-post">
@@ -234,6 +276,37 @@ export default function FeedPage() {
                     </div>
                   )}
                   <div className="feed-post-brag">{brag}</div>
+                  {post.includeSets === false ? (
+                    <div className="feed-post-sets-private">🔒 {t('feed.sets_private')}</div>
+                  ) : (
+                    <button
+                      type="button"
+                      className="feed-post-sets-toggle"
+                      onClick={() => toggleSets(post.workoutId)}
+                      aria-expanded={openIds.has(post.workoutId)}
+                    >
+                      {openIds.has(post.workoutId) ? t('feed.hide_sets') : t('feed.show_sets')}
+                    </button>
+                  )}
+                  {openIds.has(post.workoutId) && (() => {
+                    const sets = setsById[post.workoutId];
+                    if (!sets || sets.status === 'loading') return <div className="feed-post-sets-status">…</div>;
+                    if (sets.status === 'error') return <div className="feed-post-sets-status">⚠️</div>;
+                    return (
+                      <div className="feed-post-sets">
+                        {sets.exercises.map((ex) => (
+                          <ExerciseCard
+                            key={ex.id}
+                            exercise={ex}
+                            exerciseDefinition={sets.map[ex.exerciseId] ?? null}
+                            pb={null}
+                            mode="readonly"
+                            exerciseMap={sets.map}
+                          />
+                        ))}
+                      </div>
+                    );
+                  })()}
                   <div className="feed-post-foot">
                     {mine ? (
                       // Your own post: count is read-only (you can't flex on yourself).

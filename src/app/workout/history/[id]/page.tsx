@@ -12,6 +12,7 @@ import { computeWorkoutStats } from '@/lib/workout-stats';
 import Header from '@/components/workout/Header';
 import BottomNav from '@/components/workout/BottomNav';
 import ExerciseCard from '@/components/workout/ExerciseCard';
+import IncludeSetsToggle from '@/components/workout/IncludeSetsToggle';
 import { buildSupersetGroups, supersetLabel } from '@/lib/superset';
 import { Workout, WorkoutExercise, PersonalBest, ExerciseDefinition } from '@/types/workout';
 import { EXERCISE_LIBRARY } from '@/data/exercise-library';
@@ -38,6 +39,7 @@ export default function WorkoutDetailPage() {
   const [loadingWorkout, setLoadingWorkout] = useState(true);
   // Feed share state for THIS workout. 'shared' if a post already exists.
   const [shareState, setShareState] = useState<'idle' | 'sharing' | 'shared'>('idle');
+  const [includeSets, setIncludeSets] = useState(true);
   // Editable bodyweight snapshot (feature 1) — lets the user fix a mistaken
   // bodyweight after the fact; recomputes this workout's volume on save.
   const [bwText, setBwText] = useState('');
@@ -50,7 +52,7 @@ export default function WorkoutDetailPage() {
       const res = await fetch('/api/workout/feed', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ workoutId: workout.id }),
+        body: JSON.stringify({ workoutId: workout.id, includeSets }),
       });
       setShareState(res.ok || res.status === 409 ? 'shared' : 'idle');
     } catch (error) {
@@ -290,14 +292,18 @@ export default function WorkoutDetailPage() {
 
         {/* Share a completed workout to the motivation feed. */}
         {workout.isCompleted && (
-          <button
-            className="workout-btn workout-btn-secondary workout-btn-full"
-            onClick={shareToFeed}
-            disabled={shareState !== 'idle'}
-            style={{ marginBottom: '16px' }}
-          >
-            {shareState === 'shared' ? t('feed.shared') : t('feed.share')}
-          </button>
+          <div style={{ marginBottom: '16px' }}>
+            <button
+              className="workout-btn workout-btn-secondary workout-btn-full"
+              onClick={shareToFeed}
+              disabled={shareState !== 'idle'}
+            >
+              {shareState === 'shared' ? t('feed.shared') : t('feed.share')}
+            </button>
+            {shareState !== 'shared' && (
+              <IncludeSetsToggle checked={includeSets} onChange={setIncludeSets} disabled={shareState !== 'idle'} />
+            )}
+          </div>
         )}
 
         {/* Protocol text + example link, if this workout carried them. */}
