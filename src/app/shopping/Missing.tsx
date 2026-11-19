@@ -87,16 +87,17 @@ export default function Missing({ items, list, meta, near, onSaveItem, onListCha
       </button>
     );
   };
-  /** + on an item not on the list puts it there (at the usual quantity); on the list, ± changes its quantity. */
+  /** + on an item not on the list puts it there (at the usual quantity); on the list, ± changes its quantity, and − at the smallest one takes it off (unticks it). */
   const stepQty = (i: MyItem, dir: 1 | -1) => {
     if (!onList.has(i.key)) {
       if (dir === 1) toggle(i);
       return;
     }
-    onListChange((lines) => lines.map((l) => {
-      if (l.key !== i.key) return l;
+    onListChange((lines) => lines.flatMap((l) => {
+      if (l.key !== i.key) return [l];
       const q = normalizeQty(l.qty + dir * step(l.w), l.w);
-      return q === null ? l : { ...l, qty: q };
+      if (q === null) return dir === -1 ? [] : [l];
+      return [{ ...l, qty: q }];
     }));
   };
 
@@ -173,8 +174,8 @@ export default function Missing({ items, list, meta, near, onSaveItem, onListCha
                     <span className="sh-stepper">
                       <button type="button" onClick={() => stepQty(i, 1)} aria-label={`עוד ${i.name}`}><FaPlus /></button>
                       <span className="sh-qty" aria-live="polite">{i.w ? `${qty} ק״ג` : qty}</span>
-                      <button type="button" onClick={() => stepQty(i, -1)} disabled={!on || normalizeQty(qty - step(i.w), i.w) === null}
-                        aria-label={`פחות ${i.name}`}><FaMinus /></button>
+                      <button type="button" onClick={() => stepQty(i, -1)} disabled={!on}
+                        aria-label={normalizeQty(qty - step(i.w), i.w) === null ? `הסרה מהרשימה: ${i.name}` : `פחות ${i.name}`}><FaMinus /></button>
                     </span>
                   </li>
                 );
