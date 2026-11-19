@@ -6,7 +6,8 @@
 // (Photon, OpenStreetMap, behind it); there is no search button. A result is used here ("כאן") or saved as the home
 // spot; mode 'home' (from ⚙ → משק הבית) only saves the home spot.
 import { useEffect, useRef, useState } from 'react';
-import { FaHome, FaLocationArrow, FaSearch, FaTimes } from 'react-icons/fa';
+import { FaHome, FaLocationArrow, FaSearch } from 'react-icons/fa';
+import { useSwipeToClose } from './ui';
 import { SHOPPING_API_PATH } from '@/lib/shopping/config';
 import type { Place } from '@/lib/shopping/geocode';
 
@@ -25,6 +26,9 @@ export function PlaceSheet({ mode, place, onUse, onSaveHome, onMyLocation, onClo
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  // No ✕: dragging the sheet down (useSwipeToClose), tapping outside it, or Escape closes it.
+  const sheetRef = useRef<HTMLDivElement>(null);
+  useSwipeToClose(sheetRef, onClose);
   useEffect(() => inputRef.current?.focus(), []);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
@@ -59,8 +63,8 @@ export function PlaceSheet({ mode, place, onUse, onSaveHome, onMyLocation, onClo
 
   return (
     <div className="sh-sheet-backdrop" onClick={onClose}>
-      <div className="sh-sheet sh-place" role="dialog" aria-modal="true" aria-labelledby="sh-place-title" onClick={(e) => e.stopPropagation()}>
-        <button type="button" className="sh-icon-btn sh-sheet-close" onClick={onClose} aria-label="סגירה"><FaTimes /></button>
+      <div ref={sheetRef} className="sh-sheet sh-place" role="dialog" aria-modal="true" aria-labelledby="sh-place-title" onClick={(e) => e.stopPropagation()}>
+        <span className="sh-sheet-grip" aria-hidden />
         <h2 id="sh-place-title" className="sh-h2">{mode === 'home' ? 'איפה הבית?' : 'איפה להשוות?'}</h2>
         {mode === 'here' && place && (
           <button type="button" className="sh-btn sh-place-mine" onClick={() => { onMyLocation(); onClose(); }}>

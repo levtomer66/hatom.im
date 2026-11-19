@@ -6,10 +6,10 @@
 // item here leaves this shop's list alone. The list's nutrition summary
 // (when turned on in ⚙) lives here too, to keep the page itself minimal.
 import { useEffect, useRef, type ReactNode } from 'react';
-import { FaMinus, FaPlus, FaTimes, FaTrash } from 'react-icons/fa';
+import { FaMinus, FaPlus, FaTrash } from 'react-icons/fa';
 import { normalizeQty, type MyItem } from '@/lib/shopping/home';
 import type { HomeMeta } from './home-client';
-import { Thumb } from './ui';
+import { Thumb, useSwipeToClose } from './ui';
 
 const step = (w: boolean) => (w ? 0.5 : 1);
 
@@ -23,8 +23,10 @@ export default function MyItemsSheet({ items, meta, onChange, onOpenItem, onClos
   /** Shown above the items (the list's nutrition summary). */
   children?: ReactNode;
 }) {
-  const closeRef = useRef<HTMLButtonElement>(null);
-  useEffect(() => closeRef.current?.focus(), []);
+  // No ✕: dragging the sheet down (useSwipeToClose), tapping outside it, or Escape closes it.
+  const sheetRef = useRef<HTMLDivElement>(null);
+  useEffect(() => sheetRef.current?.focus(), []);
+  useSwipeToClose(sheetRef, onClose);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
     document.addEventListener('keydown', onKey);
@@ -37,8 +39,8 @@ export default function MyItemsSheet({ items, meta, onChange, onOpenItem, onClos
 
   return (
     <div className="sh-sheet-backdrop" onClick={onClose}>
-      <div className="sh-sheet sh-myitems" role="dialog" aria-modal="true" aria-labelledby="sh-myitems-title" onClick={(e) => e.stopPropagation()}>
-        <button ref={closeRef} type="button" className="sh-icon-btn sh-sheet-close" onClick={onClose} aria-label="סגירה"><FaTimes /></button>
+      <div ref={sheetRef} tabIndex={-1} className="sh-sheet sh-myitems" role="dialog" aria-modal="true" aria-labelledby="sh-myitems-title" onClick={(e) => e.stopPropagation()}>
+        <span className="sh-sheet-grip" aria-hidden />
         <h2 id="sh-myitems-title" className="sh-h2">המוצרים שלי <small>{items.length}</small></h2>
         {children}
         {!items.length && <p className="sh-empty">עוד אין מוצרים. חפשו מוצר או סרקו ברקוד ולחצו ״+ למוצרים שלי״.</p>}

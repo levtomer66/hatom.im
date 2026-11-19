@@ -5,9 +5,10 @@
 // pending invites, inviting by email, leaving, and the home spot (where "near"
 // is when there's no live location: docs/superpowers/specs/2026-11-18-shopping-no-cities-design.md).
 import { useEffect, useRef, useState } from 'react';
-import { FaHome, FaTimes, FaUserPlus } from 'react-icons/fa';
+import { FaHome, FaUserPlus } from 'react-icons/fa';
 import type { HouseholdResponse } from '@/lib/shopping/api-types';
 import { SHOPPING_API_PATH } from '@/lib/shopping/config';
+import { useSwipeToClose } from './ui';
 import type { Centre } from '@/lib/shopping/near';
 
 /** POST /household; throws the server's message (Hebrew where it has one). */
@@ -68,8 +69,10 @@ export function HouseholdSheet({ onClose, onChanged, beforeLeave, homeSpot, onHo
   const [error, setError] = useState<string | null>(null);
   const [email, setEmail] = useState('');
   const [busy, setBusy] = useState(false);
-  const closeRef = useRef<HTMLButtonElement>(null);
-  useEffect(() => closeRef.current?.focus(), []);
+  // No ✕: dragging the sheet down (useSwipeToClose), tapping outside it, or Escape closes it.
+  const sheetRef = useRef<HTMLDivElement>(null);
+  useEffect(() => sheetRef.current?.focus(), []);
+  useSwipeToClose(sheetRef, onClose);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
     document.addEventListener('keydown', onKey);
@@ -99,8 +102,8 @@ export function HouseholdSheet({ onClose, onChanged, beforeLeave, homeSpot, onHo
 
   return (
     <div className="sh-sheet-backdrop" onClick={onClose}>
-      <div className="sh-sheet sh-household" role="dialog" aria-modal="true" aria-labelledby="sh-household-title" onClick={(e) => e.stopPropagation()}>
-        <button ref={closeRef} type="button" className="sh-icon-btn sh-sheet-close" onClick={onClose} aria-label="סגירה"><FaTimes /></button>
+      <div ref={sheetRef} tabIndex={-1} className="sh-sheet sh-household" role="dialog" aria-modal="true" aria-labelledby="sh-household-title" onClick={(e) => e.stopPropagation()}>
+        <span className="sh-sheet-grip" aria-hidden />
         <h2 id="sh-household-title" className="sh-h2">משק הבית</h2>
         {!h && !error && <div className="sh-skeleton" aria-label="טוען" />}
         {h && (

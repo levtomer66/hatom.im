@@ -39,7 +39,7 @@ import type { ShoppingSettings } from '@/lib/shopping/api-types';
 import type { CompareResponse, FarResponse, HouseholdResponse, HereStore, StoreCardData, StoresResponse, ShoppingPlan, ItemPrice, ItemResponse, ManualPriceResponse, PriceSource, PromoDetail, SearchHit, StoreInfo } from '@/lib/shopping/api-types';
 import type { LineResult, Offer, PromoRef, StoreBasket } from '@/lib/shopping/pricing';
 import { dealNudge, groupByDepartment, progress, withPending, type PlanKind, type Trip, type TripCreate, type TripItem } from '@/lib/shopping/trips';
-import { cleanAddress, dayMonth, FavStar, ils, MultiStar, multiNote, photoBroken, qtyLabel, SaleLabel, storeName, Thumb } from './ui';
+import { cleanAddress, dayMonth, FavStar, ils, MultiStar, multiNote, photoBroken, qtyLabel, SaleLabel, storeName, Thumb, useSwipeToClose } from './ui';
 import Here from './Here';
 import MyItemsSheet from './MyItems';
 import { HouseholdSheet, householdAction, InviteCard, loadHousehold } from './Household';
@@ -1293,8 +1293,10 @@ function FarSheet({ lines, clubs, coupons, favs, onFav, onClose, live }: {
   const [open, setOpen] = useState<number | null>(null);
   const [q, setQ] = useState('');
   const [found, setFound] = useState<HereStore[] | null>(null);
-  const closeRef = useRef<HTMLButtonElement>(null);
-  useEffect(() => closeRef.current?.focus(), []);
+  // No ✕: dragging the sheet down (useSwipeToClose), tapping outside it, or Escape closes it.
+  const sheetRef = useRef<HTMLDivElement>(null);
+  useEffect(() => sheetRef.current?.focus(), []);
+  useSwipeToClose(sheetRef, onClose);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
     document.addEventListener('keydown', onKey);
@@ -1331,8 +1333,8 @@ function FarSheet({ lines, clubs, coupons, favs, onFav, onClose, live }: {
   const whereOf = (s: HereStore) => (s.kind === 'online' ? 'אונליין' : live && s.loc ? distanceLabel(distanceM(live, s.loc)) : '');
   return (
     <div className="sh-sheet-backdrop" onClick={onClose}>
-      <div className="sh-sheet sh-far" role="dialog" aria-modal="true" aria-labelledby="sh-far-title" onClick={(e) => e.stopPropagation()}>
-        <button ref={closeRef} type="button" className="sh-icon-btn sh-sheet-close" onClick={onClose} aria-label="סגירה"><FaTimes /></button>
+      <div ref={sheetRef} tabIndex={-1} className="sh-sheet sh-far" role="dialog" aria-modal="true" aria-labelledby="sh-far-title" onClick={(e) => e.stopPropagation()}>
+        <span className="sh-sheet-grip" aria-hidden />
         <h2 id="sh-far-title" className="sh-h2">כמה יעלה לי ב…</h2>
         {error && <p className="sh-error">לא הצלחנו לטעון. <button type="button" className="sh-link" onClick={() => setReload((n) => n + 1)}>לנסות שוב</button></p>}
         {none && <p className="sh-empty">עוד אין חנויות מועדפות. חפשו חנות וסמנו ☆.</p>}
@@ -1514,6 +1516,9 @@ function ProductSheet({ itemKey, scanned, near, saved, onSave, onClose, inline }
   /** The photo link that failed to load (its credit hides with it). */
   const [photoFailed, setPhotoFailed] = useState<string | null>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
+  // As a sheet (not inline), it closes by being dragged down.
+  const sheetRef = useRef<HTMLDivElement>(null);
+  useSwipeToClose(sheetRef, onClose);
 
   useEffect(() => {
     const ctl = new AbortController();
@@ -1533,7 +1538,7 @@ function ProductSheet({ itemKey, scanned, near, saved, onSave, onClose, inline }
 
   const panelRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    if (!inline) closeRef.current?.focus();
+    if (!inline) sheetRef.current?.focus();
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
     };
@@ -1555,7 +1560,10 @@ function ProductSheet({ itemKey, scanned, near, saved, onSave, onClose, inline }
   const isSaved = !!it && saved.has(it.key);
   const body = (
       <>
-        <button ref={closeRef} type="button" className="sh-icon-btn sh-sheet-close" onClick={onClose} aria-label="סגירה"><FaTimes /></button>
+        {/* Inline (in the search results) the ✕ folds it; as a sheet it's dragged down instead. */}
+        {inline ? (
+          <button ref={closeRef} type="button" className="sh-icon-btn sh-sheet-close" onClick={onClose} aria-label="סגירה"><FaTimes /></button>
+        ) : <span className="sh-sheet-grip" aria-hidden />}
         {state === 'loading' && <div className="sh-skeleton" aria-label="טוען" />}
         {state === 'missing' && (
           <div className="sh-sheet-empty">
@@ -1609,7 +1617,7 @@ function ProductSheet({ itemKey, scanned, near, saved, onSave, onClose, inline }
   }
   return (
     <div className="sh-sheet-backdrop" onClick={onClose}>
-      <div className="sh-sheet" role="dialog" aria-modal="true" aria-labelledby="sh-sheet-title" onClick={(e) => e.stopPropagation()}>
+      <div ref={sheetRef} tabIndex={-1} className="sh-sheet" role="dialog" aria-modal="true" aria-labelledby="sh-sheet-title" onClick={(e) => e.stopPropagation()}>
         {body}
       </div>
     </div>
