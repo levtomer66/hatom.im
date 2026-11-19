@@ -6,13 +6,13 @@
 // department, or all. The search at the top adds a new product to My items and
 // ticks it. The page owns the list and saves it (debounced, like its own edits).
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { FaMinus, FaPlus, FaSearch, FaTimes } from 'react-icons/fa';
+import { FaMinus, FaPlus, FaSearch } from 'react-icons/fa';
 import { DEPARTMENTS } from '@/lib/shopping/departments';
 import { addToList, normalizeQty, type ListLine, type MyItem } from '@/lib/shopping/home';
 import { SHOPPING_API_PATH } from '@/lib/shopping/config';
 import type { SearchHit } from '@/lib/shopping/api-types';
 import type { HomeMeta } from './home-client';
-import { Thumb } from './ui';
+import { Thumb, useSwipeToClose } from './ui';
 
 const step = (w: boolean) => (w ? 0.5 : 1);
 const OTHER = { id: 'other', name: 'אחר' };
@@ -36,8 +36,10 @@ export default function Missing({ items, list, meta, near, onSaveItem, onListCha
   const [error, setError] = useState(false);
   const [query, setQuery] = useState('');
   const [hits, setHits] = useState<SearchHit[] | null>(null);
-  const closeRef = useRef<HTMLButtonElement>(null);
-  useEffect(() => closeRef.current?.focus(), []);
+  // No ✕: the sheet closes by dragging it down (useSwipeToClose), tapping outside it, or Escape.
+  const sheetRef = useRef<HTMLDivElement>(null);
+  useEffect(() => sheetRef.current?.focus(), []);
+  useSwipeToClose(sheetRef, onClose);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
     document.addEventListener('keydown', onKey);
@@ -115,8 +117,8 @@ export default function Missing({ items, list, meta, near, onSaveItem, onListCha
 
   return (
     <div className="sh-sheet-backdrop" onClick={onClose}>
-      <div className="sh-sheet sh-missing" role="dialog" aria-modal="true" aria-labelledby="sh-missing-title" onClick={(e) => e.stopPropagation()}>
-        <button ref={closeRef} type="button" className="sh-icon-btn sh-sheet-close" onClick={onClose} aria-label="סגירה"><FaTimes /></button>
+      <div ref={sheetRef} tabIndex={-1} className="sh-sheet sh-missing" role="dialog" aria-modal="true" aria-labelledby="sh-missing-title" onClick={(e) => e.stopPropagation()}>
+        <span className="sh-sheet-grip" aria-hidden />
         <h2 id="sh-missing-title" className="sh-h2">מה חסר?</h2>
         <section className="sh-search">
           <label className="sh-search-box">

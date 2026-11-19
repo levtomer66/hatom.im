@@ -2,9 +2,9 @@
 
 // Small pieces shared by the /shopping page and its "אני בסופר" screen
 // (Here.tsx): money and date formats, the product photo, the sale mark,
-// the favorite-store star.
+// the favorite-store star, and dragging a bottom sheet down to close it.
 
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { FaRegStar, FaShoppingBasket, FaStar } from 'react-icons/fa';
 import type { StoreInfo } from '@/lib/shopping/api-types';
 
@@ -94,4 +94,74 @@ export function FavStar({ on, name, onToggle }: { on: boolean; name: string; onT
       {on ? <FaStar aria-hidden /> : <FaRegStar aria-hidden />}
     </button>
   );
+}
+
+/** Pulled this far (px), or flicked faster than SWIPE_SPEED (px/ms), a sheet closes; a shorter pull springs back. */
+const SWIPE_CLOSE_PX = 90;
+const SWIPE_SPEED = 0.6;
+const SWIPE_MS = 200;
+
+/**
+ * Drag a bottom sheet down to close it: from the top of its scroll (so a pull
+ * inside a scrolled list still scrolls), the sheet follows the finger and the
+ * backdrop fades; let go past SWIPE_CLOSE_PX or with a flick and it slides out,
+ * then `onClose`. `sheet` is the scrolling sheet element, inside its backdrop.
+ */
+export function useSwipeToClose(sheet: React.RefObject<HTMLElement | null>, onClose: () => void) {
+  // The latest onClose, so a page re-render mid-drag doesn't rebind the listeners and drop the gesture.
+  const close = useRef(onClose);
+  close.current = onClose;
+  useEffect(() => {
+    const el = sheet.current;
+    if (!el) return;
+    const backdrop = el.parentElement;
+    const still = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    let startY = 0, startT = 0, dy = 0, dragging = false, tracking = false;
+    const set = (y: number, animate: boolean) => {
+      el.style.transition = animate ? `transform ${SWIPE_MS}ms ease-out` : 'none';
+      el.style.transform = y ? `translateY(${y}px)` : '';
+      if (backdrop) {
+        backdrop.style.transition = animate ? `opacity ${SWIPE_MS}ms ease-out` : 'none';
+        backdrop.style.opacity = y ? String(Math.max(0.2, 1 - y / Math.max(el.offsetHeight, 1))) : '';
+      }
+    };
+    const onStart = (e: TouchEvent) => {
+      tracking = el.scrollTop <= 0 && e.touches.length === 1;
+      dragging = false;
+      dy = 0;
+      startY = e.touches[0]?.clientY ?? 0;
+      startT = e.timeStamp;
+    };
+    const onMove = (e: TouchEvent) => {
+      if (!tracking) return;
+      const d = (e.touches[0]?.clientY ?? startY) - startY;
+      if (!dragging && (d <= 0 || el.scrollTop > 0)) { tracking = d <= 0 ? false : tracking; return; }
+      dragging = true;
+      dy = Math.max(0, d);
+      e.preventDefault(); // the sheet moves instead of the page bouncing
+      set(dy, false);
+    };
+    const onEnd = (e: TouchEvent) => {
+      if (!dragging) return;
+      dragging = tracking = false;
+      const speed = dy / Math.max(e.timeStamp - startT, 1);
+      if (dy > SWIPE_CLOSE_PX || speed > SWIPE_SPEED) {
+        if (still) return close.current();
+        set(el.offsetHeight, true);
+        window.setTimeout(() => close.current(), SWIPE_MS);
+      } else {
+        set(0, !still);
+      }
+    };
+    el.addEventListener('touchstart', onStart, { passive: true });
+    el.addEventListener('touchmove', onMove, { passive: false });
+    el.addEventListener('touchend', onEnd);
+    el.addEventListener('touchcancel', onEnd);
+    return () => {
+      el.removeEventListener('touchstart', onStart);
+      el.removeEventListener('touchmove', onMove);
+      el.removeEventListener('touchend', onEnd);
+      el.removeEventListener('touchcancel', onEnd);
+    };
+  }, [sheet]);
 }

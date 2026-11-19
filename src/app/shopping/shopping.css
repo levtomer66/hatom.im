@@ -379,7 +379,7 @@ body:has(.sh-page) { background: #ffffff; }
 .sh-list-head .sh-h2 { flex: 1; margin: 0; }
 /* A product row's photo and name open the product window. */
 .sh-item-open { display: flex; flex: 1; min-width: 0; align-items: center; gap: 0.75rem; padding: 0; border: none; background: none; color: inherit; font: inherit; text-align: start; cursor: pointer; }
-.sh-missing .sh-h2 { margin: 0 0 0.75rem; padding-inline-end: 2.5rem; }
+.sh-missing .sh-h2 { margin: 0 0 0.75rem; }
 .sh-missing .sh-search { margin-bottom: 0.5rem; }
 .sh-missing-row.is-on .sh-item-name { font-weight: 600; }
 /* "בחר הכול": for all of My items (above the departments) and per department. */
@@ -814,6 +814,9 @@ body:has(.sh-page) { background: #ffffff; }
   animation: sh-rise 0.2s ease-out;
 }
 @keyframes sh-rise { from { transform: translateY(24px); opacity: 0; } }
+/* The handle on a sheet you drag down to close (מה חסר?). */
+.sh-sheet-grip { display: block; width: 40px; height: 5px; margin: -0.5rem auto 0.75rem; border-radius: 999px; background: var(--sh-line); }
+.sh-sheet:focus { outline: none; }
 @media (min-width: 700px) {
   .sh-sheet-backdrop { align-items: center; }
   .sh-sheet { border-radius: var(--sh-r-group); max-height: 80vh; }
