@@ -436,12 +436,18 @@ export default function ShoppingPage() {
   };
   /** The "מה חסר?" search: save now and wait, so the pick has a My item behind it. */
   const saveItemNow = async (h: { key: string; name: string; w: boolean }) => {
-    if (!home || saved.has(h.key)) return;
-    const items = [...home.items, { key: h.key, name: h.name, w: h.w, qty: 1, addedBy: '', addedAt: '' }];
+    const cur = homeRef.current;
+    if (!cur || cur.items.some((i) => i.key === h.key)) return;
+    const items = [...cur.items, { key: h.key, name: h.name, w: h.w, qty: 1, addedBy: '', addedAt: '' }];
+    // Into homeRef at once, like every edit: "מה חסר?" puts the product on the list right after this,
+    // and a list edit built from a stale homeRef dropped the new My item (then the next save deleted it).
+    homeRef.current = { ...cur, items };
+    setHome(homeRef.current);
     clearTimeout(timers.current.items);
     delete pendingSave.current.items;
-    const res = await saveHome({ items });
-    setHome((hh) => (hh ? { ...hh, items: res.items, meta: { ...hh.meta, ...res.meta } } : res));
+    const res = await saveHome({ items, home: cur.id });
+    homeRef.current = { ...homeRef.current, items: res.items, meta: { ...homeRef.current.meta, ...res.meta } };
+    setHome(homeRef.current);
   };
   /** In-store "+ לרשימה": straight onto the list (one more if it's there), and into My items if new. */
   const addToList = (h: { key: string; name: string; w: boolean }) => {
