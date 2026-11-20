@@ -372,11 +372,13 @@ body:has(.sh-page) { background: #ffffff; }
 
 .sh-myitems .sh-h2 { margin: 0 0 0.75rem; }
 .sh-myitems-remove { color: var(--sh-muted); }
-.sh-list-head { display: flex; align-items: center; gap: 0.5rem; padding: 0.75rem 0 0.5rem; }
+.sh-list-head { margin: 0; padding: 0.25rem 0; }
 .sh-list-head .sh-btn { display: inline-flex; align-items: center; gap: 0.5rem; }
 /* The list card's title folds and unfolds it. */
-.sh-list-toggle { display: inline-flex; align-items: center; gap: 0.5rem; min-height: var(--sh-tap); padding: 0; border: none; background: none; color: inherit; font: inherit; cursor: pointer; }
-.sh-list-head .sh-h2 { flex: 1; margin: 0; }
+/* Like "כל החנויות והשוואה מפורטת": the whole row toggles, the arrow at its far (left) end. */
+.sh-list-toggle { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; width: 100%; min-height: var(--sh-tap); padding: 0; border: none; background: none; color: inherit; font: inherit; text-align: start; cursor: pointer; }
+.sh-list-sub { font-size: 0.875rem; font-weight: 500; color: var(--sh-muted); }
+.sh-list-clear { display: flex; align-items: center; justify-content: center; gap: 0.5rem; width: 100%; margin-top: 0.25rem; }
 /* A product row's photo and name open the product window. */
 .sh-item-open { display: flex; flex: 1; min-width: 0; align-items: center; gap: 0.75rem; padding: 0; border: none; background: none; color: inherit; font: inherit; text-align: start; cursor: pointer; }
 .sh-missing .sh-h2 { margin: 0 0 0.75rem; }
@@ -402,6 +404,10 @@ body:has(.sh-page) { background: #ffffff; }
   border-top: 1px solid var(--sh-line);
 }
 .sh-item-name { flex: 1; min-width: 0; line-height: 1.4; }
+/* A row swiped right to left to remove it (SwipeRow): the row slides over a red layer. */
+.sh-swipe { position: relative; overflow: hidden; list-style: none; }
+.sh-swipe-under { position: absolute; inset: 0; display: flex; align-items: center; justify-content: flex-start; padding-inline-start: 1rem; background: var(--sh-miss); color: #fff; font-size: 0.875rem; font-weight: 600; }
+.sh-swipe-row { position: relative; background: var(--sh-bg); touch-action: pan-y; }
 .sh-stepper {
   flex: none;
   display: inline-flex;

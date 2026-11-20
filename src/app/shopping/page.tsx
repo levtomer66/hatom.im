@@ -187,10 +187,15 @@ export default function ShoppingPage() {
   const [searching, setSearching] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
-  const placeholder = useTypedPlaceholder(SEARCH_PHRASES, !query);
+  /** The search box has focus: the placeholder stops typing (a moving text beside the cursor made the first tap look wrong). */
+  const [searchFocus, setSearchFocus] = useState(false);
+  const placeholder = useTypedPlaceholder(SEARCH_PHRASES, !query && !searchFocus);
+  const searchBoxRef = useRef<HTMLElement>(null);
+  const productRef = useRef<{ inSearch?: boolean } | null>(null);
   /** The product window: an item key or a scanned barcode. */
   /** The open product window. `inSearch`: opened from a search result, so on a phone it unfolds there instead of as a sheet. */
   const [product, setProduct] = useState<{ key: string; scanned: boolean; inSearch?: boolean } | null>(null);
+  productRef.current = product;
   const openProduct = useCallback((key: string) => setProduct({ key, scanned: false }), []);
   const [scanning, setScanning] = useState(false);
   /** The list's open trip, and whether its in-store screen is showing. */
@@ -635,11 +640,20 @@ export default function ShoppingPage() {
                 <span className="sh-resume-go">להמשיך</span>
               </button>
             )}
-            <section className="sh-search">
+            <section className="sh-search" ref={searchBoxRef}>
               <label className="sh-search-box">
                 <FaSearch aria-hidden />
                 <input ref={searchRef} type="search" value={query}
-                  onChange={(e) => { setQuery(e.target.value); setHitsOpen(true); }} onFocus={() => setHitsOpen(true)}
+                  onChange={(e) => { setQuery(e.target.value); setHitsOpen(true); }} onFocus={() => { setSearchFocus(true); setHitsOpen(true); }}
+                  onBlur={() => {
+                    setSearchFocus(false);
+                    // Leaving the search clears it, so the placeholder shows again — unless focus stayed in the search
+                    // (its buttons, a result's +) or a result's product view is open there (a tap on a result).
+                    window.setTimeout(() => {
+                      if (searchBoxRef.current?.contains(document.activeElement) || productRef.current?.inSearch) return;
+                      clearSearch();
+                    }, 250);
+                  }}
                   onKeyDown={(e) => {
                     if (e.key === 'Escape') clearSearch();
                     if (e.key === 'Enter' && hits?.length) saveItem(hits[0]);
@@ -717,15 +731,12 @@ export default function ShoppingPage() {
             )}
             {itemCount > 0 && (
             <section className="sh-card" id="sh-list-body" aria-label="רשימת הקניות">
-              <div className="sh-list-head">
-                <h2 className="sh-h2">
-                  <button type="button" className="sh-list-toggle" onClick={() => setListOpen(!listOpen)} aria-expanded={listOpen} aria-controls="sh-list-items">
-                    רשימת הקניות <small>· {itemCount}</small>
-                    <FaChevronDown aria-hidden className={`sh-caret ${listOpen ? 'is-open' : ''}`} />
-                  </button>
-                </h2>
-                {listOpen && <button type="button" className="sh-btn sh-btn--ghost sh-btn--danger" onClick={clearList}><FaTrash aria-hidden /> נקה רשימה</button>}
-              </div>
+              <h2 className="sh-h2 sh-list-head">
+                <button type="button" className="sh-list-toggle" onClick={() => setListOpen(!listOpen)} aria-expanded={listOpen} aria-controls="sh-list-items">
+                  <span>רשימת קניות <small className="sh-list-sub">- כל מה שחסר בבית כרגע</small></span>
+                  <FaChevronDown aria-hidden className={`sh-caret ${listOpen ? 'is-open' : ''}`} />
+                </button>
+              </h2>
               {listOpen && (<div id="sh-list-items">
               <ul className="sh-items">
                 {list.items.map((i) => {
@@ -752,10 +763,11 @@ export default function ShoppingPage() {
                 <label className="sh-toggle"><input type="checkbox" checked={clubs} onChange={(e) => setClubs(e.target.checked)} /> לחשב מבצעי מועדון</label>
                 <label className="sh-toggle"><input type="checkbox" checked={coupons} onChange={(e) => setCoupons(e.target.checked)} /> לחשב קופונים</label>
               </div>
-              </div>)}
               <button type="button" className="sh-btn sh-home-btn sh-far-open" onClick={() => setFarOpen(true)}>
-                <FaStore aria-hidden /> כמה יעלה לי ב…
+                <FaStore aria-hidden /> כמה תעלה הרשימה הזאת ב…
               </button>
+              <button type="button" className="sh-btn sh-btn--ghost sh-btn--danger sh-list-clear" onClick={clearList}><FaTrash aria-hidden /> נקה רשימה</button>
+              </div>)}
             </section>
             )}
 
@@ -838,7 +850,13 @@ export default function ShoppingPage() {
         )}
         {missingOpen && home && (
           <Missing items={home.items} list={home.list} meta={home.meta} near={near.query} onSaveItem={saveItemNow}
-            onListChange={setListLines} onOpenItem={openProduct} onClose={() => setMissingOpen(false)} />
+            onListChange={setListLines} onOpenItem={openProduct} onClose={() => setMissingOpen(false)}
+            onRemoveItem={(key) => {
+              const it = homeRef.current?.items.find((i) => i.key === key);
+              if (!it || !homeRef.current) return;
+              setMyItems(homeRef.current.items.filter((i) => i.key !== key));
+              setToast(`הוסר מהמוצרים שלי: ${it.name}`);
+            }} />
         )}
         {/* After the sheets: a product opened from one of them (My items, מה חסר?, כמה יעלה לי ב…) shows on top. */}
         {product && (here || !(narrow && product.inSearch && hits?.some((h) => h.key === product.key) && !product.scanned)) && (
@@ -1341,7 +1359,7 @@ function FarSheet({ lines, clubs, coupons, favs, onFav, onClose, live }: {
     <div className="sh-sheet-backdrop" onClick={onClose}>
       <div ref={sheetRef} tabIndex={-1} className="sh-sheet sh-far" role="dialog" aria-modal="true" aria-labelledby="sh-far-title" onClick={(e) => e.stopPropagation()}>
         <span className="sh-sheet-grip" aria-hidden />
-        <h2 id="sh-far-title" className="sh-h2">כמה יעלה לי ב…</h2>
+        <h2 id="sh-far-title" className="sh-h2">כמה תעלה הרשימה הזאת ב…</h2>
         {error && <p className="sh-error">לא הצלחנו לטעון. <button type="button" className="sh-link" onClick={() => setReload((n) => n + 1)}>לנסות שוב</button></p>}
         {none && <p className="sh-empty">עוד אין חנויות מועדפות. חפשו חנות וסמנו ☆.</p>}
         {!none && !data && !error && <div className="sh-skeleton" aria-label="טוען" />}

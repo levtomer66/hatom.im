@@ -15,7 +15,9 @@ export function useTypedPlaceholder(phrases: string[], active: boolean): string 
   const [text, setText] = useState(phrases[0] ?? '');
 
   useEffect(() => {
-    if (!active || phrases.length === 0) return;
+    if (phrases.length === 0) return;
+    // Paused (the box has focus, or text): the plain first phrase, not a half-typed one beside the cursor.
+    if (!active) return setText(phrases[0]);
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return setText(phrases[0]);
     let phrase = 0;
     let len = phrases[0].length; // start by holding the first phrase, fully typed

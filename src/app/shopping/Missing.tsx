@@ -12,12 +12,12 @@ import { addToList, normalizeQty, type ListLine, type MyItem } from '@/lib/shopp
 import { SHOPPING_API_PATH } from '@/lib/shopping/config';
 import type { SearchHit } from '@/lib/shopping/api-types';
 import type { HomeMeta } from './home-client';
-import { Thumb, useSwipeToClose } from './ui';
+import { SwipeRow, Thumb, useSwipeToClose } from './ui';
 
 const step = (w: boolean) => (w ? 0.5 : 1);
 const OTHER = { id: 'other', name: 'אחר' };
 
-export default function Missing({ items, list, meta, near, onSaveItem, onListChange, onOpenItem, onClose }: {
+export default function Missing({ items, list, meta, near, onSaveItem, onListChange, onOpenItem, onRemoveItem, onClose }: {
   items: MyItem[];
   list: ListLine[];
   meta: HomeMeta;
@@ -29,6 +29,8 @@ export default function Missing({ items, list, meta, near, onSaveItem, onListCha
   onListChange: (fn: (lines: ListLine[]) => ListLine[]) => void;
   /** Opens the product window; the photo does it (the name ticks the row). */
   onOpenItem: (key: string) => void;
+  /** Swiping a row from right to left takes the product out of My items. */
+  onRemoveItem: (key: string) => void;
   onClose: () => void;
 }) {
   /** On the list → its quantity there. */
@@ -161,7 +163,7 @@ export default function Missing({ items, list, meta, near, onSaveItem, onListCha
                 const on = onList.has(i.key);
                 const qty = onList.get(i.key) ?? i.qty;
                 return (
-                  <li key={i.key} className={`sh-item sh-missing-row ${on ? 'is-on' : ''}`}>
+                  <SwipeRow key={i.key} className={`sh-item sh-missing-row ${on ? 'is-on' : ''}`} label="הסרה מהמוצרים שלי" onRemove={() => onRemoveItem(i.key)}>
                     <label className="sh-missing-box">
                       <input id={`sh-miss-${i.key}`} type="checkbox" checked={on} onChange={() => toggle(i)} />
                     </label>
@@ -177,7 +179,7 @@ export default function Missing({ items, list, meta, near, onSaveItem, onListCha
                       <button type="button" onClick={() => stepQty(i, -1)} disabled={!on}
                         aria-label={normalizeQty(qty - step(i.w), i.w) === null ? `הסרה מהרשימה: ${i.name}` : `פחות ${i.name}`}><FaMinus /></button>
                     </span>
-                  </li>
+                  </SwipeRow>
                 );
               })}
             </ul>

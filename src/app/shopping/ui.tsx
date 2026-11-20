@@ -4,7 +4,7 @@
 // (Here.tsx): money and date formats, the product photo, the sale mark,
 // the favorite-store star, and dragging a bottom sheet down to close it.
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, type ReactNode } from 'react';
 import { FaRegStar, FaShoppingBasket, FaStar } from 'react-icons/fa';
 import type { StoreInfo } from '@/lib/shopping/api-types';
 
@@ -116,7 +116,7 @@ export function useSwipeToClose(sheet: React.RefObject<HTMLElement | null>, onCl
     if (!el) return;
     const backdrop = el.parentElement;
     const still = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    let startY = 0, startT = 0, dy = 0, dragging = false, tracking = false;
+    let startX = 0, startY = 0, startT = 0, dy = 0, dragging = false, tracking = false;
     const set = (y: number, animate: boolean) => {
       el.style.transition = animate ? `transform ${SWIPE_MS}ms ease-out` : 'none';
       el.style.transform = y ? `translateY(${y}px)` : '';
@@ -129,12 +129,16 @@ export function useSwipeToClose(sheet: React.RefObject<HTMLElement | null>, onCl
       tracking = el.scrollTop <= 0 && e.touches.length === 1;
       dragging = false;
       dy = 0;
+      startX = e.touches[0]?.clientX ?? 0;
       startY = e.touches[0]?.clientY ?? 0;
       startT = e.timeStamp;
     };
     const onMove = (e: TouchEvent) => {
       if (!tracking) return;
       const d = (e.touches[0]?.clientY ?? startY) - startY;
+      const dx = (e.touches[0]?.clientX ?? startX) - startX;
+      // A sideways swipe is a row's (swipe to remove), not the sheet's.
+      if (!dragging && Math.abs(dx) > Math.abs(d)) { tracking = false; return; }
       if (!dragging && (d <= 0 || el.scrollTop > 0)) { tracking = d <= 0 ? false : tracking; return; }
       dragging = true;
       dy = Math.max(0, d);
@@ -164,4 +168,64 @@ export function useSwipeToClose(sheet: React.RefObject<HTMLElement | null>, onCl
       el.removeEventListener('touchcancel', onEnd);
     };
   }, [sheet]);
+}
+
+/** A row swiped this share of its width toward the left is removed on release; less springs back. */
+const SWIPE_REMOVE_SHARE = 0.35;
+
+/**
+ * A list row you swipe from right to left to remove, like an iPhone list: the
+ * row follows the finger over a red "remove" layer, and let go past
+ * SWIPE_REMOVE_SHARE of its width it slides out and `onRemove` runs; a
+ * shorter swipe springs back. Up-and-down drags still scroll (touch-action:
+ * pan-y). `className` goes on the row's content (the visible row).
+ */
+export function SwipeRow({ className, label, onRemove, children }: {
+  className: string;
+  /** Shown on the red layer, e.g. "הסרה מהמוצרים שלי". */
+  label: string;
+  onRemove: () => void;
+  children: ReactNode;
+}) {
+  const row = useRef<HTMLDivElement>(null);
+  const g = useRef({ x: 0, y: 0, dx: 0, axis: null as 'x' | 'y' | null });
+  const move = (x: number, animate: boolean) => {
+    const el = row.current;
+    if (!el) return;
+    el.style.transition = animate ? 'transform 0.2s ease-out' : 'none';
+    el.style.transform = x ? `translateX(${x}px)` : '';
+  };
+  return (
+    <li className="sh-swipe">
+      <div className="sh-swipe-under" aria-hidden><span>{label}</span></div>
+      <div
+        ref={row}
+        className={`sh-swipe-row ${className}`}
+        onTouchStart={(e) => { g.current = { x: e.touches[0].clientX, y: e.touches[0].clientY, dx: 0, axis: null }; }}
+        onTouchMove={(e) => {
+          const s = g.current;
+          const dx = e.touches[0].clientX - s.x;
+          const dy = e.touches[0].clientY - s.y;
+          if (!s.axis && Math.max(Math.abs(dx), Math.abs(dy)) > 8) s.axis = Math.abs(dx) > Math.abs(dy) ? 'x' : 'y';
+          if (s.axis !== 'x') return;
+          s.dx = Math.min(0, dx); // toward the left only
+          move(s.dx, false);
+        }}
+        onTouchEnd={() => {
+          const s = g.current;
+          if (s.axis !== 'x') return;
+          const width = row.current?.offsetWidth ?? 1;
+          if (-s.dx > width * SWIPE_REMOVE_SHARE) {
+            move(-width, true);
+            window.setTimeout(onRemove, 200);
+          } else {
+            move(0, true);
+          }
+          s.axis = null;
+        }}
+      >
+        {children}
+      </div>
+    </li>
+  );
 }
