@@ -1,8 +1,9 @@
 'use client';
 
 // Protein · carbs · fat as three tiles: grams, each one's share of the
-// calories, and for protein its daily goal as a bar when there is one. Used by
-// today's ring card and by the amount step (for the chosen amount).
+// calories, and with `goals` (the day card) each one's daily grams as a bar —
+// carbs and fat past theirs turn red; protein past its goal is fine. The amount
+// step shows them for the chosen amount, without goals.
 
 import React from 'react';
 import { macroShare, type Totals } from '@/lib/calories/calories';
@@ -15,19 +16,20 @@ const MACROS = [
 
 const g = (v: number) => v.toLocaleString('he-IL', { maximumFractionDigits: v >= 10 ? 0 : 1 });
 
-export default function Macros({ t, proteinGoal }: { t: Totals; proteinGoal?: number | null }) {
+export default function Macros({ t, goals }: { t: Totals; goals?: Record<'p' | 'c' | 'f', number | null> }) {
   const share = macroShare(t);
   return (
     <ul className="cal-macro-tiles" aria-label="חלבון, פחמימות ושומן">
       {MACROS.map(({ k, name }) => {
-        const goal = k === 'p' && proteinGoal ? proteinGoal : null;
+        const goal = goals?.[k] || null;
+        const over = goal !== null && k !== 'p' && t[k] > goal;
         return (
-          <li key={k} className={`cal-macro is-${k}`}>
+          <li key={k} className={`cal-macro is-${k} ${over ? 'is-over' : ''}`}>
             <span className="cal-macro-name">{name}</span>
             <b>{g(t[k])}<small>{goal ? ` / ${goal}` : ''} ג׳</small></b>
             {goal ? (
-              <span className="cal-bar" role="img" aria-label={`${g(t.p)} מתוך ${goal} גרם`}>
-                <span style={{ width: `${Math.min(t.p / goal, 1) * 100}%` }} />
+              <span className="cal-bar" role="img" aria-label={`${name} ${g(t[k])} מתוך ${goal} גרם`}>
+                <span style={{ width: `${Math.min(t[k] / goal, 1) * 100}%` }} />
               </span>
             ) : null}
             <small className="cal-macro-share">{share[k] !== null ? `${share[k]}% מהקלוריות` : '—'}</small>

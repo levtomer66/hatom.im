@@ -307,6 +307,19 @@ export function formSettings(f: GoalFields, rec: { goal: number; proteinGoal: nu
 
 export const leftToday = (goal: number, eaten: number, burned: number) => goal - eaten + burned;
 
+/**
+ * Daily grams for the day card's bars, from the calorie and protein goals
+ * (typed or recommended): fat 25% of the calories, carbs whatever is left after
+ * protein and fat (20% set aside for protein when there is no protein goal).
+ * Rounded to 5 g; carbs never below 0.
+ */
+export function macroGoals(goal: number, proteinGoal: number | null): Record<'p' | 'c' | 'f', number | null> {
+  const r5 = (v: number) => Math.round(v / 5) * 5;
+  const f = r5((goal * 0.25) / 9);
+  const pKcal = proteinGoal !== null ? proteinGoal * 4 : goal * 0.2;
+  return { p: proteinGoal, c: Math.max(0, r5((goal - pKcal - f * 9) / 4)), f };
+}
+
 /** Each macro's share of the calories (4 kcal per g of protein and carbs, 9 of fat), whole percents. */
 export function macroShare(t: Totals): Record<'p' | 'c' | 'f', number | null> {
   const of = (g: number, per: number) => (t.kcal > 0 ? Math.round((g * per * 100) / t.kcal) : null);

@@ -80,7 +80,8 @@
 .cal-macro b { font-size: 1.375rem; font-weight: 700; color: var(--cal-macro); }
 .cal-macro b small { font-size: 0.75rem; font-weight: 400; color: var(--sh-muted); }
 .cal-macro .cal-bar { flex: none; width: 80%; height: 5px; margin: 0.125rem 0; }
-.cal-macro .cal-bar span { background: var(--cal-p); }
+.cal-macro .cal-bar span { background: var(--cal-macro); }
+.cal-macro.is-over .cal-bar span { background: var(--sh-miss); }
 .cal-macro-share { font-size: 0.6875rem; color: var(--sh-muted); }
 .cal-bar { flex: 1; height: 8px; overflow: hidden; border-radius: 999px; background: var(--sh-line); }
 .cal-bar span { display: block; height: 100%; border-radius: inherit; background: var(--sh-accent); }

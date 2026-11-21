@@ -246,3 +246,13 @@ test('macroShare: each macro\'s share of the calories, whole percents; nulls wit
   assert.deepEqual(macroShare({ kcal: 1000, p: 50, c: 100, f: 40 }), { p: 20, c: 40, f: 36 });
   assert.deepEqual(macroShare({ kcal: 0, p: 0, c: 0, f: 0 }), { p: null, c: null, f: null });
 });
+
+test('macroGoals: fat 25% of the goal, carbs the rest after protein, rounded to 5 g', () => {
+  const { macroGoals } = calories;
+  // 2400 kcal, 135 g protein: fat 2400·0.25/9 = 66.7 → 65; carbs (2400 − 540 − 585)/4 = 318.75 → 320.
+  assert.deepEqual(macroGoals(2400, 135), { p: 135, c: 320, f: 65 });
+  // No protein goal: 20% of the calories is set aside for protein, and no protein bar.
+  assert.deepEqual(macroGoals(2000, null), { p: null, c: 275, f: 55 });
+  // A protein goal bigger than the calories leaves no carbs, never negative.
+  assert.equal(macroGoals(1200, 400).c, 0);
+});

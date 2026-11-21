@@ -8,7 +8,7 @@
 
 import React, { useState } from 'react';
 import {
-  ACTIVITY, DEFAULT_GOAL, formSettings, kgOk, recommend,
+  ACTIVITY, DEFAULT_GOAL, formSettings, kgOk, macroGoals, recommend,
   type Activity, type Aim, type Profile, type Settings, type Sex,
 } from '@/lib/calories/calories';
 import Sheet from './Sheet';
@@ -56,6 +56,7 @@ export function GoalForm({ settings, kg: kgNow, onSave, cta }: { settings: Setti
   };
   const shownGoal = follow && rec ? String(rec.goal) : goal;
   const shownProtein = follow && rec ? String(rec.proteinGoal) : protein;
+  const split = Number(shownGoal) > 0 ? macroGoals(Number(shownGoal), Number(shownProtein) > 0 ? Number(shownProtein) : null) : null;
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -94,6 +95,7 @@ export function GoalForm({ settings, kg: kgNow, onSave, cta }: { settings: Setti
         <label><span>קלוריות</span><input inputMode="numeric" value={shownGoal} onChange={(e) => { unfollow(); setGoal(e.target.value); }} /></label>
         <label><span>חלבון (ג׳, לא חובה)</span><input inputMode="numeric" value={shownProtein} placeholder="—" onChange={(e) => { unfollow(); setProtein(e.target.value); }} /></label>
       </div>
+      {split ? <p className="cal-muted cal-note">ומזה ביום: פחמימות {split.c} ג׳ · שומן {split.f} ג׳ (שומן רבע מהקלוריות, פחמימות היתרה)</p> : null}
       {error ? <p className="cal-error">{error}</p> : null}
       <button type="submit" className="sh-btn sh-btn--primary cal-wide" disabled={busy}>{busy ? 'שומר…' : cta}</button>
     </form>
