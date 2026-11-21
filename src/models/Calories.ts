@@ -1,8 +1,8 @@
 import { ObjectId, MongoServerError } from 'mongodb';
 import clientPromise from '@/lib/mongodb';
 import {
-  MAX_ENTRIES, MAX_GRAMS, mealPerPortion, pushRecent, rescaleEntry,
-  type Entry, type Meal, type MealDoc, type MealItem, type Recent, type Settings,
+  MAX_ENTRIES, MAX_GRAMS, mealPerPortion, pushRecent, pushWeighIn, rescaleEntry,
+  type Aim, type Entry, type Meal, type MealDoc, type MealItem, type Profile, type Recent, type Settings, type WeighIn,
 } from '@/lib/calories/calories';
 import type { FoodDoc } from '@/lib/calories/moh';
 import type { Nutrition } from '@/lib/shopping/nutrition';
@@ -10,8 +10,13 @@ import type { Nutrition } from '@/lib/shopping/nutrition';
 // The calories diary (docs/superpowers/specs/2026-11-21-calories-design.md § Data).
 // Every function takes the caller's email: nobody reads or writes anyone else's.
 
-interface DayDoc { _id: string; entries: Entry[]; updatedAt: string }
-interface UserDoc { _id: string; goal?: number; proteinGoal?: number | null; recent?: Recent[] }
+interface DayDoc { _id: string; entries: Entry[]; updatedAt: string; burned?: Record<string, number> }
+interface UserDoc {
+  _id: string; goal?: number; proteinGoal?: number | null; recent?: Recent[];
+  profile?: Profile; aim?: Aim; followRec?: boolean; weighIns?: WeighIn[];
+}
+/** The workout app's documents, read only (src/models/Workout.ts). */
+interface WorkoutRead { _id: ObjectId; workoutName?: string; exercises?: { sets?: { reps?: number | null; seconds?: number | null }[] }[] }
 interface MealDocument { _id: ObjectId; owner: string; name: string; portions: number; items: MealItem[]; per: MealDoc['per']; updatedAt: string }
 interface LabelDoc { _id: string; nu: Nutrition; by: string; at: string }
 
@@ -81,16 +86,56 @@ export async function deleteEntry(email: string, date: string, id: string): Prom
 
 // ── the person ──
 
-export async function getUser(email: string): Promise<{ settings: Settings | null; recent: Recent[] }> {
+export async function getUser(email: string): Promise<{ settings: Settings | null; recent: Recent[]; weighIns: WeighIn[] }> {
   const doc = await (await users()).findOne({ _id: email });
-  return {
-    settings: doc?.goal ? { goal: doc.goal, proteinGoal: doc.proteinGoal ?? null } : null,
-    recent: doc?.recent ?? [],
-  };
+  let settings: Settings | null = null;
+  if (doc?.goal) {
+    settings = { goal: doc.goal, proteinGoal: doc.proteinGoal ?? null };
+    if (doc.profile) settings.profile = doc.profile;
+    if (doc.aim) settings.aim = doc.aim;
+    if (doc.followRec !== undefined) settings.followRec = doc.followRec;
+  }
+  return { settings, recent: doc?.recent ?? [], weighIns: doc?.weighIns ?? [] };
 }
 
 export async function setSettings(email: string, s: Settings): Promise<void> {
-  await (await users()).updateOne({ _id: email }, { $set: { goal: s.goal, proteinGoal: s.proteinGoal } }, { upsert: true });
+  const set: Partial<UserDoc> = { goal: s.goal, proteinGoal: s.proteinGoal, followRec: s.followRec === true };
+  if (s.profile) set.profile = s.profile;
+  if (s.aim) set.aim = s.aim;
+  await (await users()).updateOne({ _id: email }, { $set: set }, { upsert: true });
+}
+
+export async function addWeighIn(email: string, w: WeighIn): Promise<WeighIn[]> {
+  const col = await users();
+  const doc = await col.findOne({ _id: email });
+  const weighIns = pushWeighIn(doc?.weighIns ?? [], w);
+  await col.updateOne({ _id: email }, { $set: { weighIns } }, { upsert: true });
+  return weighIns;
+}
+
+// ── workouts (the workout app's, read only) and corrections to their estimate ──
+
+/** The caller's completed workouts on a day (the workout app's `date` is a UTC YYYY-MM-DD). */
+export async function getWorkouts(email: string, date: string): Promise<{ id: string; name: string; sets: { reps?: number | null; seconds?: number | null }[] }[]> {
+  const docs = await (await db()).collection<WorkoutRead>('workouts')
+    .find({ userId: email, isCompleted: true, date: { $regex: `^${date}` } }, { projection: { workoutName: 1, 'exercises.sets.reps': 1, 'exercises.sets.seconds': 1 } })
+    .sort({ createdAt: 1 }).limit(10).toArray();
+  return docs.map((d) => ({ id: d._id.toHexString(), name: d.workoutName || 'אימון', sets: (d.exercises ?? []).flatMap((e) => e.sets ?? []) }));
+}
+
+export async function getBurnedFixes(email: string, date: string): Promise<Record<string, number>> {
+  const doc = await (await days()).findOne({ _id: dayId(email, date) }, { projection: { burned: 1 } });
+  return doc?.burned ?? {};
+}
+
+/** kcal null removes the correction (back to the estimate). workoutId is a 24-hex id. */
+export async function setBurned(email: string, date: string, workoutId: string, kcal: number | null): Promise<void> {
+  const field = `burned.${workoutId}`;
+  await (await days()).updateOne(
+    { _id: dayId(email, date) },
+    kcal === null ? { $unset: { [field]: '' } } : { $set: { [field]: kcal }, $setOnInsert: { entries: [], updatedAt: new Date().toISOString() } },
+    { upsert: kcal !== null },
+  );
 }
 
 export async function addRecent(email: string, r: Recent): Promise<void> {
