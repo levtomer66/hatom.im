@@ -66,7 +66,7 @@ protein goal (g).
 ### Shopping link
 
 A logged product's edit sheet has "🛒 לרשימה" (only with `shopping`): adds one
-unit to the household's list through shopping's existing list route.
+unit to the household's list (and to My items, as search does) through `POST /api/calories/to-list`.
 
 ## Permission, route, config
 
@@ -127,6 +127,7 @@ interface Recent { ref: Ref; name: string; img: string | null; unit: Entry['unit
 | `PUT label` `{ key, nu }` | typed package values for a product (`parseLabel` + `plausible`) |
 | `GET/PUT settings` | goals |
 | `GET/POST meals`, `PATCH/DELETE meals/[id]` | home-made meals, owner only |
+| `POST to-list` `{ key, name, w }` | 🛒: one unit onto the household list and My items (needs `shopping` too) |
 
 - **Products search** reuses shopping: the doc-finding half of
   `searchProducts` in `src/lib/shopping/service.ts` (Atlas Search with the
@@ -136,9 +137,7 @@ interface Recent { ref: Ref; name: string; img: string | null; unit: Entry['unit
   try the code as-is and without leading zeros (`candidates`).
 - **Foods search**: a regex over `caloriesFoods.n` with `searchPatterns`,
   ranked by `rankHits`; ~3,000 docs need no index.
-- **🛒** posts to shopping's existing `POST /api/shopping/home/list` from the
-  client, so the shopping route checks its own permission. My items come from
-  the existing `GET /api/shopping/home`. No new shopping routes.
+- **🛒** `POST /api/calories/to-list` `{ key, name, w }`: re-checks the caller's `shopping` permission (`requireFeatureCaller(request, 'shopping')`), then `ensureMyItems` + `addLines` on `householdFor(email)`. (Shopping's own `POST home/list` only adds keys that are already My items, so it can't be reused as is.) My items come from the existing `GET /api/shopping/home`.
 - "Today" is the device's local date, sent as `date` (as in /calendar).
 
 ## Pure logic (import-free, `node --test`)
