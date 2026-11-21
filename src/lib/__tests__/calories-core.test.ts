@@ -147,3 +147,66 @@ test('isCurrentDay: a response for a day the page has moved away from is dropped
   assert.equal(isCurrentDay('2026-11-20', '2026-11-19'), false);
   assert.equal(isCurrentDay('2026-11-19', '2026-11-19'), true);
 });
+
+// ── v2: recommendation, workouts, weigh-ins (2026-11-21-calories-v2-design.md) ──
+
+import { recommend, workoutBurn, pushWeighIn, kgOk, leftToday, MAX_WEIGH_INS, type Profile } from '../calories/calories.ts';
+
+const man: Profile = { sex: 'm', birthYear: 1990, heightCm: 180, activity: 1.375 };
+
+test('recommend: Mifflin-St Jeor × activity, ± aim, kcal to 50 and protein to 5', () => {
+  // BMR 10·80 + 6.25·180 − 5·36 + 5 = 1750; × 1.375 = 2406.25
+  assert.deepEqual(recommend(man, 'keep', 80, 2026), { goal: 2400, proteinGoal: 130 });
+  assert.deepEqual(recommend(man, 'lose', 80, 2026), { goal: 1900, proteinGoal: 160 });
+  assert.deepEqual(recommend(man, 'gain', 80, 2026), { goal: 2700, proteinGoal: 145 });
+});
+
+test('recommend: floors at 1,200 (f) / 1,500 (m); null without a profile or a weight', () => {
+  const small: Profile = { sex: 'f', birthYear: 1950, heightCm: 150, activity: 1.2 };
+  assert.equal(recommend(small, 'lose', 45, 2026)?.goal, 1200);
+  assert.equal(recommend({ ...small, sex: 'm' }, 'lose', 45, 2026)?.goal, 1500);
+  assert.equal(recommend(undefined, 'keep', 80, 2026), null);
+  assert.equal(recommend(man, 'keep', null, 2026), null);
+  assert.deepEqual(recommend(man, undefined, 80, 2026), recommend(man, 'keep', 80, 2026));
+});
+
+test('workoutBurn: 3 min per counted set at MET 5 × kg, rounded to 5', () => {
+  const sets = [...Array(18).fill({ reps: 10, seconds: null }), { reps: null, seconds: null }, { reps: 0, seconds: 0 }];
+  assert.deepEqual(workoutBurn(sets, 80), { kcal: 360, sets: 18, assumedKg: false });
+  assert.deepEqual(workoutBurn([{ reps: null, seconds: 45 }], null), { kcal: 20, sets: 1, assumedKg: true }); // 5·70·3/60 = 17.5
+  assert.deepEqual(workoutBurn([], 80), { kcal: 0, sets: 0, assumedKg: false });
+});
+
+test('pushWeighIn: one per day (a later one replaces it), oldest dropped past the cap', () => {
+  let log = pushWeighIn([], { d: '2026-11-20', kg: 80 });
+  log = pushWeighIn(log, { d: '2026-11-21', kg: 79.6 });
+  log = pushWeighIn(log, { d: '2026-11-21', kg: 79.4 });
+  assert.deepEqual(log, [{ d: '2026-11-20', kg: 80 }, { d: '2026-11-21', kg: 79.4 }]);
+  const full = Array.from({ length: MAX_WEIGH_INS }, (_, i) => ({ d: `d${String(i).padStart(4, '0')}`, kg: 80 }));
+  const next = pushWeighIn(full, { d: 'e', kg: 81 });
+  assert.equal(next.length, MAX_WEIGH_INS);
+  assert.equal(next[0].d, 'd0001');
+  assert.deepEqual(next.at(-1), { d: 'e', kg: 81 });
+});
+
+test('kgOk: 25–400 kg', () => {
+  assert.ok(kgOk(80.4));
+  assert.ok(!kgOk(24.9));
+  assert.ok(!kgOk(401));
+  assert.ok(!kgOk('80'));
+});
+
+test('leftToday: goal − eaten + burned', () => {
+  assert.equal(leftToday(2000, 1060, 310), 1250);
+  assert.equal(leftToday(2000, 2500, 0), -500);
+});
+
+test('parseSettings: v1 docs still parse; a profile, aim and followRec are checked', () => {
+  assert.deepEqual(parseSettings({ goal: 2000, proteinGoal: null }, 2026), { ok: true, value: { goal: 2000, proteinGoal: null } });
+  const full = { goal: 2400, proteinGoal: 130, profile: man, aim: 'keep', followRec: true };
+  assert.deepEqual(parseSettings(full, 2026), { ok: true, value: full });
+  assert.equal(parseSettings({ ...full, profile: { ...man, activity: 1.3 } }, 2026).ok, false);
+  assert.equal(parseSettings({ ...full, profile: { ...man, heightCm: 300 } }, 2026).ok, false);
+  assert.equal(parseSettings({ ...full, profile: { ...man, birthYear: 2020 } }, 2026).ok, false);
+  assert.equal(parseSettings({ ...full, aim: 'bulk' }, 2026).ok, false);
+});

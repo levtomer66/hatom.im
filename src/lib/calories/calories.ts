@@ -43,7 +43,24 @@ export interface Recent {
   per?: Totals;
 }
 
-export interface Settings { goal: number; proteinGoal: number | null }
+export type Sex = 'm' | 'f';
+export type Aim = 'lose' | 'keep' | 'gain';
+/** Daily life without workouts (they're added back as burned): יושבני, קל, פעיל, פעיל מאוד. */
+export const ACTIVITY = [1.2, 1.375, 1.55, 1.725] as const;
+export type Activity = (typeof ACTIVITY)[number];
+export interface Profile { sex: Sex; birthYear: number; heightCm: number; activity: Activity }
+
+export interface Settings {
+  goal: number;
+  proteinGoal: number | null;
+  profile?: Profile;
+  aim?: Aim;
+  /** The goals track the recommendation (recomputed from the current weight). */
+  followRec?: boolean;
+}
+
+/** A dated weight, one per day. */
+export interface WeighIn { d: string; kg: number }
 
 export interface MealItem { ref: Ref; name: string; grams: number; nu: Totals }
 export interface MealDoc { id: string; name: string; portions: number; items: MealItem[]; per: Totals }
@@ -57,6 +74,9 @@ export const MAX_RECENT = 15;
 export const MAX_MEAL_ITEMS = 40;
 export const MAX_NAME = 80;
 export const MAX_PORTIONS = 20;
+export const MAX_WEIGH_INS = 400;
+export const ASSUMED_KG = 70;
+export const MAX_BURNED = 3000;
 
 const r0 = (v: number) => Math.round(v);
 const r1 = (v: number) => Math.round(v * 10) / 10;
@@ -194,14 +214,60 @@ export function parseEntry(v: unknown): Result<Omit<Entry, 'id' | 'at'>> {
   return { ok: true, value: { meal: v.meal as Meal, name, img, ref, unit: { name: unit.name, g: unit.g }, qty: v.qty, nu } };
 }
 
-export function parseSettings(v: unknown): Result<Settings> {
+export function parseSettings(v: unknown, year = new Date().getUTCFullYear()): Result<Settings> {
   if (!isObj(v)) return fail('הגדרות לא תקינות');
   const goal = v.goal;
   if (typeof goal !== 'number' || !Number.isInteger(goal) || goal < 500 || goal > 10_000) return fail('יעד בין 500 ל־10,000 קק״ל');
   const pg = v.proteinGoal ?? null;
   if (pg !== null && (typeof pg !== 'number' || !Number.isFinite(pg) || pg < 10 || pg > 500)) return fail('יעד חלבון בין 10 ל־500 גרם');
-  return { ok: true, value: { goal, proteinGoal: pg === null ? null : Math.round(pg) } };
+  const out: Settings = { goal, proteinGoal: pg === null ? null : Math.round(pg) };
+  if (v.profile !== undefined && v.profile !== null) {
+    const p = v.profile;
+    if (!isObj(p) || (p.sex !== 'm' && p.sex !== 'f')) return fail('פרופיל לא תקין');
+    if (typeof p.birthYear !== 'number' || !Number.isInteger(p.birthYear) || p.birthYear < 1920 || p.birthYear > year - 13) return fail('שנת לידה לא תקינה');
+    if (typeof p.heightCm !== 'number' || !Number.isFinite(p.heightCm) || p.heightCm < 120 || p.heightCm > 230) return fail('גובה בין 120 ל־230 ס״מ');
+    if (!ACTIVITY.includes(p.activity as Activity)) return fail('רמת פעילות לא מוכרת');
+    out.profile = { sex: p.sex, birthYear: p.birthYear, heightCm: Math.round(p.heightCm), activity: p.activity as Activity };
+  }
+  if (v.aim !== undefined && v.aim !== null) {
+    if (v.aim !== 'lose' && v.aim !== 'keep' && v.aim !== 'gain') return fail('מטרה לא מוכרת');
+    out.aim = v.aim;
+  }
+  if (v.followRec !== undefined) out.followRec = v.followRec === true;
+  return { ok: true, value: out };
 }
+
+// ── v2: recommendation, workouts, weight (docs/superpowers/specs/2026-11-21-calories-v2-design.md) ──
+
+const AIM_KCAL: Record<Aim, number> = { lose: -500, keep: 0, gain: 300 };
+const AIM_PROTEIN: Record<Aim, number> = { lose: 2.0, keep: 1.6, gain: 1.8 };
+
+/** Mifflin-St Jeor × daily activity ± the aim; null without a profile or a weight. */
+export function recommend(p: Profile | undefined, aim: Aim | undefined, kg: number | null, year: number): { goal: number; proteinGoal: number } | null {
+  if (!p || kg === null || !(kg > 0)) return null;
+  const a = aim ?? 'keep';
+  const bmr = 10 * kg + 6.25 * p.heightCm - 5 * (year - p.birthYear) + (p.sex === 'm' ? 5 : -161);
+  const kcal = Math.max(bmr * p.activity + AIM_KCAL[a], p.sex === 'm' ? 1500 : 1200);
+  return { goal: Math.round(kcal / 50) * 50, proteinGoal: Math.round((kg * AIM_PROTEIN[a]) / 5) * 5 };
+}
+
+/** A strength workout's estimate: 3 minutes per set with reps or seconds, at MET 5, rounded to 5 kcal. */
+export function workoutBurn(sets: { reps?: number | null; seconds?: number | null }[], kg: number | null): { kcal: number; sets: number; assumedKg: boolean } {
+  const counted = sets.filter((x) => (x.reps ?? 0) > 0 || (x.seconds ?? 0) > 0).length;
+  const assumedKg = !(kg !== null && kg > 0);
+  const w = assumedKg ? ASSUMED_KG : (kg as number);
+  return { kcal: Math.round((5 * w * counted * 3) / 60 / 5) * 5, sets: counted, assumedKg };
+}
+
+export const kgOk = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v) && v >= 25 && v <= 400;
+
+/** One weigh-in per day (a later one that day replaces it), oldest first, at most `max`. */
+export function pushWeighIn(log: WeighIn[], w: WeighIn, max = MAX_WEIGH_INS): WeighIn[] {
+  const next = [...log.filter((x) => x.d !== w.d), w].sort((a, b) => (a.d < b.d ? -1 : a.d > b.d ? 1 : 0));
+  return next.slice(-max);
+}
+
+export const leftToday = (goal: number, eaten: number, burned: number) => goal - eaten + burned;
 
 /** Values typed from a package, per 100 g: kcal required, the rest optional. */
 export function parseLabel(v: unknown): Result<Nutrition> {
