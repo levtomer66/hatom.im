@@ -35,22 +35,20 @@ export const MAX_HITS = 30;
 
 /**
  * Items whose name or maker matches every word, spelling-tolerant (see
- * searchPatterns), best name match first (rankHits), then the most widely
- * sold, with one unit's price range in the near stores and its cheapest store —
- * deals and hand-typed prices included, as the product view prices it.
- * `q`: words or a barcode, trimmed to 80 characters by the caller.
+ * searchPatterns), unranked, with the patterns to rank them by (rankHits).
+ * No stores or prices: /calories shares it. `q`: words or a barcode,
+ * trimmed to 80 characters by the caller.
  */
-export async function searchProducts(q: string, near: Near): Promise<SearchHit[]> {
+export async function findProducts(q: string): Promise<{ docs: ItemDoc[]; terms: string[]; loose?: string[] }> {
   const barcode = /^\d{8,14}$/.test(q) ? q : null;
   const terms = searchPatterns(q);
   let loose: string[] | undefined;
-  if (!barcode && (!terms.length || q.length < 2)) return [];
+  if (!barcode && (!terms.length || q.length < 2)) return { docs: [], terms };
 
   // Atlas Search first (fuzzy, so no retry pass); the regex search where
   // there is no Atlas Search (Docker) or for a barcode.
-  const [atlas, stores] = await Promise.all([barcode ? null : searchItemsAtlas(q), getStoresNear(near.where, near.favs)]);
-  const found = atlas ?? (await findItems(terms, barcode));
-  let docs = found;
+  const atlas = barcode ? null : await searchItemsAtlas(q);
+  let docs = atlas ?? (await findItems(terms, barcode));
   if (atlas) loose = searchPatterns(q, { typos: true }); // rank Atlas's fuzzy matches like typo matches
   if (!atlas && !barcode && docs.length < TYPO_RETRY_BELOW) {
     loose = searchPatterns(q, { typos: true });
@@ -58,6 +56,17 @@ export async function searchProducts(q: string, near: Near): Promise<SearchHit[]
     const seen = new Set(docs.map((d) => d._id));
     docs = [...docs, ...more.filter((d) => !seen.has(d._id))];
   }
+  return { docs, terms, loose };
+}
+
+/**
+ * findProducts' hits, best name match first (rankHits), then the most widely
+ * sold, with one unit's price range in the near stores and its cheapest store —
+ * deals and hand-typed prices included, as the product view prices it.
+ */
+export async function searchProducts(q: string, near: Near): Promise<SearchHit[]> {
+  const [{ docs, terms, loose }, stores] = await Promise.all([findProducts(q), getStoresNear(near.where, near.favs)]);
+  if (!docs.length) return [];
   const local = stores.filter((s) => s.kind === 'physical').map((s) => ({
     k: String(s.k), src: s.source ?? priceSourceOf(s.chainId), chainName: s.chainName, name: s.name,
   }));
@@ -117,7 +126,7 @@ export async function searchProducts(q: string, near: Near): Promise<SearchHit[]
  * Keys to try for what the user gave us. A scanned barcode may carry leading
  * zeros the price files drop (UPC-A read as EAN-13), so try it bare too.
  */
-function candidates(raw: string): string[] {
+export function candidates(raw: string): string[] {
   const k = raw.trim();
   if (!/^\d{8,14}$/.test(k)) return [k];
   const bare = k.replace(/^0+/, '');
