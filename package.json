@@ -20,7 +20,8 @@
     "shopping:ingest": "node --env-file-if-exists=.env.shopping src/lib/shopping/ingest/cli.ts",
     "shopping:discover": "node src/lib/shopping/ingest/discover.ts",
     "shopping:search-index": "node --env-file-if-exists=.env.shopping scripts/shopping-search-index.mjs",
-    "shopping:photos": "node src/lib/shopping/ingest/fetch-photos.ts"
+    "shopping:photos": "node src/lib/shopping/ingest/fetch-photos.ts",
+    "calories:foods": "node --env-file-if-exists=.env.shopping src/lib/calories/moh-cli.ts"
   },
   "dependencies": {
     "@auth/mongodb-adapter": "^3.11.2",

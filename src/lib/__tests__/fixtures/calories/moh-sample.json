@@ -1,0 +1,270 @@
+{
+ "foods": [
+  {
+   "Code": 1561,
+   "shmmitzrach": "ביצה שלמה בלי קליפה",
+   "makor": 1,
+   "food_energy": 143,
+   "protein": 12.6,
+   "carbohydrates": 0.7,
+   "total_sugars": 0.4,
+   "total_fat": 9.5,
+   "saturated_fat": 3.13,
+   "total_dietary_fiber": 0,
+   "sodium": 142
+  },
+  {
+   "Code": 2581,
+   "shmmitzrach": "חטיף בוטנים, במבה, אסם",
+   "makor": 3,
+   "food_energy": 534,
+   "protein": 17.5,
+   "carbohydrates": 39.5,
+   "total_sugars": 3.2,
+   "total_fat": 34,
+   "saturated_fat": 5.6,
+   "total_dietary_fiber": 5.5,
+   "sodium": 390
+  },
+  {
+   "Code": 160,
+   "shmmitzrach": "מילקשייק וניל/תות/שוקו, מקדונלדס",
+   "makor": 2,
+   "food_energy": 109,
+   "protein": 3.1,
+   "carbohydrates": 17,
+   "total_sugars": null,
+   "total_fat": 1.8,
+   "saturated_fat": 1.8,
+   "total_dietary_fiber": null,
+   "sodium": 48
+  },
+  {
+   "Code": 10,
+   "shmmitzrach": "בורגול, מבושל עם שעועית לבנה ועגבניות",
+   "makor": 4,
+   "food_energy": 112,
+   "protein": 5.3,
+   "carbohydrates": 15.3,
+   "total_sugars": 1,
+   "total_fat": 1.7,
+   "saturated_fat": 0.25,
+   "total_dietary_fiber": 5.1,
+   "sodium": 141.2
+  },
+  {
+   "Code": 10112,
+   "shmmitzrach": "FFQ-שמן זית (לא כולל שמן זית עם זעתר)",
+   "makor": null,
+   "food_energy": 884,
+   "protein": 0,
+   "carbohydrates": 0,
+   "total_sugars": 0,
+   "total_fat": 100,
+   "saturated_fat": 13.81,
+   "total_dietary_fiber": 0,
+   "sodium": 2
+  },
+  {
+   "Code": 99999,
+   "shmmitzrach": "שורה שגויה",
+   "makor": 1,
+   "food_energy": 2000,
+   "protein": 1,
+   "carbohydrates": 1,
+   "total_sugars": 0,
+   "total_fat": 1,
+   "saturated_fat": 0,
+   "total_dietary_fiber": 0,
+   "sodium": 1
+  }
+ ],
+ "measures": [
+  {
+   "smlmida": "100",
+   "shmmida": "יחידה"
+  },
+  {
+   "smlmida": "102",
+   "shmmida": "יחידה קטנה"
+  },
+  {
+   "smlmida": "103",
+   "shmmida": "יחידה בינונית"
+  },
+  {
+   "smlmida": "104",
+   "shmmida": "יחידה גדולה"
+  },
+  {
+   "smlmida": "105",
+   "shmmida": "יחידה גדולה מאד"
+  },
+  {
+   "smlmida": "300",
+   "shmmida": "כף"
+  },
+  {
+   "smlmida": "700",
+   "shmmida": "גרמים"
+  },
+  {
+   "smlmida": "800",
+   "shmmida": "מנה"
+  },
+  {
+   "smlmida": "801",
+   "shmmida": "מנה קטנה"
+  },
+  {
+   "smlmida": "802",
+   "shmmida": "מנה בינונית"
+  },
+  {
+   "smlmida": "803",
+   "shmmida": "מנה גדולה"
+  },
+  {
+   "smlmida": "900",
+   "shmmida": "אריזה"
+  },
+  {
+   "smlmida": "903",
+   "shmmida": "שקית"
+  },
+  {
+   "smlmida": "912",
+   "shmmida": "אריזה גדולה"
+  },
+  {
+   "smlmida": "2000",
+   "shmmida": "קילוגרם"
+  },
+  {
+   "smlmida": "101",
+   "shmmida": "יחידה  קטנה מאד"
+  }
+ ],
+ "weights": [
+  {
+   "mmitzrach": "1561",
+   "mida": "102",
+   "mishkal": "44"
+  },
+  {
+   "mmitzrach": "1561",
+   "mida": "103",
+   "mishkal": "49.5"
+  },
+  {
+   "mmitzrach": "1561",
+   "mida": "104",
+   "mishkal": "58"
+  },
+  {
+   "mmitzrach": "1561",
+   "mida": "105",
+   "mishkal": "62"
+  },
+  {
+   "mmitzrach": "1561",
+   "mida": "700",
+   "mishkal": "1"
+  },
+  {
+   "mmitzrach": "1561",
+   "mida": "2000",
+   "mishkal": "1000"
+  },
+  {
+   "mmitzrach": "2581",
+   "mida": "100",
+   "mishkal": "1"
+  },
+  {
+   "mmitzrach": "2581",
+   "mida": "103",
+   "mishkal": "60"
+  },
+  {
+   "mmitzrach": "2581",
+   "mida": "300",
+   "mishkal": "4"
+  },
+  {
+   "mmitzrach": "2581",
+   "mida": "700",
+   "mishkal": "1"
+  },
+  {
+   "mmitzrach": "2581",
+   "mida": "900",
+   "mishkal": "200"
+  },
+  {
+   "mmitzrach": "2581",
+   "mida": "903",
+   "mishkal": "25"
+  },
+  {
+   "mmitzrach": "2581",
+   "mida": "912",
+   "mishkal": "80"
+  },
+  {
+   "mmitzrach": "2581",
+   "mida": "2000",
+   "mishkal": "1000"
+  },
+  {
+   "mmitzrach": "160",
+   "mida": "700",
+   "mishkal": "1"
+  },
+  {
+   "mmitzrach": "160",
+   "mida": "800",
+   "mishkal": "330"
+  },
+  {
+   "mmitzrach": "160",
+   "mida": "2000",
+   "mishkal": "1000"
+  },
+  {
+   "mmitzrach": "10",
+   "mida": "700",
+   "mishkal": "1"
+  },
+  {
+   "mmitzrach": "10",
+   "mida": "801",
+   "mishkal": "90"
+  },
+  {
+   "mmitzrach": "10",
+   "mida": "802",
+   "mishkal": "120"
+  },
+  {
+   "mmitzrach": "10",
+   "mida": "803",
+   "mishkal": "175"
+  },
+  {
+   "mmitzrach": "10",
+   "mida": "2000",
+   "mishkal": "1000"
+  },
+  {
+   "mmitzrach": "1561",
+   "mida": "103",
+   "mishkal": "0"
+  },
+  {
+   "mmitzrach": "1561",
+   "mida": "101",
+   "mishkal": "40"
+  }
+ ]
+}
