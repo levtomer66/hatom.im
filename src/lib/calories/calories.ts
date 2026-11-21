@@ -260,6 +260,24 @@ export function workoutBurn(sets: { reps?: number | null; seconds?: number | nul
   return { kcal: Math.round((5 * w * counted * 3) / 60 / 5) * 5, sets: counted, assumedKg };
 }
 
+export const MAX_STEPS = 100_000;
+/** The steps a day of each activity level already has: the recommendation's activity factor counts them. */
+export const USUAL_STEPS: Record<Activity, number> = { 1.2: 3000, 1.375: 5000, 1.55: 8000, 1.725: 11000 };
+
+export const stepsOk = (v: unknown): v is number => typeof v === 'number' && Number.isInteger(v) && v >= 0 && v <= MAX_STEPS;
+
+/**
+ * Walking's burn from a day's steps: about 0.0005 kcal per kg per step (≈ 0.04 at
+ * 80 kg), counting only the steps over the profile's usual ones (USUAL_STEPS — the
+ * goal already holds those); without a profile every step counts. 70 kg without a weight.
+ */
+export function stepsBurn(steps: number, kg: number | null, activity: Activity | undefined): { kcal: number; base: number; assumedKg: boolean } {
+  const assumedKg = !(kg !== null && kg > 0);
+  const w = assumedKg ? ASSUMED_KG : (kg as number);
+  const base = activity ? USUAL_STEPS[activity] : 0;
+  return { kcal: Math.round((Math.max(0, steps - base) * w * 0.0005) / 5) * 5, base, assumedKg };
+}
+
 export const kgOk = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v) && v >= 25 && v <= 400;
 
 /** One weigh-in per day (a later one that day replaces it), oldest first, at most `max`. */

@@ -13,10 +13,20 @@ export interface DayResponse {
   recent: Recent[];
   /** That day's finished workouts with their burn (corrected or estimated). */
   burned: BurnedRow[];
+  /** That day's steps typed by hand and their burn (stepsBurn); null when none were typed. */
+  steps: StepsRow | null;
   /** The weight shared with the workout app, and the last 60 days' weigh-ins. */
   weight: { kg: number | null; log: WeighIn[] };
   /** The recommendation from the profile and the shared weight; null without them. */
   rec: { goal: number; proteinGoal: number } | null;
+}
+
+export interface StepsRow {
+  n: number;
+  kcal: number;
+  /** The steps the profile's activity level already counts (not burned again). */
+  base: number;
+  assumedKg: boolean;
 }
 
 export interface BurnedRow {

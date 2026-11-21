@@ -31,6 +31,7 @@ async function call<T>(method: string, path: string, body?: unknown, signal?: Ab
 
 export const getDay = (date: string, today: string | null) => call<DayResponse>('GET', `day?date=${date}${today ? `&today=${today}` : ''}`);
 export const putWeight = (date: string, kg: number) => call<{ kg: number; log: WeighIn[] }>('PUT', 'weight', { date, kg });
+export const putSteps = (date: string, steps: number | null) => call<{ ok: true }>('PUT', 'steps', { date, steps });
 export const putBurned = (date: string, workoutId: string, kcal: number | null) => call<{ ok: true }>('PUT', 'burned', { date, workoutId, kcal });
 export const addEntry = (date: string, entry: Omit<Entry, 'id' | 'at'>, per100: Totals | null, per?: Totals) =>
   call<{ entry: Entry }>('POST', 'day', { date, entry, per100, per }).then((r) => r.entry);

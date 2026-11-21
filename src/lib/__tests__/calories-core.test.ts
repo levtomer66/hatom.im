@@ -256,3 +256,21 @@ test('macroGoals: fat 25% of the goal, carbs the rest after protein, rounded to 
   // A protein goal bigger than the calories leaves no carbs, never negative.
   assert.equal(macroGoals(1200, 400).c, 0);
 });
+
+test('stepsBurn: 0.0005 kcal per kg per step over the activity level\'s usual steps, rounded to 5', () => {
+  const { stepsBurn } = calories;
+  // No profile: every step counts. 10,000 × 80 kg × 0.0005 = 400.
+  assert.deepEqual(stepsBurn(10_000, 80, undefined), { kcal: 400, base: 0, assumedKg: false });
+  // Sedentary (1.2): the first 3,000 are already in the goal. 7,000 × 80 × 0.0005 = 280.
+  assert.deepEqual(stepsBurn(10_000, 80, 1.2), { kcal: 280, base: 3000, assumedKg: false });
+  // Fewer than the usual: nothing, never negative.
+  assert.equal(stepsBurn(4000, 80, 1.55).kcal, 0);
+  // No weight: 70 kg. 10,000 × 70 × 0.0005 = 350.
+  assert.deepEqual(stepsBurn(10_000, null, undefined), { kcal: 350, base: 0, assumedKg: true });
+});
+
+test('stepsOk: whole steps, 0–100,000', () => {
+  const { stepsOk } = calories;
+  assert.ok(stepsOk(0) && stepsOk(12_345) && stepsOk(100_000));
+  assert.ok(!stepsOk(-1) && !stepsOk(100_001) && !stepsOk(1.5) && !stepsOk('9000'));
+});

@@ -7,7 +7,7 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSession } from 'next-auth/react';
-import { FaChevronLeft, FaChevronRight, FaCog, FaPlus, FaUtensils } from 'react-icons/fa';
+import { FaChevronLeft, FaChevronRight, FaCog, FaPlus, FaUtensils, FaWalking } from 'react-icons/fa';
 import { hasPermission } from '@/lib/permissions';
 import {
   defaultMeal, isCurrentDay, mealTotals, rollToday, sumTotals, DEFAULT_GOAL, MEALS, MEAL_NAMES,
@@ -25,7 +25,7 @@ import Ring from './Ring';
 import SettingsSheet, { GoalForm } from './SettingsSheet';
 import Weight from './Weight';
 import WeekBars from './WeekBars';
-import Workouts, { BurnedSheet } from './Workouts';
+import Workouts, { BurnedSheet, StepsSheet } from './Workouts';
 import * as api from './api';
 
 const pad = (n: number) => String(n).padStart(2, '0');
@@ -54,6 +54,7 @@ type SheetState =
   | { kind: 'settings' }
   | { kind: 'meals' }
   | { kind: 'burned'; row: BurnedRow }
+  | { kind: 'steps' }
   | null;
 
 export default function CaloriesPage() {
@@ -124,7 +125,7 @@ export default function CaloriesPage() {
   const mine = pending.filter((p) => p.date === date);
   const eaten = useMemo(() => sumTotals((shown?.entries ?? []).map((e) => e.nu)), [shown]);
   const byMeal = useMemo(() => mealTotals(shown?.entries ?? []), [shown]);
-  const burned = (shown?.burned ?? []).reduce((a, b) => a + b.kcal, 0);
+  const burned = (shown?.burned ?? []).reduce((a, b) => a + b.kcal, 0) + (shown?.steps?.kcal ?? 0);
 
   const send = useCallback(async (p: Pending) => {
     try {
@@ -216,6 +217,7 @@ export default function CaloriesPage() {
             onLog={(e, per100, per) => log({ ...e, meal: currentMeal }, per100, per)} />
           <div className="cal-actions">
             <button type="button" className="sh-btn sh-home-btn" onClick={() => setSheet({ kind: 'meals' })}><FaUtensils aria-hidden /> ארוחה</button>
+            <button type="button" className="sh-btn sh-home-btn" onClick={() => setSheet({ kind: 'steps' })}><FaWalking aria-hidden /> צעדים</button>
           </div>
           {MEALS.map((m) => {
             const entries = shown.entries.filter((e) => e.meal === m);
@@ -253,7 +255,7 @@ export default function CaloriesPage() {
               </section>
             );
           })}
-          <Workouts rows={shown.burned} onPick={(row) => setSheet({ kind: 'burned', row })} />
+          <Workouts rows={shown.burned} steps={shown.steps} onPick={(row) => setSheet({ kind: 'burned', row })} onSteps={() => setSheet({ kind: 'steps' })} />
           <Weight key={`${shown.weight.kg}`} kg={shown.weight.kg} log={shown.weight.log} date={date} onSave={saveWeight} />
           <WeekBars week={shown.week} goal={settings.goal ?? DEFAULT_GOAL} shown={date} onPick={setDate} />
         </>
@@ -285,6 +287,20 @@ export default function CaloriesPage() {
           onSave={async (kcal) => {
             try {
               await api.putBurned(date, sheet.row.id, kcal);
+              await load(date);
+              setSheet(null);
+              return null;
+            } catch (e) {
+              return e instanceof Error ? e.message : 'לא נשמר';
+            }
+          }} />
+      ) : null}
+
+      {sheet?.kind === 'steps' && shown ? (
+        <StepsSheet steps={shown.steps} kg={shown.weight.kg} activity={settings?.profile?.activity} onClose={() => setSheet(null)}
+          onSave={async (steps) => {
+            try {
+              await api.putSteps(date, steps);
               await load(date);
               setSheet(null);
               return null;

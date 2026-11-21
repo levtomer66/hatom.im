@@ -1,6 +1,6 @@
 'use client';
 
-// Today's ring: what's left in the middle (goal − eaten + burned by workouts);
+// Today's ring: what's left in the middle (goal − eaten + burned by workouts and steps);
 // eaten and burned under it, then protein · carbs · fat as tiles (<Macros>),
 // each with a bar to its daily grams (macroGoals: the protein goal, fat 25%,
 // carbs the rest).
@@ -32,7 +32,7 @@ export default function Ring({ eaten, burned, settings }: { eaten: Totals; burne
         </div>
       </div>
       <p className="cal-ring-sum">
-        <span><b>{n(eaten.kcal)}</b> מתוך {n(settings.goal)} קק״ל{burned > 0 ? <> · <b className="cal-burned">+{n(burned)}</b> באימון</> : null}</span>
+        <span><b>{n(eaten.kcal)}</b> מתוך {n(settings.goal)} קק״ל{burned > 0 ? <> · <b className="cal-burned">+{n(burned)}</b> מפעילות</> : null}</span>
       </p>
       <Macros t={eaten} goals={macroGoals(settings.goal, settings.proteinGoal)} />
     </section>

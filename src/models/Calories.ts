@@ -10,7 +10,7 @@ import type { Nutrition } from '@/lib/shopping/nutrition';
 // The calories diary (docs/superpowers/specs/2026-11-21-calories-design.md § Data).
 // Every function takes the caller's email: nobody reads or writes anyone else's.
 
-interface DayDoc { _id: string; entries: Entry[]; updatedAt: string; burned?: Record<string, number> }
+interface DayDoc { _id: string; entries: Entry[]; updatedAt: string; burned?: Record<string, number>; steps?: number }
 interface UserDoc {
   _id: string; goal?: number; proteinGoal?: number | null; recent?: Recent[];
   profile?: Profile; aim?: Aim; followRec?: boolean; weighIns?: WeighIn[];
@@ -123,9 +123,19 @@ export async function getWorkouts(email: string, date: string): Promise<{ id: st
   return docs.map((d) => ({ id: d._id.toHexString(), name: d.workoutName || 'אימון', sets: (d.exercises ?? []).flatMap((e) => e.sets ?? []) }));
 }
 
-export async function getBurnedFixes(email: string, date: string): Promise<Record<string, number>> {
-  const doc = await (await days()).findOne({ _id: dayId(email, date) }, { projection: { burned: 1 } });
-  return doc?.burned ?? {};
+/** The day's workout corrections and its steps (typed by hand), in one read. */
+export async function getDayActivity(email: string, date: string): Promise<{ burned: Record<string, number>; steps: number | null }> {
+  const doc = await (await days()).findOne({ _id: dayId(email, date) }, { projection: { burned: 1, steps: 1 } });
+  return { burned: doc?.burned ?? {}, steps: doc?.steps ?? null };
+}
+
+/** steps null clears the day's count. */
+export async function setSteps(email: string, date: string, steps: number | null): Promise<void> {
+  await (await days()).updateOne(
+    { _id: dayId(email, date) },
+    steps === null ? { $unset: { steps: '' } } : { $set: { steps }, $setOnInsert: { entries: [], updatedAt: new Date().toISOString() } },
+    { upsert: steps !== null },
+  );
 }
 
 /** kcal null removes the correction (back to the estimate). workoutId is a 24-hex id. */

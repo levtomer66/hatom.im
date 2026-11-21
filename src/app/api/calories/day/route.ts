@@ -1,14 +1,14 @@
 import { randomUUID } from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { requireFeatureCaller } from '@/lib/api-caller';
-import { isDate, kgOk, parseEntry, parseTotals, recommend, sumTotals, weekBars, weekDates, workoutBurn, DEFAULT_GOAL, MAX_ENTRIES, type Entry } from '@/lib/calories/calories';
-import type { BurnedRow, DayResponse } from '@/lib/calories/api-types';
-import { addEntry, addRecent, addWeighIn, getBurnedFixes, getDays, getUser, getWorkouts } from '@/models/Calories';
+import { isDate, kgOk, parseEntry, parseTotals, recommend, stepsBurn, sumTotals, weekBars, weekDates, workoutBurn, DEFAULT_GOAL, MAX_ENTRIES, type Entry } from '@/lib/calories/calories';
+import type { BurnedRow, DayResponse, StepsRow } from '@/lib/calories/api-types';
+import { addEntry, addRecent, addWeighIn, getDayActivity, getDays, getUser, getWorkouts } from '@/models/Calories';
 import { getUserSettings } from '@/models/WorkoutUserSettings';
 import { bad, readJson, serverError } from '../_shared';
 
 // GET ?date=YYYY-MM-DD[&today=YYYY-MM-DD] — the caller's entries that day, goals,
-// recent foods, the 7 days' totals ending on it, that day's workouts (burned),
+// recent foods, the 7 days' totals ending on it, that day's workouts (burned) and steps,
 // the weight shared with the workout app, and the recommendation. "Today" is the
 // device's date: on it, a weight changed in the workout app is logged as a weigh-in.
 // While the goals follow the recommendation, they are recomputed here from the weight.
@@ -21,8 +21,8 @@ export async function GET(request: NextRequest) {
   const email = caller.userEmail;
   try {
     const dates = weekDates(date);
-    const [byDate, user, shared, workouts, fixes] = await Promise.all([
-      getDays(email, dates), getUser(email), getUserSettings(email), getWorkouts(email, date), getBurnedFixes(email, date),
+    const [byDate, user, shared, workouts, activity] = await Promise.all([
+      getDays(email, dates), getUser(email), getUserSettings(email), getWorkouts(email, date), getDayActivity(email, date),
     ]);
     const kg = kgOk(shared.bodyweightKg) ? shared.bodyweightKg : null;
     let weighIns = user.weighIns;
@@ -34,9 +34,11 @@ export async function GET(request: NextRequest) {
 
     const burned: BurnedRow[] = workouts.map((w) => {
       const est = workoutBurn(w.sets, kg);
-      const fix = fixes[w.id];
+      const fix = activity.burned[w.id];
       return { id: w.id, name: w.name, kcal: fix ?? est.kcal, est: fix === undefined, estKcal: est.kcal, sets: est.sets, assumedKg: est.assumedKg };
     });
+    const steps: StepsRow | null = activity.steps === null ? null
+      : { n: activity.steps, ...stepsBurn(activity.steps, kg, user.settings?.profile?.activity) };
     const since = new Date(Date.UTC(year, Number(date.slice(5, 7)) - 1, Number(date.slice(8, 10)) - 60)).toISOString().slice(0, 10);
 
     const totals = Object.fromEntries(Object.entries(byDate).map(([d, es]) => [d, sumTotals(es.map((e) => e.nu))]));
@@ -47,6 +49,7 @@ export async function GET(request: NextRequest) {
       week: weekBars(totals, date, settings?.goal ?? DEFAULT_GOAL),
       recent: user.recent,
       burned,
+      steps,
       weight: { kg, log: weighIns.filter((w) => w.d >= since && w.d <= date) },
       rec,
     };

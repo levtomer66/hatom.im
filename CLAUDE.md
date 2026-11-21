@@ -485,7 +485,11 @@ Identity = Gmail address. Two roles:
 - **Workouts are read only** (native `workouts` collection, completed, `date` prefix
   = the day; its date is UTC, so 00:00–03:00 lands on the day before). The burn is
   `workoutBurn()` (3 min/set, MET 5 × kg); a correction is `caloriesDays.burned.<id>`.
-  Left = goal − eaten + burned.
+  Left = goal − eaten + burned (workouts + steps).
+- **Steps** are typed by hand (צעדים, `caloriesDays.steps`); `stepsBurn()` counts
+  0.0005 kcal/kg per step only above the profile activity's `USUAL_STEPS` (the goal
+  already holds those), recomputed on read. Carbs/fat bars: `macroGoals()` (fat 25%,
+  carbs the rest after protein), derived, not stored.
 - **Goals**: `recommend()` (Mifflin-St Jeor × daily activity *without* workouts,
   lose −500 / gain +300, protein 2.0/1.6/1.8 g/kg). While `followRec`, `GET day`
   recomputes goal + protein from the current weight; typing a number turns it off.
