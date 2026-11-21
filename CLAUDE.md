@@ -475,6 +475,20 @@ Identity = Gmail address. Two roles:
   no stores or prices); `searchProducts` prices its hits. Change matching there.
 - 🛒 is `POST /api/calories/to-list` (checks `shopping` too; shopping's own
   `home/list` only adds keys already in My items).
+- **v2** (`docs/superpowers/specs/2026-11-21-calories-v2-design.md`): the day screen's
+  search bar (`SearchBar.tsx`, shopping's box) and the sheets' FoodPicker share
+  `search-parts.tsx`; home-made meals live behind the ארוחה button, not ⚙.
+- **Weight is the workout app's**: `workoutUserSettings.bodyweightKg` is the one
+  current value (read/written via `WorkoutUserSettings` helpers) — never copy it.
+  `caloriesUsers.weighIns` is only the dated log (one per day, ≤ 400); `GET day`
+  for the client's today logs a weight changed on /workout.
+- **Workouts are read only** (native `workouts` collection, completed, `date` prefix
+  = the day; its date is UTC, so 00:00–03:00 lands on the day before). The burn is
+  `workoutBurn()` (3 min/set, MET 5 × kg); a correction is `caloriesDays.burned.<id>`.
+  Left = goal − eaten + burned.
+- **Goals**: `recommend()` (Mifflin-St Jeor × daily activity *without* workouts,
+  lose −500 / gain +300, protein 2.0/1.6/1.8 g/kg). While `followRec`, `GET day`
+  recomputes goal + protein from the current weight; typing a number turns it off.
 - `src/lib/calories/*.ts` (except `moh-cli.ts`) is import-free for `node --test`;
   route glue is in `src/app/api/calories/_shared.ts`. The page wears
   `shopping.css` (`sh-page`) plus `calories.css`.
