@@ -64,11 +64,14 @@ export function GoalForm({ settings, kg: kgNow, onSave, cta, autosave, onFlush }
 
   const kgBad = kg.trim() !== '' && !kgOk(kgNum);
   const checked = formSettings({ aim, sex, birthYear, height, activity, follow, goal, protein }, rec, year);
-  const wanted = !kgBad && checked.ok ? { s: checked.value, kg: kg.trim() ? Math.round(kgNum * 10) / 10 : null } : undefined;
+  // A profile half filled in (a field cleared to retype it) is not saved: it would turn following the recommendation off.
+  const filled = [sex, activity, birthYear.trim(), height.trim()].filter(Boolean).length;
+  const partial = filled > 0 && filled < 4;
+  const wanted = !kgBad && !partial && checked.ok ? { s: checked.value, kg: kg.trim() ? Math.round(kgNum * 10) / 10 : null } : undefined;
   const first = useRef(wanted);
-  const auto = useAutosave(autosave ? wanted : undefined, first.current, (v) => onSave(v.s, v.kg));
+  const auto = useAutosave(autosave ? wanted : undefined, first.current, (v) => onSave(v.s, v.kg), 1200);
   useEffect(() => { onFlush?.(auto.flush); }, [onFlush, auto.flush]);
-  const formError = kgBad ? 'משקל בין 25 ל־400 ק״ג' : checked.ok ? null : checked.error;
+  const formError = kgBad ? 'משקל בין 25 ל־400 ק״ג' : partial ? 'כדי לשמור, מלאו את כל הפרטים שלמעלה' : checked.ok ? null : checked.error;
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();

@@ -2,8 +2,10 @@
 
 // Save as you edit, no save button: `wanted` (undefined while the field holds no
 // valid value) is sent `delay` ms after it last changed, unless it equals what
-// was saved last. `flush()` sends a change still waiting (the sheet closing,
-// Enter). `status` drives the small "שומר… / נשמר ✓" line.
+// was saved last. Saves run one at a time, in order (a meal's first save creates
+// it — a second one must not race it and create another). `flush()` sends
+// whatever isn't saved yet, a failed save included (the sheet closing, Enter).
+// `status` drives the small "שומר… / נשמר ✓" line.
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 
@@ -18,16 +20,21 @@ export function useAutosave<T>(wanted: T | undefined, initial: T | undefined, sa
   latest.current = save;
   const key = wanted === undefined ? undefined : JSON.stringify(wanted);
 
-  const send = useCallback(async (v: T) => {
+  const queue = useRef<Promise<void>>(Promise.resolve());
+
+  const send = useCallback((v: T): Promise<void> => {
     window.clearTimeout(timer.current);
     timer.current = undefined;
     const k = JSON.stringify(v);
-    if (k === saved.current) return;
-    setStatus('saving');
-    const err = await latest.current(v);
-    if (!err) saved.current = k;
-    setError(err);
-    setStatus(err ? 'idle' : 'saved');
+    queue.current = queue.current.then(async () => {
+      if (k === saved.current) return; // an earlier save in the queue already stored it
+      setStatus('saving');
+      const err = await latest.current(v).catch((e: unknown) => (e instanceof Error ? e.message : 'לא נשמר'));
+      if (!err) saved.current = k;
+      setError(err);
+      setStatus(err ? 'idle' : 'saved');
+    });
+    return queue.current;
   }, []);
 
   useEffect(() => {
@@ -37,9 +44,10 @@ export function useAutosave<T>(wanted: T | undefined, initial: T | undefined, sa
     return () => window.clearTimeout(timer.current);
   }, [key, send, delay]);
 
-  /** Sends a change still waiting; resolves once it is saved (at once when nothing waits). */
+  /** Sends what isn't saved yet (a pending change or a failed one); resolves once the queue is done. */
   const flush = useCallback(async (): Promise<void> => {
-    if (timer.current !== undefined && key !== undefined) await send(JSON.parse(key) as T);
+    if (key !== undefined && key !== saved.current) await send(JSON.parse(key) as T);
+    else await queue.current;
   }, [key, send]);
 
   return { status, error, flush };

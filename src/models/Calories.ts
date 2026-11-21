@@ -129,24 +129,20 @@ export async function getDayActivity(email: string, date: string): Promise<{ bur
   return { burned: doc?.burned ?? {}, steps: doc?.steps ?? null };
 }
 
-/** steps null clears the day's count. */
-export async function setSteps(email: string, date: string, steps: number | null): Promise<void> {
+/** Sets one field on the day doc (made if missing), or removes it when value is null. */
+async function setDayField(email: string, date: string, field: string, value: number | null): Promise<void> {
   await (await days()).updateOne(
     { _id: dayId(email, date) },
-    steps === null ? { $unset: { steps: '' } } : { $set: { steps }, $setOnInsert: { entries: [], updatedAt: new Date().toISOString() } },
-    { upsert: steps !== null },
+    value === null ? { $unset: { [field]: '' } } : { $set: { [field]: value }, $setOnInsert: { entries: [], updatedAt: new Date().toISOString() } },
+    { upsert: value !== null },
   );
 }
 
+/** steps null clears the day's count. */
+export const setSteps = (email: string, date: string, steps: number | null) => setDayField(email, date, 'steps', steps);
+
 /** kcal null removes the correction (back to the estimate). workoutId is a 24-hex id. */
-export async function setBurned(email: string, date: string, workoutId: string, kcal: number | null): Promise<void> {
-  const field = `burned.${workoutId}`;
-  await (await days()).updateOne(
-    { _id: dayId(email, date) },
-    kcal === null ? { $unset: { [field]: '' } } : { $set: { [field]: kcal }, $setOnInsert: { entries: [], updatedAt: new Date().toISOString() } },
-    { upsert: kcal !== null },
-  );
-}
+export const setBurned = (email: string, date: string, workoutId: string, kcal: number | null) => setDayField(email, date, `burned.${workoutId}`, kcal);
 
 export async function addRecent(email: string, r: Recent): Promise<void> {
   const col = await users();
