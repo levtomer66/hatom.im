@@ -16,6 +16,8 @@ import {
 import type { DayResponse } from '@/lib/calories/api-types';
 import { SwipeRow, Thumb } from '../shopping/ui';
 import AddSheet from './AddSheet';
+import type { Picked } from './FoodPicker';
+import SearchBar from './SearchBar';
 import { amountText } from './AmountStep';
 import EditSheet from './EditSheet';
 import MealsSheet from './Meals';
@@ -45,7 +47,7 @@ function dateLabel(date: string, today: string) {
 interface Pending { tempId: string; date: string; entry: Omit<Entry, 'id' | 'at'>; per100: Totals | null; per?: Totals; failed: boolean }
 
 type SheetState =
-  | { kind: 'add'; meal: Meal }
+  | { kind: 'add'; meal: Meal; picked?: Picked }
   | { kind: 'edit'; entry: Entry }
   | { kind: 'settings' }
   | { kind: 'meals' }
@@ -164,6 +166,8 @@ export default function CaloriesPage() {
 
   if (!date || !today) return <main className="sh-page cal-page" />;
   const settings = shown?.settings ?? null;
+  // New entries go to the meal of the hour on today; a past day's to snacks.
+  const currentMeal: Meal = date === today ? defaultMeal(new Date().getHours()) : 'snack';
 
   return (
     <main className="sh-page cal-page">
@@ -189,9 +193,9 @@ export default function CaloriesPage() {
 
       {shown && settings ? (
         <>
-          <button type="button" className="sh-btn sh-btn--primary cal-wide cal-add-main" onClick={() => setSheet({ kind: 'add', meal: date === today ? defaultMeal(new Date().getHours()) : 'snack' })}>
-            <FaPlus aria-hidden /> הוספה
-          </button>
+          <SearchBar recent={shown.recent} canShop={canShop}
+            onPick={(picked) => setSheet({ kind: 'add', meal: currentMeal, picked })}
+            onLog={(e, per100, per) => log({ ...e, meal: currentMeal }, per100, per)} />
           {MEALS.map((m) => {
             const entries = shown.entries.filter((e) => e.meal === m);
             const waiting = mine.filter((p) => p.entry.meal === m);
@@ -233,7 +237,7 @@ export default function CaloriesPage() {
       ) : null}
 
       {sheet?.kind === 'add' && shown ? (
-        <AddSheet meal={sheet.meal} recent={shown.recent} canShop={canShop} busy={false} onLog={log} onClose={() => setSheet(null)} />
+        <AddSheet meal={sheet.meal} picked={sheet.picked} recent={shown.recent} canShop={canShop} busy={false} onLog={log} onClose={() => setSheet(null)} />
       ) : null}
       {sheet?.kind === 'edit' ? (
         <EditSheet entry={sheet.entry} canShop={canShop} onClose={() => setSheet(null)} onDelete={() => void remove(sheet.entry)}

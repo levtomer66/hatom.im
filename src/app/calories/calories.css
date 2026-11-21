@@ -149,3 +149,21 @@
 .cal-edit-actions { display: flex; justify-content: space-between; gap: 0.75rem; margin-top: 0.75rem; }
 .cal-edit-actions .sh-btn { display: inline-flex; align-items: center; gap: 0.5rem; white-space: nowrap; }
 .cal-per { margin-top: 0.75rem; }
+
+/* ── v2: the day screen's search (shopping's box) ── */
+.cal-search { position: relative; top: auto; z-index: 30; margin-bottom: 0.75rem; }
+.cal-drop {
+  position: absolute;
+  inset-inline: 0;
+  top: calc(100% + 6px);
+  max-height: min(65vh, 32rem);
+  padding: 0.25rem 1rem 0.75rem;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border: 1px solid var(--sh-line);
+  border-radius: var(--sh-r-group);
+  background: var(--sh-bg);
+  box-shadow: 0 12px 32px rgba(17, 17, 17, 0.14);
+}
+.cal-drop .cal-hit:last-child { border-bottom: none; }
+.cal-search { scroll-margin-top: 0.5rem; }

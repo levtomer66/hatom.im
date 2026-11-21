@@ -1,14 +1,16 @@
 'use client';
 
-// "הוספה ל…": which meal (chips), then FoodPicker.
+// "הוספה ל…": which meal (chips), then FoodPicker — or, from the search bar or a
+// meal's "רישום", straight to the amount step for `picked`.
 
 import React, { useState } from 'react';
 import { MEALS, MEAL_NAMES, type Entry, type Meal, type Recent, type Totals } from '@/lib/calories/calories';
-import FoodPicker from './FoodPicker';
+import FoodPicker, { type Picked } from './FoodPicker';
 import Sheet from './Sheet';
 
-export default function AddSheet({ meal: first, recent, canShop, busy, onLog, onClose }: {
+export default function AddSheet({ meal: first, picked, recent, canShop, busy, onLog, onClose }: {
   meal: Meal;
+  picked?: Picked;
   recent: Recent[];
   canShop: boolean;
   busy: boolean;
@@ -23,7 +25,7 @@ export default function AddSheet({ meal: first, recent, canShop, busy, onLog, on
           <button key={m} type="button" role="radio" aria-checked={m === meal} className={`sh-chip ${m === meal ? 'is-on' : ''}`} onClick={() => setMeal(m)}>{MEAL_NAMES[m]}</button>
         ))}
       </div>
-      <FoodPicker mode="log" recent={recent} canShop={canShop} busy={busy} onLog={(e, per100, per) => onLog({ ...e, meal }, per100, per)} />
+      <FoodPicker mode="log" initial={picked} recent={recent} canShop={canShop} busy={busy} onLog={(e, per100, per) => onLog({ ...e, meal }, per100, per)} />
     </Sheet>
   );
 }
