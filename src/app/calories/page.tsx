@@ -147,7 +147,6 @@ export default function CaloriesPage() {
     void send(p);
   };
 
-  // The weight goes first (it's the workout app's too), so goals following the recommendation use it.
   const saveWeight = async (kg: number): Promise<string | null> => {
     try {
       await api.putWeight(todayRef.current ?? localToday(), kg);
@@ -159,8 +158,9 @@ export default function CaloriesPage() {
   };
   const saveSettings = async (s: Settings, kg: number | null): Promise<string | null> => {
     try {
-      if (kg !== null && kg !== shown?.weight.kg) await api.putWeight(todayRef.current ?? localToday(), kg);
+      // Goals first: if they're refused, the weight (the workout app's too) stays as it was.
       const settings = await api.putSettings(s);
+      if (kg !== null && kg !== shown?.weight.kg) await api.putWeight(todayRef.current ?? localToday(), kg);
       setDay((d) => (d ? { ...d, settings } : d));
       if (date) await load(date);
       return null;

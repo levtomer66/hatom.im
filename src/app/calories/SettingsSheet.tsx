@@ -8,7 +8,7 @@
 
 import React, { useState } from 'react';
 import {
-  ACTIVITY, DEFAULT_GOAL, kgOk, recommend,
+  ACTIVITY, DEFAULT_GOAL, formSettings, kgOk, recommend,
   type Activity, type Aim, type Profile, type Settings, type Sex,
 } from '@/lib/calories/calories';
 import Sheet from './Sheet';
@@ -60,15 +60,10 @@ export function GoalForm({ settings, kg: kgNow, onSave, cta }: { settings: Setti
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (kg.trim() && !kgOk(kgNum)) { setError('משקל בין 25 ל־400 ק״ג'); return; }
-    const s: Settings = {
-      goal: Math.round(Number(shownGoal)),
-      proteinGoal: shownProtein.trim() ? Math.round(Number(shownProtein)) : null,
-      aim,
-      followRec: follow && rec !== null,
-      ...(profile ? { profile } : {}),
-    };
+    const s = formSettings({ aim, sex, birthYear, height, activity, follow, goal, protein }, rec, year);
+    if (!s.ok) { setError(s.error); return; }
     setBusy(true);
-    setError(await onSave(s, kg.trim() ? Math.round(kgNum * 10) / 10 : null));
+    setError(await onSave(s.value, kg.trim() ? Math.round(kgNum * 10) / 10 : null));
     setBusy(false);
   };
 

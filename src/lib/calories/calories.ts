@@ -279,6 +279,32 @@ export const mealHit = (m: MealDoc): FoodHit => ({
   source: 'meal',
 });
 
+/** What the goal form holds (text fields as typed). */
+export interface GoalFields {
+  aim: Aim; sex: Sex | null; birthYear: string; height: string; activity: Activity | null;
+  follow: boolean; goal: string; protein: string;
+}
+
+/**
+ * The form → the settings to save, checked like the server does (so nothing is
+ * sent, not even the weight, when a field is wrong). While following, the goals
+ * are the recommendation; with a profile, following is kept even before there is
+ * a weight to recommend from (the server keeps the stored numbers until then).
+ */
+export function formSettings(f: GoalFields, rec: { goal: number; proteinGoal: number } | null, year: number): Result<Settings> {
+  const profile = f.sex && f.activity && f.birthYear.trim() && f.height.trim()
+    ? { sex: f.sex, activity: f.activity, birthYear: Number(f.birthYear), heightCm: Number(f.height) }
+    : undefined;
+  const useRec = f.follow && rec;
+  return parseSettings({
+    goal: useRec ? rec.goal : Math.round(Number(f.goal) || 0),
+    proteinGoal: useRec ? rec.proteinGoal : f.protein.trim() ? Math.round(Number(f.protein)) : null,
+    aim: f.aim,
+    followRec: f.follow && profile !== undefined,
+    ...(profile ? { profile } : {}),
+  }, year);
+}
+
 export const leftToday = (goal: number, eaten: number, burned: number) => goal - eaten + burned;
 
 /** Values typed from a package, per 100 g: kcal required, the rest optional. */

@@ -210,3 +210,32 @@ test('parseSettings: v1 docs still parse; a profile, aim and followRec are check
   assert.equal(parseSettings({ ...full, profile: { ...man, birthYear: 2020 } }, 2026).ok, false);
   assert.equal(parseSettings({ ...full, aim: 'bulk' }, 2026).ok, false);
 });
+
+// ── v2 review fixes ──
+
+import { formSettings } from '../calories/calories.ts';
+
+const form = { aim: 'keep' as const, sex: 'm' as const, birthYear: '1990', height: '180', activity: 1.375 as const, follow: true, goal: '2000', protein: '' };
+
+test('formSettings: following the recommendation is kept with a profile even before there is a weight', () => {
+  const r = formSettings(form, null, 2026);
+  assert.equal(r.ok, true);
+  assert.equal(r.ok && r.value.followRec, true);
+  assert.equal(r.ok && r.value.goal, 2000);
+  const noSex = formSettings({ ...form, sex: null }, null, 2026);
+  assert.equal(noSex.ok && noSex.value.followRec, false);
+});
+
+test('formSettings: uses the recommendation while following, the typed numbers otherwise', () => {
+  const rec = { goal: 2400, proteinGoal: 130 };
+  const following = formSettings(form, rec, 2026);
+  assert.deepEqual(following.ok && [following.value.goal, following.value.proteinGoal], [2400, 130]);
+  const typed = formSettings({ ...form, follow: false, goal: '1800', protein: '150' }, rec, 2026);
+  assert.deepEqual(typed.ok && [typed.value.goal, typed.value.proteinGoal, typed.value.followRec], [1800, 150, false]);
+});
+
+test('formSettings: a bad profile value is refused before anything is sent', () => {
+  assert.equal(formSettings({ ...form, height: '17' }, null, 2026).ok, false);
+  assert.equal(formSettings({ ...form, birthYear: 'abc' }, null, 2026).ok, false);
+  assert.equal(formSettings({ ...form, follow: false, goal: '' }, null, 2026).ok, false);
+});
