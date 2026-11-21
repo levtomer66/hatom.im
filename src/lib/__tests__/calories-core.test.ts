@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   defaultMeal, entryTotals, isDate, mealPerPortion, mealTotals, parseEntry, parseLabel, parseMeal, parseSettings, pushRecent, rescaleEntry,
-  sumTotals, toTotals, unitsFor, weekBars, weekDates, type Entry, type Recent,
+  sumTotals, toTotals, unitsFor, weekBars, weekDates, defaultAmount, rollToday, isCurrentDay, type Entry, type Recent,
 } from '../calories/calories.ts';
 
 const entry = (o: Partial<Entry> = {}): Entry => ({
@@ -112,4 +112,38 @@ test('pushRecent dedupes by ref, newest first, max 15', () => {
   assert.equal(list[0].name, '19');
   assert.deepEqual(pushRecent(list, r('10')).map((x) => x.name).slice(0, 2), ['10', '19']);
   assert.equal(pushRecent(list, r('10')).length, 15);
+});
+
+// ── review fixes ──
+
+test('rescaleEntry scales from the logged amount, so repeated edits lose nothing', () => {
+  const logged = entry({ qty: 150, nu: { kcal: 200, p: 3, c: 10, f: 0.4 }, base: { qty: 150, nu: { kcal: 200, p: 3, c: 10, f: 0.4 } } });
+  const back = rescaleEntry(rescaleEntry(logged, 10), 150);
+  assert.deepEqual(back.nu, { kcal: 200, p: 3, c: 10, f: 0.4 });
+  assert.deepEqual(back.base, logged.base);
+});
+
+test('rescaleEntry on an entry saved before `base` existed starts from its current values', () => {
+  assert.deepEqual(rescaleEntry(entry(), 200).base, { qty: 100, nu: { kcal: 200, p: 10, c: 0, f: 5 } });
+});
+
+test('defaultAmount: a medium portion, else a small pack (≤ 250 g), else 100 g; meals one portion', () => {
+  const g = { name: 'גרם', g: 1 };
+  assert.deepEqual(defaultAmount([g, { name: 'יחידה קטנה', g: 44 }, { name: 'יחידה בינונית', g: 49.5 }], false), { unit: { name: 'יחידה בינונית', g: 49.5 }, qty: 1 });
+  assert.deepEqual(defaultAmount([g, { name: 'אריזה', g: 80 }], false), { unit: { name: 'אריזה', g: 80 }, qty: 1 });
+  assert.deepEqual(defaultAmount([g, { name: 'אריזה', g: 1000 }], false), { unit: g, qty: 100 });
+  assert.deepEqual(defaultAmount([{ name: 'מנה', g: 275 }], true), { unit: { name: 'מנה', g: 275 }, qty: 1 });
+  assert.deepEqual(defaultAmount([g, { name: 'כף', g: 5 }, { name: 'ספל', g: 85 }], false), { unit: { name: 'כף', g: 5 }, qty: 1 });
+});
+
+test('rollToday: after midnight a page showing the old today moves to the new one; another day stays', () => {
+  assert.deepEqual(rollToday({ today: '2026-11-21', date: '2026-11-21' }, '2026-11-22'), { today: '2026-11-22', date: '2026-11-22' });
+  assert.deepEqual(rollToday({ today: '2026-11-21', date: '2026-11-18' }, '2026-11-22'), { today: '2026-11-22', date: '2026-11-18' });
+  const same = { today: '2026-11-21', date: '2026-11-21' };
+  assert.equal(rollToday(same, '2026-11-21'), same);
+});
+
+test('isCurrentDay: a response for a day the page has moved away from is dropped', () => {
+  assert.equal(isCurrentDay('2026-11-20', '2026-11-19'), false);
+  assert.equal(isCurrentDay('2026-11-19', '2026-11-19'), true);
 });

@@ -6,7 +6,7 @@
 
 import React, { useState } from 'react';
 import { FaMinus, FaPlus } from 'react-icons/fa';
-import { entryTotals, scaleTotals, type Entry, type MealItem, type Totals, type Unit } from '@/lib/calories/calories';
+import { defaultAmount, entryTotals, scaleTotals, type Entry, type MealItem, type Totals, type Unit } from '@/lib/calories/calories';
 import type { FoodHit } from '@/lib/calories/api-types';
 import { Thumb } from '../shopping/ui';
 
@@ -26,10 +26,7 @@ function startOf(hit: FoodHit, initial?: { unit: Unit; qty: number }): { unit: U
     const same = hit.units.find((u) => u.name === initial.unit.name);
     if (same) return { unit: same, qty: initial.qty };
   }
-  if (hit.source === 'meal') return { unit: hit.units[0], qty: 1 };
-  // A medium portion when the food has one (an egg: יחידה בינונית), else its first portion.
-  const portion = hit.units.find((u) => !isGrams(u) && u.name.includes('בינונ')) ?? hit.units.find((u) => !isGrams(u));
-  return portion ? { unit: portion, qty: 1 } : { unit: hit.units[0], qty: 100 };
+  return defaultAmount(hit.units, hit.source === 'meal');
 }
 
 export function totalsFor(hit: FoodHit, unit: Unit, qty: number): Totals | null {

@@ -142,10 +142,11 @@ export async function deleteMeal(email: string, id: string): Promise<boolean> {
 
 // ── shared food data ──
 
-/** MoH foods whose name matches every pattern (searchPatterns), at most 40. */
+/** MoH foods whose name matches every pattern (searchPatterns), unranked (at most 500). */
 export async function searchFoods(terms: string[]): Promise<FoodDoc[]> {
   if (!terms.length) return [];
-  return (await foods()).find({ $and: terms.map((t) => ({ n: { $regex: t, $options: 'i' } })) }).limit(40).toArray();
+  // Every match (common words hit ~200 of ~2,800 small docs), so ranking sees the plain foods too.
+  return (await foods()).find({ $and: terms.map((t) => ({ n: { $regex: t, $options: 'i' } })) }, { projection: { h: 0 } }).limit(500).toArray();
 }
 
 export async function getLabel(key: string): Promise<Nutrition | null> {

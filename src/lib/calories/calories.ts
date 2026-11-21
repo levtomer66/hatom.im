@@ -25,6 +25,8 @@ export interface Entry {
   qty: number;
   /** This entry's totals, frozen when it was logged. */
   nu: Totals;
+  /** The amount and totals as first logged: edits scale from these, so rounding never compounds. */
+  base?: { qty: number; nu: Totals };
   at: string;
 }
 
@@ -75,7 +77,11 @@ export const entryTotals = (per100: Totals, grams: number): Totals => scaleTotal
 export const sumTotals = (list: Totals[]): Totals =>
   scaleTotals(list.reduce((a, t) => ({ kcal: a.kcal + t.kcal, p: a.p + t.p, c: a.c + t.c, f: a.f + t.f }), ZERO), 1);
 
-export const rescaleEntry = (e: Entry, qty: number): Entry => ({ ...e, qty, nu: scaleTotals(e.nu, qty / e.qty) });
+/** A new quantity: totals scale from the logged amount (`base`), never from an earlier edit's rounded values. */
+export function rescaleEntry(e: Entry, qty: number): Entry {
+  const base = e.base ?? { qty: e.qty, nu: e.nu };
+  return { ...e, qty, nu: scaleTotals(base.nu, qty / base.qty), base };
+}
 
 export const mealPerPortion = (items: MealItem[], portions: number): Totals =>
   scaleTotals(sumTotals(items.map((i) => i.nu)), 1 / portions);
@@ -103,6 +109,35 @@ export function defaultMeal(hour: number): Meal {
   if (hour < 4 || hour >= 21) return 'snack';
   return hour < 11 ? 'breakfast' : hour < 16 ? 'lunch' : 'dinner';
 }
+
+/** A pack this small is one serving (a yogurt, a bag of Bamba); a bigger one opens at 100 g. */
+export const SERVING_PACK_MAX = 250;
+
+/**
+ * What the amount step starts at: a home-made meal's one portion; else a medium
+ * portion (an egg: יחידה בינונית); else a pack of one serving; else the food's
+ * first other portion; else 100 g.
+ */
+export function defaultAmount(units: Unit[], isMeal: boolean): { unit: Unit; qty: number } {
+  if (isMeal) return { unit: units[0], qty: 1 };
+  const portions = units.filter((u) => u.g !== 1);
+  const medium = portions.find((u) => u.name.includes('בינונ'));
+  if (medium) return { unit: medium, qty: 1 };
+  const pack = portions.find((u) => u.name === 'אריזה');
+  if (pack && pack.g <= SERVING_PACK_MAX) return { unit: pack, qty: 1 };
+  const other = portions.find((u) => u.name !== 'אריזה');
+  if (other) return { unit: other, qty: 1 };
+  return { unit: units[0], qty: 100 };
+}
+
+/** After midnight: the new local day, and a page that was showing the old "today" moves along with it. */
+export function rollToday<T extends { today: string; date: string }>(cur: T, nowToday: string): T {
+  if (cur.today === nowToday) return cur;
+  return { ...cur, today: nowToday, date: cur.date === cur.today ? nowToday : cur.date };
+}
+
+/** Whether a day's response still belongs on screen (the page may have moved to another day meanwhile). */
+export const isCurrentDay = (responseDate: string, shownDate: string | null) => responseDate === shownDate;
 
 /** The unit chips for a food: grams (ml for drinks) first, then the pack, then its own portions. */
 export function unitsFor(o: { units?: Unit[]; pack?: number | null; w?: boolean; liquid?: boolean }): Unit[] {

@@ -5,12 +5,12 @@
 // date arrows, the ring, four meal cards, the week. "Today" is this device's
 // date, worked out after mount; every route takes the date from here.
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { FaChevronLeft, FaChevronRight, FaCog, FaPlus } from 'react-icons/fa';
 import { hasPermission } from '@/lib/permissions';
 import {
-  defaultMeal, mealTotals, sumTotals, DEFAULT_GOAL, MEALS, MEAL_NAMES,
+  defaultMeal, isCurrentDay, mealTotals, rollToday, sumTotals, DEFAULT_GOAL, MEALS, MEAL_NAMES,
   type Entry, type Meal, type Settings, type Totals,
 } from '@/lib/calories/calories';
 import type { DayResponse } from '@/lib/calories/api-types';
@@ -62,19 +62,47 @@ export default function CaloriesPage() {
   const [sheet, setSheet] = useState<SheetState>(null);
   const [toast, setToast] = useState<string | null>(null);
 
+  // The day on screen, for async work that finishes after the page has moved on.
+  const dateRef = useRef<string | null>(null);
+  dateRef.current = date;
+  const todayRef = useRef<string | null>(null);
+  todayRef.current = today;
+
   useEffect(() => {
     const t = localToday();
     setToday(t);
     setDate(t);
   }, []);
 
+  // A page left open past midnight: "today" moves on, and so does a page that was showing it.
+  useEffect(() => {
+    const check = () => {
+      const old = todayRef.current;
+      const now = localToday();
+      if (!old || old === now) return;
+      setToday(now);
+      setDate((d) => (d ? rollToday({ today: old, date: d }, now).date : d));
+    };
+    const onVisible = () => { if (document.visibilityState === 'visible') check(); };
+    document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('focus', check);
+    const timer = window.setInterval(check, 60_000);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('focus', check);
+      window.clearInterval(timer);
+    };
+  }, []);
+
   const load = useCallback(async (d: string) => {
     try {
       const res = await api.getDay(d);
-      setDay((cur) => (cur && cur.date !== d && res.date !== d ? cur : res));
+      // A slow answer for a day the page has left is dropped (two quick taps on ‹, a save then ‹).
+      if (!isCurrentDay(res.date, dateRef.current)) return;
+      setDay(res);
       setLoadError(null);
     } catch (e) {
-      setLoadError(e instanceof Error ? e.message : 'לא נטען');
+      if (isCurrentDay(d, dateRef.current)) setLoadError(e instanceof Error ? e.message : 'לא נטען');
     }
   }, []);
   useEffect(() => { if (date) void load(date); }, [date, load]);
@@ -93,10 +121,12 @@ export default function CaloriesPage() {
   const send = useCallback(async (p: Pending) => {
     try {
       await api.addEntry(p.date, p.entry, p.per100, p.per);
-      setPending((list) => list.filter((x) => x.tempId !== p.tempId));
       await load(p.date);
+      setPending((list) => list.filter((x) => x.tempId !== p.tempId));
     } catch (e) {
-      setPending((list) => list.map((x) => (x.tempId === p.tempId ? { ...x, failed: true } : x)));
+      // Refused for good (a full day, a bad value): drop the row and say why. Otherwise it waits for a retry tap.
+      const refused = e instanceof api.ApiError && e.status >= 400 && e.status < 500;
+      setPending((list) => (refused ? list.filter((x) => x.tempId !== p.tempId) : list.map((x) => (x.tempId === p.tempId ? { ...x, failed: true } : x))));
       setToast(e instanceof Error ? e.message : 'לא נשמר');
     }
   }, [load]);

@@ -41,7 +41,7 @@ export async function POST(request: NextRequest) {
   if (!isDate(b.date)) return bad('תאריך לא תקין');
   const parsed = parseEntry(b.entry);
   if (!parsed.ok) return bad(parsed.error);
-  const entry: Entry = { ...parsed.value, id: randomUUID(), at: new Date().toISOString() };
+  const entry: Entry = { ...parsed.value, base: { qty: parsed.value.qty, nu: parsed.value.nu }, id: randomUUID(), at: new Date().toISOString() };
   try {
     if (!(await addEntry(caller.userEmail, b.date, entry))) return bad(`אפשר עד ${MAX_ENTRIES} רישומים ביום`);
     const per100 = parseTotals(b.per100);
