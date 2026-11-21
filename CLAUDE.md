@@ -21,6 +21,7 @@ several independent features under separate routes:
 | `/laundry`         | Step-by-step laundry guide for our LG washer (permission `laundry`). Loads, doses + step builder in `src/lib/laundry.ts`; photos in `public/laundry/`. |
 | `/calendar`        | Milestones calendar: birthdays, anniversaries, one-off events (permission `calendar`). Mongo `calendarEvents`; date math in `src/lib/calendar.ts`. |
 | `/shopping`        | Grocery price comparison across chains (permission `shopping`). Per-household My items + one list in Mongo `shoppingHome`; price data written by a local ingest job. |
+| `/calories`        | Private food diary against a daily calorie goal (permission `calories`). Reuses the shopping catalog, nutrition and scanner; MoH generic foods in Mongo `caloriesFoods`. |
 
 Default branch is `main`. Pushes to `main` auto-deploy to Production via
 Vercel's GitHub integration. There is no separate `master` branch.
@@ -455,6 +456,28 @@ Identity = Gmail address. Two roles:
   zeros. `Scanner.tsx` uses the native `BarcodeDetector` and lazy-loads
   `@zxing/browser` only where there isn't one (iPhone Safari); it needs https
   or localhost.
+
+### Calories (`/calories`)
+
+- Spec: `docs/superpowers/specs/2026-11-21-calories-design.md`. Each person's own
+  diary (session email); nobody sees anyone else's. Collections: `caloriesDays`
+  (`_id: "<email>|YYYY-MM-DD"`, ≤ 60 entries), `caloriesUsers` (goals, 15 recent),
+  `caloriesMeals` (home-made meals, `owner`), `caloriesLabels` (package values
+  typed per barcode, shared), `caloriesFoods` (MoH table).
+- **Entries freeze their totals** when logged: a catalog fix, a label edit or a
+  deleted meal never changes past days, and PATCH qty only rescales. Don't
+  re-read the catalog on the day view.
+- **MoH foods**: `npm run calories:foods -- [--dry-run] [--offline]` (local, by hand;
+  data.gov.il datastore API, never the CSV URLs; raw rows cached in
+  `~/.cache/hatom-shopping/moh/`). Keeps `makor` 1–3 (~2,840 foods) with their
+  portion weights. Every shown MoH value carries the data.gov.il credit line.
+- Product search is shopping's `findProducts()` (`src/lib/shopping/service.ts`,
+  no stores or prices); `searchProducts` prices its hits. Change matching there.
+- 🛒 is `POST /api/calories/to-list` (checks `shopping` too; shopping's own
+  `home/list` only adds keys already in My items).
+- `src/lib/calories/*.ts` (except `moh-cli.ts`) is import-free for `node --test`;
+  route glue is in `src/app/api/calories/_shared.ts`. The page wears
+  `shopping.css` (`sh-page`) plus `calories.css`.
 
 ### MCP server + OAuth (`/api/mcp`)
 
