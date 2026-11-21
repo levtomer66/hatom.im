@@ -1,18 +1,20 @@
 'use client';
 
-// Today's ring: eaten / goal, what's left in the middle; protein · carbs · fat under it,
-// and a small protein bar when there is a protein goal.
+// Today's ring: what's left in the middle (goal − eaten + burned by workouts);
+// eaten and burned under it, then protein · carbs · fat, and a small protein bar
+// when there is a protein goal.
 
 import React from 'react';
-import type { Settings, Totals } from '@/lib/calories/calories';
+import { leftToday, type Settings, type Totals } from '@/lib/calories/calories';
 
 const R = 54;
 const C = 2 * Math.PI * R;
 const n = (v: number) => Math.round(v).toLocaleString('he-IL');
 
-export default function Ring({ eaten, settings }: { eaten: Totals; settings: Settings }) {
-  const share = Math.min(eaten.kcal / settings.goal, 1);
-  const left = settings.goal - eaten.kcal;
+export default function Ring({ eaten, burned, settings }: { eaten: Totals; burned: number; settings: Settings }) {
+  const budget = settings.goal + burned;
+  const share = Math.min(eaten.kcal / budget, 1);
+  const left = leftToday(settings.goal, eaten.kcal, burned);
   const over = left < 0;
   return (
     <section className="cal-ring-card" aria-label="סיכום היום">
@@ -28,7 +30,7 @@ export default function Ring({ eaten, settings }: { eaten: Totals; settings: Set
         </div>
       </div>
       <p className="cal-ring-sum">
-        <span><b>{n(eaten.kcal)}</b> מתוך {n(settings.goal)} קק״ל</span>
+        <span><b>{n(eaten.kcal)}</b> מתוך {n(settings.goal)} קק״ל{burned > 0 ? <> · <b className="cal-burned">+{n(burned)}</b> באימון</> : null}</span>
         <span className="cal-macros">חלבון {n(eaten.p)} · פחמימות {n(eaten.c)} · שומן {n(eaten.f)} ג׳</span>
       </p>
       {settings.proteinGoal ? (

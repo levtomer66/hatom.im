@@ -2,7 +2,7 @@
 
 import { CALORIES_API_PATH } from '@/lib/calories/config';
 import { isFood } from '@/lib/shopping/nutrition';
-import type { Entry, MealDoc, MealItem, Meal, Settings, Totals } from '@/lib/calories/calories';
+import type { Entry, MealDoc, MealItem, Meal, Settings, Totals, WeighIn } from '@/lib/calories/calories';
 import type { DayResponse, ProductResponse, SearchResponse } from '@/lib/calories/api-types';
 
 export class ApiError extends Error {
@@ -29,7 +29,9 @@ async function call<T>(method: string, path: string, body?: unknown, signal?: Ab
   return data as T;
 }
 
-export const getDay = (date: string) => call<DayResponse>('GET', `day?date=${date}`);
+export const getDay = (date: string, today: string | null) => call<DayResponse>('GET', `day?date=${date}${today ? `&today=${today}` : ''}`);
+export const putWeight = (date: string, kg: number) => call<{ kg: number; log: WeighIn[] }>('PUT', 'weight', { date, kg });
+export const putBurned = (date: string, workoutId: string, kcal: number | null) => call<{ ok: true }>('PUT', 'burned', { date, workoutId, kcal });
 export const addEntry = (date: string, entry: Omit<Entry, 'id' | 'at'>, per100: Totals | null, per?: Totals) =>
   call<{ entry: Entry }>('POST', 'day', { date, entry, per100, per }).then((r) => r.entry);
 export const patchEntry = (date: string, id: string, patch: { meal?: Meal; qty?: number }) =>

@@ -13,7 +13,7 @@ import {
   defaultMeal, isCurrentDay, mealTotals, rollToday, sumTotals, DEFAULT_GOAL, MEALS, MEAL_NAMES,
   type Entry, type Meal, type Settings, type Totals,
 } from '@/lib/calories/calories';
-import type { DayResponse } from '@/lib/calories/api-types';
+import type { BurnedRow, DayResponse } from '@/lib/calories/api-types';
 import { SwipeRow, Thumb } from '../shopping/ui';
 import AddSheet from './AddSheet';
 import type { Picked } from './FoodPicker';
@@ -24,6 +24,7 @@ import MealsSheet from './Meals';
 import Ring from './Ring';
 import SettingsSheet, { GoalForm } from './SettingsSheet';
 import WeekBars from './WeekBars';
+import Workouts, { BurnedSheet } from './Workouts';
 import * as api from './api';
 
 const pad = (n: number) => String(n).padStart(2, '0');
@@ -51,6 +52,7 @@ type SheetState =
   | { kind: 'edit'; entry: Entry }
   | { kind: 'settings' }
   | { kind: 'meals' }
+  | { kind: 'burned'; row: BurnedRow }
   | null;
 
 export default function CaloriesPage() {
@@ -100,7 +102,7 @@ export default function CaloriesPage() {
 
   const load = useCallback(async (d: string) => {
     try {
-      const res = await api.getDay(d);
+      const res = await api.getDay(d, todayRef.current);
       // A slow answer for a day the page has left is dropped (two quick taps on ‹, a save then ‹).
       if (!isCurrentDay(res.date, dateRef.current)) return;
       setDay(res);
@@ -121,6 +123,7 @@ export default function CaloriesPage() {
   const mine = pending.filter((p) => p.date === date);
   const eaten = useMemo(() => sumTotals((shown?.entries ?? []).map((e) => e.nu)), [shown]);
   const byMeal = useMemo(() => mealTotals(shown?.entries ?? []), [shown]);
+  const burned = (shown?.burned ?? []).reduce((a, b) => a + b.kcal, 0);
 
   const send = useCallback(async (p: Pending) => {
     try {
@@ -191,7 +194,7 @@ export default function CaloriesPage() {
         </section>
       ) : null}
 
-      {shown && settings ? <Ring eaten={eaten} settings={settings} /> : null}
+      {shown && settings ? <Ring eaten={eaten} burned={burned} settings={settings} /> : null}
       {!shown && !loadError ? <div className="cal-ring-card is-loading" aria-label="טוען" /> : null}
 
       {shown && settings ? (
@@ -238,6 +241,7 @@ export default function CaloriesPage() {
               </section>
             );
           })}
+          <Workouts rows={shown.burned} onPick={(row) => setSheet({ kind: 'burned', row })} />
           <WeekBars week={shown.week} goal={settings.goal ?? DEFAULT_GOAL} shown={date} onPick={setDate} />
         </>
       ) : null}
@@ -262,6 +266,20 @@ export default function CaloriesPage() {
         <SettingsSheet settings={settings} onSave={saveSettings} onClose={() => setSheet(null)} />
       ) : null}
       {sheet?.kind === 'meals' ? <MealsSheet onLog={(picked) => setSheet({ kind: 'add', meal: currentMeal, picked })} onClose={() => setSheet(null)} /> : null}
+
+      {sheet?.kind === 'burned' ? (
+        <BurnedSheet row={sheet.row} onClose={() => setSheet(null)}
+          onSave={async (kcal) => {
+            try {
+              await api.putBurned(date, sheet.row.id, kcal);
+              await load(date);
+              setSheet(null);
+              return null;
+            } catch (e) {
+              return e instanceof Error ? e.message : 'לא נשמר';
+            }
+          }} />
+      ) : null}
 
       {toast ? <div className="sh-toast" role="status">{toast}</div> : null}
     </main>
