@@ -302,7 +302,6 @@ export default function CaloriesPage() {
             try {
               await api.putSteps(date, steps);
               await load(date);
-              setSheet(null);
               return null;
             } catch (e) {
               return e instanceof Error ? e.message : 'לא נשמר';
