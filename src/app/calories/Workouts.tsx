@@ -4,11 +4,12 @@
 // (an estimate from the logged sets until corrected; a tap corrects it), and the
 // steps typed by hand (צעדים, a tap edits them) with walking's burn (stepsBurn).
 
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useState } from 'react';
 import { FaDumbbell, FaWalking } from 'react-icons/fa';
 import { MAX_BURNED, MAX_STEPS, stepsBurn, stepsOk, type Activity } from '@/lib/calories/calories';
 import type { BurnedRow, StepsRow } from '@/lib/calories/api-types';
 import Sheet from './Sheet';
+import { statusText, useAutosave } from './autosave';
 
 const n = (v: number) => v.toLocaleString('he-IL');
 
@@ -53,54 +54,27 @@ export default function Workouts({ rows, steps, onPick, onSteps }: {
 
 /**
  * צעדים: the day's steps from the phone or watch, typed by hand; the burn shows as
- * you type. No save button: a valid number is saved 0.7 s after the last keystroke,
- * an emptied field clears the day's steps, and closing the sheet (or Enter) sends
- * a change still waiting.
+ * you type. Saved as you type (useAutosave); an emptied field clears the day's
+ * steps; closing the sheet or Enter sends a change still waiting.
  */
 export function StepsSheet({ steps, kg, activity, onSave, onClose }: {
   steps: StepsRow | null; kg: number | null; activity: Activity | undefined;
   onSave: (steps: number | null) => Promise<string | null>; onClose: () => void;
 }) {
   const [value, setValue] = useState(steps ? String(steps.n) : '');
-  const [status, setStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
-  const [error, setError] = useState<string | null>(null);
-  const saved = useRef<number | null>(steps?.n ?? null);
-  const timer = useRef<number | undefined>(undefined);
   const typed = Number(value.replace(/[,\s]/g, ''));
   const empty = value.trim() === '';
   const ok = !empty && stepsOk(typed);
   const est = ok ? stepsBurn(typed, kg, activity) : null;
-  /** What the field asks to store, or undefined while it holds no valid value. */
-  const wanted: number | null | undefined = empty ? null : ok ? typed : undefined;
-
-  const save = useCallback(async (v: number | null) => {
-    window.clearTimeout(timer.current);
-    timer.current = undefined;
-    if (v === saved.current) return;
-    setStatus('saving');
-    const err = await onSave(v);
-    if (!err) saved.current = v;
-    setError(err);
-    setStatus(err ? 'idle' : 'saved');
-  }, [onSave]);
-
-  useEffect(() => {
-    if (wanted === undefined || wanted === saved.current) return;
-    timer.current = window.setTimeout(() => void save(wanted), 700);
-    return () => window.clearTimeout(timer.current);
-  }, [wanted, save]);
-
-  const close = () => {
-    if (timer.current !== undefined && wanted !== undefined) void save(wanted);
-    onClose();
-  };
+  const { status, error, flush } = useAutosave<number | null>(empty ? null : ok ? typed : undefined, steps?.n ?? null, onSave);
+  const close = () => { flush(); onClose(); };
 
   return (
     <Sheet title="צעדים" onClose={close}>
       <p className="cal-muted">כמה צעדים הלכת היום, לפי הטלפון או השעון. נשמר לבד, והקלוריות מחושבות לבד.</p>
       <form onSubmit={(e) => { e.preventDefault(); close(); }}>
         <label className="cal-field"><span>צעדים</span>
-          <input inputMode="numeric" enterKeyHint="done" value={value} placeholder="8,000" autoFocus onChange={(e) => { setValue(e.target.value); setStatus('idle'); }} />
+          <input inputMode="numeric" enterKeyHint="done" value={value} placeholder="8,000" autoFocus onChange={(e) => setValue(e.target.value)} />
         </label>
       </form>
       {!empty && !ok ? <p className="cal-error">בין 0 ל־{n(MAX_STEPS)} צעדים</p> : null}
@@ -111,37 +85,38 @@ export function StepsSheet({ steps, kg, activity, onSave, onClose }: {
         </p>
       ) : null}
       {error ? <p className="cal-error" role="alert">{error}</p> : null}
-      <p className="cal-muted cal-save-state" aria-live="polite">{status === 'saving' ? 'שומר…' : status === 'saved' ? (saved.current === null ? 'הצעדים נמחקו' : 'נשמר ✓') : '\u00a0'}</p>
+      <p className="cal-muted cal-save-state" aria-live="polite">{status === 'saved' && empty ? 'הצעדים נמחקו' : statusText(status)}</p>
     </Sheet>
   );
 }
 
+/** A workout's burn: the estimate, corrected as you type (useAutosave); "לחזור להערכה" drops the correction. */
 export function BurnedSheet({ row, onSave, onClose }: {
   row: BurnedRow; onSave: (kcal: number | null) => Promise<string | null>; onClose: () => void;
 }) {
   const [value, setValue] = useState(String(row.kcal));
-  const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-  const save = async (kcal: number | null) => {
-    setBusy(true);
-    setError(await onSave(kcal));
-    setBusy(false);
-  };
+  const [reverting, setReverting] = useState(false);
   const typed = Math.round(Number(value));
   const ok = value.trim() !== '' && Number.isFinite(typed) && typed >= 0 && typed <= MAX_BURNED;
+  const { status, error, flush } = useAutosave<number>(ok && !reverting ? typed : undefined, row.kcal, onSave);
+  const close = () => { flush(); onClose(); };
   return (
-    <Sheet title={row.name} onClose={onClose}>
+    <Sheet title={row.name} onClose={close}>
       <p className="cal-muted">
         הערכה: {n(row.estKcal)} קק״ל ({row.sets} סטים, כ־3 דקות לסט{row.assumedKg ? ', לפי 70 ק״ג' : ''}). אפשר לתקן, למשל לפי השעון.
       </p>
-      <form onSubmit={(e) => { e.preventDefault(); if (ok) void save(typed); }}>
+      <form onSubmit={(e) => { e.preventDefault(); close(); }}>
         <label className="cal-field"><span>קלוריות שנשרפו</span>
-          <input inputMode="numeric" value={value} onChange={(e) => setValue(e.target.value)} />
+          <input inputMode="numeric" enterKeyHint="done" value={value} onChange={(e) => setValue(e.target.value)} />
         </label>
-        {error ? <p className="cal-error">{error}</p> : null}
-        <button type="submit" className="sh-btn sh-btn--primary cal-wide" disabled={busy || !ok}>{busy ? 'שומר…' : 'שמירה'}</button>
       </form>
-      {!row.est ? <button type="button" className="sh-btn cal-wide" disabled={busy} onClick={() => void save(null)}>לחזור להערכה</button> : null}
+      {value.trim() && !ok ? <p className="cal-error">בין 0 ל־{n(MAX_BURNED)} קק״ל</p> : null}
+      {error ? <p className="cal-error" role="alert">{error}</p> : null}
+      <p className="cal-muted cal-save-state" aria-live="polite">{statusText(status)}</p>
+      {!row.est || status === 'saved' ? (
+        <button type="button" className="sh-btn cal-wide" disabled={reverting}
+          onClick={async () => { setReverting(true); if (!(await onSave(null))) onClose(); else setReverting(false); }}>לחזור להערכה</button>
+      ) : null}
     </Sheet>
   );
 }

@@ -2,8 +2,10 @@
 
 // משקל: the body weight shared with the workout app (one value; changing it here
 // changes it there), its change over 30 days and a small line of the weigh-ins.
+// The edit field saves as you type (useAutosave); leaving it or Enter closes it.
 
 import React, { useState } from 'react';
+import { statusText, useAutosave } from './autosave';
 import { kgOk, type WeighIn } from '@/lib/calories/calories';
 
 const kgText = (v: number) => v.toLocaleString('he-IL', { maximumFractionDigits: 1 });
@@ -39,20 +41,13 @@ export default function Weight({ kg, log, date, onSave }: {
 }) {
   const [editing, setEditing] = useState(kg === null);
   const [value, setValue] = useState(kg !== null ? String(kg) : '');
-  const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
   const month = log.filter((w) => w.d >= shiftDays(date, -30) && w.d <= date);
   const delta = month.length >= 2 ? Math.round((month[month.length - 1].kg - month[0].kg) * 10) / 10 : null;
   const typed = Number(value.replace(',', '.'));
 
-  const save = async () => {
-    if (!kgOk(typed)) { setError('משקל בין 25 ל־400 ק״ג'); return; }
-    setBusy(true);
-    const err = await onSave(Math.round(typed * 10) / 10);
-    setBusy(false);
-    setError(err);
-    if (!err) setEditing(false);
-  };
+  const ok = value.trim() !== '' && kgOk(typed);
+  const { status, error, flush } = useAutosave<number | null>(ok ? Math.round(typed * 10) / 10 : undefined, kg, (v) => onSave(v as number), 1000);
+  const done = () => { flush(); if (ok || kg !== null) setEditing(false); };
 
   return (
     <section className="sh-card cal-weight" aria-label="משקל">
@@ -61,12 +56,13 @@ export default function Weight({ kg, log, date, onSave }: {
         {!editing ? <button type="button" className="cal-link" onClick={() => { setValue(kg !== null ? String(kg) : ''); setEditing(true); }}>עדכון</button> : null}
       </header>
       {editing ? (
-        <form className="cal-weight-form" onSubmit={(e) => { e.preventDefault(); void save(); }}>
+        <form className="cal-weight-form" onSubmit={(e) => { e.preventDefault(); done(); }}>
           <label className="cal-field"><span>משקל היום (ק״ג) — משותף עם האימונים</span>
-            <input inputMode="decimal" value={value} placeholder="75.5" autoFocus={kg !== null} onChange={(e) => setValue(e.target.value)} />
+            <input inputMode="decimal" enterKeyHint="done" value={value} placeholder="75.5" autoFocus={kg !== null} onChange={(e) => setValue(e.target.value)} onBlur={done} />
           </label>
-          {error ? <p className="cal-error">{error}</p> : null}
-          <button type="submit" className="sh-btn sh-btn--primary" disabled={busy || !value.trim()}>{busy ? 'שומר…' : 'שמירה'}</button>
+          {value.trim() && !ok ? <p className="cal-error">משקל בין 25 ל־400 ק״ג</p> : null}
+          {error ? <p className="cal-error" role="alert">{error}</p> : null}
+          <p className="cal-muted cal-save-state" aria-live="polite">{statusText(status)}</p>
         </form>
       ) : (
         <div className="cal-weight-row">

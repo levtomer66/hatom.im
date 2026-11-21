@@ -1,7 +1,8 @@
 'use client';
 
-// One logged entry: change the amount or the meal, delete it, or 🛒 put the
-// product on the household shopping list.
+// One logged entry: change the amount or the meal (saved as you change them,
+// useAutosave — no save button), delete it, or 🛒 put the product on the
+// household shopping list.
 
 import React, { useState } from 'react';
 import { FaMinus, FaPlus, FaShoppingCart } from 'react-icons/fa';
@@ -9,6 +10,7 @@ import { MEALS, MEAL_NAMES, scaleTotals, type Entry, type Meal } from '@/lib/cal
 import { Thumb } from '../shopping/ui';
 import { amountText } from './AmountStep';
 import Sheet from './Sheet';
+import { statusText, useAutosave } from './autosave';
 import { toList } from './api';
 
 export default function EditSheet({ entry, canShop, onSave, onDelete, onClose }: {
@@ -20,16 +22,17 @@ export default function EditSheet({ entry, canShop, onSave, onDelete, onClose }:
 }) {
   const [qty, setQty] = useState(entry.qty);
   const [meal, setMeal] = useState<Meal>(entry.meal);
-  const [busy, setBusy] = useState(false);
   const [listed, setListed] = useState<'idle' | 'busy' | 'done' | string>('idle');
   const quick = entry.ref.kind === 'quick';
   const step = entry.unit.g === 1 ? 10 : 0.5;
   const t = scaleTotals(entry.nu, qty / entry.qty);
   const tooBig = !quick && entry.unit.g * qty > 5000;
-  const changed = qty !== entry.qty || meal !== entry.meal;
+  const { status, error, flush } = useAutosave(tooBig ? undefined : { qty, meal }, { qty: entry.qty, meal: entry.meal },
+    async (v) => ((await onSave(v)) ? null : 'לא נשמר'), 500);
+  const close = () => { flush(); onClose(); };
 
   return (
-    <Sheet title="עריכת רישום" onClose={onClose}>
+    <Sheet title="עריכת רישום" onClose={close}>
       <div className="cal-amount-head">
         <Thumb src={entry.img} size={56} />
         <div>
@@ -53,15 +56,8 @@ export default function EditSheet({ entry, canShop, onSave, onDelete, onClose }:
           <button key={m} type="button" role="radio" aria-checked={m === meal} className={`sh-chip ${m === meal ? 'is-on' : ''}`} onClick={() => setMeal(m)}>{MEAL_NAMES[m]}</button>
         ))}
       </div>
-      <button type="button" className="sh-btn sh-btn--primary cal-wide" disabled={!changed || tooBig || busy}
-        onClick={async () => {
-          setBusy(true);
-          const ok = await onSave({ ...(qty !== entry.qty ? { qty } : {}), ...(meal !== entry.meal ? { meal } : {}) });
-          setBusy(false);
-          if (ok) onClose();
-        }}>
-        {busy ? 'שומר…' : 'שמירה'}
-      </button>
+      <p className="cal-muted cal-save-state" aria-live="polite">{statusText(status)}</p>
+      {error ? <p className="cal-error" role="alert">{error}</p> : null}
       <div className="cal-edit-actions">
         {canShop && entry.ref.kind === 'product' && entry.ref.key ? (
           <button type="button" className="sh-btn" disabled={listed === 'busy' || listed === 'done'}

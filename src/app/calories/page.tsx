@@ -256,7 +256,7 @@ export default function CaloriesPage() {
             );
           })}
           <Workouts rows={shown.burned} steps={shown.steps} onPick={(row) => setSheet({ kind: 'burned', row })} onSteps={() => setSheet({ kind: 'steps' })} />
-          <Weight key={`${shown.weight.kg}`} kg={shown.weight.kg} log={shown.weight.log} date={date} onSave={saveWeight} />
+          <Weight key={date} kg={shown.weight.kg} log={shown.weight.log} date={date} onSave={saveWeight} />
           <WeekBars week={shown.week} goal={settings.goal ?? DEFAULT_GOAL} shown={date} onPick={setDate} />
         </>
       ) : null}
@@ -288,7 +288,6 @@ export default function CaloriesPage() {
             try {
               await api.putBurned(date, sheet.row.id, kcal);
               await load(date);
-              setSheet(null);
               return null;
             } catch (e) {
               return e instanceof Error ? e.message : 'לא נשמר';
