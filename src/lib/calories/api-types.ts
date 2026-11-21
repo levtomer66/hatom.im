@@ -1,5 +1,6 @@
 // Shapes the /api/calories routes return. Import-free (types only).
 
+import type { Nutrition } from '../shopping/nutrition.ts';
 import type { Entry, MealDoc, Recent, Ref, Settings, Totals, Unit, WeighIn } from './calories.ts';
 
 export interface WeekBar { date: string; kcal: number; over: boolean }
@@ -39,6 +40,8 @@ export interface FoodHit {
   per100: Totals | null;
   /** A home-made meal: one portion. */
   per?: Totals;
+  /** The full label per 100 g (ml) — sugars, fibre, sodium… — for the product view; products and MoH foods. */
+  label?: Nutrition;
   units: Unit[];
   source: 'moh' | 'off' | 'manual' | 'meal';
   maker?: string;

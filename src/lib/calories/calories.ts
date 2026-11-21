@@ -307,6 +307,12 @@ export function formSettings(f: GoalFields, rec: { goal: number; proteinGoal: nu
 
 export const leftToday = (goal: number, eaten: number, burned: number) => goal - eaten + burned;
 
+/** Each macro's share of the calories (4 kcal per g of protein and carbs, 9 of fat), whole percents. */
+export function macroShare(t: Totals): Record<'p' | 'c' | 'f', number | null> {
+  const of = (g: number, per: number) => (t.kcal > 0 ? Math.round((g * per * 100) / t.kcal) : null);
+  return { p: of(t.p, 4), c: of(t.c, 4), f: of(t.f, 9) };
+}
+
 /** Values typed from a package, per 100 g: kcal required, the rest optional. */
 export function parseLabel(v: unknown): Result<Nutrition> {
   if (!isObj(v)) return fail('ערכים לא תקינים');

@@ -1,7 +1,8 @@
 'use client';
 
 // How much: unit chips (grams, the pack, MoH portions, a meal's portion), a
-// quantity stepper, and the live totals. Logs an entry, or (in a home-made
+// quantity stepper, the live totals with protein · carbs · fat as tiles, and the
+// full label (<NutritionFacts>) when we have one. Logs an entry, or (in a home-made
 // meal's editor) returns an ingredient in grams.
 
 import React, { useState } from 'react';
@@ -9,6 +10,8 @@ import { FaMinus, FaPlus } from 'react-icons/fa';
 import { defaultAmount, entryTotals, scaleTotals, type Entry, type MealItem, type Totals, type Unit } from '@/lib/calories/calories';
 import type { FoodHit } from '@/lib/calories/api-types';
 import { Thumb } from '../shopping/ui';
+import Macros from './Macros';
+import NutritionFacts from './NutritionFacts';
 
 /** The data.gov.il licence asks for the source by name. */
 export const MOH_CREDIT = <>מקור: משרד הבריאות, מאגר התזונה הלאומי (<bdi>data.gov.il</bdi>)</>;
@@ -99,14 +102,16 @@ export default function AmountStep(props: Props) {
         </div>
         <p className="cal-amount-total">
           <b>{t ? t.kcal.toLocaleString('he-IL') : '—'}</b> קק״ל
-          {t ? <small>חלבון {t.p.toLocaleString('he-IL')} ג׳</small> : null}
         </p>
       </div>
+      {t ? <Macros t={t} /> : null}
       {unit.g * qty > 5000 ? <p className="cal-error">עד 5,000 גרם ברישום אחד</p> : null}
       <button type="button" className="sh-btn sh-btn--primary cal-wide" disabled={!valid || busy} onClick={submit}>
         {props.mode === 'log' ? (busy ? 'מוסיף…' : 'הוספה') : 'הוספה למתכון'}
       </button>
+      {hit.label ? <NutritionFacts label={hit.label} grams={Math.round(unit.g * qty * 10) / 10} liquid={'liquid' in hit && hit.liquid === true} /> : null}
       {hit.source === 'moh' ? <p className="sh-credit">{MOH_CREDIT}</p> : null}
+      {hit.source === 'off' && hit.label ? <p className="sh-credit">מקור: <a href="https://world.openfoodfacts.org" target="_blank" rel="noopener noreferrer">Open Food Facts</a> (ODbL). הקובע הוא הסימון על האריזה.</p> : null}
       {hit.source === 'manual' ? <p className="sh-credit">הערכים הוקלדו מהאריזה</p> : null}
     </div>
   );

@@ -1,10 +1,11 @@
 'use client';
 
 // Today's ring: what's left in the middle (goal − eaten + burned by workouts);
-// eaten and burned under it, then protein · carbs · fat, and a small protein bar
-// when there is a protein goal.
+// eaten and burned under it, then protein · carbs · fat as tiles (<Macros>), the
+// protein one with its goal bar when there is a goal.
 
 import React from 'react';
+import Macros from './Macros';
 import { leftToday, type Settings, type Totals } from '@/lib/calories/calories';
 
 const R = 54;
@@ -31,15 +32,8 @@ export default function Ring({ eaten, burned, settings }: { eaten: Totals; burne
       </div>
       <p className="cal-ring-sum">
         <span><b>{n(eaten.kcal)}</b> מתוך {n(settings.goal)} קק״ל{burned > 0 ? <> · <b className="cal-burned">+{n(burned)}</b> באימון</> : null}</span>
-        <span className="cal-macros">חלבון {n(eaten.p)} · פחמימות {n(eaten.c)} · שומן {n(eaten.f)} ג׳</span>
       </p>
-      {settings.proteinGoal ? (
-        <div className="cal-protein" aria-label={`חלבון ${n(eaten.p)} מתוך ${settings.proteinGoal} גרם`}>
-          <span>חלבון</span>
-          <span className="cal-bar"><span style={{ width: `${Math.min(eaten.p / settings.proteinGoal, 1) * 100}%` }} /></span>
-          <span>{n(eaten.p)}/{settings.proteinGoal} ג׳</span>
-        </div>
-      ) : null}
+      <Macros t={eaten} proteinGoal={settings.proteinGoal} />
     </section>
   );
 }

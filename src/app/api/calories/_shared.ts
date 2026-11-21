@@ -33,6 +33,7 @@ export function productHit(d: ItemDoc, label: Nutrition | null | undefined): Pro
     name: d.n,
     img: d.img ?? null,
     per100: toTotals(nu),
+    ...(nu ? { label: nu } : {}),
     units: unitsFor({ pack: packGrams(d.q, d.uq), w: d.w, liquid }),
     source: nu?.by === 'manual' ? 'manual' : nu?.by === 'moh' ? 'moh' : 'off',
     maker: d.m || undefined,
@@ -46,6 +47,7 @@ export const foodHit = (f: FoodDoc): FoodHit => ({
   name: f.n,
   img: null,
   per100: toTotals(f.nu),
+  label: f.nu,
   units: unitsFor({ units: f.units }),
   source: 'moh',
 });

@@ -1,4 +1,5 @@
 import { test } from 'node:test';
+import * as calories from '../calories/calories.ts';
 import assert from 'node:assert/strict';
 import {
   defaultMeal, entryTotals, isDate, mealPerPortion, mealTotals, parseEntry, parseLabel, parseMeal, parseSettings, pushRecent, rescaleEntry,
@@ -238,4 +239,10 @@ test('formSettings: a bad profile value is refused before anything is sent', () 
   assert.equal(formSettings({ ...form, height: '17' }, null, 2026).ok, false);
   assert.equal(formSettings({ ...form, birthYear: 'abc' }, null, 2026).ok, false);
   assert.equal(formSettings({ ...form, follow: false, goal: '' }, null, 2026).ok, false);
+});
+
+test('macroShare: each macro\'s share of the calories, whole percents; nulls without calories', () => {
+  const { macroShare } = calories;
+  assert.deepEqual(macroShare({ kcal: 1000, p: 50, c: 100, f: 40 }), { p: 20, c: 40, f: 36 });
+  assert.deepEqual(macroShare({ kcal: 0, p: 0, c: 0, f: 0 }), { p: null, c: null, f: null });
 });
