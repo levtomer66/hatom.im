@@ -4,6 +4,7 @@
 // import-free nutrition module, for `node --test`.
 
 import { plausible, type Nutrition } from '../shopping/nutrition.ts';
+import type { FoodHit } from './api-types.ts';
 
 export type Meal = 'breakfast' | 'lunch' | 'dinner' | 'snack';
 export const MEALS: readonly Meal[] = ['breakfast', 'lunch', 'dinner', 'snack'];
@@ -266,6 +267,17 @@ export function pushWeighIn(log: WeighIn[], w: WeighIn, max = MAX_WEIGH_INS): We
   const next = [...log.filter((x) => x.d !== w.d), w].sort((a, b) => (a.d < b.d ? -1 : a.d > b.d ? 1 : 0));
   return next.slice(-max);
 }
+
+/** A home-made meal as something to log: one portion (its grams, for showing). */
+export const mealHit = (m: MealDoc): FoodHit => ({
+  ref: { kind: 'meal', key: m.id },
+  name: m.name,
+  img: null,
+  per100: null,
+  per: m.per,
+  units: [{ name: 'מנה', g: Math.round(m.items.reduce((a, i) => a + i.grams, 0) / m.portions) || 1 }],
+  source: 'meal',
+});
 
 export const leftToday = (goal: number, eaten: number, burned: number) => goal - eaten + burned;
 

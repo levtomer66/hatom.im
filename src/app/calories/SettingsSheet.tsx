@@ -1,6 +1,6 @@
 'use client';
 
-// ⚙: the daily goals, and the way to הארוחות שלי.
+// ⚙: the daily goals.
 
 import React, { useState } from 'react';
 import { DEFAULT_GOAL, type Settings } from '@/lib/calories/calories';
@@ -26,8 +26,8 @@ export function GoalForm({ settings, onSave, cta }: { settings: Settings | null;
   );
 }
 
-export default function SettingsSheet({ settings, onSave, onMeals, onClose }: {
-  settings: Settings | null; onSave: (s: Settings) => Promise<string | null>; onMeals: () => void; onClose: () => void;
+export default function SettingsSheet({ settings, onSave, onClose }: {
+  settings: Settings | null; onSave: (s: Settings) => Promise<string | null>; onClose: () => void;
 }) {
   return (
     <Sheet title="הגדרות" onClose={onClose}>
@@ -36,7 +36,6 @@ export default function SettingsSheet({ settings, onSave, onMeals, onClose }: {
         if (!err) onClose();
         return err;
       }} />
-      <button type="button" className="sh-btn cal-wide" onClick={onMeals}>הארוחות שלי</button>
     </Sheet>
   );
 }

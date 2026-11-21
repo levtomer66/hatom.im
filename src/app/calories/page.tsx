@@ -7,7 +7,7 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSession } from 'next-auth/react';
-import { FaChevronLeft, FaChevronRight, FaCog, FaPlus } from 'react-icons/fa';
+import { FaChevronLeft, FaChevronRight, FaCog, FaPlus, FaUtensils } from 'react-icons/fa';
 import { hasPermission } from '@/lib/permissions';
 import {
   defaultMeal, isCurrentDay, mealTotals, rollToday, sumTotals, DEFAULT_GOAL, MEALS, MEAL_NAMES,
@@ -63,6 +63,7 @@ export default function CaloriesPage() {
   const [pending, setPending] = useState<Pending[]>([]);
   const [sheet, setSheet] = useState<SheetState>(null);
   const [toast, setToast] = useState<string | null>(null);
+  const [hour, setHour] = useState(() => new Date().getHours());
 
   // The day on screen, for async work that finishes after the page has moved on.
   const dateRef = useRef<string | null>(null);
@@ -79,6 +80,7 @@ export default function CaloriesPage() {
   // A page left open past midnight: "today" moves on, and so does a page that was showing it.
   useEffect(() => {
     const check = () => {
+      setHour(new Date().getHours());
       const old = todayRef.current;
       const now = localToday();
       if (!old || old === now) return;
@@ -167,7 +169,8 @@ export default function CaloriesPage() {
   if (!date || !today) return <main className="sh-page cal-page" />;
   const settings = shown?.settings ?? null;
   // New entries go to the meal of the hour on today; a past day's to snacks.
-  const currentMeal: Meal = date === today ? defaultMeal(new Date().getHours()) : 'snack';
+  const nowMeal: Meal | null = date === today ? defaultMeal(hour) : null;
+  const currentMeal: Meal = nowMeal ?? 'snack';
 
   return (
     <main className="sh-page cal-page">
@@ -196,13 +199,16 @@ export default function CaloriesPage() {
           <SearchBar recent={shown.recent} canShop={canShop}
             onPick={(picked) => setSheet({ kind: 'add', meal: currentMeal, picked })}
             onLog={(e, per100, per) => log({ ...e, meal: currentMeal }, per100, per)} />
+          <div className="cal-actions">
+            <button type="button" className="sh-btn sh-home-btn" onClick={() => setSheet({ kind: 'meals' })}><FaUtensils aria-hidden /> ארוחה</button>
+          </div>
           {MEALS.map((m) => {
             const entries = shown.entries.filter((e) => e.meal === m);
             const waiting = mine.filter((p) => p.entry.meal === m);
             return (
-              <section key={m} className="sh-card cal-meal" aria-label={MEAL_NAMES[m]}>
+              <section key={m} className={`sh-card cal-meal ${m === nowMeal ? 'is-now' : ''}`} aria-label={MEAL_NAMES[m]} aria-current={m === nowMeal ? 'time' : undefined}>
                 <header className="cal-meal-head">
-                  <h2>{MEAL_NAMES[m]}</h2>
+                  <h2>{MEAL_NAMES[m]}{m === nowMeal ? <small className="cal-now">עכשיו</small> : null}</h2>
                   <span className="cal-muted">{byMeal[m].kcal ? `${byMeal[m].kcal.toLocaleString('he-IL')} קק״ל` : ''}</span>
                   <button type="button" className="sh-icon-btn" aria-label={`הוספה ל${MEAL_NAMES[m]}`} onClick={() => setSheet({ kind: 'add', meal: m })}><FaPlus /></button>
                 </header>
@@ -253,9 +259,9 @@ export default function CaloriesPage() {
           }} />
       ) : null}
       {sheet?.kind === 'settings' ? (
-        <SettingsSheet settings={settings} onSave={saveSettings} onMeals={() => setSheet({ kind: 'meals' })} onClose={() => setSheet(null)} />
+        <SettingsSheet settings={settings} onSave={saveSettings} onClose={() => setSheet(null)} />
       ) : null}
-      {sheet?.kind === 'meals' ? <MealsSheet onClose={() => setSheet(null)} /> : null}
+      {sheet?.kind === 'meals' ? <MealsSheet onLog={(picked) => setSheet({ kind: 'add', meal: currentMeal, picked })} onClose={() => setSheet(null)} /> : null}
 
       {toast ? <div className="sh-toast" role="status">{toast}</div> : null}
     </main>

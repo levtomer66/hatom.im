@@ -1,11 +1,13 @@
 'use client';
 
-// הארוחות שלי: home-made meals. A meal is ingredients (in grams) and a number
-// of portions; logging one (from the search) takes a portion's values.
+// ארוחה (the button under the search): home-made meals. A meal is ingredients
+// (in grams) and a number of portions; "רישום" logs portions of it (the amount
+// sheet), and the search finds it too.
 
 import React, { useEffect, useState } from 'react';
 import { FaMinus, FaPlus } from 'react-icons/fa';
-import { mealPerPortion, MAX_PORTIONS, type MealDoc, type MealItem } from '@/lib/calories/calories';
+import { mealHit, mealPerPortion, MAX_PORTIONS, type MealDoc, type MealItem } from '@/lib/calories/calories';
+import type { FoodHit } from '@/lib/calories/api-types';
 import { SwipeRow } from '../shopping/ui';
 import FoodPicker from './FoodPicker';
 import Sheet from './Sheet';
@@ -71,7 +73,7 @@ function Editor({ draft: first, onDone }: { draft: Draft; onDone: () => void }) 
   );
 }
 
-export default function MealsSheet({ onClose }: { onClose: () => void }) {
+export default function MealsSheet({ onLog, onClose }: { onLog: (hit: FoodHit) => void; onClose: () => void }) {
   const [meals, setMeals] = useState<MealDoc[] | null>(null);
   const [editing, setEditing] = useState<Draft | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -79,20 +81,21 @@ export default function MealsSheet({ onClose }: { onClose: () => void }) {
   useEffect(() => { void load(); }, []);
 
   return (
-    <Sheet title={editing ? (editing.id ? 'עריכת ארוחה' : 'ארוחה חדשה') : 'הארוחות שלי'} onClose={onClose}>
+    <Sheet title={editing ? (editing.id ? 'עריכת ארוחה' : 'ארוחה חדשה') : 'ארוחות'} onClose={onClose}>
       {editing ? (
         <Editor draft={editing} onDone={() => { setEditing(null); void load(); }} />
       ) : (
         <>
           {error ? <p className="cal-error">{error}</p> : null}
-          {meals && !meals.length ? <p className="sh-empty">עוד אין ארוחות. ארוחה היא מתכון: מרכיבים במשקל ומספר מנות, ואז רושמים מנה אחת בחיפוש.</p> : null}
+          {meals && !meals.length ? <p className="sh-empty">עוד אין ארוחות. ארוחה היא מתכון: מרכיבים במשקל ומספר מנות, ואז רושמים מנות ממנה.</p> : null}
           <ul className="cal-hits">
             {(meals ?? []).map((m) => (
-              <li key={m.id}>
+              <li key={m.id} className="cal-meal-row">
                 <button type="button" className="cal-hit" onClick={() => setEditing({ id: m.id, name: m.name, portions: m.portions, items: m.items })}>
-                  <span className="cal-hit-name">{m.name}<small>{m.portions} מנות · {m.items.length} מרכיבים</small></span>
+                  <span className="cal-hit-name">{m.name}<small>{m.portions} מנות · {m.items.length} מרכיבים · עריכה</small></span>
                   <span className="cal-hit-kcal">{m.per.kcal}<small>למנה</small></span>
                 </button>
+                <button type="button" className="sh-btn sh-btn--primary cal-log-btn" onClick={() => onLog(mealHit(m))}>רישום</button>
               </li>
             ))}
           </ul>

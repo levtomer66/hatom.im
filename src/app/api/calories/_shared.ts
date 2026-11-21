@@ -2,7 +2,7 @@
 // turning catalog items, MoH foods and home-made meals into FoodHits.
 
 import { NextRequest, NextResponse } from 'next/server';
-import { toTotals, unitsFor, type MealDoc } from '@/lib/calories/calories';
+import { toTotals, unitsFor } from '@/lib/calories/calories';
 import type { FoodDoc } from '@/lib/calories/moh';
 import type { FoodHit, ProductResponse } from '@/lib/calories/api-types';
 import { isLiquid, nutritionOf, packGrams, type Nutrition } from '@/lib/shopping/nutrition';
@@ -50,12 +50,4 @@ export const foodHit = (f: FoodDoc): FoodHit => ({
   source: 'moh',
 });
 
-export const mealHit = (m: MealDoc): FoodHit => ({
-  ref: { kind: 'meal', key: m.id },
-  name: m.name,
-  img: null,
-  per100: null,
-  per: m.per,
-  units: [{ name: 'מנה', g: Math.round(m.items.reduce((a, i) => a + i.grams, 0) / m.portions) || 1 }],
-  source: 'meal',
-});
+export { mealHit } from '@/lib/calories/calories';

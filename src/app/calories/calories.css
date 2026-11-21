@@ -167,3 +167,20 @@
 }
 .cal-drop .cal-hit:last-child { border-bottom: none; }
 .cal-search { scroll-margin-top: 0.5rem; }
+
+/* ── v2: ארוחה button, meal rows, the meal of the hour ── */
+.cal-actions { display: flex; justify-content: center; gap: 0.75rem; margin: 0 0 1rem; }
+.cal-meal-row { display: flex; align-items: center; gap: 0.5rem; border-bottom: 1px solid var(--sh-line); }
+.cal-meal-row .cal-hit { flex: 1; min-width: 0; border-bottom: none; }
+.cal-log-btn { flex: none; width: auto; min-height: 40px; padding-inline: 1rem; font-size: 0.9375rem; }
+.cal-meal.is-now { box-shadow: inset 0 0 0 2px var(--sh-accent); }
+.cal-now {
+  margin-inline-start: 0.5rem;
+  padding: 0.0625rem 0.5rem;
+  border-radius: 999px;
+  background: var(--sh-accent-soft);
+  color: var(--sh-accent);
+  font-size: 0.75rem;
+  font-weight: 600;
+  vertical-align: 0.125em;
+}
