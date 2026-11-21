@@ -128,7 +128,7 @@ const cleanName = (v: unknown): string | null => {
   return s && s.length <= MAX_NAME ? s : null;
 };
 
-function parseTotals(v: unknown): Totals | null {
+export function parseTotals(v: unknown): Totals | null {
   if (!isObj(v) || ![v.kcal, v.p, v.c, v.f].every(isNum)) return null;
   const t = { kcal: v.kcal as number, p: v.p as number, c: v.c as number, f: v.f as number };
   return t.kcal <= 20_000 && t.p <= 2000 && t.c <= 2000 && t.f <= 2000 ? scaleTotals(t, 1) : null;

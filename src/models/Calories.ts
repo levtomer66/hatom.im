@@ -1,7 +1,7 @@
 import { ObjectId, MongoServerError } from 'mongodb';
 import clientPromise from '@/lib/mongodb';
 import {
-  MAX_ENTRIES, mealPerPortion, pushRecent, rescaleEntry,
+  MAX_ENTRIES, MAX_GRAMS, mealPerPortion, pushRecent, rescaleEntry,
   type Entry, type Meal, type MealDoc, type MealItem, type Recent, type Settings,
 } from '@/lib/calories/calories';
 import type { FoodDoc } from '@/lib/calories/moh';
@@ -48,7 +48,8 @@ export async function getDays(email: string, dates: string[]): Promise<Record<st
 export async function addEntry(email: string, date: string, entry: Entry): Promise<boolean> {
   try {
     const res = await (await days()).updateOne(
-      { _id: dayId(email, date), $expr: { $lt: [{ $size: { $ifNull: ['$entries', []] } }, MAX_ENTRIES] } },
+      // No MAX_ENTRIES-th entry yet ($expr isn't allowed in an upsert's filter).
+      { _id: dayId(email, date), [`entries.${MAX_ENTRIES - 1}`]: { $exists: false } },
       { $push: { entries: entry }, $set: { updatedAt: new Date().toISOString() } },
       { upsert: true },
     );
@@ -60,13 +61,15 @@ export async function addEntry(email: string, date: string, entry: Entry): Promi
   }
 }
 
-export async function updateEntry(email: string, date: string, id: string, patch: { meal?: Meal; qty?: number }): Promise<Entry | null> {
+/** null when there is no such entry; 'too-big' (nothing written) when the new amount is over MAX_GRAMS. */
+export async function updateEntry(email: string, date: string, id: string, patch: { meal?: Meal; qty?: number }): Promise<Entry | null | 'too-big'> {
   const col = await days();
   const doc = await col.findOne({ _id: dayId(email, date), 'entries.id': id });
   const old = doc?.entries.find((e) => e.id === id);
   if (!old) return null;
   let next = patch.qty !== undefined ? rescaleEntry(old, patch.qty) : old;
   if (patch.meal) next = { ...next, meal: patch.meal };
+  if (next.ref.kind !== 'quick' && next.unit.g * next.qty > MAX_GRAMS) return 'too-big';
   await col.updateOne({ _id: dayId(email, date), 'entries.id': id }, { $set: { 'entries.$': next, updatedAt: new Date().toISOString() } });
   return next;
 }
@@ -151,4 +154,9 @@ export async function getLabel(key: string): Promise<Nutrition | null> {
 
 export async function setLabel(key: string, nu: Nutrition, email: string): Promise<void> {
   await (await labels()).replaceOne({ _id: key }, { nu, by: email, at: new Date().toISOString() }, { upsert: true });
+}
+
+export async function getLabels(keys: string[]): Promise<Map<string, Nutrition>> {
+  if (!keys.length) return new Map();
+  return new Map((await (await labels()).find({ _id: { $in: keys } }).toArray()).map((d) => [d._id, d.nu]));
 }
