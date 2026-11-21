@@ -91,6 +91,8 @@
 /* ── meal cards ── */
 .cal-meal { padding: 0.25rem 0 0.25rem; overflow: hidden; }
 .cal-meal-head { display: flex; align-items: center; gap: 0.5rem; padding-inline: 1rem 0.25rem; }
+.cal-meal-head.is-tap { cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.cal-meal-head.is-tap:active { background: var(--sh-surface); }
 .cal-meal-head h2 { flex: 1; margin: 0; font-size: 1rem; font-weight: 600; }
 .cal-entries { margin: 0; padding: 0; list-style: none; }
 .cal-entries .sh-swipe-row, .cal-entry.is-pending { background: var(--sh-surface); }

@@ -3,7 +3,7 @@
 import { CALORIES_API_PATH } from '@/lib/calories/config';
 import { isFood } from '@/lib/shopping/nutrition';
 import type { Entry, MealDoc, MealItem, Meal, Settings, Totals, WeighIn } from '@/lib/calories/calories';
-import type { DayResponse, ProductResponse, SearchResponse } from '@/lib/calories/api-types';
+import type { DayResponse, FoodHit, ProductResponse, SearchResponse } from '@/lib/calories/api-types';
 
 export class ApiError extends Error {
   constructor(message: string, readonly status: number) {
@@ -41,6 +41,7 @@ export const deleteEntry = (date: string, id: string) => call<{ ok: true }>('DEL
 export const putSettings = (s: Settings) => call<{ settings: Settings }>('PUT', 'settings', s).then((r) => r.settings);
 export const search = (q: string, signal?: AbortSignal) => call<SearchResponse>('GET', `search?q=${encodeURIComponent(q)}`, undefined, signal);
 export const getProduct = (key: string) => call<ProductResponse>('GET', `product?key=${encodeURIComponent(key)}`);
+export const getFood = (id: string) => call<FoodHit>('GET', `product?food=${encodeURIComponent(id)}`);
 export const putLabel = (key: string, nu: Record<string, number | null>) => call<{ per100: Totals }>('PUT', 'label', { key, nu }).then((r) => r.per100);
 export const listMeals = () => call<{ meals: MealDoc[] }>('GET', 'meals').then((r) => r.meals);
 export const saveMeal = (m: { name: string; portions: number; items: MealItem[] }, id?: string) =>

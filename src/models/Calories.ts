@@ -197,6 +197,11 @@ export async function deleteMeal(email: string, id: string): Promise<boolean> {
 
 // ── shared food data ──
 
+/** One MoH food by its id (an entry's ref key). */
+export async function getFood(id: number): Promise<FoodDoc | null> {
+  return (await foods()).findOne({ _id: id }, { projection: { h: 0 } });
+}
+
 /** MoH foods whose name matches every pattern (searchPatterns), unranked (at most 500). */
 export async function searchFoods(terms: string[]): Promise<FoodDoc[]> {
   if (!terms.length) return [];

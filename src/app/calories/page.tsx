@@ -224,10 +224,11 @@ export default function CaloriesPage() {
             const waiting = mine.filter((p) => p.entry.meal === m);
             return (
               <section key={m} className={`sh-card cal-meal ${m === nowMeal ? 'is-now' : ''}`} aria-label={MEAL_NAMES[m]} aria-current={m === nowMeal ? 'time' : undefined}>
-                <header className="cal-meal-head">
+                {/* The whole row adds to this meal; the + button (a click bubbles here) keeps it reachable by keyboard. */}
+                <header className="cal-meal-head is-tap" onClick={() => setSheet({ kind: 'add', meal: m })}>
                   <h2>{MEAL_NAMES[m]}{m === nowMeal ? <small className="cal-now">עכשיו</small> : null}</h2>
                   <span className="cal-muted">{byMeal[m].kcal ? `${byMeal[m].kcal.toLocaleString('he-IL')} קק״ל` : ''}</span>
-                  <button type="button" className="sh-icon-btn" aria-label={`הוספה ל${MEAL_NAMES[m]}`} onClick={() => setSheet({ kind: 'add', meal: m })}><FaPlus /></button>
+                  <button type="button" className="sh-icon-btn" aria-label={`הוספה ל${MEAL_NAMES[m]}`}><FaPlus /></button>
                 </header>
                 {entries.length || waiting.length ? (
                   <ul className="cal-entries">
