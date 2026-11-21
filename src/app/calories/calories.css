@@ -189,3 +189,21 @@
 .cal-burned { color: var(--cal-ok); }
 .cal-workouts { margin-top: 0.25rem; }
 .cal-workout-icon { display: inline-flex; align-items: center; justify-content: center; flex: none; width: 36px; height: 36px; border-radius: 10px; background: var(--cal-ok-soft); color: var(--cal-ok); }
+
+/* ── v2: weight card, goal form ── */
+.cal-weight { padding-bottom: 0.75rem; }
+.cal-weight-row { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 0.25rem 1rem 0; }
+.cal-weight-now { margin: 0; display: flex; align-items: baseline; flex-wrap: wrap; gap: 0.375rem; }
+.cal-weight-now b { font-size: 1.5rem; }
+.cal-weight-now small { color: var(--sh-muted); font-size: 0.8125rem; }
+.cal-weight-now small.is-down { color: var(--cal-ok); }
+.cal-weight-form { padding: 0 1rem; }
+.cal-weight-form .sh-btn--primary { min-height: 44px; }
+.cal-spark { flex: none; }
+.cal-spark polyline { fill: none; stroke: var(--sh-accent); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.cal-goals .cal-label-grid { grid-template-columns: repeat(auto-fit, minmax(6.5rem, 1fr)); }
+.cal-goals .sh-section-title { margin-top: 1rem; }
+.cal-note { margin-top: 0.375rem; font-size: 0.8125rem; }
+.cal-rec { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.375rem; margin: 0 0 0.5rem; padding: 0.5rem 0.75rem; border-radius: var(--sh-r-ctl); background: var(--cal-ok-soft); }
+.cal-rec small { color: var(--sh-muted); font-size: 0.8125rem; }
+.cal-rec .cal-link { margin-inline-start: auto; }

@@ -23,6 +23,7 @@ import EditSheet from './EditSheet';
 import MealsSheet from './Meals';
 import Ring from './Ring';
 import SettingsSheet, { GoalForm } from './SettingsSheet';
+import Weight from './Weight';
 import WeekBars from './WeekBars';
 import Workouts, { BurnedSheet } from './Workouts';
 import * as api from './api';
@@ -146,11 +147,22 @@ export default function CaloriesPage() {
     void send(p);
   };
 
-  const saveSettings = async (s: Settings): Promise<string | null> => {
+  // The weight goes first (it's the workout app's too), so goals following the recommendation use it.
+  const saveWeight = async (kg: number): Promise<string | null> => {
     try {
+      await api.putWeight(todayRef.current ?? localToday(), kg);
+      if (date) await load(date);
+      return null;
+    } catch (e) {
+      return e instanceof Error ? e.message : 'לא נשמר';
+    }
+  };
+  const saveSettings = async (s: Settings, kg: number | null): Promise<string | null> => {
+    try {
+      if (kg !== null && kg !== shown?.weight.kg) await api.putWeight(todayRef.current ?? localToday(), kg);
       const settings = await api.putSettings(s);
       setDay((d) => (d ? { ...d, settings } : d));
-      if (date) void load(date);
+      if (date) await load(date);
       return null;
     } catch (e) {
       return e instanceof Error ? e.message : 'לא נשמר';
@@ -189,8 +201,8 @@ export default function CaloriesPage() {
       {shown && !settings ? (
         <section className="sh-card cal-welcome">
           <h2>כמה קלוריות ביום?</h2>
-          <p className="cal-muted">היעד היומי שלך. אפשר לשנות בכל רגע ב־⚙.</p>
-          <GoalForm settings={null} cta="להתחיל" onSave={saveSettings} />
+          <p className="cal-muted">כמה פרטים, ונמליץ על יעד קלוריות וחלבון לפי המטרה. אפשר לשנות בכל רגע ב־⚙.</p>
+          <GoalForm settings={null} kg={shown.weight.kg} cta="להתחיל" onSave={saveSettings} />
         </section>
       ) : null}
 
@@ -242,6 +254,7 @@ export default function CaloriesPage() {
             );
           })}
           <Workouts rows={shown.burned} onPick={(row) => setSheet({ kind: 'burned', row })} />
+          <Weight key={`${shown.weight.kg}`} kg={shown.weight.kg} log={shown.weight.log} date={date} onSave={saveWeight} />
           <WeekBars week={shown.week} goal={settings.goal ?? DEFAULT_GOAL} shown={date} onPick={setDate} />
         </>
       ) : null}
@@ -263,7 +276,7 @@ export default function CaloriesPage() {
           }} />
       ) : null}
       {sheet?.kind === 'settings' ? (
-        <SettingsSheet settings={settings} onSave={saveSettings} onClose={() => setSheet(null)} />
+        <SettingsSheet settings={settings} kg={shown?.weight.kg ?? null} onSave={saveSettings} onClose={() => setSheet(null)} />
       ) : null}
       {sheet?.kind === 'meals' ? <MealsSheet onLog={(picked) => setSheet({ kind: 'add', meal: currentMeal, picked })} onClose={() => setSheet(null)} /> : null}
 
