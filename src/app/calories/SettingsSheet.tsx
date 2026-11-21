@@ -4,14 +4,16 @@
 // recommendation needs, the weight shared with the workout app, and the daily
 // goals — filled from the recommendation and editable. While they follow it
 // (`followRec`), the server recomputes them from each new weight; typing a number
-// stops that, "לפי ההמלצה" brings it back.
+// stops that, "לפי ההמלצה" brings it back. In ⚙ (`autosave`) a valid form is saved
+// as you change it (useAutosave); the first visit's card keeps its "להתחיל" button.
 
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   ACTIVITY, DEFAULT_GOAL, formSettings, kgOk, macroGoals, recommend,
   type Activity, type Aim, type Profile, type Settings, type Sex,
 } from '@/lib/calories/calories';
 import Sheet from './Sheet';
+import { statusText, useAutosave } from './autosave';
 
 const AIMS: { v: Aim; label: string }[] = [{ v: 'lose', label: 'ירידה במשקל' }, { v: 'keep', label: 'שמירה' }, { v: 'gain', label: 'עלייה במשקל' }];
 const ACTIVITY_NAMES: Record<Activity, string> = { 1.2: 'יושבני', 1.375: 'קל', 1.55: 'פעיל', 1.725: 'פעיל מאוד' };
@@ -29,7 +31,9 @@ function Chips<T extends string | number>({ label, value, options, onPick }: { l
   );
 }
 
-export function GoalForm({ settings, kg: kgNow, onSave, cta }: { settings: Settings | null; kg: number | null; onSave: SaveGoals; cta: string }) {
+export function GoalForm({ settings, kg: kgNow, onSave, cta, autosave, onFlush }: {
+  settings: Settings | null; kg: number | null; onSave: SaveGoals; cta?: string; autosave?: boolean; onFlush?: (flush: () => void) => void;
+}) {
   const p = settings?.profile;
   const [aim, setAim] = useState<Aim>(settings?.aim ?? 'keep');
   const [sex, setSex] = useState<Sex | null>(p?.sex ?? null);
@@ -58,10 +62,19 @@ export function GoalForm({ settings, kg: kgNow, onSave, cta }: { settings: Setti
   const shownProtein = follow && rec ? String(rec.proteinGoal) : protein;
   const split = Number(shownGoal) > 0 ? macroGoals(Number(shownGoal), Number(shownProtein) > 0 ? Number(shownProtein) : null) : null;
 
+  const kgBad = kg.trim() !== '' && !kgOk(kgNum);
+  const checked = formSettings({ aim, sex, birthYear, height, activity, follow, goal, protein }, rec, year);
+  const wanted = !kgBad && checked.ok ? { s: checked.value, kg: kg.trim() ? Math.round(kgNum * 10) / 10 : null } : undefined;
+  const first = useRef(wanted);
+  const auto = useAutosave(autosave ? wanted : undefined, first.current, (v) => onSave(v.s, v.kg));
+  useEffect(() => { onFlush?.(auto.flush); }, [onFlush, auto.flush]);
+  const formError = kgBad ? 'משקל בין 25 ל־400 ק״ג' : checked.ok ? null : checked.error;
+
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (kg.trim() && !kgOk(kgNum)) { setError('משקל בין 25 ל־400 ק״ג'); return; }
-    const s = formSettings({ aim, sex, birthYear, height, activity, follow, goal, protein }, rec, year);
+    if (autosave) { auto.flush(); return; }
+    if (kgBad) { setError('משקל בין 25 ל־400 ק״ג'); return; }
+    const s = checked;
     if (!s.ok) { setError(s.error); return; }
     setBusy(true);
     setError(await onSave(s.value, kg.trim() ? Math.round(kgNum * 10) / 10 : null));
@@ -96,8 +109,17 @@ export function GoalForm({ settings, kg: kgNow, onSave, cta }: { settings: Setti
         <label><span>חלבון (ג׳, לא חובה)</span><input inputMode="numeric" value={shownProtein} placeholder="—" onChange={(e) => { unfollow(); setProtein(e.target.value); }} /></label>
       </div>
       {split ? <p className="cal-muted cal-note">ומזה ביום: פחמימות {split.c} ג׳ · שומן {split.f} ג׳ (שומן רבע מהקלוריות, פחמימות היתרה)</p> : null}
-      {error ? <p className="cal-error">{error}</p> : null}
-      <button type="submit" className="sh-btn sh-btn--primary cal-wide" disabled={busy}>{busy ? 'שומר…' : cta}</button>
+      {autosave ? (
+        <>
+          {formError ?? auto.error ? <p className="cal-error" role="alert">{formError ?? auto.error}</p> : null}
+          <p className="cal-muted cal-save-state" aria-live="polite">{statusText(auto.status)}</p>
+        </>
+      ) : (
+        <>
+          {error ? <p className="cal-error">{error}</p> : null}
+          <button type="submit" className="sh-btn sh-btn--primary cal-wide" disabled={busy}>{busy ? 'שומר…' : cta}</button>
+        </>
+      )}
     </form>
   );
 }
@@ -105,13 +127,10 @@ export function GoalForm({ settings, kg: kgNow, onSave, cta }: { settings: Setti
 export default function SettingsSheet({ settings, kg, onSave, onClose }: {
   settings: Settings | null; kg: number | null; onSave: SaveGoals; onClose: () => void;
 }) {
+  const flush = useRef<() => void>(() => {});
   return (
-    <Sheet title="מטרה ויעדים" onClose={onClose}>
-      <GoalForm settings={settings} kg={kg} cta="שמירה" onSave={async (s, w) => {
-        const err = await onSave(s, w);
-        if (!err) onClose();
-        return err;
-      }} />
+    <Sheet title="מטרה ויעדים" onClose={() => { flush.current(); onClose(); }}>
+      <GoalForm settings={settings} kg={kg} autosave onSave={onSave} onFlush={(f) => { flush.current = f; }} />
     </Sheet>
   );
 }

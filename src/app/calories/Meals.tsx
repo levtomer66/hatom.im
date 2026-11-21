@@ -2,25 +2,41 @@
 
 // ארוחה (the button under the search): home-made meals. A meal is ingredients
 // (in grams) and a number of portions; "רישום" logs portions of it (the amount
-// sheet), and the search finds it too.
+// sheet), and the search finds it too. The editor saves as you change it
+// (useAutosave): a new meal is created once it has a name and an ingredient, and
+// updated from then on.
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { FaMinus, FaPlus } from 'react-icons/fa';
 import { mealHit, mealPerPortion, MAX_PORTIONS, type MealDoc, type MealItem } from '@/lib/calories/calories';
 import type { FoodHit } from '@/lib/calories/api-types';
 import { SwipeRow } from '../shopping/ui';
 import FoodPicker from './FoodPicker';
 import Sheet from './Sheet';
+import { statusText, useAutosave } from './autosave';
 import { deleteMeal, listMeals, saveMeal } from './api';
 
 type Draft = { id?: string; name: string; portions: number; items: MealItem[] };
 
-function Editor({ draft: first, onDone }: { draft: Draft; onDone: () => void }) {
+function Editor({ draft: first, onDone, onFlush }: { draft: Draft; onDone: () => void; onFlush: (flush: () => void) => void }) {
   const [d, setD] = useState<Draft>(first);
+  const [id, setId] = useState(first.id);
   const [adding, setAdding] = useState(first.items.length === 0);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const per = d.items.length ? mealPerPortion(d.items, d.portions) : null;
+  const content = (x: Draft) => ({ name: x.name.trim(), portions: x.portions, items: x.items });
+  const idRef = useRef(first.id);
+  const { status, error, flush } = useAutosave(d.name.trim() && d.items.length ? content(d) : undefined, first.id ? content(first) : undefined, async (v) => {
+    try {
+      const m = await saveMeal(v, idRef.current);
+      idRef.current = m.id;
+      setId(m.id);
+      return null;
+    } catch (e) {
+      return e instanceof Error ? e.message : 'לא נשמר';
+    }
+  });
+  useEffect(() => { onFlush(flush); }, [onFlush, flush]);
 
   if (adding) {
     return (
@@ -30,17 +46,7 @@ function Editor({ draft: first, onDone }: { draft: Draft; onDone: () => void }) 
       </>
     );
   }
-  const save = async () => {
-    setBusy(true);
-    setError(null);
-    try {
-      await saveMeal({ name: d.name, portions: d.portions, items: d.items }, d.id);
-      onDone();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'לא נשמר');
-      setBusy(false);
-    }
-  };
+  const missing = !d.name.trim() ? 'נשמר כשיש שם ומרכיב אחד לפחות' : !d.items.length ? 'נשמר כשיש מרכיב אחד לפחות' : null;
   return (
     <div className="cal-meal-editor">
       <label className="cal-field"><span>שם</span><input value={d.name} maxLength={80} placeholder="שקשוקה של שבת" onChange={(e) => setD({ ...d, name: e.target.value })} /></label>
@@ -63,17 +69,20 @@ function Editor({ draft: first, onDone }: { draft: Draft; onDone: () => void }) 
       </ul>
       <button type="button" className="sh-btn cal-wide" onClick={() => setAdding(true)}>＋ מרכיב</button>
       {per ? <p className="cal-muted cal-per">למנה: {per.kcal.toLocaleString('he-IL')} קק״ל · חלבון {per.p} · פחמימות {per.c} · שומן {per.f} ג׳</p> : null}
-      {error ? <p className="cal-error">{error}</p> : null}
-      <button type="button" className="sh-btn sh-btn--primary cal-wide" disabled={busy || !d.name.trim() || !d.items.length} onClick={save}>{busy ? 'שומר…' : 'שמירה'}</button>
-      {d.id ? (
+      {error ? <p className="cal-error" role="alert">{error}</p> : null}
+      <p className="cal-muted cal-save-state" aria-live="polite">{missing && status === 'idle' ? missing : statusText(status)}</p>
+      <button type="button" className="sh-btn cal-wide" onClick={async () => { setBusy(true); await flush(); onDone(); }} disabled={busy}>חזרה לארוחות</button>
+      {id ? (
         <button type="button" className="sh-btn sh-btn--danger cal-wide" disabled={busy}
-          onClick={async () => { setBusy(true); await deleteMeal(d.id!).catch(() => null); onDone(); }}>מחיקת הארוחה</button>
+          onClick={async () => { setBusy(true); await deleteMeal(id).catch(() => null); onDone(); }}>מחיקת הארוחה</button>
       ) : null}
     </div>
   );
 }
 
 export default function MealsSheet({ onLog, onClose }: { onLog: (hit: FoodHit) => void; onClose: () => void }) {
+  const flush = useRef<() => void>(() => {});
+  const setFlush = useRef((f: () => void) => { flush.current = f; }).current;
   const [meals, setMeals] = useState<MealDoc[] | null>(null);
   const [editing, setEditing] = useState<Draft | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -81,9 +90,9 @@ export default function MealsSheet({ onLog, onClose }: { onLog: (hit: FoodHit) =
   useEffect(() => { void load(); }, []);
 
   return (
-    <Sheet title={editing ? (editing.id ? 'עריכת ארוחה' : 'ארוחה חדשה') : 'ארוחות'} onClose={onClose}>
+    <Sheet title={editing ? (editing.id ? 'עריכת ארוחה' : 'ארוחה חדשה') : 'ארוחות'} onClose={() => { flush.current(); onClose(); }}>
       {editing ? (
-        <Editor draft={editing} onDone={() => { setEditing(null); void load(); }} />
+        <Editor draft={editing} onFlush={setFlush} onDone={() => { flush.current = () => {}; setEditing(null); void load(); }} />
       ) : (
         <>
           {error ? <p className="cal-error">{error}</p> : null}

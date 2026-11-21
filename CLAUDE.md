@@ -490,6 +490,9 @@ Identity = Gmail address. Two roles:
   0.0005 kcal/kg per step only above the profile activity's `USUAL_STEPS` (the goal
   already holds those), recomputed on read. Carbs/fat bars: `macroGoals()` (fat 25%,
   carbs the rest after protein), derived, not stored.
+- **No save buttons**: every editor saves as you change it through `useAutosave`
+  (`src/app/calories/autosave.ts`; closing the sheet sends a change still waiting).
+  Only the first visit's goal card keeps its "להתחיל" button.
 - **Goals**: `recommend()` (Mifflin-St Jeor × daily activity *without* workouts,
   lose −500 / gain +300, protein 2.0/1.6/1.8 g/kg). While `followRec`, `GET day`
   recomputes goal + protein from the current weight; typing a number turns it off.

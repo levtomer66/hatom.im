@@ -9,10 +9,10 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 export type SaveStatus = 'idle' | 'saving' | 'saved';
 
-export function useAutosave<T>(wanted: T | undefined, initial: T, save: (v: T) => Promise<string | null>, delay = 700) {
+export function useAutosave<T>(wanted: T | undefined, initial: T | undefined, save: (v: T) => Promise<string | null>, delay = 700) {
   const [status, setStatus] = useState<SaveStatus>('idle');
   const [error, setError] = useState<string | null>(null);
-  const saved = useRef(JSON.stringify(initial));
+  const saved = useRef<string | undefined>(JSON.stringify(initial));
   const timer = useRef<number | undefined>(undefined);
   const latest = useRef(save);
   latest.current = save;
@@ -37,8 +37,9 @@ export function useAutosave<T>(wanted: T | undefined, initial: T, save: (v: T) =
     return () => window.clearTimeout(timer.current);
   }, [key, send, delay]);
 
-  const flush = useCallback(() => {
-    if (timer.current !== undefined && key !== undefined) void send(JSON.parse(key) as T);
+  /** Sends a change still waiting; resolves once it is saved (at once when nothing waits). */
+  const flush = useCallback(async (): Promise<void> => {
+    if (timer.current !== undefined && key !== undefined) await send(JSON.parse(key) as T);
   }, [key, send]);
 
   return { status, error, flush };
