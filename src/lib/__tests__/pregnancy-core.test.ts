@@ -74,6 +74,7 @@ test('sizeFor and sizeText', async () => {
   assert.equal(sizeFor(3), null);
   assert.equal(sizeFor(16)?.fruit, 'אבוקדו');
   assert.equal(sizeFor(41)?.fruit, sizeFor(40)?.fruit);
+  assert.deepEqual([17, 18, 19, 20, 21, 22].map((w) => sizeFor(w)?.fruit), ['פלפל', 'עגבנייה גדולה', 'רימון', 'מנגו', 'אשכולית', 'חציל']);
   for (let w = 4; w <= 40; w++) assert.ok(sizeFor(w), `week ${w}`);
   assert.equal(sizeText(sizeFor(16)!), '11.6 ס״מ · 100 ג׳');
   assert.equal(sizeText(sizeFor(4)!), '1 מ״מ · פחות מגרם');
