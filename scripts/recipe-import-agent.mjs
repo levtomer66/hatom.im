@@ -10,8 +10,9 @@
 //
 // Config (never in the repo): ~/.config/hatom-recipes/agent.json
 //   { "topic": "<RECIPES_IMPORT_TOPIC>", "apiKey": "htm_…", "site": "https://www.hatom.im",
-//     "claude": "/Users/you/.local/bin/claude", "model": "opus",       // model optional
-//     "oauthToken": "…" }   // from `claude setup-token`: unattended runs need it (an interactive login expires)
+//     "claude": "/Users/you/.local/bin/claude", "model": "opus" }   // model optional
+// Claude runs as the owner's own CLI login (`claude auth login` once). An optional
+// "oauthToken" (from `claude setup-token`) is used instead when set.
 
 import { spawn } from 'node:child_process';
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
