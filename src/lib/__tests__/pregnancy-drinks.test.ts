@@ -8,9 +8,11 @@ const order = (o: Record<string, unknown> = {}) => ({
 }) as Parameters<typeof orderDrink>[0];
 
 test('built-in drinks carry the sourced values', () => {
-  assert.equal(drinkById('hafuch-small')?.mg, 65);
-  assert.equal(drinkById('hafuch-large')?.mg, 130);
-  assert.equal(drinkById('zero-glass')?.mg, 25);
+  assert.equal(drinkById('hafuch-small')?.mg, 60);
+  assert.equal(drinkById('hafuch-large')?.mg, 120);
+  assert.equal(drinkById('zero-glass')?.mg, 28);
+  assert.equal(drinkById('zero-striped')?.mg, 34);
+  assert.equal(drinkById('lungo')?.mg, 65);
   assert.equal(drinkById('zero-can')?.mg, 33);
   assert.equal(drinkById('nope'), null);
   assert.equal(new Set(DRINKS.map((d) => d.id)).size, DRINKS.length);
@@ -22,6 +24,8 @@ test('matchDrink: names and everyday words', () => {
   assert.equal(matchDrink('הפוך גדול')?.id, 'hafuch-large');
   assert.equal(matchDrink('הפוך')?.id, 'hafuch-small');
   assert.equal(matchDrink('כוס זירו')?.id, 'zero-glass');
+  assert.equal(matchDrink('זירו כוס פסים')?.id, 'zero-striped');
+  assert.equal(matchDrink('לונגו')?.id, 'lungo');
   assert.equal(matchDrink('קפוצ׳ינו')?.id, 'hafuch-small');
   assert.equal(matchDrink('אספרסו כפול')?.id, 'espresso-double');
   assert.equal(matchDrink('מיץ תפוזים'), null);
@@ -46,7 +50,7 @@ test('orderDrink: machine capsule vs café, milk, sugar and syrup', () => {
   const sweet = orderDrink(order({ sugar: '2', vanillaPumps: 1 }));
   assert.equal(sweet.nu.kcal, machine.nu.kcal + 32 + 20);
   assert.equal(orderDrink(order({ source: 'boulangerie' })).drink.id, 'hafuch-small');
-  assert.equal(orderDrink(order({ source: 'boulangerie', drink: 'lungo', milk: 'none' })).drink.id, 'espresso-double');
+  assert.equal(orderDrink(order({ source: 'boulangerie', drink: 'lungo', milk: 'none' })).drink.id, 'lungo');
   assert.equal(orderDrink(order({ source: 'cafe-beit', drink: 'iced-coffee' })).drink.id, 'iced');
 });
 
@@ -74,7 +78,7 @@ test('foodWarning: pregnancy stems', () => {
 });
 
 test('entryCaf: drinks, products by name, meals per portion, quick none', () => {
-  assert.equal(entryCaf({ ref: { kind: 'drink', key: 'hafuch-large' }, name: 'x', unit: { g: 350 }, qty: 2 }), 260);
+  assert.equal(entryCaf({ ref: { kind: 'drink', key: 'hafuch-large' }, name: 'x', unit: { g: 350 }, qty: 2 }), 240);
   assert.equal(entryCaf({ ref: { kind: 'product', key: '1' }, name: 'קוקה קולה זירו', unit: { g: 1 }, qty: 500 }), 50);
   assert.equal(entryCaf({ ref: { kind: 'product', key: '1' }, name: 'לחם', unit: { g: 1 }, qty: 50 }), undefined);
   assert.equal(entryCaf({ ref: { kind: 'meal', key: 'm' }, name: 'x', unit: { g: 300 }, qty: 2 }, 40), 80);

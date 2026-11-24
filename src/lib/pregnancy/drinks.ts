@@ -7,7 +7,9 @@
 // - Instant coffee: USDA (63 mg / 2 g) and MoH ("כ־65").
 // - Filter coffee: MoH and USDA, ~100 mg a 250 ml cup.
 // - Black tea: MoH (~50) and USDA (48). Green tea: USDA (~30). Decaf: USDA (~3).
-// - Coca-Cola / Coca-Cola Zero: Coca-Cola Israel FAQ, 10 mg/100 ml (diet 13).
+// - Coca-Cola / Coca-Cola Zero: Coca-Cola Israel FAQ, 10 mg/100 ml (diet 13): the fat
+//   glass (280 ml) 28 mg, the striped glass (340 ml) 34 mg.
+// - הפוך קטן 60 / הפוך גדול (a double shot) 120 / לונגו 65: the owner's figures.
 // - Energy drinks: Red Bull / EFSA, 32 mg/100 ml.
 // - Dark chocolate ≥70%: USDA, ~80 mg/100 g.
 // - Nespresso capsules: Nespresso publishes only ranges (40–130, mostly 50–100);
@@ -44,10 +46,11 @@ const t = (kcal: number, p = 0, c = 0, f = 0): Totals => ({ kcal, p, c, f });
 const AVOID = 'משרד הבריאות ממליץ להימנע בהריון';
 
 export const DRINKS: readonly Drink[] = [
-  { id: 'hafuch-small', name: 'הפוך קטן', emoji: '☕', unit: 'כוס', g: 240, mg: 65, nu: t(120, 6, 9, 6.5), aliases: ['הפוך', 'קפוצ׳ינו', 'קפוצינו', 'קפה הפוך'] },
-  { id: 'hafuch-large', name: 'הפוך גדול', emoji: '☕', unit: 'כוס', g: 350, mg: 130, nu: t(180, 9, 14, 9.5), aliases: ['קפוצ׳ינו גדול', 'קפוצינו גדול'] },
+  { id: 'hafuch-small', name: 'הפוך קטן', emoji: '☕', unit: 'כוס', g: 240, mg: 60, nu: t(120, 6, 9, 6.5), aliases: ['הפוך', 'קפוצ׳ינו', 'קפוצינו', 'קפה הפוך'] },
+  { id: 'hafuch-large', name: 'הפוך גדול (מנה כפולה)', emoji: '☕', unit: 'כוס', g: 350, mg: 120, nu: t(180, 9, 14, 9.5), aliases: ['הפוך גדול', 'הפוך כפול', 'קפוצ׳ינו גדול', 'קפוצינו גדול'] },
   { id: 'espresso', name: 'אספרסו', emoji: '⚡', unit: 'שוט', g: 30, mg: 65, nu: t(2), aliases: ['אספרסו קצר', 'שוט'] },
-  { id: 'espresso-double', name: 'אספרסו כפול', emoji: '⚡', unit: 'כוס', g: 60, mg: 130, nu: t(4), aliases: ['דאבל', 'לונגו'] },
+  { id: 'espresso-double', name: 'אספרסו כפול', emoji: '⚡', unit: 'כוס', g: 60, mg: 130, nu: t(4), aliases: ['דאבל'] },
+  { id: 'lungo', name: 'לונגו', emoji: '🫗', unit: 'כוס', g: 110, mg: 65, nu: t(2), aliases: ['אספרסו ארוך'] },
   { id: 'capsule', name: 'קפסולה', emoji: '💊', unit: 'קפסולה', g: 40, mg: 65, nu: t(2), aliases: ['נספרסו', 'קפה מכונה'], approx: true },
   { id: 'instant', name: 'נס קפה', emoji: '🥄', unit: 'כוס', g: 250, mg: 65, nu: t(4), aliases: ['קפה נמס', 'נסקפה'] },
   { id: 'filter', name: 'קפה פילטר', emoji: '☕', unit: 'כוס', g: 250, mg: 100, nu: t(2), aliases: ['פילטר', 'קפה מסונן'] },
@@ -57,7 +60,8 @@ export const DRINKS: readonly Drink[] = [
   { id: 'tea-black', name: 'תה שחור', emoji: '🍵', unit: 'כוס', g: 250, mg: 50, nu: t(2), aliases: ['תה'] },
   { id: 'tea-green', name: 'תה ירוק', emoji: '🍵', unit: 'כוס', g: 250, mg: 30, nu: t(2) },
   { id: 'cola', name: 'קולה', emoji: '🥤', unit: 'פחית', g: 330, mg: 33, nu: t(139, 0, 35), aliases: ['קוקה קולה', 'פחית קולה'] },
-  { id: 'zero-glass', name: 'כוס זירו', emoji: '🥤', unit: 'כוס', g: 250, mg: 25, nu: t(1), aliases: ['זירו', 'קולה זירו'] },
+  { id: 'zero-glass', name: 'זירו כוס שמנה', emoji: '🥤', unit: 'כוס', g: 280, mg: 28, nu: t(1), aliases: ['כוס זירו', 'זירו', 'קולה זירו', 'כוס שמנה'] },
+  { id: 'zero-striped', name: 'זירו כוס פסים', emoji: '🥤', unit: 'כוס', g: 340, mg: 34, nu: t(1), aliases: ['כוס פסים'] },
   { id: 'zero-can', name: 'פחית זירו', emoji: '🥫', unit: 'פחית', g: 330, mg: 33, nu: t(1) },
   { id: 'diet-cola', name: 'פחית דיאט קולה', emoji: '🥫', unit: 'פחית', g: 330, mg: 43, nu: t(1), aliases: ['דיאט קולה', 'קולה דיאט'] },
   { id: 'energy', name: 'משקה אנרגיה', emoji: '🔋', unit: 'פחית', g: 250, mg: 80, nu: t(112, 0, 27), aliases: ['רד בול', 'אקס אל', 'XL'], warn: AVOID },
@@ -123,7 +127,7 @@ export function orderDrink(o: OrderLike): { drink: Drink; mg: number; nu: Totals
   const machine = o.source === 'tomer-coffee';
   const id = machine ? 'capsule'
     : o.drink === 'espresso' ? 'espresso'
-      : o.drink === 'lungo' ? 'espresso-double'
+      : o.drink === 'lungo' ? 'lungo'
         : o.drink === 'iced-coffee' ? 'iced' : 'hafuch-small';
   const drink = drinkById(id) as Drink;
   const milky = o.drink === 'cappuccino' || o.drink === 'iced-coffee';

@@ -122,8 +122,8 @@ anywhere removes it everywhere.
   each one has an id, a Hebrew name, an emoji, a unit (כוס / פחית / שוט / קפסולה),
   mg per unit, and kcal/p/c/f per unit, with the source of the mg value in a
   comment. The working list is the table agreed in the grilling (אספרסו
-  קצר/כפול, הפוך קטן/גדול, קפסולה per coffee-order capsule, נס קפה, שחור/טורקי,
-  קפה קר, נטול, תה שחור/ירוק, קולה, כוס זירו, פחית זירו, משקה אנרגיה, שוקולד
+  קצר/כפול, לונגו (65), הפוך קטן (60)/גדול – מנה כפולה (120), קפסולה per coffee-order capsule, נס קפה, שחור/טורקי,
+  קפה קר, נטול, תה שחור/ירוק, קולה, זירו כוס שמנה (280 מ״ל) וכוס פסים (340 מ״ל), פחית זירו, משקה אנרגיה, שוקולד
   מריר, שוקו), each value checked against a source before it ships. In
   calories they log like any entry. Search hits include them (`source:
   'drink'`) on both pages.
