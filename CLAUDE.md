@@ -521,10 +521,16 @@ Identity = Gmail address. Two roles:
   Pantry names and products already listed start unticked (`matchDefaults`).
 - Edit mode autosaves three field groups as separate PATCHes that `$set` only
   their keys, so a fast ingredient edit and step edit can't overwrite each other.
-- **Import is MCP-only** (no Claude API key in the app): `recipes_save`'s
-  description carries the Israeli conversion rules; the server auto-links lines
-  (`autolink.ts`, marked `auto` → "לבדוק" on the page) and copies `image_url` to
-  Blob. Tools in `src/lib/recipes/mcp-tools.ts`.
+- **Import** (spec § Import agent): the page queues a request in `recipeImports`
+  and pings ntfy topic `RECIPES_IMPORT_TOPIC` with **only the request id** (public
+  ntfy.sh). A local agent on the owner's Mac (`scripts/recipe-import-agent.mjs`,
+  prompt `agents/recipe-import/PROMPT.md`, config `~/.config/hatom-recipes/agent.json`)
+  runs `claude -p` with the owner-only MCP tools `recipes_import_{queue,claim,
+  complete,fail}`, which save into the *requester's* book. No Claude API key in
+  the app. Conversion rules have one source, `import-rules.ts` (also in
+  `recipes_save`'s description); improve imports there and in PROMPT.md.
+  Auto-linked lines are marked `auto` → "לבדוק"; images are copied to Blob
+  through `safeImageUrl` (https, public hosts, 5 MB).
 - `src/lib/recipes/*.ts` are import-free for `node --test`, except `server.ts`,
   `products.ts`, `match-server.ts`, `autolink.ts` and `mcp-tools.ts`.
 

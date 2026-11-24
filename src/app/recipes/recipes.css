@@ -105,3 +105,10 @@ textarea.rc-input { resize: vertical; line-height: 1.5; }
 .rc-tolist-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .rc-tolist-qty { flex: none; color: var(--sh-muted); font-size: 0.875rem; }
 .rc-log-row { display: flex; align-items: center; gap: 0.75rem; margin: 1rem 0; }
+
+/* import requests */
+.rc-imports { margin-bottom: 1rem; }
+.rc-import { display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem 0.25rem 0.5rem 1rem; }
+.rc-import + .rc-import { border-top: 1px solid var(--sh-line); }
+.rc-import-wait { display: inline-flex; align-items: center; gap: 0.5rem; }
+.rc-import-fail { color: var(--sh-miss); }

@@ -18,6 +18,9 @@ function queries(name: string): string[] {
   const words = name.replace(/[^\p{L}\p{N}\s%]/gu, ' ').split(/\s+/).filter(Boolean);
   const out: string[] = [];
   for (let n = Math.min(words.length, 3); n >= 1; n--) out.push(words.slice(0, n).join(' '));
+  // The MoH table names foods in the singular: "בננות" → "בננה", "עגבניות" → "עגבנייה", "ביצים" → "ביצ".
+  const singular = words[0]?.replace(/יות$/, 'ייה').replace(/ות$/, 'ה').replace(/ים$/, '');
+  if (singular && singular !== words[0]) out.push(singular);
   return out.filter((q) => q.length >= 2);
 }
 

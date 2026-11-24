@@ -4,6 +4,7 @@ import type { RecipePatch } from '@/lib/recipes/recipe';
 import type { Recipe, RecipeSummary } from '@/lib/recipes/types';
 import type { MatchLine, ProductLite } from '@/lib/recipes/api-types';
 import type { Meal } from '@/lib/calories/calories';
+import type { ImportRequest } from '@/lib/recipes/imports';
 
 export class ApiError extends Error {
   constructor(message: string, readonly status: number) {
@@ -53,3 +54,7 @@ export const toList = (id: string, lines: { key: string; qty: number }[], picks:
 export const logServing = (id: string, date: string, meal: Meal, qty: number) => call<{ ok: true }>('POST', `/${id}/log`, { date, meal, qty });
 export const searchProducts = (q: string, signal?: AbortSignal) =>
   call<{ products: ProductLite[] }>('GET', `/products?q=${encodeURIComponent(q)}`, undefined, signal).then((r) => r.products);
+
+export const listImports = () => call<{ imports: ImportRequest[] }>('GET', '/imports').then((r) => r.imports);
+export const requestImport = (req: { url: string; text: string; note: string }) => call<{ import: ImportRequest }>('POST', '/imports', req).then((r) => r.import);
+export const dismissImport = (id: string) => call<{ ok: true }>('DELETE', `/imports/${id}`);

@@ -18,6 +18,11 @@ import { parseSaveArgs } from './recipe';
 import { scaleLine } from './scale';
 import { dropBlob, storeImageFromUrl } from './server';
 import type { Recipe, RecipeSummary } from './types';
+import { CONVERSION_RULES } from './import-rules';
+import { isOwnerEmail } from '@/types/auth';
+import { claimImport, finishImport, getImport, importQueue } from '@/models/RecipeImport';
+
+const SAVE_RULES = `Save a recipe to the caller's /recipes book (create, or replace one of theirs by id). Use it to import a recipe from a link, a caption, a video or a screenshot the user gives you: read it yourself, then convert it before calling.\n\n${CONVERSION_RULES}\nTell the user the page link from the result.`;
 
 const SITE = 'https://www.hatom.im';
 const str = (args: Record<string, unknown>, key: string) => (typeof args[key] === 'string' ? (args[key] as string).trim() : '');
@@ -37,17 +42,62 @@ async function readable(id: string, caller: ShoppingToolCaller): Promise<Recipe>
   return r;
 }
 
-const SAVE_RULES = `Save a recipe to the caller's /recipes book (create, or replace one of theirs by id). Use it to import a recipe from a link, a caption, a video or a screenshot the user gives you: read it yourself, then convert it before calling.
 
-Conversion rules (Israel):
-- Write the name, ingredients, steps, tags and notes in Hebrew.
-- Amounts in grams / ml, or כוס / כף / כפית (cup = 240 ml, tbsp = 15 ml, tsp = 5 ml); oz → grams (28 g), lb → grams (454 g), a stick of butter = 113 g. Keep "לפי הטעם" lines without an amount.
-- Temperatures in °C (°F → °C, rounded to 5: 350°F → 175°C).
-- Swap US products for what an Israeli supermarket sells: heavy cream → שמנת מתוקה 38%; sour cream → שמנת חמוצה 15%; all-purpose flour → קמח לבן; half-and-half → חצי שמנת מתוקה חצי חלב; buttermilk → לבן או רוויון; cream cheese → גבינת שמנת 30%; kosher salt → מלח גס; baking soda → סודה לשתייה; scallions → בצל ירוק; cilantro → כוסברה; ground beef → בשר בקר טחון; powdered sugar → אבקת סוכר; brown sugar → סוכר חום.
-- Each ingredient: { text: the Hebrew line, amount first ("2 כוסות קמח לבן"), orig: the original line as written in the source, alt: a short note when you swapped a product ("heavy cream → שמנת מתוקה 38%") }.
-- One action per step. Servings as the source states (default 4 if it says nothing).
-- source_url: the link the recipe came from. image_url: a direct image URL of the dish if you have one (it is copied and stored).
-The server estimates grams and links each ingredient to nutrition and a product to buy (marked for the user to check). Tell the user the page link from the result.`;
+/**
+ * recipes_save's work, for `owner`'s book: parse, auto-link, create or replace
+ * (replace only one of `owner`'s), copy the image. Also used by the import
+ * agent's recipes_import_complete, where `owner` is the request's requester.
+ */
+async function saveFromArgs(owner: string, args: Record<string, unknown>, replaceId: string | null): Promise<{ saved: Recipe; notes: string }> {
+  const parsed = parseSaveArgs(args);
+  if (!parsed.ok) throw new Error(parsed.error);
+  const { recipe, sourceUrl, imageUrl } = parsed.value;
+  if (replaceId) {
+    const old = await getRecipe(replaceId);
+    if (!old || old.owner !== owner) throw new Error(`No recipe "${replaceId}" of yours to replace.`);
+  }
+  const ingredients = await autoLink(recipe.ingredients);
+  const source = sourceUrl ? { url: sourceUrl, by: null } : undefined;
+  const saved = replaceId
+    ? await updateRecipe(owner, replaceId, { ...recipe, ingredients, ...(source ? { source } : {}) })
+    : await createRecipe(owner, { ...recipe, ingredients, source: source ?? null });
+  if (!saved) throw new Error('The recipe could not be saved.');
+  let photoNote = '';
+  if (imageUrl) {
+    const url = await storeImageFromUrl(imageUrl, saved.id);
+    if (url) {
+      const before = await setPhoto(owner, saved.id, url);
+      if (before && before !== url) await dropBlob(before);
+    } else photoNote = '\nPhoto not saved: the image could not be downloaded (it needs a direct https image link).';
+  }
+  const unlinked = ingredients.filter((i) => i.qty !== null && !i.link).map((i) => i.text);
+  return {
+    saved,
+    notes: `${ingredients.length} ingredients, ${saved.steps.length} steps. Ingredient links were picked automatically; the user can check them on the page.` +
+      (unlinked.length ? `\nNo nutrition link for: ${unlinked.join('; ')}` : '') + photoNote,
+  };
+}
+
+/** The import agent's tools are for the site owners' own agent only. */
+function requireAgent(caller: ShoppingToolCaller): void {
+  if (!isOwnerEmail(caller.userEmail)) throw new Error('Only the import agent (an owner key) can use this tool.');
+}
+
+const RECIPE_PROPS = {
+  name: { type: 'string' },
+  servings: { type: 'number' },
+  ingredients: {
+    type: 'array',
+    items: { type: 'object', properties: { text: { type: 'string' }, orig: { type: 'string' }, alt: { type: 'string' } }, required: ['text'] },
+  },
+  steps: { type: 'array', items: { type: 'string' } },
+  tags: { type: 'array', items: { type: 'string' } },
+  prep_min: { type: 'number' },
+  cook_min: { type: 'number' },
+  notes: { type: 'string' },
+  source_url: { type: 'string' },
+  image_url: { type: 'string' },
+} as const;
 
 export const RECIPE_TOOLS: ShoppingTool[] = [
   {
@@ -99,55 +149,12 @@ export const RECIPE_TOOLS: ShoppingTool[] = [
     description: SAVE_RULES,
     inputSchema: {
       type: 'object',
-      properties: {
-        id: { type: 'string', description: "Replace this recipe of the caller's instead of creating one." },
-        name: { type: 'string' },
-        servings: { type: 'number' },
-        ingredients: {
-          type: 'array',
-          items: {
-            type: 'object',
-            properties: { text: { type: 'string' }, orig: { type: 'string' }, alt: { type: 'string' } },
-            required: ['text'],
-          },
-        },
-        steps: { type: 'array', items: { type: 'string' } },
-        tags: { type: 'array', items: { type: 'string' } },
-        prep_min: { type: 'number' },
-        cook_min: { type: 'number' },
-        notes: { type: 'string' },
-        source_url: { type: 'string' },
-        image_url: { type: 'string' },
-      },
+      properties: { id: { type: 'string', description: "Replace this recipe of the caller's instead of creating one." }, ...RECIPE_PROPS },
       required: ['name', 'servings', 'ingredients', 'steps'],
     },
     handler: async (args, caller) => {
-      const parsed = parseSaveArgs(args);
-      if (!parsed.ok) throw new Error(parsed.error);
-      const { recipe, sourceUrl, imageUrl } = parsed.value;
-      const id = str(args, 'id');
-      if (id) {
-        const old = await getRecipe(id);
-        if (!old || old.owner !== caller.userEmail) throw new Error(`No recipe "${id}" of yours to replace.`);
-      }
-      const ingredients = await autoLink(recipe.ingredients);
-      const source = sourceUrl ? { url: sourceUrl, by: null } : undefined;
-      const saved = id
-        ? await updateRecipe(caller.userEmail, id, { ...recipe, ingredients, ...(source ? { source } : {}) })
-        : await createRecipe(caller.userEmail, { ...recipe, ingredients, source: source ?? null });
-      if (!saved) throw new Error('The recipe could not be saved.');
-      let photoNote = '';
-      if (imageUrl) {
-        const url = await storeImageFromUrl(imageUrl, saved.id);
-        if (url) {
-          const before = await setPhoto(caller.userEmail, saved.id, url);
-          if (before && before !== url) await dropBlob(before);
-        } else photoNote = '\nPhoto not saved: the image could not be downloaded (it may need a direct image link).';
-      }
-      const unlinked = ingredients.filter((i) => i.qty !== null && !i.link).map((i) => i.text);
-      return `Saved "${saved.name}" — ${SITE}/recipes/${saved.id}\n` +
-        `${ingredients.length} ingredients, ${saved.steps.length} steps. Ingredient links were picked automatically; the user can check them on the page.` +
-        (unlinked.length ? `\nNo nutrition link for: ${unlinked.join('; ')}` : '') + photoNote;
+      const { saved, notes } = await saveFromArgs(caller.userEmail, args, str(args, 'id') || null);
+      return `Saved "${saved.name}" — ${SITE}/recipes/${saved.id}\n${notes}`;
     },
   },
   {
@@ -177,6 +184,61 @@ export const RECIPE_TOOLS: ShoppingTool[] = [
         add.length ? `Added ${add.length} to the shopping list: ${add.map((a) => a.name).join(', ')}` : 'Nothing was added.',
         skipped.length ? `Skipped (pantry, already on the list, or no product): ${skipped.join('; ')}` : '',
       ].filter(Boolean).join('\n');
+    },
+  },
+  {
+    name: 'recipes_import_queue',
+    description: 'Import agent only. The import requests waiting to be done (oldest first): their ids. Claim each with recipes_import_claim.',
+    inputSchema: { type: 'object', properties: {} },
+    handler: async (_args, caller) => {
+      requireAgent(caller);
+      const q = await importQueue();
+      return q.length ? q.map((r) => r.id).join('\n') : 'The queue is empty.';
+    },
+  },
+  {
+    name: 'recipes_import_claim',
+    description: 'Import agent only. Takes one request (nobody else will): returns its link and/or pasted text, the requester\'s note, and the conversion rules to follow. Then call recipes_import_complete or recipes_import_fail.',
+    inputSchema: { type: 'object', properties: { id: { type: 'string' } }, required: ['id'] },
+    handler: async (args, caller) => {
+      requireAgent(caller);
+      const r = await claimImport(str(args, 'id'));
+      if (!r) throw new Error('Not claimable: unknown id, already taken, or finished.');
+      return [
+        `Request ${r.id}`,
+        r.url ? `Link: ${r.url}` : 'Link: (none)',
+        r.text ? `Pasted text:\n${r.text}` : 'Pasted text: (none)',
+        r.note ? `Requester's note: ${r.note}` : '',
+        '', CONVERSION_RULES,
+      ].filter((l) => l !== '').join('\n');
+    },
+  },
+  {
+    name: 'recipes_import_complete',
+    description: "Import agent only. Saves the converted recipe into the requester's book (same fields as recipes_save) and marks the request done.",
+    inputSchema: {
+      type: 'object',
+      properties: { id: { type: 'string', description: 'The import request id.' }, ...RECIPE_PROPS },
+      required: ['id', 'name', 'servings', 'ingredients', 'steps'],
+    },
+    handler: async (args, caller) => {
+      requireAgent(caller);
+      const req = await getImport(str(args, 'id'));
+      if (!req || req.status !== 'working') throw new Error('Claim the request first (recipes_import_claim).');
+      const { saved, notes } = await saveFromArgs(req.requester, { ...args, source_url: args.source_url ?? req.url ?? undefined }, null);
+      await finishImport(req.id, { recipeId: saved.id });
+      return `Saved "${saved.name}" for the requester — ${SITE}/recipes/${saved.id}\n${notes}`;
+    },
+  },
+  {
+    name: 'recipes_import_fail',
+    description: 'Import agent only. Ends a claimed request that could not be imported; `reason` is shown to the requester in Hebrew (e.g. "לא הצלחתי לקרוא את הקישור — הדביקו את טקסט המתכון").',
+    inputSchema: { type: 'object', properties: { id: { type: 'string' }, reason: { type: 'string' } }, required: ['id', 'reason'] },
+    handler: async (args, caller) => {
+      requireAgent(caller);
+      const reason = str(args, 'reason').slice(0, 300) || 'הייבוא נכשל';
+      if (!(await finishImport(str(args, 'id'), { error: reason }))) throw new Error('Not a claimed request.');
+      return 'Marked failed.';
     },
   },
 ];

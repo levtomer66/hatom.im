@@ -3,12 +3,14 @@
 // /recipes: the caller's recipe book and the shared feed
 // (docs/superpowers/specs/2026-11-24-recipes-design.md § Screens).
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { FaDownload, FaPlus, FaSearch, FaTimes } from 'react-icons/fa';
 import { filterRecipes, tagsOf } from '@/lib/recipes/filter';
 import type { RecipeSummary } from '@/lib/recipes/types';
 import ImportSheet from './ImportSheet';
+import ImportsList from './ImportsList';
+import type { ImportRequest } from '@/lib/recipes/imports';
 import RecipeCard from './RecipeCard';
 import * as api from './api';
 
@@ -24,6 +26,33 @@ export default function RecipesPage() {
   const [tags, setTags] = useState<string[]>([]);
   const [importing, setImporting] = useState(false);
   const [creating, setCreating] = useState(false);
+  const [imports, setImports] = useState<ImportRequest[]>([]);
+  const open = imports.some((r) => r.status === 'queued' || r.status === 'working');
+
+  // Import requests: loaded once, then every 5 s while one is open (and visible).
+  useEffect(() => {
+    let live = true;
+    const load = () => api.listImports().then((list) => { if (live) setImports(list); }).catch(() => undefined);
+    void load();
+    if (!open) return () => { live = false; };
+    const t = window.setInterval(() => { if (document.visibilityState === 'visible') void load(); }, 5000);
+    return () => { live = false; window.clearInterval(t); };
+  }, [open]);
+
+  // A request that finishes while the page is open brings its recipe into the book.
+  const seenDone = useRef<Set<string> | null>(null);
+  useEffect(() => {
+    const done = imports.filter((r) => r.status === 'done').map((r) => r.id);
+    if (seenDone.current === null) { seenDone.current = new Set(done); return; }
+    const fresh = done.filter((id) => !seenDone.current!.has(id));
+    fresh.forEach((id) => seenDone.current!.add(id));
+    if (fresh.length) void api.listMine().then((mine) => setLists((l) => ({ ...l, mine }))).catch(() => undefined);
+  }, [imports]);
+
+  const dismiss = (id: string) => {
+    setImports((l) => l.filter((r) => r.id !== id));
+    void api.dismissImport(id).catch(() => undefined);
+  };
 
   useEffect(() => {
     try {
@@ -75,6 +104,8 @@ export default function RecipesPage() {
         {q ? <button type="button" className="sh-icon-btn" aria-label="ניקוי" onClick={() => setQ('')}><FaTimes /></button> : null}
       </label>
 
+      <ImportsList imports={imports} onDismiss={dismiss} />
+
       <div className="cal-actions">
         <button type="button" className={`sh-btn sh-home-btn ${tab === 'mine' ? 'is-on' : ''}`} aria-pressed={tab === 'mine'} onClick={() => pick('mine')}>שלי</button>
         <button type="button" className={`sh-btn sh-home-btn ${tab === 'feed' ? 'is-on' : ''}`} aria-pressed={tab === 'feed'} onClick={() => pick('feed')}>פיד</button>
@@ -101,7 +132,7 @@ export default function RecipesPage() {
         </section>
       ) : null}
 
-      {importing ? <ImportSheet onClose={() => setImporting(false)} /> : null}
+      {importing ? <ImportSheet onClose={() => setImporting(false)} onRequested={(r) => { setImporting(false); setImports((l) => [r, ...l]); }} /> : null}
     </main>
   );
 }
