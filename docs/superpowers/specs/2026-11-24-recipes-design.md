@@ -295,3 +295,34 @@ the others, the admin matrix picks it up from `PERMISSION_KEYS`.
 - Importing from inside the app (an API key) or a PWA share target.
 - Copying a calories meal into recipes.
 - Comments/likes on the feed.
+
+## Import agent (added 2026-11-24, owner's design)
+
+Users import from the page; a local agent on the owner's Mac does the work.
+
+- **Request**: ייבוא opens a form — a link (https) and/or pasted text (a caption),
+  optional note. `POST /api/recipes/imports` stores a doc in `recipeImports`
+  `{ _id, requester, url, text, note, status: queued|working|done|failed, recipeId,
+  error, at, claimedAt, doneAt }` (≤ 5 open per person) and publishes a wake-up to
+  the ntfy topic in env `RECIPES_IMPORT_TOPIC` — the message is only the request
+  id: ntfy.sh is public, so no email, link or text goes there. Without the env
+  var the request is still queued (the agent also polls).
+- **Page**: open and recent (24 h) requests show at the top of the book —
+  "מייבא…", then a link to the recipe, or the failure reason with ✕ to dismiss.
+  Polls every 5 s while one is open.
+- **Agent tools** (MCP, owner callers only; they write to the request's
+  requester, never to the caller): `recipes_import_queue` (queued ids, plus
+  `working` ones claimed > 30 min ago), `recipes_import_claim {id}` (atomic
+  queued→working; returns url, text, note and the conversion rules),
+  `recipes_import_complete {id, …recipe as recipes_save}` (saves into the
+  requester's book with auto-linking and the image copy; status done),
+  `recipes_import_fail {id, reason}` (Hebrew reason shown to the user).
+- **Rules, one source**: the conversion rules live in
+  `src/lib/recipes/import-rules.ts`; `recipes_save`'s description and the claim
+  result both carry them. The agent's procedure is `agents/recipe-import/PROMPT.md`
+  (in the repo, to improve over time).
+- **Listener**: `scripts/recipe-import-agent.mjs` subscribes to the topic's JSON
+  stream and, on a message or every 10 minutes, runs `claude -p` with the prompt
+  and a hatom MCP config (Bearer = the owner's API key from a local file) when
+  the queue isn't empty, one run at a time. A launchd plist template sits next to
+  the prompt.
