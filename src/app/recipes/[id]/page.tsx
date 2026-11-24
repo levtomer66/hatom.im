@@ -70,7 +70,7 @@ function RecipeScreen() {
     <main className="sh-page cal-page rc-page">
       <Link href="/recipes" className="sh-btn sh-btn--ghost cal-back rc-back"><FaChevronRight aria-hidden /> כל המתכונים</Link>
       {editing
-        ? <RecipeEditor recipe={recipe} can={can} onChanged={setRecipe} onDone={() => go('')} toast={setToast} />
+        ? <RecipeEditor recipe={recipe} can={can} onChanged={(f) => setRecipe((p) => (p ? f(p) : p))} onDone={() => go('')} toast={setToast} />
         : <RecipeView recipe={recipe} me={me} can={can} servings={shownServings} setServings={setServings}
             onEdit={() => go('edit=1')} onCook={() => go('cook=1')} onChanged={setRecipe} toast={setToast} />}
       {cooking && !editing ? <CookMode recipe={recipe} servings={shownServings} onClose={() => go('')} /> : null}

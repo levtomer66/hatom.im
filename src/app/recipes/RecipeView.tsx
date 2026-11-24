@@ -87,7 +87,7 @@ export default function RecipeView({ recipe, me, can, servings, setServings, onE
         {recipe.cookMin ? <span>בישול {recipe.cookMin} דק׳</span> : null}
         {total && recipe.prepMin && recipe.cookMin ? <span>⏱ {total} דק׳</span> : null}
         {!mine && recipe.ownerName ? <span>מאת {recipe.ownerName}</span> : null}
-        {recipe.source?.url ? <a href={recipe.source.url} target="_blank" rel="noreferrer noopener">מ-{hostOf(recipe.source.url)}</a> : null}
+        {recipe.source?.url ? <a href={recipe.source.url} target="_blank" rel="noreferrer noopener">מ־<bdi>{hostOf(recipe.source.url)}</bdi></a> : null}
       </p>
       {recipe.tags.length ? <p className="rc-tags">{recipe.tags.map((t) => <span key={t} className="sh-chip">{t}</span>)}</p> : null}
 
@@ -134,7 +134,7 @@ export default function RecipeView({ recipe, me, can, servings, setServings, onE
 
       {recipe.notes.trim() ? <section className="sh-card cal-meal rc-section"><header className="cal-meal-head"><h2>הערות</h2></header><p className="rc-notes">{recipe.notes}</p></section> : null}
 
-      {sheet === 'list' ? <ToListSheet recipe={recipe} servings={servings} mine={mine} onDone={(m) => { setSheet(null); if (m) toast(m); }} /> : null}
+      {sheet === 'list' ? <ToListSheet recipe={recipe} servings={servings} mine={mine} onDone={(m, updated) => { setSheet(null); if (updated) onChanged(updated); if (m) toast(m); }} /> : null}
       {sheet === 'log' && totals ? <LogSheet recipe={recipe} perServing={totals} onDone={(m) => { setSheet(null); if (m) toast(m); }} /> : null}
       {sheet === 'more' ? (
         <Sheet title={recipe.name} onClose={() => setSheet(null)}>

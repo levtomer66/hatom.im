@@ -6,6 +6,7 @@ import type { Recipe, RecipeSummary } from '@/lib/recipes/types';
 import { getUserDisplayName } from '@/types/workout';
 
 export { canRead } from '@/lib/recipes/recipe';
+export type { Recipe } from '@/lib/recipes/types';
 
 // Recipes (docs/superpowers/specs/2026-11-24-recipes-design.md § Data): one doc
 // per recipe in `recipes`, owned by an email, optionally on the feed. Nutrition
@@ -109,4 +110,28 @@ export async function deleteRecipe(email: string, id: string): Promise<Recipe | 
   if (!_id) return null;
   const d = await (await col()).findOneAndDelete({ _id, owner: email });
   return d ? toRecipe(d) : null;
+}
+
+/** 🛒 picks: sets `key` (and clears `auto`) on just those lines, so an autosave of the other lines is never overwritten. */
+export async function setLineKeys(email: string, id: string, picks: { id: string; key: string }[]): Promise<Recipe | null> {
+  const _id = oid(id);
+  if (!_id || !picks.length) return null;
+  const set: Record<string, unknown> = { updatedAt: new Date().toISOString() };
+  const arrayFilters: Record<string, string>[] = [];
+  picks.forEach((p, n) => {
+    set[`ingredients.$[l${n}].key`] = p.key;
+    set[`ingredients.$[l${n}].auto`] = false;
+    arrayFilters.push({ [`l${n}.id`]: p.id });
+  });
+  const d = await (await col()).findOneAndUpdate({ _id, owner: email }, { $set: set }, { arrayFilters, returnDocument: 'after' });
+  return d ? toRecipe(d) : null;
+}
+
+/** The caller's recipes whose name matches every search pattern (calories' search). */
+export async function searchMine(email: string, terms: string[], limit = 20): Promise<Recipe[]> {
+  if (!terms.length) return [];
+  const docs = await (await col())
+    .find({ owner: email, $and: terms.map((t) => ({ name: { $regex: t, $options: 'i' } })) }, { projection: { steps: 0, notes: 0 } })
+    .limit(limit).toArray();
+  return docs.map((d) => toRecipe({ ...d, steps: [], notes: '' }));
 }

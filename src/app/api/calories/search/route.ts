@@ -6,10 +6,11 @@ import { rankHits, searchPatterns } from '@/lib/shopping/search-rank';
 import { findProducts } from '@/lib/shopping/service';
 import { getLabels, listMeals, searchFoods } from '@/models/Calories';
 import { recipeHit } from '@/lib/recipes/calories-link';
-import { listMineFull } from '@/models/Recipe';
+import { searchMine } from '@/models/Recipe';
 import { foodHit, mealHit, productHit, serverError } from '../_shared';
 
 const MEALS_SHOWN = 10;
+const RECIPES_SHOWN = 5;
 const FOODS_SHOWN = 15;
 const PRODUCTS_SHOWN = 20;
 
@@ -23,7 +24,7 @@ export async function GET(request: NextRequest) {
   if (q.length < 2) return NextResponse.json({ meals: [], foods: [], products: [] } satisfies SearchResponse);
   try {
     const terms = searchPatterns(q);
-    const recipes = (await hasFeaturePermission(caller.userEmail, 'recipes')) ? listMineFull(caller.userEmail) : Promise.resolve([]);
+    const recipes = (await hasFeaturePermission(caller.userEmail, 'recipes')) ? searchMine(caller.userEmail, terms) : Promise.resolve([]);
     const [meals, mine, foods, found] = await Promise.all([listMeals(caller.userEmail), recipes, searchFoods(terms), findProducts(q)]);
     const matches = (name: string) => terms.every((t) => new RegExp(t, 'iu').test(name));
     const rankedFoods = rankHits(foods.map((f) => ({ f, name: f.n, stores: 0 })), terms).slice(0, FOODS_SHOWN);
@@ -34,9 +35,9 @@ export async function GET(request: NextRequest) {
     const labels = await getLabels(items.map((h) => h.d._id));
     const res: SearchResponse = {
       meals: [
-        ...meals.filter((m) => matches(m.name)).map(mealHit),
-        ...mine.filter((r) => matches(r.name)).flatMap((r) => recipeHit(r) ?? []),
-      ].slice(0, MEALS_SHOWN),
+        ...meals.filter((m) => matches(m.name)).slice(0, MEALS_SHOWN).map(mealHit),
+        ...mine.flatMap((r) => recipeHit(r) ?? []).slice(0, RECIPES_SHOWN),
+      ],
       foods: rankedFoods.map((h) => foodHit(h.f)),
       products: items.map((h) => productHit(h.d, labels.get(h.d._id))),
     };

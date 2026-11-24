@@ -21,6 +21,8 @@ export function useAutosave<T>(wanted: T | undefined, initial: T | undefined, sa
   const key = wanted === undefined ? undefined : JSON.stringify(wanted);
 
   const queue = useRef<Promise<void>>(Promise.resolve());
+  /** The last save attempt failed (what's shown isn't stored). */
+  const failed = useRef(false);
 
   const send = useCallback((v: T): Promise<void> => {
     window.clearTimeout(timer.current);
@@ -31,6 +33,7 @@ export function useAutosave<T>(wanted: T | undefined, initial: T | undefined, sa
       setStatus('saving');
       const err = await latest.current(v).catch((e: unknown) => (e instanceof Error ? e.message : 'לא נשמר'));
       if (!err) saved.current = k;
+      failed.current = !!err;
       setError(err);
       setStatus(err ? 'idle' : 'saved');
     });
@@ -44,10 +47,11 @@ export function useAutosave<T>(wanted: T | undefined, initial: T | undefined, sa
     return () => window.clearTimeout(timer.current);
   }, [key, send, delay]);
 
-  /** Sends what isn't saved yet (a pending change or a failed one); resolves once the queue is done. */
-  const flush = useCallback(async (): Promise<void> => {
+  /** Sends what isn't saved yet (a pending change or a failed one); resolves once the queue is done, true when all of it is stored. */
+  const flush = useCallback(async (): Promise<boolean> => {
     if (key !== undefined && key !== saved.current) await send(JSON.parse(key) as T);
     else await queue.current;
+    return !failed.current && (key === undefined || key === saved.current);
   }, [key, send]);
 
   return { status, error, flush };

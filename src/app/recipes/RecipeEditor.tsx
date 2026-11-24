@@ -48,7 +48,7 @@ function combine(statuses: SaveStatus[]): SaveStatus {
 }
 
 export default function RecipeEditor({ recipe, can, onChanged, onDone, toast }: {
-  recipe: Recipe; can: Can; onChanged: (r: Recipe) => void; onDone: () => void; toast: (m: string) => void;
+  recipe: Recipe; can: Can; onChanged: (update: (prev: Recipe) => Recipe) => void; onDone: () => void; toast: (m: string) => void;
 }) {
   const id = recipe.id;
   const [details, setDetails] = useState<Details>(() => detailsOf(recipe));
@@ -65,8 +65,14 @@ export default function RecipeEditor({ recipe, can, onChanged, onDone, toast }: 
   const rowRefs = useRef(new Map<string, HTMLInputElement>());
   const stepRefs = useRef<(HTMLTextAreaElement | null)[]>([]);
 
+  // Each group's response updates only the fields it saved: the three queues run
+  // side by side, so a late answer must not roll back another group's newer save.
   const save = (patch: Parameters<typeof api.patchRecipe>[1]) =>
-    api.patchRecipe(id, patch).then((r) => { onChanged(r); return null; }, (e: unknown) => (e instanceof Error ? e.message : 'לא נשמר'));
+    api.patchRecipe(id, patch).then((r) => {
+      const keys = Object.keys(patch) as (keyof Recipe)[];
+      onChanged((prev) => ({ ...prev, ...Object.fromEntries(keys.map((k) => [k, r[k]])), updatedAt: r.updatedAt }));
+      return null;
+    }, (e: unknown) => (e instanceof Error ? e.message : 'לא נשמר'));
 
   const initialDetails = useMemo(() => detailsPatch(detailsOf(recipe)), []); // eslint-disable-line react-hooks/exhaustive-deps
   const a = useAutosave(detailsPatch(details), initialDetails, (v) => save(v));
@@ -88,8 +94,9 @@ export default function RecipeEditor({ recipe, can, onChanged, onDone, toast }: 
   }, [focusStep, steps]);
 
   const done = async () => {
-    await Promise.all([a.flush(), b.flush(), c.flush()]);
-    onDone();
+    const ok = await Promise.all([a.flush(), b.flush(), c.flush()]);
+    if (ok.every(Boolean)) onDone();
+    else toast('לא הכל נשמר — בדקו את החיבור ונסו שוב');
   };
 
   const setIng = (lineId: string, f: (i: Ingredient) => Ingredient) => setIngs((list) => list.map((i) => (i.id === lineId ? f(i) : i)));
@@ -131,7 +138,7 @@ export default function RecipeEditor({ recipe, can, onChanged, onDone, toast }: 
     try {
       const url = await api.uploadPhoto(id, await resizeImage(file));
       setPhoto(url);
-      onChanged({ ...recipe, photo: url });
+      onChanged((prev) => ({ ...prev, photo: url }));
     } catch (e) {
       toast(e instanceof Error ? e.message : 'התמונה לא עלתה');
     } finally { setPhotoBusy(false); }
@@ -141,7 +148,7 @@ export default function RecipeEditor({ recipe, can, onChanged, onDone, toast }: 
     try {
       await api.removePhoto(id);
       setPhoto(null);
-      onChanged({ ...recipe, photo: null });
+      onChanged((prev) => ({ ...prev, photo: null }));
     } catch (e) {
       toast(e instanceof Error ? e.message : 'לא הוסר');
     } finally { setPhotoBusy(false); }

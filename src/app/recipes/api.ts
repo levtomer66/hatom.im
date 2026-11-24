@@ -49,7 +49,7 @@ export const removePhoto = (id: string) => call<{ photo: null }>('DELETE', `/${i
 
 export const matchLines = (id: string, servings: number) => call<{ lines: MatchLine[] }>('GET', `/${id}/match?servings=${servings}`).then((r) => r.lines);
 export const toList = (id: string, lines: { key: string; qty: number }[], picks: { id: string; key: string }[]) =>
-  call<{ added: number }>('POST', `/${id}/to-list`, { lines, picks });
+  call<{ added: number; recipe?: Recipe }>('POST', `/${id}/to-list`, { lines, picks });
 export const logServing = (id: string, date: string, meal: Meal, qty: number) => call<{ ok: true }>('POST', `/${id}/log`, { date, meal, qty });
 export const searchProducts = (q: string, signal?: AbortSignal) =>
   call<{ products: ProductLite[] }>('GET', `/products?q=${encodeURIComponent(q)}`, undefined, signal).then((r) => r.products);

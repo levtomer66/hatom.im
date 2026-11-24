@@ -3,7 +3,7 @@ import { requireFeatureCaller } from '@/lib/api-caller';
 import { MAX_LIST_ITEMS, normalizeQty } from '@/lib/shopping/home';
 import { getItems } from '@/models/ShoppingCatalog';
 import { addLines, householdFor } from '@/models/ShoppingHome';
-import { canRead, getRecipe, updateRecipe } from '@/models/Recipe';
+import { canRead, getRecipe, setLineKeys, type Recipe } from '@/models/Recipe';
 import { bad, notFound, readJson, serverError } from '../../_shared';
 
 type Ctx = { params: Promise<{ id: string }> };
@@ -38,17 +38,14 @@ export async function POST(request: NextRequest, { params }: Ctx) {
     if (!add.length) return bad('המוצרים לא נמצאו', 404);
     const home = await householdFor(caller.userEmail);
     await addLines(home.id, add);
+    let recipe: Recipe | null = null;
     if (r.owner === caller.userEmail && Array.isArray(picks) && picks.length) {
-      const chosen = new Map((picks as { id?: unknown; key?: unknown }[])
-        .filter((p) => typeof p?.id === 'string' && typeof p.key === 'string' && KEY.test(p.key))
-        .map((p) => [p.id as string, p.key as string]));
-      if (chosen.size) {
-        await updateRecipe(caller.userEmail, id, {
-          ingredients: r.ingredients.map((i) => (chosen.has(i.id) ? { ...i, key: chosen.get(i.id)!, auto: false } : i)),
-        });
-      }
+      const lineIds = new Set(r.ingredients.map((i) => i.id));
+      const chosen = (picks as { id?: unknown; key?: unknown }[])
+        .filter((p): p is { id: string; key: string } => typeof p?.id === 'string' && lineIds.has(p.id) && typeof p.key === 'string' && KEY.test(p.key));
+      if (chosen.length) recipe = await setLineKeys(caller.userEmail, id, chosen);
     }
-    return NextResponse.json({ added: add.length });
+    return NextResponse.json({ added: add.length, ...(recipe ? { recipe } : {}) });
   } catch (error) {
     return serverError('adding to the list', error);
   }

@@ -14,7 +14,7 @@ import LinkPicker from './LinkPicker';
 import * as api from './api';
 
 export default function ToListSheet({ recipe, servings, mine, onDone }: {
-  recipe: Recipe; servings: number; mine: boolean; onDone: (message: string | null) => void;
+  recipe: Recipe; servings: number; mine: boolean; onDone: (message: string | null, updated?: Recipe) => void;
 }) {
   const [lines, setLines] = useState<MatchLine[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -30,8 +30,8 @@ export default function ToListSheet({ recipe, servings, mine, onDone }: {
   const add = async () => {
     setBusy(true);
     try {
-      await api.toList(recipe.id, ticked.map((l) => ({ key: l.product!.key, qty: l.qty })), mine ? picks : []);
-      onDone(ticked.length === 1 ? 'מוצר אחד נוסף לרשימה' : `${ticked.length} מוצרים נוספו לרשימה`);
+      const res = await api.toList(recipe.id, ticked.map((l) => ({ key: l.product!.key, qty: l.qty })), mine ? picks : []);
+      onDone(ticked.length === 1 ? 'מוצר אחד נוסף לרשימה' : `${ticked.length} מוצרים נוספו לרשימה`, res.recipe);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'לא נוסף');
       setBusy(false);
