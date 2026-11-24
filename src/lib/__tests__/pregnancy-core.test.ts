@@ -88,3 +88,13 @@ test('stageFor: the nearest picture', async () => {
   assert.equal(stageFor(2)?.week, STAGES[0].week);
   assert.ok(STAGES.every((s) => s.img.startsWith('https://upload.wikimedia.org/') && s.author && s.license));
 });
+
+test('forViewer hides her body data from members', async () => {
+  const { forViewer } = await import('../pregnancy/pregnancy.ts');
+  const p = { owner: 'a@x.com', preKg: 60, heightCm: 165, cafLimit: 200 } as unknown as import('../pregnancy/pregnancy.ts').Pregnancy;
+  const m = forViewer(p, 'b@x.com');
+  assert.equal(m.preKg, null);
+  assert.equal(m.heightCm, null);
+  assert.equal(m.cafLimit, 200);
+  assert.equal(forViewer(p, 'a@x.com').preKg, 60);
+});

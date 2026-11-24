@@ -186,7 +186,10 @@ export default function CoffeeOrderPage() {
       setOrders((prev) => [created, ...prev]);
       setPlaced(created);
       // Logged to her diary by the server; count it here too.
-      setMe((m) => (m ? { ...m, cafToday: m.cafToday + orderDrink(created).mg } : m));
+      const day = (iso: string) => { const d = new Date(iso); return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`; };
+      if (!created.scheduledAt || day(created.scheduledAt) === day(new Date().toISOString())) {
+        setMe((m) => (m ? { ...m, cafToday: m.cafToday + orderDrink(created).mg } : m));
+      }
       fireBeans();
     } catch (err) {
       console.error(err);

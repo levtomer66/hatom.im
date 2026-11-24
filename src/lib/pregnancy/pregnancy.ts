@@ -156,6 +156,10 @@ export function canInvite(p: Pick<Pregnancy, 'members' | 'invites'>, email: stri
   return { ok: true, value: true };
 }
 
+/** The doc as `email` may see it: her pre-pregnancy weight and height are the owner's only. */
+export const forViewer = (p: Pregnancy, email: string): Pregnancy =>
+  p.owner === email ? p : { ...p, preKg: null, heightCm: null };
+
 /** Extra daily kcal by trimester: 0 / +340 / +450. */
 export const extraKcal = (day: number): 0 | 340 | 450 => ({ 1: 0, 2: 340, 3: 450 } as const)[trimester(day)];
 

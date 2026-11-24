@@ -523,9 +523,14 @@ Identity = Gmail address. Two roles:
   `caf` on every write (`entryCaf`: drink table, `cafPer100` name rules, a meal's
   items); only a quick entry's typed mg is taken from the client. No copies — a
   drink deleted on either page is gone from both.
-- The calories routes take `requireDiaryCaller` (calories, **or** a pregnant
-  owner), so /pregnancy needs no `calories` grant. Members see only her caffeine
-  rows (`GET /api/pregnancy`), never her diary.
+- The calories routes /pregnancy uses (day, day/[id], search, product, label,
+  to-list) take `requireDiaryCaller` (calories, **or** a pregnant owner), so she
+  logs food without a `calories` grant; goals, weight, steps, workouts and meals
+  stay `calories`-only. Members see only her caffeine rows (`GET /api/pregnancy`),
+  never her diary, and every doc they get goes through `forViewer` (no `preKg`/`heightCm`).
+  Meals saved before caffeine existed show none until re-saved.
+- Scans are shrunk on the phone (2000 px, JPEG 0.85) before upload: a Vercel
+  function body tops out near 4.5 MB.
 - **Coffee orders** (web, API key, MCP `order_coffee`) of a pregnant owner log one
   entry `order-<orderId>` via `logCoffeeOrder` in `after()` (idempotent `addEntry(…, once)`),
   on the Israel day/meal of the order or its scheduled time.

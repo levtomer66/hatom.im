@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { isDate } from '@/lib/pregnancy/dates';
 import { parsePatch, parseSetup } from '@/lib/pregnancy/pregnancy';
 import { createPregnancy, endPregnancy, patchPregnancy } from '@/models/Pregnancy';
-import { bad, isOwner, readJson, requirePregnancyCaller, serverError, stateFor } from './_shared';
+import { bad, isOwner, readJson, requirePregnancyCaller, serverError, stateFor, pOut } from './_shared';
 
 // GET ?date=&today= — the page's state: the pregnancy, the caller's role, invites
 // waiting for them, the owner's caffeine on `date` (members see only that),
@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
   try {
     const p = await createPregnancy(gate.caller.userEmail, s.value);
     if (!p) return bad('כבר יש הריון פעיל', 409);
-    return NextResponse.json({ p }, { status: 201 });
+    return NextResponse.json({ p: pOut(p, gate.caller.userEmail) }, { status: 201 });
   } catch (error) {
     return serverError('creating the pregnancy', error);
   }
@@ -55,7 +55,7 @@ export async function PATCH(request: NextRequest) {
   const ownerOnly = patch.value.preKg !== undefined || patch.value.cafLimit !== undefined || patch.value.heightCm !== undefined;
   if (ownerOnly && !isOwner(gate.p, gate.caller.userEmail)) return bad('רק בעלת ההריון יכולה לשנות את זה', 403);
   try {
-    return NextResponse.json({ p: await patchPregnancy(gate.p.id, patch.value) });
+    return NextResponse.json({ p: pOut(await patchPregnancy(gate.p.id, patch.value), gate.caller.userEmail) });
   } catch (error) {
     return serverError('updating the pregnancy', error);
   }

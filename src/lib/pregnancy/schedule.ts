@@ -77,10 +77,11 @@ export function todayStrip(p: CalendarPart, today: string): StripItem[] {
   ];
 }
 
-/** Tick (or untick) a reminder for `date`; dates older than 14 days before today are dropped. */
+/** Tick (or untick) a reminder for `date`; only dates in the 14 days up to today are kept (a future one never). */
 export function markDone(r: Reminder, date: string, done: boolean, today: string): Reminder {
-  const kept = r.done.filter((d) => d !== date && daysBetween(d, today) < DONE_DAYS);
-  return { ...r, done: (done ? [...kept, date] : kept).sort() };
+  const inWindow = (d: string) => { const n = daysBetween(d, today); return n >= 0 && n < DONE_DAYS; };
+  const kept = r.done.filter((d) => d !== date && inWindow(d));
+  return { ...r, done: (done && inWindow(date) ? [...kept, date] : kept).sort() };
 }
 
 /** For a cube's dots: events in that pregnancy week, open suggestions whose window covers it. */

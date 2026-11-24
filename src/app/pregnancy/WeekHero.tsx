@@ -37,7 +37,7 @@ export default function WeekHero({ p, day, onOpen }: { p: Pregnancy; day: number
       </div>
       <p className="pg-hero-words">{wdText(day)}</p>
       <p className="pg-hero-line">
-        {TRIMESTER_NAMES[trimester(day)]} · {left > 0 ? `עוד ${left} ימים` : left === 0 ? 'היום התאריך המשוער!' : `${-left} ימים אחרי התאריך`} · תאריך משוער {heDate(p.edd)}
+        {TRIMESTER_NAMES[trimester(day)]} · {left === 1 ? 'עוד יום אחד' : left > 0 ? `עוד ${left} ימים` : left === 0 ? 'היום התאריך המשוער!' : `${-left} ימים אחרי התאריך`} · תאריך משוער {heDate(p.edd)}
       </p>
       {size ? (
         <button type="button" className="pg-size" onClick={() => onOpen(w)}>

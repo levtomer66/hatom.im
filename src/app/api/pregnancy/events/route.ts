@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { MAX_EVENTS, parseEvent } from '@/lib/pregnancy/pregnancy';
 import { addEvent, deleteEvent, updateEvent } from '@/models/Pregnancy';
-import { bad, readJson, requirePregnancyCaller, serverError } from '../_shared';
+import { bad, readJson, requirePregnancyCaller, serverError, pOut } from '../_shared';
 
 // Events: anyone in the pregnancy adds, edits and deletes them. Each answers { p }.
 
@@ -16,7 +16,7 @@ export async function POST(request: NextRequest) {
   if (!e.ok) return bad(e.error);
   try {
     const p = await addEvent(gate.p.id, { ...e.value, id: randomUUID() });
-    return p ? NextResponse.json({ p }, { status: 201 }) : bad(`אפשר עד ${MAX_EVENTS} אירועים`);
+    return p ? NextResponse.json({ p: pOut(p, gate.caller.userEmail) }, { status: 201 }) : bad(`אפשר עד ${MAX_EVENTS} אירועים`);
   } catch (error) {
     return serverError('adding an event', error);
   }
@@ -34,7 +34,7 @@ export async function PATCH(request: NextRequest) {
   if (!e.ok) return bad(e.error);
   try {
     const p = await updateEvent(gate.p.id, { ...e.value, id });
-    return p ? NextResponse.json({ p }) : bad('אירוע לא נמצא', 404);
+    return p ? NextResponse.json({ p: pOut(p, gate.caller.userEmail) }) : bad('אירוע לא נמצא', 404);
   } catch (error) {
     return serverError('updating an event', error);
   }
@@ -48,7 +48,7 @@ export async function DELETE(request: NextRequest) {
   if (!id) return bad('אירוע לא נמצא', 404);
   try {
     const p = await deleteEvent(gate.p.id, id);
-    return p ? NextResponse.json({ p }) : bad('אירוע לא נמצא', 404);
+    return p ? NextResponse.json({ p: pOut(p, gate.caller.userEmail) }) : bad('אירוע לא נמצא', 404);
   } catch (error) {
     return serverError('deleting an event', error);
   }

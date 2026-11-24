@@ -67,6 +67,7 @@ export default function PregnancyPage() {
   const { data: session } = useSession();
   const me = session?.user?.email?.toLowerCase() ?? '';
   const canShop = hasPermission(session, 'shopping');
+  const canCalories = hasPermission(session, 'calories');
   const [today, setToday] = useState<string | null>(null);
   const [date, setDate] = useState<string | null>(null);
   const [state, setState] = useState<PregnancyState | null>(null);
@@ -214,7 +215,7 @@ export default function PregnancyPage() {
                 <SearchBar recent={shownDay.recent} canShop={canShop}
                   onPick={(picked) => setSheet({ kind: 'add', meal, picked })}
                   onLog={(e, per100, per) => void logFood({ ...e, meal }, per100, per)} />
-                {state.kcal ? (
+                {state.kcal && canCalories ? (
                   <Link href="/calories" className="pg-kcal">
                     <span>קלוריות {date === today ? 'היום' : 'ביום הזה'}</span>
                     <b>{state.kcal.eaten.toLocaleString('he-IL')} / {state.kcal.goal.toLocaleString('he-IL')}</b>

@@ -90,7 +90,7 @@ export async function POST(request: NextRequest) {
         ...dto,
       });
       after(() => notifyCoffeeOrder(order));
-    after(() => logCoffeeOrder(order));
+      after(() => logCoffeeOrder(order));
       return NextResponse.json(order, { status: 201 });
     } catch (error) {
       console.error('Error creating coffee order (api-key):', error);

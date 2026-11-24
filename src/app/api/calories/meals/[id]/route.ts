@@ -1,14 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { requireFeatureCaller } from '@/lib/api-caller';
 import { withCaf } from '@/lib/pregnancy/drinks';
 import { parseMeal } from '@/lib/calories/calories';
 import { deleteMeal, updateMeal } from '@/models/Calories';
-import { bad, readJson, serverError, requireDiaryCaller } from '../../_shared';
+import { bad, readJson, serverError } from '../../_shared';
 
 type Ctx = { params: Promise<{ id: string }> };
 
 // PATCH { name, portions, items } — replaces the caller's meal. Past entries keep their frozen values.
 export async function PATCH(request: NextRequest, { params }: Ctx) {
-  const caller = await requireDiaryCaller(request);
+  const caller = await requireFeatureCaller(request, 'calories');
   if (caller instanceof NextResponse) return caller;
   const { id } = await params;
   const body = await readJson(request);
@@ -25,7 +26,7 @@ export async function PATCH(request: NextRequest, { params }: Ctx) {
 }
 
 export async function DELETE(request: NextRequest, { params }: Ctx) {
-  const caller = await requireDiaryCaller(request);
+  const caller = await requireFeatureCaller(request, 'calories');
   if (caller instanceof NextResponse) return caller;
   const { id } = await params;
   try {

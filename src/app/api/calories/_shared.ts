@@ -70,9 +70,11 @@ export const drinkHit = (d: Drink): FoodHit => ({
 });
 
 /**
- * The diary's gate: the `calories` permission, or a pregnant owner (`pregnancy` +
- * an active pregnancy of her own) — /pregnancy logs to her diary without
- * `calories` being granted separately (docs/superpowers/specs/2026-11-24-pregnancy-design.md § Access).
+ * The diary's gate for what /pregnancy uses (day, day/[id], search, product, label,
+ * to-list): the `calories` permission, or a pregnant owner (`pregnancy` + an active
+ * pregnancy of her own), so she logs food without `calories` granted separately
+ * (docs/superpowers/specs/2026-11-24-pregnancy-design.md § Access). Goals, weight,
+ * steps, workouts and home-made meals stay `calories`-only.
  */
 export async function requireDiaryCaller(request: NextRequest): Promise<FeatureCaller | NextResponse> {
   const caller = await requireFeatureCaller(request, 'calories');

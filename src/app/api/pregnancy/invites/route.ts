@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { hasCurrentPermission } from '@/lib/api-caller';
 import { canInvite } from '@/lib/pregnancy/pregnancy';
 import { cancelInvite, invite, removeMember } from '@/models/Pregnancy';
-import { bad, isOwner, readJson, requirePregnancyCaller, serverError } from '../_shared';
+import { bad, isOwner, readJson, requirePregnancyCaller, serverError, pOut } from '../_shared';
 
 // POST { email } — the owner invites someone (they accept on /pregnancy).
 export async function POST(request: NextRequest) {
@@ -19,7 +19,7 @@ export async function POST(request: NextRequest) {
     const p = await invite(gate.p.id, { email, by: gate.caller.userEmail, at: new Date().toISOString() });
     if (!p) return bad('לא הצלחנו להזמין');
     const noAccess = !(await hasCurrentPermission(email, 'pregnancy'));
-    return NextResponse.json({ p, noAccess }, { status: 201 });
+    return NextResponse.json({ p: pOut(p, gate.caller.userEmail), noAccess }, { status: 201 });
   } catch (error) {
     return serverError('inviting', error);
   }
@@ -35,7 +35,7 @@ export async function DELETE(request: NextRequest) {
   if (!isOwner(gate.p, me) && email !== me) return bad('רק בעלת ההריון', 403);
   try {
     const p = gate.p.members.includes(email) ? await removeMember(gate.p.id, email) : await cancelInvite(gate.p.id, email);
-    return NextResponse.json({ p });
+    return NextResponse.json({ p: pOut(p, gate.caller.userEmail) });
   } catch (error) {
     return serverError('removing', error);
   }

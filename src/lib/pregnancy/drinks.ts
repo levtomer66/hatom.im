@@ -186,5 +186,7 @@ export const withCaf = <T extends { ref: { kind: string; key: string | null }; n
 export function drinksMatching(q: string): Drink[] {
   const n = norm(q);
   if (n.length < 2) return [];
-  return DRINKS.filter((d) => [d.name, ...(d.aliases ?? [])].map(norm).some((x) => x.includes(n) || (n.length >= 3 && n.includes(x))));
+  // Whole words either way ("שוקולד" is not שוקו), or a word still being typed ("הפו").
+  return DRINKS.filter((d) => [d.name, ...(d.aliases ?? [])].map(norm).some((x) =>
+    has(x, n) || has(n, x) || (!n.includes(' ') && x.split(' ').some((w) => w.startsWith(n)))));
 }

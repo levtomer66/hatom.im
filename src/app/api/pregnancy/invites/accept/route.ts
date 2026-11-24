@@ -16,7 +16,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ ok: true });
     }
     const r = await acceptInvite(b.id, gate.caller.userEmail);
-    if (r === 'busy') return bad('את/ה כבר בהריון אחר', 409);
+    if (r === 'busy') return bad('את/ה כבר עוקב/ת אחרי הריון אחר', 409);
     if (r === 'gone') return bad('ההזמנה כבר לא בתוקף', 404);
     return NextResponse.json({ ok: true });
   } catch (error) {

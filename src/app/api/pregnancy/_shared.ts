@@ -9,7 +9,7 @@ import { dayCaf, kgOk, recommend, sumTotals, DEFAULT_GOAL, MAX_ENTRIES, type Ent
 import { dayOfPregnancy } from '@/lib/pregnancy/dates';
 import { drinkById, type Drink } from '@/lib/pregnancy/drinks';
 import { bandLine, gainBand, gainVerdict } from '@/lib/pregnancy/gain';
-import { extraKcal, type CafRow, type GainView, type Pregnancy, type PregnancyState } from '@/lib/pregnancy/pregnancy';
+import { extraKcal, forViewer, type CafRow, type GainView, type Pregnancy, type PregnancyState } from '@/lib/pregnancy/pregnancy';
 import { addEntry, addRecent, getDays, getUser } from '@/models/Calories';
 import { invitesFor, pregnancyFor } from '@/models/Pregnancy';
 import { getUserSettings } from '@/models/WorkoutUserSettings';
@@ -25,6 +25,9 @@ export async function requirePregnancyCaller(request: NextRequest): Promise<Gate
 }
 
 export const isOwner = (p: Pregnancy | null, email: string): p is Pregnancy => !!p && p.owner === email;
+
+/** A doc on its way to `email`: members never get her weight or height. */
+export const pOut = (p: Pregnancy | null, email: string): Pregnancy | null => (p ? forViewer(p, email) : null);
 
 /** The emoji a caffeine row shows: the drink's own, else ☕. */
 const emojiOf = (e: Entry) => (e.ref.kind === 'drink' && e.ref.key ? drinkById(e.ref.key)?.emoji : null) ?? '☕';
@@ -62,11 +65,14 @@ export async function gainFor(p: Pregnancy, today: string): Promise<GainView | n
 /** Everything /pregnancy shows for `date` (the caller's view). */
 export async function stateFor(email: string, p: Pregnancy | null, date: string, today: string): Promise<PregnancyState> {
   const canCoffee = await hasCurrentPermission(email, 'coffee-order');
-  if (!p) return { role: 'none', p: null, invites: await invitesFor(email), caf: null, kcal: null, gain: null, canCoffee, heightCm: null };
+  if (!p) {
+    const user = await getUser(email);
+    return { role: 'none', p: null, invites: await invitesFor(email), caf: null, kcal: null, gain: null, canCoffee, heightCm: user.settings?.profile?.heightCm ?? null };
+  }
   const owner = p.owner === email;
   const entries = (await getDays(p.owner, [date]))[date] ?? [];
   const caf = { mg: dayCaf(entries), limit: p.cafLimit, rows: cafRows(entries) };
-  if (!owner) return { role: 'member', p, invites: [], caf, kcal: null, gain: null, canCoffee, heightCm: null };
+  if (!owner) return { role: 'member', p: forViewer(p, email), invites: [], caf, kcal: null, gain: null, canCoffee, heightCm: null };
   const day = dayOfPregnancy(p.edd, date);
   const [goal, gain, user] = await Promise.all([goalFor(email, day, Number(date.slice(0, 4))), gainFor(p, today), getUser(email)]);
   return {

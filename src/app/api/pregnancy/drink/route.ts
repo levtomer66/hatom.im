@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { defaultMeal, MEALS, type Meal } from '@/lib/calories/calories';
-import { isDate } from '@/lib/pregnancy/dates';
+import { isDate, israelHour } from '@/lib/pregnancy/dates';
 import { drinkById } from '@/lib/pregnancy/drinks';
 import { bad, drinkEntry, FULL_DAY, isOwner, logEntry, readJson, requirePregnancyCaller, serverError } from '../_shared';
 
@@ -18,7 +18,7 @@ export async function POST(request: NextRequest) {
   if (!isDate(b.date)) return bad('תאריך לא תקין');
   const qty = b.qty === undefined ? 1 : b.qty;
   if (typeof qty !== 'number' || !Number.isFinite(qty) || qty <= 0 || qty > 10) return bad('כמות בין 0 ל־10');
-  const hour = typeof b.hour === 'number' ? b.hour : new Date().getHours();
+  const hour = typeof b.hour === 'number' && b.hour >= 0 && b.hour < 24 ? b.hour : israelHour(new Date());
   const meal = MEALS.includes(b.meal as Meal) ? (b.meal as Meal) : defaultMeal(hour);
   try {
     const entry = drinkEntry(d, qty, meal);

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { SUGGESTION_IDS, type SuggestionId } from '@/lib/pregnancy/schedule';
 import { setDismissed } from '@/models/Pregnancy';
-import { bad, readJson, requirePregnancyCaller, serverError } from '../_shared';
+import { bad, readJson, requirePregnancyCaller, serverError, pOut } from '../_shared';
 
 // POST { sid, on } — "לא רלוונטי" on a suggested event (on: false brings it back).
 export async function POST(request: NextRequest) {
@@ -13,7 +13,7 @@ export async function POST(request: NextRequest) {
   const b = (body ?? {}) as Record<string, unknown>;
   if (typeof b.sid !== 'string' || !SUGGESTION_IDS.has(b.sid)) return bad('הצעה לא מוכרת');
   try {
-    return NextResponse.json({ p: await setDismissed(gate.p.id, b.sid as SuggestionId, b.on !== false) });
+    return NextResponse.json({ p: pOut(await setDismissed(gate.p.id, b.sid as SuggestionId, b.on !== false), gate.caller.userEmail) });
   } catch (error) {
     return serverError('dismissing a suggestion', error);
   }

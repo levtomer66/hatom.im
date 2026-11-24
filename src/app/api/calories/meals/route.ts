@@ -1,14 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { requireFeatureCaller } from '@/lib/api-caller';
 import { withCaf } from '@/lib/pregnancy/drinks';
 import { parseMeal } from '@/lib/calories/calories';
 import { createMeal, listMeals } from '@/models/Calories';
-import { bad, readJson, serverError, requireDiaryCaller } from '../_shared';
+import { bad, readJson, serverError } from '../_shared';
 
 const MAX_MEALS = 100;
 
 // GET — the caller's home-made meals. POST { name, portions, items } — a new one.
 export async function GET(request: NextRequest) {
-  const caller = await requireDiaryCaller(request);
+  const caller = await requireFeatureCaller(request, 'calories');
   if (caller instanceof NextResponse) return caller;
   try {
     return NextResponse.json({ meals: await listMeals(caller.userEmail) });
@@ -18,7 +19,7 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const caller = await requireDiaryCaller(request);
+  const caller = await requireFeatureCaller(request, 'calories');
   if (caller instanceof NextResponse) return caller;
   const body = await readJson(request);
   if (body instanceof NextResponse) return body;

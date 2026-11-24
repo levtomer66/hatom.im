@@ -136,7 +136,7 @@ anywhere removes it everywhere.
 - **Food from /pregnancy**: calories' `SearchBar` and scanner under the drinks
   row. Picks open calories' amount sheet and log to the diary. Under them, a
   chip "קלוריות היום 1,240 / 2,300 ←" links to /calories for the day.
-- **Access**: the calories routes the page uses (day, search, product, label)
+- **Access**: the calories routes the page uses (day, day/[id], search, product, label, to-list)
   accept a caller who holds `calories` **or** is a pregnant owner
   (`requireDiaryCaller`). The owner doesn't need `calories` granted separately.
 - Members' read: `GET /api/pregnancy` returns the owner's caffeine entries for

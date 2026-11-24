@@ -58,3 +58,10 @@ test('weekMarks counts a week\'s events and its open windows', () => {
   assert.deepEqual(weekMarks(p, 11), { events: 1, windows: openSuggestions([], []).filter((s) => s.from <= 11 && s.to >= 11).length });
   assert.equal(weekMarks(p, 12).events, 0);
 });
+
+test('markDone keeps only dates in the last 14 days, a future one included', () => {
+  const r = rem({ done: [] });
+  assert.deepEqual(markDone(r, '2026-12-30', true, '2026-11-24').done, []);
+  assert.deepEqual(markDone(r, '2026-11-01', true, '2026-11-24').done, []);
+  assert.deepEqual(markDone(r, '2026-11-11', true, '2026-11-24').done, ['2026-11-11']);
+});

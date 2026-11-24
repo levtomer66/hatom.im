@@ -81,3 +81,11 @@ test('entryCaf: drinks, products by name, meals per portion, quick none', () => 
   assert.equal(itemCaf({ ref: { kind: 'drink', key: 'espresso' }, name: 'x', grams: 60 }), 130);
   assert.ok(DRINKS.every((d) => d.g > 0));
 });
+
+test('drinksMatching: whole words, so chocolate is not שוקו', async () => {
+  const { drinksMatching } = await import('../pregnancy/drinks.ts');
+  assert.ok(!drinksMatching('שוקולד').some((d) => d.id === 'shoko'));
+  assert.ok(drinksMatching('שוקו').some((d) => d.id === 'shoko'));
+  assert.ok(drinksMatching('הפו').some((d) => d.id === 'hafuch-small'), 'a word being typed still matches');
+  assert.ok(drinksMatching('הפוך גדול').some((d) => d.id === 'hafuch-large'));
+});

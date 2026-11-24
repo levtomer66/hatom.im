@@ -19,6 +19,7 @@ async function call<T>(method: string, path: string, body?: unknown): Promise<T>
     throw new ApiError('אין חיבור. נסו שוב', 0);
   }
   const data = await res.json().catch(() => ({}));
+  if (res.status === 413) throw new ApiError('הקובץ גדול מדי', 413);
   if (!res.ok) throw new ApiError((data as { error?: string }).error ?? 'משהו השתבש, נסו שוב', res.status);
   return data as T;
 }
@@ -44,10 +45,35 @@ export const invite = (email: string) => call<P & { noAccess: boolean }>('POST',
 export const removePerson = (email: string) => call<P>('DELETE', `/invites?email=${encodeURIComponent(email)}`);
 export const answerInvite = (id: string, accept: boolean) => call<{ ok: true }>('POST', '/invites/accept', { id, accept });
 
-export function uploadScan(week: number, file: File) {
+/**
+ * A phone photo is 3–8 MB and a Vercel function takes ~4.5 MB, so it's shrunk
+ * here first (2000 px long edge, JPEG 0.85), as the trip journey does; the
+ * server still resizes and strips the metadata.
+ */
+async function shrink(file: File): Promise<Blob> {
+  try {
+    const bmp = await createImageBitmap(file);
+    const k = Math.min(1, 2000 / Math.max(bmp.width, bmp.height));
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.round(bmp.width * k);
+    canvas.height = Math.round(bmp.height * k);
+    canvas.getContext('2d')?.drawImage(bmp, 0, 0, canvas.width, canvas.height);
+    bmp.close();
+    const out = await new Promise<Blob | null>((ok) => canvas.toBlob(ok, 'image/jpeg', 0.85));
+    return out ?? file;
+  } catch {
+    return file; // a format the browser can't draw (HEIC on some phones): the server tries
+  }
+}
+
+export const MAX_SCAN_BYTES = 4 * 1024 * 1024;
+
+export async function uploadScan(week: number, file: File) {
+  const img = await shrink(file);
+  if (img.size > MAX_SCAN_BYTES) throw new ApiError('התמונה גדולה מדי (עד 4MB)', 413);
   const f = new FormData();
   f.set('week', String(week));
-  f.set('file', file);
+  f.set('file', img, 'scan.jpg');
   return call<P>('POST', '/scans', f);
 }
 export const deleteScan = (week: number) => call<P>('DELETE', `/scans?week=${week}`);
