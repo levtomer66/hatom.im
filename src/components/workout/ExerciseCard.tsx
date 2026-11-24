@@ -37,6 +37,7 @@ import { formatSeconds } from '@/lib/time';
 import ExerciseExternalLinks from './ExerciseExternalLinks';
 import ExerciseProgressChart from './ExerciseProgressChart';
 import ExercisePhoto from './ExercisePhoto';
+import HowToModal from './HowToModal';
 import SetStopwatch from './SetStopwatch';
 
 export interface ExerciseCardDraggable {
@@ -95,8 +96,12 @@ export default function ExerciseCard({
   };
   const localized = exerciseDef
     ? getLocalizedExercise(exerciseDef, language)
-    : { name: exercise.exerciseId, description: undefined };
+    : { name: exercise.exerciseId, description: undefined, movementName: exercise.exerciseId, variantLabel: null };
   const displayName = localized.name;
+  // PROTOTYPE: card titles show the movement, the variant on a line below.
+  const titleName = localized.movementName;
+  const [showHowTo, setShowHowTo] = useState(false);
+  const variantLabel = localized.variantLabel;
   const displayDescription = localized.description;
   const isCompleted = isExerciseCompleted(exercise);
   const isEditable = mode === 'edit';
@@ -446,7 +451,8 @@ export default function ExerciseCard({
                duplicate screen-reader announcement. */
           />
           <div className="exercise-collapsed-info">
-            <span className="exercise-collapsed-name">{displayName}</span>
+            <span className="exercise-collapsed-name">{titleName}</span>
+            {variantLabel && <span className="exercise-variant-tags">{variantLabel}</span>}
             <span className="exercise-collapsed-stats">
               {hasData ? formatSummary() : t('card.tap_to_log')}
             </span>
@@ -492,9 +498,12 @@ export default function ExerciseCard({
     >
       {/* Header */}
       <div className="exercise-card-header">
+        {/* PROTOTYPE: the photo plays the how-to; 📊 is its own button for the chart. */}
         <div
           className="exercise-card-photo exercise-card-photo-clickable"
-          onClick={openHistory}
+          onClick={() => setShowHowTo(true)}
+          role="button"
+          aria-label={t('howto.title')}
           style={{ position: 'relative', cursor: 'pointer', fontSize: '24px' }}
         >
           <ExercisePhoto
@@ -502,13 +511,23 @@ export default function ExerciseCard({
             /* decorative: name shown beside it; alt="" default */
             style={{ width: '100%', height: '100%', borderRadius: 'inherit' }}
           />
-          <span className="exercise-card-photo-hint">📊</span>
+          <span className="howto-play-badge" aria-hidden="true">▶</span>
+          <button
+            type="button"
+            className="exercise-card-chart-btn"
+            aria-label={t('card.progress_chart')}
+            title={t('card.progress_chart')}
+            onClick={openHistory}
+          >
+            📊
+          </button>
         </div>
         
         <div className="exercise-card-info">
           <div className="exercise-card-name">
-            {displayName}
+            {titleName}
           </div>
+          {variantLabel && <div className="exercise-variant-tags">{variantLabel}</div>}
           {displayDescription && (
             <div className="exercise-card-description" style={{ fontSize: '12px', color: 'var(--workout-text-secondary)', marginTop: '2px' }}>
               {displayDescription}
@@ -820,6 +839,14 @@ export default function ExerciseCard({
       })()}
 
       {/* History modal */}
+      {showHowTo && (
+        <HowToModal
+          exerciseId={exercise.exerciseId}
+          title={displayName}
+          photo={exerciseDef?.defaultPhoto}
+          onClose={() => setShowHowTo(false)}
+        />
+      )}
       {showHistory && (
         <div className="workout-modal-overlay" onClick={() => setShowHistory(false)}>
           <div className="workout-modal" onClick={(e) => e.stopPropagation()}>

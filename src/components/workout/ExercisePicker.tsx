@@ -9,6 +9,25 @@ import { useCustomExercises } from '@/context/WorkoutCustomExercisesContext';
 import { useT, getCategoryLabel } from '@/lib/workout-i18n';
 import ExercisePhoto from './ExercisePhoto';
 import AddExerciseForm from './AddExerciseForm';
+import HowToModal from './HowToModal';
+import GymSwitch from './GymSwitch';
+import { GYM_MACHINES, BRAND_LABELS, machinesForGym } from '@/data/gym-machines';
+import { GYM_BARS } from '@/data/gym-bars';
+import { useCurrentGym } from '@/lib/workout-gym';
+import { fuzzySearch, SearchDoc } from '@/lib/exercise-search';
+import {
+  MERGED_AWAY, RENAMED_SINGLES, movementIndex, variantTagLabels, tagLabel, Movement,
+} from '@/data/exercise-movements';
+
+// PROTOTYPE: one picker row = one movement; its variants are chips.
+interface MovementGroup {
+  key: string;
+  name: string;
+  movement: Movement | null;
+  variants: ExerciseDefinition[];
+}
+
+const MOVEMENT_INDEX = movementIndex();
 
 // Muscle group filter IDs (labels come from getCategoryLabel in the render).
 const MUSCLE_GROUP_IDS: ExerciseCategory[] = [
@@ -24,6 +43,11 @@ interface ExercisePickerProps {
   // onSelect([one]) immediately and closes. Used by the replace flow so
   // the user doesn't have to tap twice (select → confirm) for one swap.
   replaceMode?: boolean;
+  // Only library exercises: no customs, no "new custom exercise" button. Used
+  // when replacing a custom exercise with a built-in one.
+  builtInOnly?: boolean;
+  // Overrides the modal title.
+  title?: string;
 }
 
 export default function ExercisePicker({
@@ -32,6 +56,8 @@ export default function ExercisePicker({
   onSelect,
   excludeIds = [],
   replaceMode = false,
+  builtInOnly = false,
+  title,
 }: ExercisePickerProps) {
   const { language } = useWorkoutLanguage();
   const { customExercises, addCustomExercise, ensureLoaded } = useCustomExercises();
@@ -41,6 +67,19 @@ export default function ExercisePicker({
   const [muscleFilters, setMuscleFilters] = useState<Set<string>>(new Set());
   const [categoryFilters, setCategoryFilters] = useState<Set<ExerciseCategory>>(new Set());
   const [showAddForm, setShowAddForm] = useState(false);
+  // PROTOTYPE: the photo plays the how-to instead of selecting the row.
+  const [howTo, setHowTo] = useState<ExerciseDefinition | null>(null);
+  // PROTOTYPE: machine grid. 'machines' shows the gym's machine tiles and
+  // 'bars' the bar / attachment tiles; tapping one sets machineId and lists
+  // only its exercises.
+  const [view, setView] = useState<'machines' | 'bars' | 'all'>('machines');
+  const [machineId, setMachineId] = useState<string | null>(null);
+  const [gymId] = useCurrentGym();
+  const gymMachines = useMemo(() => machinesForGym(gymId), [gymId]);
+  // The tapped tile (a machine or a bar), whose exercises the list shows.
+  const activeTile = view === 'machines' ? gymMachines.find((m) => m.id === machineId) ?? null
+    : view === 'bars' ? GYM_BARS.find((b) => b.id === machineId) ?? null
+    : null;
 
   // Make sure the user's custom exercises are loaded whenever the picker opens
   // (no-op if the /workout page already seeded them from the bootstrap).
@@ -52,8 +91,27 @@ export default function ExercisePicker({
   // exercises (retired customs stay resolvable in history but aren't offered
   // for selection here).
   const allExercises = useMemo(() => {
-    return [...EXERCISE_LIBRARY, ...customExercises.filter((e) => !e.retired)];
-  }, [customExercises]);
+    return [
+      // PROTOTYPE: duplicates the review merges are hidden (history still resolves them).
+      ...EXERCISE_LIBRARY.filter((e) => !(e.id in MERGED_AWAY)),
+      ...(builtInOnly ? [] : customExercises.filter((e) => !e.retired)),
+    ];
+  }, [customExercises, builtInOnly]);
+
+  // Exercises the current gym can't do: on some machine, but none of this
+  // gym's. Exercises on no machine at all (mobility, skills) count as doable.
+  const unavailableIds = useMemo(() => {
+    const here = new Set(gymMachines.flatMap((m) => m.exerciseIds));
+    const anywhere = new Set(GYM_MACHINES.flatMap((m) => m.exerciseIds));
+    return new Set([...anywhere].filter((id) => !here.has(id)));
+  }, [gymMachines]);
+
+  const movementName = (m: Movement) => (language === 'he' ? m.nameHe : m.name);
+  const singleName = (ex: ExerciseDefinition) => {
+    const r = RENAMED_SINGLES[ex.id];
+    if (r) return language === 'he' ? r.nameHe : r.name;
+    return getLocalizedExercise(ex, language).name;
+  };
 
   // Toggle muscle filter
   const toggleMuscleFilter = (muscleId: string) => {
@@ -81,11 +139,51 @@ export default function ExercisePicker({
     });
   };
 
+  // Fuzzy-search corpus: names in every language, muscle labels in both
+  // languages, and the names/aliases of every machine the exercise is on,
+  // plus the current gym's names for them.
+  const searchDocs = useMemo<SearchDoc[]>(() => {
+    return allExercises.map((ex) => {
+      const machines = GYM_MACHINES.filter((m) => m.exerciseIds.includes(ex.id));
+      const mv = MOVEMENT_INDEX.get(ex.id);
+      const renamed = RENAMED_SINGLES[ex.id];
+      return {
+        id: ex.id,
+        texts: [
+          mv ? (language === 'he' ? mv.movement.nameHe : mv.movement.name) : getLocalizedExercise(ex, language).name,
+          ...(mv ? [mv.movement.name, mv.movement.nameHe,
+            ...variantTagLabels(mv.variant.tags, 'en', mv.movement.id),
+            ...variantTagLabels(mv.variant.tags, 'he', mv.movement.id)] : []),
+          ...(renamed ? [renamed.name, renamed.nameHe] : []),
+          getLocalizedExercise(ex, language).name,
+          ...getExerciseSearchNames(ex),
+          ...ex.categories.flatMap((c) => [getCategoryLabel(c, 'en'), getCategoryLabel(c, 'he'), c]),
+          ...machines.flatMap((m) => [m.name, m.nameHe, BRAND_LABELS[m.brand], m.series ?? '', ...(m.aliases ?? [])]),
+          ...GYM_BARS.filter((b) => b.exerciseIds.includes(ex.id)).flatMap((b) => [b.name, b.nameHe, ...(b.aliases ?? [])]),
+          // The gym's own names for its machines ("Chest press by the window").
+          ...gymMachines.filter((m) => m.exerciseIds.includes(ex.id)).flatMap((m) => [m.name, m.nameHe]),
+        ],
+      };
+    });
+  }, [allExercises, language, gymMachines]);
+
+  const searching = search.trim().length > 0;
+
   // Filter exercises based on category filters, muscle filters, and search
   const filteredExercises = useMemo(() => {
-    return allExercises.filter(exercise => {
-      // Exclude already added exercises
-      if (excludeIds.includes(exercise.id)) return false;
+    const available = allExercises.filter(e => !excludeIds.includes(e.id));
+    if (search.trim()) {
+      const byId = new Map(available.map(e => [e.id, e]));
+      const ids = fuzzySearch(search, searchDocs.filter(d => byId.has(d.id)));
+      return ids.map(id => byId.get(id)!);
+    }
+    if (activeTile) {
+      const byId = new Map(available.map(e => [e.id, e]));
+      return activeTile.exerciseIds
+        .map(id => byId.get(id))
+        .filter((e): e is ExerciseDefinition => e !== undefined);
+    }
+    return available.filter(exercise => {
       
       // Filter by category (Push/Pull/Legs) - if any selected
       if (categoryFilters.size > 0) {
@@ -104,19 +202,14 @@ export default function ExercisePicker({
         if (!matchesMuscle) return false;
       }
       
-      // Filter by search — match against English name and every known translation.
-      if (search) {
-        const searchLower = search.toLowerCase();
-        return getExerciseSearchNames(exercise)
-          .some(n => n.toLowerCase().includes(searchLower));
-      }
-      
       return true;
     });
-  }, [search, excludeIds, allExercises, muscleFilters, categoryFilters]);
+  }, [search, searchDocs, activeTile, excludeIds, allExercises, muscleFilters, categoryFilters]);
 
-  // Sort: custom exercises first, then alphabetically
+  // Sort: custom exercises first, then alphabetically. Search results keep
+  // their relevance order and a machine keeps its own order.
   const sortedExercises = useMemo(() => {
+    if (searching || (activeTile)) return filteredExercises;
     return [...filteredExercises].sort((a, b) => {
       // Custom exercises first
       if (a.isCustom && !b.isCustom) return -1;
@@ -124,7 +217,39 @@ export default function ExercisePicker({
       // Then alphabetically
       return a.name.localeCompare(b.name);
     });
-  }, [filteredExercises]);
+  }, [filteredExercises, searching, activeTile]);
+
+  // Fold the variant list into movement rows, keeping the first-seen order
+  // (relevance for search, machine order for a machine). The plain list is
+  // re-sorted by movement name; custom exercises stay first.
+  const groups = useMemo<MovementGroup[]>(() => {
+    const out: MovementGroup[] = [];
+    const byKey = new Map<string, MovementGroup>();
+    for (const ex of sortedExercises) {
+      const mv = ex.isCustom ? undefined : MOVEMENT_INDEX.get(ex.id);
+      const key = mv ? `m:${mv.movement.id}` : `e:${ex.id}`;
+      let g = byKey.get(key);
+      if (!g) {
+        g = { key, name: mv ? movementName(mv.movement) : singleName(ex), movement: mv?.movement ?? null, variants: [] };
+        byKey.set(key, g);
+        out.push(g);
+      }
+      g.variants.push(ex);
+    }
+    // Variants inside a movement follow the movement's own order.
+    for (const g of out) {
+      if (!g.movement) continue;
+      const order = g.movement.variants.map((v) => v.exerciseId);
+      g.variants.sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id));
+    }
+    if (searching || (activeTile)) return out;
+    return out.sort((a, b) => {
+      const ac = a.variants[0].isCustom ? 0 : 1;
+      const bc = b.variants[0].isCustom ? 0 : 1;
+      return ac - bc || a.name.localeCompare(b.name, language);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sortedExercises, searching, view, activeTile, language]);
 
   const toggleSelection = (id: string) => {
     if (replaceMode) {
@@ -137,6 +262,7 @@ export default function ExercisePicker({
       setSearch('');
       setMuscleFilters(new Set());
       setCategoryFilters(new Set());
+      setMachineId(null);
       onClose();
       return;
     }
@@ -158,6 +284,7 @@ export default function ExercisePicker({
     setSearch('');
     setMuscleFilters(new Set());
     setCategoryFilters(new Set());
+    setMachineId(null);
     onClose();
   };
 
@@ -172,6 +299,7 @@ export default function ExercisePicker({
       setSearch('');
       setMuscleFilters(new Set());
       setCategoryFilters(new Set());
+      setMachineId(null);
       onClose();
       return;
     }
@@ -183,6 +311,7 @@ export default function ExercisePicker({
     setSearch('');
     setMuscleFilters(new Set());
     setCategoryFilters(new Set());
+    setMachineId(null);
     onClose();
   };
 
@@ -193,7 +322,7 @@ export default function ExercisePicker({
       <div className="workout-modal-overlay" onClick={handleClose}>
         <div className="workout-modal" onClick={(e) => e.stopPropagation()}>
           <div className="workout-modal-header">
-            <h2 className="workout-modal-title">{t(replaceMode ? 'picker.replace_title' : 'picker.title')}</h2>
+            <h2 className="workout-modal-title">{title ?? t(replaceMode ? 'picker.replace_title' : 'picker.title')}</h2>
             <button className="workout-modal-close" onClick={handleClose} aria-label={t('generic.close')}>
               ✕
             </button>
@@ -210,16 +339,47 @@ export default function ExercisePicker({
                   onChange={(e) => setSearch(e.target.value)}
                   style={{ flex: 1 }}
                 />
+                {!builtInOnly && (
+                  <button
+                    type="button"
+                    className="workout-btn workout-btn-secondary"
+                    onClick={() => setShowAddForm(true)}
+                    style={{ flex: '0 0 auto', whiteSpace: 'nowrap' }}
+                  >
+                    {t('picker.create_custom')}
+                  </button>
+                )}
+              </div>
+
+              {/* PROTOTYPE: Machines | Bars | All exercises */}
+              <div className="picker-view-tabs" role="tablist">
                 <button
-                  type="button"
-                  className="workout-btn workout-btn-secondary"
-                  onClick={() => setShowAddForm(true)}
-                  style={{ flex: '0 0 auto', whiteSpace: 'nowrap' }}
+                  type="button" role="tab" aria-selected={view === 'machines'}
+                  className={`picker-view-tab ${view === 'machines' ? 'active' : ''}`}
+                  onClick={() => { setView('machines'); setMachineId(null); }}
                 >
-                  {t('picker.create_custom')}
+                  🏋️ {t('picker.tab.machines')}
+                </button>
+                <button
+                  type="button" role="tab" aria-selected={view === 'bars'}
+                  className={`picker-view-tab ${view === 'bars' ? 'active' : ''}`}
+                  onClick={() => { setView('bars'); setMachineId(null); }}
+                >
+                  🔗 {t('picker.tab.bars')}
+                </button>
+                <button
+                  type="button" role="tab" aria-selected={view === 'all'}
+                  className={`picker-view-tab ${view === 'all' ? 'active' : ''}`}
+                  onClick={() => setView('all')}
+                >
+                  📋 {t('picker.tab.all')}
                 </button>
               </div>
 
+              {view === 'machines' && !searching && <GymSwitch />}
+              {searching && <div className="picker-search-hint">{t('picker.search_hint')}</div>}
+
+              {view === 'all' && !searching && (<>
               {/* Category filters (Push/Pull/Legs/Calisthenics) */}
               <div className="category-filter-row">
                 {EXERCISE_FILTER_CATEGORIES.slice(0, 4).map(category => {
@@ -256,54 +416,153 @@ export default function ExercisePicker({
                   );
                 })}
               </div>
+              </>)}
             </div>
 
+            {!searching && activeTile && (
+              <button type="button" className="machine-back-btn" onClick={() => setMachineId(null)}>
+                {t(view === 'bars' ? 'picker.back_to_bars' : 'picker.back_to_machines')}
+                <span className="machine-back-title">
+                  {language === 'he' ? activeTile.nameHe : activeTile.name}
+                </span>
+              </button>
+            )}
+
+            {view === 'machines' && !searching && !activeTile ? (
+              <div className="machine-grid">
+                {gymMachines.map((m) => {
+                  const count = m.exerciseIds.filter(id => !excludeIds.includes(id)).length;
+                  return (
+                    <button key={m.id} type="button" className="machine-tile" onClick={() => setMachineId(m.id)}>
+                      <span className="machine-tile-photo">
+                        {m.photo
+                          // eslint-disable-next-line @next/next/no-img-element
+                          ? <img src={m.photo} alt="" loading="lazy" />
+                          : <span className="machine-tile-icon" aria-hidden="true">{m.icon}</span>}
+                      </span>
+                      <span className="machine-tile-name">{language === 'he' ? m.nameHe : m.name}</span>
+                      {m.brand !== 'generic' && (
+                        <span className="machine-tile-brand">{BRAND_LABELS[m.brand]}{m.series ? ` · ${m.series}` : ''}</span>
+                      )}
+                      <span className="machine-tile-count">{count} {t('picker.machine_count')}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            ) : view === 'bars' && !searching && !activeTile ? (
+              <div className="bar-sections">
+                {(['cable', 'free'] as const).map((kind) => (
+                  <section key={kind} className="bar-section">
+                    <h3 className="bar-section-title">{t(kind === 'cable' ? 'picker.bars.cable' : 'picker.bars.free')}</h3>
+                    <div className="machine-grid">
+                      {GYM_BARS.filter((b) => b.kind === kind).map((b) => {
+                        const count = b.exerciseIds.filter(id => !excludeIds.includes(id) && !(id in MERGED_AWAY)).length;
+                        return (
+                          <button key={b.id} type="button" className="machine-tile bar-tile" onClick={() => setMachineId(b.id)}>
+                            <span className="machine-tile-photo">
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img src={b.photo} alt="" loading="lazy" />
+                            </span>
+                            <span className="machine-tile-name">{language === 'he' ? b.nameHe : b.name}</span>
+                            <span className="machine-tile-count">{count} {t('picker.machine_count')}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </section>
+                ))}
+              </div>
+            ) : (
             <div className="exercise-picker-grid">
-              {sortedExercises.length === 0 ? (
+              {groups.length === 0 ? (
                 <div className="empty-state">
                   <div className="empty-state-icon">🔍</div>
                   <div className="empty-state-text">{t('picker.none_found')}</div>
                 </div>
               ) : (
-                sortedExercises.map(exercise => {
-                  const exName = getLocalizedExercise(exercise, language).name;
+                groups.map(group => {
+                  // Inside a tile the machine / bar is the equipment already.
+                  const tagOpts = {
+                    skipEquipment: !!activeTile && !searching,
+                    skipAttachment: view === 'bars' && !!activeTile && !searching,
+                  };
+                  const single = group.variants.length === 1;
+                  const first = group.variants[0];
+                  const singleTags = single && group.movement
+                    ? variantTagLabels(MOVEMENT_INDEX.get(first.id)!.variant.tags, language, group.movement.id, tagOpts)
+                    : [];
+                  const anySelected = group.variants.some(v => selectedIds.has(v.id));
                   return (
                     <div
-                      key={exercise.id}
-                      className={`exercise-picker-item ${selectedIds.has(exercise.id) ? 'selected' : ''}`}
-                      onClick={() => toggleSelection(exercise.id)}
+                      key={group.key}
+                      className={`exercise-picker-item movement-row ${single && selectedIds.has(first.id) ? 'selected' : ''} ${single && unavailableIds.has(first.id) ? 'unavailable' : ''}`}
+                      onClick={single ? () => toggleSelection(first.id) : undefined}
                     >
-                      <ExercisePhoto
-                        className="exercise-picker-photo"
-                        src={exercise.defaultPhoto}
-                        /* decorative: name shown beside it; alt="" default */
-                        objectFit="contain"
-                        style={{
-                          backgroundColor: 'var(--workout-bg-card)',
-                          fontSize: '20px',
+                      <button
+                        type="button"
+                        className="howto-thumb"
+                        aria-label={t('howto.title')}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          // The variant you picked, else the movement's first.
+                          setHowTo(group.variants.find(v => selectedIds.has(v.id)) ?? first);
                         }}
-                      />
+                      >
+                        <ExercisePhoto
+                          className="exercise-picker-photo"
+                          src={first.defaultPhoto}
+                          /* decorative: name shown beside it; alt="" default */
+                          objectFit={first.defaultPhoto?.startsWith("/workout/exercises/") ? "cover" : "contain"}
+                          style={{
+                            backgroundColor: 'var(--workout-bg-card)',
+                            fontSize: '20px',
+                          }}
+                        />
+                        <span className="howto-play-badge" aria-hidden="true">▶</span>
+                      </button>
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <span className="exercise-picker-name">{exName}</span>
-                        {exercise.isCustom && (
-                          <span style={{
-                            fontSize: '11px',
-                            color: 'var(--workout-blue)',
-                            display: 'block',
-                            marginTop: '2px',
-                          }}>
-                            {t('picker.custom_badge')}
-                          </span>
+                        <span className="exercise-picker-name">{group.name}</span>
+                        {first.isCustom && (
+                          <span className="movement-custom-badge">{t('picker.custom_badge')}</span>
+                        )}
+                        {single && singleTags.length > 0 && (
+                          <span className="movement-tags">{singleTags.join(' · ')}</span>
+                        )}
+                        {!single && (
+                          <div className="variant-chips" role="group" aria-label={group.name}>
+                            {group.variants.map(ex => {
+                              const info = MOVEMENT_INDEX.get(ex.id)!;
+                              const label = (variantTagLabels(info.variant.tags, language, info.movement.id, tagOpts).join(' · ') || tagLabel(info.variant.tags.equipment, language));
+                              const on = selectedIds.has(ex.id);
+                              return (
+                                <button
+                                  key={ex.id}
+                                  type="button"
+                                  aria-pressed={on}
+                                  title={getLocalizedExercise(ex, language).name}
+                                  className={`variant-chip ${on ? 'active' : ''} ${unavailableIds.has(ex.id) ? 'unavailable' : ''}`}
+                                  onClick={(e) => { e.stopPropagation(); toggleSelection(ex.id); }}
+                                >
+                                  {on && '✓ '}{label}
+                                </button>
+                              );
+                            })}
+                          </div>
                         )}
                       </div>
-                      <div className="exercise-picker-check">
-                        {selectedIds.has(exercise.id) && '✓'}
-                      </div>
+                      {single ? (
+                        <div className="exercise-picker-check">
+                          {selectedIds.has(first.id) && '✓'}
+                        </div>
+                      ) : (
+                        <span className="variant-count">{anySelected ? '✓' : group.variants.length}</span>
+                      )}
                     </div>
                   );
                 })
               )}
             </div>
+            )}
           </div>
           
           {!replaceMode && (
@@ -320,6 +579,15 @@ export default function ExercisePicker({
           )}
         </div>
       </div>
+
+      {howTo && (
+        <HowToModal
+          exerciseId={howTo.id}
+          title={getLocalizedExercise(howTo, language).name}
+          photo={howTo.defaultPhoto}
+          onClose={() => setHowTo(null)}
+        />
+      )}
 
       <AddExerciseForm
         isOpen={showAddForm}

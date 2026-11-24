@@ -16,7 +16,7 @@ async function connectDB() {
 // Mongo doc → the client-facing ExerciseDefinition shape. `isCustom` lets the
 // UI tag the row and sort customs first; defaultPhoto falls back to the 🏋️
 // placeholder via ExercisePhoto when absent.
-function toDefinition(e: Pick<CustomExerciseDocument, 'exerciseId' | 'name' | 'categories' | 'photo' | 'retired' | 'loadMode' | 'bodyweightFactor'>): ExerciseDefinition {
+function toDefinition(e: Pick<CustomExerciseDocument, 'exerciseId' | 'name' | 'categories' | 'photo' | 'retired' | 'loadMode' | 'bodyweightFactor' | 'replacedBy'>): ExerciseDefinition {
   return {
     id: e.exerciseId,
     name: e.name,
@@ -24,6 +24,7 @@ function toDefinition(e: Pick<CustomExerciseDocument, 'exerciseId' | 'name' | 'c
     defaultPhoto: e.photo ?? undefined,
     isCustom: true,
     retired: e.retired ?? false,
+    replacedBy: e.replacedBy ?? undefined,
     loadMode: e.loadMode ?? 'standard',
     bodyweightFactor: e.bodyweightFactor ?? undefined,
   };

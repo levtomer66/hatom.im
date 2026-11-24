@@ -1,6 +1,12 @@
 import { Language, ExerciseDefinition } from '@/types/workout';
 import { ExerciseTranslation, ExerciseTranslations } from './types';
 import { HE_EXERCISE_TRANSLATIONS } from './he';
+import {
+  MERGED_AWAY, RENAMED_SINGLES, movementIndex, variantTagLabels,
+} from '@/data/exercise-movements';
+
+// PROTOTYPE: library exercises display as "<movement> · <variant tags>".
+const MOVEMENT_INDEX = movementIndex();
 
 // Registry of per-language translation dicts. Add a new language file here.
 // English is the canonical source — it always lives on the `ExerciseDefinition`
@@ -22,15 +28,33 @@ export function getExerciseTranslation(
 
 // Convenience: return the displayable `{ name, description }` for an exercise
 // in the active language, with graceful fallback to English.
+//
+// PROTOTYPE: an exercise that belongs to a movement is named after the
+// movement, with its variant tags — `name` is the full "Shoulder Press ·
+// Dumbbells" (for history, feed, summaries), `movementName` + `variantLabel`
+// let a card show them on two lines. Ids merged away display as the exercise
+// they were merged into. Custom exercises keep their own name.
 export function getLocalizedExercise(
   def: Pick<ExerciseDefinition, 'id' | 'name' | 'description'>,
   language: Language
-): { name: string; description: string | undefined } {
+): { name: string; description: string | undefined; movementName: string; variantLabel: string | null } {
   const tr = getExerciseTranslation(def.id, language);
-  return {
-    name: tr.name ?? def.name,
-    description: tr.description ?? def.description,
-  };
+  const description = tr.description ?? def.description;
+  const lang = language === 'he' ? 'he' : 'en';
+  const id = MERGED_AWAY[def.id] ?? def.id;
+  const mv = MOVEMENT_INDEX.get(id);
+  if (mv) {
+    const movementName = lang === 'he' ? mv.movement.nameHe : mv.movement.name;
+    const tags = variantTagLabels(mv.variant.tags, lang, mv.movement.id);
+    const variantLabel = mv.movement.variants.length > 1 && tags.length > 0 ? tags.join(' · ') : null;
+    return {
+      name: variantLabel ? `${movementName} · ${variantLabel}` : movementName,
+      description, movementName, variantLabel,
+    };
+  }
+  const renamed = RENAMED_SINGLES[id];
+  const name = renamed ? (lang === 'he' ? renamed.nameHe : renamed.name) : (tr.name ?? def.name);
+  return { name, description, movementName: name, variantLabel: null };
 }
 
 // Localized name for a single progression step. Falls back to the step's

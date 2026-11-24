@@ -15,8 +15,12 @@ import Header from '@/components/workout/Header';
 import BottomNav from '@/components/workout/BottomNav';
 import ExercisePhoto from '@/components/workout/ExercisePhoto';
 import AddExerciseForm from '@/components/workout/AddExerciseForm';
-import { PersonalBest, ExerciseCategory, EXERCISE_FILTER_CATEGORIES, WorkoutType } from '@/types/workout';
+import { PersonalBest, ExerciseDefinition, ExerciseCategory, EXERCISE_FILTER_CATEGORIES, WorkoutType } from '@/types/workout';
 import { EXERCISE_LIBRARY } from '@/data/exercise-library';
+import { MERGED_AWAY, movementIndex, variantTagLabels } from '@/data/exercise-movements';
+
+// PROTOTYPE: the list groups variants under their movement.
+const MOVEMENT_INDEX = movementIndex();
 
 const MUSCLE_GROUP_IDS: ExerciseCategory[] = [
   'chest', 'back', 'shoulders', 'biceps', 'triceps', 'forearms', 'legs', 'abs', 'glutes',
@@ -96,7 +100,10 @@ export default function ExercisesPage() {
   // The exercise catalogue: the code-defined library plus the user's ACTIVE
   // custom exercises (retired ones are hidden from the browse list).
   const allExercises = useMemo(() => {
-    return [...EXERCISE_LIBRARY, ...customExercises.filter((e) => !e.retired)];
+    return [
+      ...EXERCISE_LIBRARY.filter((e) => !(e.id in MERGED_AWAY)),
+      ...customExercises.filter((e) => !e.retired),
+    ];
   }, [customExercises]);
 
   // Retired (soft-deleted) customs — surfaced in a collapsible section below so
@@ -137,7 +144,8 @@ export default function ExercisesPage() {
 
       if (search) {
         const q = search.toLowerCase();
-        return getExerciseSearchNames(exercise).some(n => n.toLowerCase().includes(q));
+        return [getLocalizedExercise(exercise, 'en').name, getLocalizedExercise(exercise, 'he').name, ...getExerciseSearchNames(exercise)]
+          .some(n => n.toLowerCase().includes(q));
       }
 
       return true;
@@ -161,6 +169,33 @@ export default function ExercisesPage() {
       return a.name.localeCompare(b.name);
     });
   }, [filteredExercises, personalBests]);
+
+  // One row per movement (custom and stand-alone exercises are their own row).
+  // Movements where any variant has a PB come first, like single exercises.
+  const groups = useMemo(() => {
+    const out: { key: string; name: string; variants: ExerciseDefinition[] }[] = [];
+    const byKey = new Map<string, (typeof out)[number]>();
+    for (const ex of sortedExercises) {
+      const mv = ex.isCustom ? undefined : MOVEMENT_INDEX.get(ex.id);
+      const key = mv ? `m:${mv.movement.id}` : `e:${ex.id}`;
+      let g = byKey.get(key);
+      if (!g) {
+        g = { key, name: getLocalizedExercise(ex, language).movementName, variants: [] };
+        byKey.set(key, g);
+        out.push(g);
+      }
+      g.variants.push(ex);
+    }
+    for (const g of out) {
+      const mv = MOVEMENT_INDEX.get(g.variants[0].id);
+      if (!mv || g.variants.length < 2) continue;
+      const order = mv.movement.variants.map((v) => v.exerciseId);
+      g.variants.sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id));
+    }
+    const rank = (g: (typeof out)[number]) =>
+      g.variants.some((v) => personalBests[v.id]) ? 0 : g.variants[0].isCustom ? 1 : 2;
+    return out.sort((a, b) => rank(a) - rank(b) || a.name.localeCompare(b.name, language));
+  }, [sortedExercises, personalBests, language]);
 
   // Calisthenics skills overview — library exercises that carry a ladder.
   // Shown as a strip at the top only in the unfiltered view (it's a "where
@@ -285,13 +320,50 @@ export default function ExercisesPage() {
 
         {/* Exercise list */}
         <div>
-          {sortedExercises.length === 0 ? (
+          {groups.length === 0 ? (
             <div className="empty-state">
               <div className="empty-state-icon">🔍</div>
               <div className="empty-state-text">{t('picker.none_found')}</div>
             </div>
           ) : (
-            sortedExercises.map(exercise => {
+            groups.map(group => {
+              if (group.variants.length > 1) {
+                const first = group.variants[0];
+                return (
+                  <div key={group.key} className="history-item movement-browse-row">
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', flex: 1, minWidth: 0 }}>
+                      <ExercisePhoto
+                        src={first.defaultPhoto}
+                        style={{ width: '48px', height: '48px', borderRadius: '8px', fontSize: '20px', flexShrink: 0 }}
+                      />
+                      <div className="history-item-info" style={{ flex: 1, minWidth: 0 }}>
+                        <div className="history-item-type">{group.name}</div>
+                        <div className="variant-chips">
+                          {group.variants.map(v => {
+                            const info = MOVEMENT_INDEX.get(v.id)!;
+                            const label = variantTagLabels(info.variant.tags, language, info.movement.id).join(' · ');
+                            const vpb = personalBests[v.id];
+                            return (
+                              <button
+                                key={v.id}
+                                type="button"
+                                className={`variant-chip ${vpb ? 'has-pb' : ''}`}
+                                onClick={() => router.push(`/workout/exercises/${v.id}`)}
+                              >
+                                {label}
+                                {vpb && vpb.bestKg !== null && vpb.bestReps !== null && (
+                                  <span className="variant-chip-pb"> 🥇 {formatWeight(vpb.bestKg, unit)}{unitSuffix}×{vpb.bestReps}</span>
+                                )}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              }
+              const exercise = group.variants[0];
               const pb = personalBests[exercise.id];
               const listName = getLocalizedExercise(exercise, language).name;
               

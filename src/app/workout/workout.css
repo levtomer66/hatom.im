@@ -2438,6 +2438,139 @@ body[data-rest-active] .feed-top {
   color: var(--workout-text-muted);
 }
 
+/* ── PROTOTYPE: gym switch + machine grid picker ───────────────────── */
+.gym-switch {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 12px 0 4px;
+  flex-wrap: wrap;
+}
+.gym-switch-label {
+  font-size: 13px;
+  color: var(--workout-text-secondary);
+}
+.gym-switch-btn {
+  padding: 6px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  border: 1px solid var(--workout-border);
+  border-radius: 16px;
+  background: var(--workout-bg-secondary);
+  color: var(--workout-text-secondary);
+  cursor: pointer;
+}
+.gym-switch-btn.active {
+  background: var(--workout-green-dim);
+  border-color: var(--workout-green);
+  color: var(--workout-green);
+}
+
+.picker-view-tabs {
+  display: flex;
+  gap: 4px;
+  margin-top: 12px;
+  padding: 3px;
+  border-radius: 12px;
+  background: var(--workout-bg-secondary);
+}
+.picker-view-tab {
+  flex: 1;
+  padding: 8px 10px;
+  font-size: 14px;
+  font-weight: 600;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--workout-text-muted);
+  cursor: pointer;
+}
+.picker-view-tab.active {
+  background: var(--workout-bg-card-hover);
+  color: var(--workout-text);
+}
+.picker-search-hint {
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--workout-text-muted);
+}
+
+.machine-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 10px;
+}
+.machine-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+  padding: 0 0 10px;
+  border: 1px solid var(--workout-border);
+  border-radius: 14px;
+  background: var(--workout-bg-secondary);
+  color: var(--workout-text);
+  text-align: start;
+  overflow: hidden;
+  cursor: pointer;
+  transition: transform 0.1s ease, border-color 0.15s ease;
+}
+.machine-tile:hover { border-color: var(--workout-green); }
+.machine-tile:active { transform: scale(0.97); }
+.machine-tile-photo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 1 / 1;
+  /* Technogym shots are on a light-grey studio backdrop. */
+  background: #f2f2f2;
+}
+.machine-tile-photo img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.machine-tile-icon { font-size: 48px; }
+/* Bars tab: cable attachments, then free bars, each a tile grid. */
+.bar-sections { display: flex; flex-direction: column; gap: 16px; }
+.bar-section-title {
+  margin: 0 0 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--workout-text-muted);
+}
+/* REP's product shots are on white. */
+.bar-tile .machine-tile-photo { background: #fff; }
+.machine-tile-name {
+  padding: 0 10px;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.25;
+}
+.machine-tile-count {
+  padding: 0 10px;
+  font-size: 12px;
+  color: var(--workout-text-muted);
+}
+.machine-back-btn {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  width: 100%;
+  margin-bottom: 10px;
+  padding: 6px 0;
+  border: 0;
+  background: transparent;
+  color: var(--workout-green);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.machine-back-title {
+  color: var(--workout-text);
+  font-size: 16px;
+}
+
 /* Feed: "Include logged sets" next to Share, and the expandable sets on a
    post (src/app/workout/feed/page.tsx). */
 .workout-app .feed-include-sets {
@@ -2471,3 +2604,169 @@ body[data-rest-active] .feed-top {
   text-align: center;
 }
 .workout-app .feed-post-sets { margin-top: 10px; display: flex; flex-direction: column; gap: 8px; }
+
+/* ── PROTOTYPE: movement rows with variant chips ───────────────────── */
+.movement-row { align-items: flex-start; }
+.movement-row.unavailable { opacity: 0.45; }
+.movement-custom-badge {
+  display: block;
+  margin-top: 2px;
+  font-size: 11px;
+  color: var(--workout-blue);
+}
+.movement-tags {
+  display: block;
+  margin-top: 3px;
+  font-size: 12px;
+  color: var(--workout-text-muted);
+}
+.variant-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+.variant-chip {
+  padding: 5px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  border: 1px solid var(--workout-border);
+  border-radius: 14px;
+  background: var(--workout-bg-card);
+  color: var(--workout-text-secondary);
+  cursor: pointer;
+}
+.variant-chip.active {
+  background: var(--workout-green-dim);
+  border-color: var(--workout-green);
+  color: var(--workout-green);
+}
+/* Not at this gym: still tappable (you may know better), just quieter. */
+.variant-chip.unavailable:not(.active) {
+  opacity: 0.4;
+  text-decoration: line-through;
+}
+.variant-count {
+  flex: 0 0 auto;
+  min-width: 24px;
+  padding: 2px 8px;
+  border-radius: 12px;
+  background: var(--workout-bg-card);
+  color: var(--workout-text-muted);
+  font-size: 12px;
+  font-weight: 700;
+  text-align: center;
+}
+
+/* PROTOTYPE: variant line under an exercise title (card + Exercises tab). */
+.exercise-variant-tags {
+  display: block;
+  margin-top: 2px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--workout-green);
+}
+.movement-browse-row { cursor: default; }
+.variant-chip.has-pb { border-color: var(--workout-gold); }
+.variant-chip-pb { color: var(--workout-gold); font-weight: 600; }
+
+/* ── PROTOTYPE: how-to modal ───────────────────────────────────────── */
+.howto-modal { max-width: 460px; }
+.howto-stage {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 1 / 1;
+  border-radius: 14px;
+  overflow: hidden;
+  background: #fff;
+}
+.howto-stage img { width: 100%; height: 100%; object-fit: contain; }
+.howto-muted { color: #888; font-size: 14px; }
+.howto-caption {
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--workout-text-muted);
+  text-align: center;
+}
+.howto-steps-title {
+  margin-top: 14px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--workout-text-secondary);
+}
+.howto-steps {
+  margin: 6px 0 0;
+  padding-inline-start: 20px;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--workout-text-secondary);
+  text-align: left;
+}
+.howto-steps li { margin-bottom: 4px; }
+.howto-play-badge {
+  position: absolute;
+  inset-inline-start: 4px;
+  bottom: 4px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  font-size: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+.exercise-card-chart-btn {
+  position: absolute;
+  inset-inline-end: -6px;
+  bottom: -6px;
+  border: 0;
+  background: var(--workout-bg-card-hover);
+  border-radius: 50%;
+  width: 26px;
+  height: 26px;
+  font-size: 13px;
+  cursor: pointer;
+}
+/* PROTOTYPE: tappable photo in the add-exercise lists. */
+.howto-thumb {
+  position: relative;
+  flex-shrink: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  border-radius: 8px;
+  cursor: pointer;
+  line-height: 0;
+}
+.howto-thumb:focus-visible { outline: 2px solid var(--workout-green); outline-offset: 2px; }
+.machine-tile-brand {
+  padding: 0 10px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--workout-text-secondary);
+}
+
+/* Replace a custom exercise with a built-in one (exercise page). */
+.replace-custom-btn { padding: 6px 12px; font-size: 12px; }
+.replace-custom-intro { margin: 0 0 12px; color: var(--workout-text-secondary); font-size: 14px; }
+.replace-custom-from { display: flex; align-items: center; gap: 10px; }
+.replace-custom-photo { width: 48px; height: 48px; border-radius: 8px; flex: none; overflow: hidden; }
+.replace-custom-label { margin: 16px 0 8px; font-size: 13px; font-weight: 600; color: var(--workout-text-secondary); }
+.replace-custom-muted { margin: 0; color: var(--workout-text-muted); font-size: 13px; }
+.replace-custom-list { display: flex; flex-direction: column; gap: 8px; }
+.replace-custom-option {
+  display: flex; align-items: center; gap: 10px; width: 100%; padding: 8px; text-align: start;
+  background: var(--workout-bg-secondary); color: var(--workout-text);
+  border: 1px solid transparent; border-radius: 10px; cursor: pointer; font: inherit;
+}
+.replace-custom-option:hover { border-color: var(--workout-green); }
+.replace-custom-other { margin-top: 12px; width: 100%; }
+.replace-custom-arrow { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
+.replace-custom-arrow-sign { font-size: 20px; color: var(--workout-text-muted); padding-inline-start: 14px; }
+.replace-custom-warning { color: var(--workout-text-muted); font-size: 13px; }
+.replace-custom-error { color: var(--workout-red); font-size: 13px; }

@@ -1,4 +1,5 @@
 import { ExerciseDefinition } from '@/types/workout';
+import { demoPhotoPath } from '@/data/exercise-photos';
 
 // Pexels image URL helper
 const pexels = (id: number) =>
@@ -834,6 +835,26 @@ export const EXERCISE_LIBRARY: ExerciseDefinition[] = [
   { id: 'barbell-wrist-curl',   name: 'Barbell Wrist Curl',     description: 'Seated wrist flexion with a barbell',      categories: ['pull', 'forearms'],            defaultPhoto: msImg('seated-barbell-wrist-curl.jpg') },
   { id: 'dumbbell-wrist-curl',  name: 'Dumbbell Wrist Curl',    description: 'Seated wrist flexion with dumbbells',      categories: ['pull', 'forearms'],            defaultPhoto: msImg('seated-dumbbell-wrist-curl.jpg') },
   { id: 'reverse-wrist-curl',   name: 'Reverse Wrist Curl',     description: 'Wrist extension for forearm extensors',    categories: ['pull', 'forearms'],            defaultPhoto: msImg('reverse_grip_barbell_wrist_curl.jpg') },
+
+  // =====================
+  // MACHINES (added for the Matrix Aura / Magnum machines that had none).
+  // Photos: free-exercise-db demo shots via src/data/exercise-photos.ts where
+  // one exists, else the machine's own product photo.
+  // =====================
+  { id: 'machine-lateral-raise',     name: 'Machine Lateral Raise',     description: 'Seated side-delt raise on a lateral raise machine', categories: ['push', 'shoulders'],           defaultPhoto: '/workout/machines/matrix-lateral-raise.jpg' },
+  { id: 'seated-dip-machine',        name: 'Seated Dip',                description: 'Seated triceps press on a dip machine',          categories: ['push', 'triceps', 'chest'],    defaultPhoto: '/workout/machines/matrix-triceps-press.jpg' },
+  { id: 'machine-triceps-extension', name: 'Machine Triceps Extension', description: 'Seated elbow extension on a triceps machine',   categories: ['push', 'triceps'],             defaultPhoto: '/workout/machines/matrix-triceps-extension.jpg' },
+  { id: 'rotary-torso',              name: 'Rotary Torso',              description: 'Seated torso rotation against the stack, both sides', categories: ['full-body', 'abs'],     defaultPhoto: '/workout/machines/matrix-rotary-torso.jpg' },
+  { id: 'seated-calf-raise',         name: 'Seated Calf Raise',         description: 'Calf raise seated, knees under the pad',         categories: ['legs', 'calves'],              defaultPhoto: '/workout/machines/matrix-seated-calf.jpg' },
+  // Added with the Matrix Versa / Magnum benches and the Aura multi-station.
+  { id: 'back-extension',            name: 'Back Extension',            description: 'Hip hinge over a 45° back extension bench, feet locked', categories: ['back', 'glutes'],      defaultPhoto: '/workout/machines/matrix-back-extension-bench.jpg' },
+  { id: 'machine-back-extension',    name: 'Machine Back Extension',    description: 'Seated lower-back extension against the pad',     categories: ['back'],                        defaultPhoto: '/workout/machines/matrix-back-extension.jpg' },
+  { id: 'decline-crunch',            name: 'Decline Crunch',            description: 'Crunch or sit-up on a decline ab bench, feet hooked', categories: ['abs'],                     defaultPhoto: '/workout/machines/matrix-ab-bench.jpg' },
+  { id: 'dumbbell-preacher-curl',    name: 'Dumbbell Preacher Curl',    description: 'One-arm dumbbell curl over a preacher pad',       categories: ['pull', 'biceps'],              defaultPhoto: '/workout/machines/matrix-standing-arm-curl.jpg' },
+  { id: 'cable-curl',                name: 'Cable Curl',                description: 'Standing straight-bar curl from the low pulley',  categories: ['pull', 'biceps'],              defaultPhoto: '/workout/machines/cable-station.jpg' },
+  // Added with the bar / attachment tiles.
+  { id: 'trap-bar-deadlift',         name: 'Trap Bar Deadlift',         description: 'Deadlift standing inside a hex / trap bar, neutral grip', categories: ['legs', 'full-body', 'back', 'hamstrings', 'glutes'], defaultPhoto: '/workout/bars/trap-bar.jpg' },
+  { id: 'straight-bar-pushdown',     name: 'Straight-Bar Pushdown',     description: 'Triceps pushdown on a short straight bar from the high pulley', categories: ['push', 'triceps'], defaultPhoto: '/workout/bars/straight-bar.jpg' },
 ];
 
 // Bodyweight-mode exercises → fraction of bodyweight the movement moves, used
@@ -859,6 +880,7 @@ const BODYWEIGHT_FACTORS: Record<string, number> = {
   'split-squat-bw': 0.7, 'step-up': 0.7, 'single-leg-rdl': 0.85, 'nordic-curl': 0.9,
   // Core (rep-based raises)
   'hanging-leg-raise': 0.5, 'hanging-knee-raise-v3': 0.5,
+  'back-extension': 0.5, 'decline-crunch': 0.35,
 };
 
 for (const ex of EXERCISE_LIBRARY) {
@@ -867,6 +889,12 @@ for (const ex of EXERCISE_LIBRARY) {
     ex.loadMode = 'bodyweight';
     ex.bodyweightFactor = factor;
   }
+}
+
+// PROTOTYPE: swap in the demo photo where one exists (src/data/exercise-photos.ts).
+for (const ex of EXERCISE_LIBRARY) {
+  const demo = demoPhotoPath(ex.id);
+  if (demo) ex.defaultPhoto = demo;
 }
 
 // Merged/renamed exercise IDs → canonical ID they were folded into

@@ -176,6 +176,13 @@ Identity = Gmail address. Two roles:
   freestyle marker (template-started workouts always carry a templateId).
   On completion the summary offers "save as template" via
   `templateExercisesFromWorkout()`; saving renames + links the workout.
+- **Gyms + machine grid**: the picker shows the current gym's machines
+  (catalog `GYM_MACHINES` in `src/data/gym-machines.ts`). The gyms
+  themselves are `src/data/gyms.ts`, written by the **local-only backoffice**
+  at `/admin/gyms` (dev server on localhost + owner; 404 anywhere else) —
+  save there, then commit the file. Validation/rendering in
+  `src/lib/gym-config.ts`. The workout service worker caches `/_next`
+  chunks site-wide: unregister it if a dev page runs stale client code.
 - **The Moving Car** (feed): derived purely from the sum of all feed posts'
   `stats.totalVolumeKg` by `computeCarState()` in `src/lib/workout-car.ts`
   (1 000 kg = 1 m; level 1 = 50 m, ×1.25 per level). Nothing is stored —

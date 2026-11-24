@@ -213,6 +213,9 @@ export interface ExerciseDefinition {
   // pickers/browse but still resolves its name/photo in past workouts and
   // templates. Only ever set on custom exercises.
   retired?: boolean;
+  // Custom exercises only: the built-in exercise that replaced this one (its
+  // history was moved there). Set together with `retired`.
+  replacedBy?: string;
   // Calisthenics progression ladder (easiest → hardest). Present only on
   // skill exercises; its presence is what flips an exercise into "skill
   // mode" in the UI. Absent on barbell/machine exercises and all customs.
