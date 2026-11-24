@@ -26,3 +26,97 @@
 
 .rc-import-steps { margin: 0 0 0.75rem; padding-inline-start: 1.25rem; line-height: 1.7; }
 .rc-import-prompt { display: block; margin: 0.75rem 0; padding: 0.75rem; border-radius: var(--sh-r-ctl); background: var(--sh-surface); font-family: inherit; font-size: 0.9375rem; }
+
+/* one recipe */
+.rc-back { display: inline-flex; align-items: center; gap: 0.25rem; margin-bottom: 0.75rem; color: var(--sh-muted); text-decoration: none; font-size: 0.9375rem; }
+.rc-photo { display: block; width: 100%; aspect-ratio: 4 / 3; object-fit: cover; border-radius: var(--sh-r-group); margin-bottom: 1rem; background: var(--sh-surface); }
+.rc-photo.is-loading { animation: rc-shine 1.2s infinite; background: linear-gradient(90deg, var(--sh-surface), var(--sh-line), var(--sh-surface)); background-size: 200% 100%; }
+.rc-name { margin: 0 0 0.25rem; font-size: 1.625rem; line-height: 1.25; font-weight: 700; }
+.rc-meta { display: flex; flex-wrap: wrap; gap: 0.25rem 1rem; margin: 0 0 0.5rem; color: var(--sh-muted); font-size: 0.9375rem; }
+.rc-meta a { color: var(--sh-accent); }
+.rc-tags { display: flex; flex-wrap: wrap; gap: 0.375rem; margin: 0 0 0.75rem; }
+.rc-tags .sh-chip { min-height: 30px; font-size: 0.875rem; cursor: default; }
+
+.rc-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 0.75rem 0 1.25rem; }
+.rc-act { display: inline-flex; align-items: center; gap: 0.4rem; padding: 0 0.75rem; }
+.rc-more { margin-inline-start: auto; }
+.rc-menu { display: grid; gap: 0.5rem; }
+.rc-menu .sh-btn { display: flex; align-items: center; gap: 0.5rem; justify-content: center; }
+
+.rc-section { margin-bottom: 1.5rem; }
+.rc-section h2 { margin: 0 0 0.5rem; font-size: 1.1875rem; font-weight: 700; }
+.rc-section h2 small { font-weight: 400; margin-inline-start: 0.5rem; }
+.rc-section-head { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; margin-bottom: 0.5rem; }
+.rc-section-head h2 { margin: 0; }
+.rc-servings { display: inline-flex; align-items: center; gap: 0.5rem; color: var(--sh-muted); font-size: 0.9375rem; }
+
+.rc-ings { margin: 0; padding: 0; list-style: none; }
+.rc-ing { padding: 0.5rem 0; border-bottom: 1px solid var(--sh-line); }
+.rc-ing:last-child { border-bottom: none; }
+.rc-orig, .rc-alt { display: block; font-size: 0.8125rem; color: var(--sh-muted); }
+.rc-alt { color: var(--sh-manual); }
+.rc-check { margin-inline-start: 0.5rem; padding: 0 0.375rem; border-radius: var(--sh-r-mark); background: #fff4d6; color: var(--sh-manual); font-size: 0.75rem; }
+.rc-steps { margin: 0; padding-inline-start: 1.5rem; }
+.rc-steps li { margin-bottom: 0.75rem; line-height: 1.6; }
+.rc-steps li::marker { font-weight: 700; color: var(--sh-accent); }
+.rc-partial { margin-top: 0.5rem; font-size: 0.875rem; }
+.rc-notes { white-space: pre-wrap; margin: 0; }
+
+/* edit mode */
+.rc-editor { display: grid; gap: 1rem; }
+.rc-edit-top { position: sticky; top: 0; z-index: 2; display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; padding: 0.5rem 0; background: var(--sh-bg); }
+.rc-edit-top .cal-save-state { margin: 0; }
+.rc-photo-edit .rc-photo { margin-bottom: 0.5rem; }
+.rc-photo-empty { display: grid; place-items: center; font-size: 3rem; aspect-ratio: 16 / 7; }
+.rc-photo-actions { display: flex; gap: 0.5rem; }
+.rc-photo-actions label { display: inline-flex; align-items: center; gap: 0.4rem; cursor: pointer; }
+.rc-photo-actions .is-busy { opacity: 0.5; }
+.rc-field { display: grid; gap: 0.25rem; font-size: 0.875rem; color: var(--sh-muted); }
+.rc-field-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.5rem; }
+.rc-input { width: 100%; min-height: var(--sh-tap); padding: 0.5rem 0.75rem; border: 1px solid var(--sh-line); border-radius: var(--sh-r-ctl); background: var(--sh-bg); color: var(--sh-ink); font: inherit; font-size: 16px; }
+.rc-input:focus-visible { outline: 2px solid var(--sh-accent); outline-offset: -1px; }
+textarea.rc-input { resize: vertical; line-height: 1.5; }
+.rc-input-name { font-size: 1.125rem; font-weight: 600; }
+.rc-chips-wrap { flex-wrap: wrap; overflow: visible; }
+.rc-tag-input { width: 8rem; min-height: 36px; }
+.rc-hint { margin: -0.25rem 0 0.5rem; font-size: 0.8125rem; }
+.rc-edit-ings, .rc-edit-steps { margin: 0 0 0.5rem; padding: 0; list-style: none; display: grid; gap: 0.5rem; }
+.rc-edit-ing { display: grid; gap: 0.25rem; }
+.rc-edit-row { display: flex; align-items: center; gap: 0.125rem; }
+.rc-edit-row .rc-input { flex: 1; min-width: 0; }
+.rc-edit-row .sh-icon-btn { width: 36px; min-width: 36px; }
+.rc-edit-row .sh-icon-btn.is-on { color: var(--sh-accent); }
+.rc-edit-link { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; padding-inline-start: 0.25rem; font-size: 0.875rem; }
+.rc-grams { display: inline-flex; align-items: center; gap: 0.25rem; }
+.rc-grams input { width: 5rem; min-height: 32px; padding: 0 0.5rem; border: 1px solid var(--sh-line); border-radius: var(--sh-r-mark); font: inherit; }
+.rc-confirm { min-height: 30px; font-size: 0.8125rem; }
+.rc-edit-steps { counter-reset: step; }
+.rc-edit-step { display: flex; gap: 0.25rem; align-items: flex-start; }
+.rc-edit-step::before { counter-increment: step; content: counter(step); flex: none; width: 1.5rem; padding-top: 0.6rem; font-weight: 700; color: var(--sh-accent); }
+.rc-edit-step-btns { display: flex; flex-direction: column; }
+.rc-edit-step-btns .sh-icon-btn { width: 32px; min-width: 32px; height: 30px; min-height: 30px; }
+
+/* cooking mode */
+.rc-cook { position: fixed; inset: 0; z-index: 60; display: flex; flex-direction: column; padding: max(0.75rem, env(safe-area-inset-top)) 1rem max(1rem, env(safe-area-inset-bottom)); background: var(--sh-bg); direction: rtl; }
+.rc-cook-head { display: flex; align-items: center; gap: 0.5rem; }
+.rc-cook-title { flex: 1; text-align: center; font-size: 1rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rc-cook-head .is-on { color: var(--sh-accent); }
+.rc-cook-ings { max-height: 40vh; overflow-y: auto; margin: 0.5rem 0; padding: 0.5rem; list-style: none; border-radius: var(--sh-r-group); background: var(--sh-surface); }
+.rc-cook-ings button { width: 100%; min-height: 40px; border: none; background: none; font: inherit; text-align: start; color: inherit; cursor: pointer; }
+.rc-cook-ings button.is-done { text-decoration: line-through; color: var(--sh-muted); }
+.rc-cook-step { flex: 1; display: flex; flex-direction: column; justify-content: center; overflow-y: auto; }
+.rc-cook-step small { color: var(--sh-muted); font-size: 1rem; }
+.rc-cook-step p { margin: 0.5rem 0 0; font-size: clamp(1.375rem, 6vw, 2rem); line-height: 1.45; }
+.rc-cook-nav { display: flex; gap: 0.75rem; }
+.rc-cook-nav .sh-btn { flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 0.4rem; min-height: 56px; font-size: 1.0625rem; }
+
+/* 🛒 sheet, log sheet */
+.rc-tolist { margin: 0 0 1rem; padding: 0; list-style: none; }
+.rc-tolist-row { display: flex; align-items: center; gap: 0.5rem; padding: 0.375rem 0; border-bottom: 1px solid var(--sh-line); }
+.rc-tolist-row input { flex: none; width: 22px; height: 22px; accent-color: var(--sh-accent); }
+.rc-tolist-row.is-off .rc-tolist-product { opacity: 0.55; }
+.rc-tolist-product { flex: 1; min-width: 0; display: flex; align-items: center; gap: 0.5rem; padding: 0; border: none; background: none; font: inherit; color: inherit; text-align: start; cursor: pointer; }
+.rc-tolist-product > span { display: grid; min-width: 0; }
+.rc-tolist-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rc-tolist-qty { flex: none; color: var(--sh-muted); font-size: 0.875rem; }
+.rc-log-row { display: flex; align-items: center; gap: 0.75rem; margin: 1rem 0; }

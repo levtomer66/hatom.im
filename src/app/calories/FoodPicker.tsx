@@ -18,13 +18,13 @@ import { getProduct } from './api';
 
 export type Picked = FoodHit | ProductResponse;
 
-type Props = { busy?: boolean; initial?: Picked } & (
+type Props = { busy?: boolean; initial?: Picked; /** What the search box starts with (a recipe line's name). */ initialQuery?: string } & (
   | { mode: 'log'; recent: Recent[]; canShop: boolean; onLog: LogFn }
   | { mode: 'ingredient'; onIngredient: (item: MealItem) => void }
 );
 
 export default function FoodPicker(props: Props) {
-  const [q, setQ] = useState('');
+  const [q, setQ] = useState(props.initialQuery ?? '');
   const { res, loading, error: searchError, typed } = useFoodSearch(q);
   const [error, setError] = useState<string | null>(null);
   const [picked, setPicked] = useState<Picked | null>(props.initial ?? null);
