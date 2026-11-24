@@ -298,7 +298,8 @@ the others, the admin matrix picks it up from `PERMISSION_KEYS`.
 
 ## Import agent (added 2026-11-24, owner's design)
 
-Users import from the page; a local agent on the owner's Mac does the work.
+Users import from the page; an agent the owner runs as a cloud Claude Code session
+(default environment) does the work — nothing runs on a local machine.
 
 - **Request**: ייבוא opens a form — a link (https) and/or pasted text (a caption),
   optional note. `POST /api/recipes/imports` stores a doc in `recipeImports`
@@ -321,8 +322,10 @@ Users import from the page; a local agent on the owner's Mac does the work.
   `src/lib/recipes/import-rules.ts`; `recipes_save`'s description and the claim
   result both carry them. The agent's procedure is `agents/recipe-import/PROMPT.md`
   (in the repo, to improve over time).
-- **Listener**: `scripts/recipe-import-agent.mjs` subscribes to the topic's JSON
-  stream and, on a message or every 10 minutes, runs `claude -p` with the prompt
-  and a hatom MCP config (Bearer = the owner's API key from a local file) when
-  the queue isn't empty, one run at a time. A launchd plist template sits next to
-  the prompt.
+- **Agent session**: the owner starts a cloud Claude Code session (default
+  environment, the hatom connector) telling it to run PROMPT.md in an endless
+  loop, with the topic in the start message. Each pass works the queue; between
+  passes it long-polls the topic's JSON stream with curl (≤ 9½ min, then a pass
+  anyway), so a request is picked up within seconds and a missed wake-up only
+  waits for the next pass. It reads PROMPT.md from its checkout; a changed
+  prompt takes effect when the session is restarted.
