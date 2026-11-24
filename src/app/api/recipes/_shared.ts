@@ -1,7 +1,6 @@
 // Server-side glue the /api/recipes routes share.
 
 import { NextRequest, NextResponse } from 'next/server';
-import { del } from '@vercel/blob';
 
 export async function readJson(request: NextRequest): Promise<unknown | NextResponse> {
   try {
@@ -19,12 +18,4 @@ export function serverError(what: string, error: unknown) {
   return NextResponse.json({ error: 'משהו השתבש, נסו שוב' }, { status: 500 });
 }
 
-/** Deletes a recipe photo's blob; a failure only leaves an orphan, never breaks the request. */
-export async function dropBlob(url: string | null | undefined): Promise<void> {
-  if (!url || !url.includes('.blob.vercel-storage.com/')) return;
-  try {
-    await del(url);
-  } catch (error) {
-    console.error('recipes: deleting a photo blob:', error);
-  }
-}
+export { dropBlob } from '@/lib/recipes/server';

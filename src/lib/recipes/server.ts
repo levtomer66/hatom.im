@@ -1,6 +1,6 @@
 // Server-only helpers for recipes (not import-free).
 
-import { put } from '@vercel/blob';
+import { del, put } from '@vercel/blob';
 
 const MAX_BYTES = 5 * 1024 * 1024;
 
@@ -22,5 +22,15 @@ export async function storeImageFromUrl(url: string, id: string): Promise<string
     return blob.url;
   } catch {
     return null;
+  }
+}
+
+/** Deletes a recipe photo's blob; a failure only leaves an orphan, never breaks the request. */
+export async function dropBlob(url: string | null | undefined): Promise<void> {
+  if (!url || !url.includes('.blob.vercel-storage.com/')) return;
+  try {
+    await del(url);
+  } catch (error) {
+    console.error('recipes: deleting a photo blob:', error);
   }
 }
