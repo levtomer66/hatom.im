@@ -274,3 +274,35 @@ test('stepsOk: whole steps, 0–100,000', () => {
   assert.ok(stepsOk(0) && stepsOk(12_345) && stepsOk(100_000));
   assert.ok(!stepsOk(-1) && !stepsOk(100_001) && !stepsOk(1.5) && !stepsOk('9000'));
 });
+
+// ── caffeine (docs/superpowers/specs/2026-11-24-pregnancy-design.md) ──
+
+test('rescaleEntry scales caffeine from the logged amount', () => {
+  const e = entry({ ref: { kind: 'drink', key: 'espresso' }, unit: { name: 'שוט', g: 1 }, qty: 1, caf: 65, nu: { kcal: 2, p: 0, c: 0, f: 0 } });
+  const two = rescaleEntry(e, 2);
+  assert.equal(two.caf, 130);
+  assert.equal(rescaleEntry(rescaleEntry(two, 3), 1).caf, 65);
+  assert.equal(rescaleEntry(entry(), 2).caf, undefined);
+});
+
+test('dayCaf sums the entries that have caffeine', () => {
+  assert.equal(calories.dayCaf([entry({ caf: 65 }), entry(), entry({ caf: 25 })]), 90);
+  assert.equal(calories.dayCaf([]), 0);
+});
+
+test('recommend takes the pregnancy extra', () => {
+  const p = { sex: 'f' as const, birthYear: 1994, heightCm: 165, activity: 1.375 as const };
+  const plain = calories.recommend(p, 'keep', 62, 2026)!;
+  const more = calories.recommend(p, 'keep', 62, 2026, 340)!.goal;
+  assert.ok(Math.abs(more - (plain.goal + 340)) <= 50 && more % 50 === 0);
+  assert.equal(calories.recommend(p, 'keep', 62, 2026, 0)!.goal, plain.goal);
+});
+
+test('parseEntry: drink refs; a client caf only on quick entries', () => {
+  const base = { meal: 'snack', name: 'אספרסו', unit: { name: 'שוט', g: 1 }, qty: 1, nu: { kcal: 2, p: 0, c: 0, f: 0 } };
+  const d = parseEntry({ ...base, ref: { kind: 'drink', key: 'espresso' }, caf: 999 });
+  assert.ok(d.ok && d.value.ref.kind === 'drink' && d.value.caf === undefined);
+  const q = parseEntry({ ...base, ref: { kind: 'quick', key: null }, unit: { name: 'מנה', g: 0 }, caf: 80 });
+  assert.ok(q.ok && q.value.caf === 80);
+  assert.equal(parseEntry({ ...base, ref: { kind: 'quick', key: null }, unit: { name: 'מנה', g: 0 }, caf: 2000 }).ok, false);
+});

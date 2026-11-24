@@ -12,7 +12,8 @@ export const MEAL_NAMES: Record<Meal, string> = { breakfast: 'בוקר', lunch: 
 
 /** kcal and grams of protein, carbohydrates and fat. */
 export interface Totals { kcal: number; p: number; c: number; f: number }
-export interface Ref { kind: 'product' | 'food' | 'meal' | 'quick'; key: string | null }
+/** `drink`: a built-in drink (src/lib/pregnancy/drinks.ts), keyed by its id. */
+export interface Ref { kind: 'product' | 'food' | 'meal' | 'quick' | 'drink'; key: string | null }
 /** A unit of measure and its weight in grams ("יחידה בינונית", 50). A quick entry's is 0. */
 export interface Unit { name: string; g: number }
 
@@ -26,8 +27,12 @@ export interface Entry {
   qty: number;
   /** This entry's totals, frozen when it was logged. */
   nu: Totals;
+  /** Caffeine in mg for the logged amount, frozen like `nu`; set by the server (a quick entry's is typed). */
+  caf?: number;
+  /** The coffee order this entry came from (coffee-order). */
+  order?: string;
   /** The amount and totals as first logged: edits scale from these, so rounding never compounds. */
-  base?: { qty: number; nu: Totals };
+  base?: { qty: number; nu: Totals; caf?: number };
   at: string;
 }
 
@@ -63,7 +68,7 @@ export interface Settings {
 /** A dated weight, one per day. */
 export interface WeighIn { d: string; kg: number }
 
-export interface MealItem { ref: Ref; name: string; grams: number; nu: Totals }
+export interface MealItem { ref: Ref; name: string; grams: number; nu: Totals; caf?: number }
 export interface MealDoc { id: string; name: string; portions: number; items: MealItem[]; per: Totals }
 
 export type Result<T> = { ok: true; value: T } | { ok: false; error: string };
@@ -100,9 +105,15 @@ export const sumTotals = (list: Totals[]): Totals =>
 
 /** A new quantity: totals scale from the logged amount (`base`), never from an earlier edit's rounded values. */
 export function rescaleEntry(e: Entry, qty: number): Entry {
-  const base = e.base ?? { qty: e.qty, nu: e.nu };
-  return { ...e, qty, nu: scaleTotals(base.nu, qty / base.qty), base };
+  const base = e.base ?? { qty: e.qty, nu: e.nu, ...(e.caf !== undefined ? { caf: e.caf } : {}) };
+  const next: Entry = { ...e, qty, nu: scaleTotals(base.nu, qty / base.qty), base };
+  if (base.caf !== undefined) next.caf = Math.round((base.caf * qty) / base.qty);
+  return next;
 }
+
+/** A day's caffeine, mg. */
+export const dayCaf = (entries: Entry[]): number => entries.reduce((a, e) => a + (e.caf ?? 0), 0);
+export const MAX_CAF = 1000;
 
 export const mealPerPortion = (items: MealItem[], portions: number): Totals =>
   scaleTotals(sumTotals(items.map((i) => i.nu)), 1 / portions);
@@ -191,7 +202,7 @@ export function parseTotals(v: unknown): Totals | null {
 }
 
 function parseRef(v: unknown): Ref | null {
-  if (!isObj(v) || !['product', 'food', 'meal', 'quick'].includes(v.kind as string)) return null;
+  if (!isObj(v) || !['product', 'food', 'meal', 'quick', 'drink'].includes(v.kind as string)) return null;
   const kind = v.kind as Ref['kind'];
   if (kind === 'quick') return { kind, key: null };
   return typeof v.key === 'string' && v.key.length > 0 && v.key.length <= 60 ? { kind, key: v.key } : null;
@@ -212,7 +223,13 @@ export function parseEntry(v: unknown): Result<Omit<Entry, 'id' | 'at'>> {
   const nu = parseTotals(v.nu);
   if (!nu) return fail('ערכים לא תקינים');
   const img = typeof v.img === 'string' && v.img.length <= 500 && /^https?:\/\//.test(v.img) ? v.img : null;
-  return { ok: true, value: { meal: v.meal as Meal, name, img, ref, unit: { name: unit.name, g: unit.g }, qty: v.qty, nu } };
+  // Caffeine is the server's to set, except what a quick entry types.
+  let caf: number | undefined;
+  if (ref.kind === 'quick' && v.caf !== undefined && v.caf !== null) {
+    if (typeof v.caf !== 'number' || !Number.isInteger(v.caf) || v.caf < 0 || v.caf > MAX_CAF) return fail(`קפאין עד ${MAX_CAF} מ״ג`);
+    caf = v.caf;
+  }
+  return { ok: true, value: { meal: v.meal as Meal, name, img, ref, unit: { name: unit.name, g: unit.g }, qty: v.qty, nu, ...(caf !== undefined ? { caf } : {}) } };
 }
 
 export function parseSettings(v: unknown, year = new Date().getUTCFullYear()): Result<Settings> {
@@ -243,13 +260,13 @@ export function parseSettings(v: unknown, year = new Date().getUTCFullYear()): R
 const AIM_KCAL: Record<Aim, number> = { lose: -500, keep: 0, gain: 300 };
 const AIM_PROTEIN: Record<Aim, number> = { lose: 2.0, keep: 1.6, gain: 1.8 };
 
-/** Mifflin-St Jeor × daily activity ± the aim; null without a profile or a weight. */
-export function recommend(p: Profile | undefined, aim: Aim | undefined, kg: number | null, year: number): { goal: number; proteinGoal: number } | null {
+/** Mifflin-St Jeor × daily activity ± the aim, + `extra` (pregnancy: by trimester); null without a profile or a weight. */
+export function recommend(p: Profile | undefined, aim: Aim | undefined, kg: number | null, year: number, extra = 0): { goal: number; proteinGoal: number } | null {
   if (!p || kg === null || !(kg > 0)) return null;
   const a = aim ?? 'keep';
   const bmr = 10 * kg + 6.25 * p.heightCm - 5 * (year - p.birthYear) + (p.sex === 'm' ? 5 : -161);
   const kcal = Math.max(bmr * p.activity + AIM_KCAL[a], p.sex === 'm' ? 1500 : 1200);
-  return { goal: Math.round(kcal / 50) * 50, proteinGoal: Math.round((kg * AIM_PROTEIN[a]) / 5) * 5 };
+  return { goal: Math.round((kcal + extra) / 50) * 50, proteinGoal: Math.round((kg * AIM_PROTEIN[a]) / 5) * 5 };
 }
 
 /** A strength workout's estimate: 3 minutes per set with reps or seconds, at MET 5, rounded to 5 kcal. */

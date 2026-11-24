@@ -1,0 +1,144 @@
+// Caffeine (docs/superpowers/specs/2026-11-24-pregnancy-design.md § Caffeine): the
+// built-in drinks, mg rules for catalog names, and the coffee-order mapping.
+// Import-free (types only) for `node --test`.
+//
+// Sources (checked 2026-11-24):
+// - Espresso: USDA FoodData Central, 212 mg/100 g → ~65 mg a 30 ml shot.
+// - Instant coffee: USDA (63 mg / 2 g) and MoH ("כ־65").
+// - Filter coffee: MoH and USDA, ~100 mg a 250 ml cup.
+// - Black tea: MoH (~50) and USDA (48). Green tea: USDA (~30). Decaf: USDA (~3).
+// - Coca-Cola / Coca-Cola Zero: Coca-Cola Israel FAQ, 10 mg/100 ml (diet 13).
+// - Energy drinks: Red Bull / EFSA, 32 mg/100 ml.
+// - Dark chocolate ≥70%: USDA, ~80 mg/100 g.
+// - Nespresso capsules: Nespresso publishes only ranges (40–130, mostly 50–100);
+//   65 is an approximation, shown as "בערך".
+// - Turkish/black coffee, iced coffee, שוקו: estimates (no authoritative figure).
+// - MoH ("תזונה נבונה בתקופת ההיריון", 2015): avoid energy drinks, Turkish, black
+//   and mud coffee — those drinks carry `warn`.
+
+import type { CoffeeDrinkConfig } from '../../types/coffee-order.ts';
+
+export interface Totals { kcal: number; p: number; c: number; f: number }
+
+export interface Drink {
+  id: string;
+  name: string;
+  emoji: string;
+  /** One serving: כוס, פחית, שוט, קפסולה… */
+  unit: string;
+  /** Caffeine per unit, mg. */
+  mg: number;
+  /** Per unit. */
+  nu: Totals;
+  /** Other words people use for it. */
+  aliases?: string[];
+  /** The mg is an approximation. */
+  approx?: boolean;
+  /** A pregnancy note (MoH). */
+  warn?: string;
+}
+
+const t = (kcal: number, p = 0, c = 0, f = 0): Totals => ({ kcal, p, c, f });
+const AVOID = 'משרד הבריאות ממליץ להימנע בהריון';
+
+export const DRINKS: readonly Drink[] = [
+  { id: 'hafuch-small', name: 'הפוך קטן', emoji: '☕', unit: 'כוס', mg: 65, nu: t(120, 6, 9, 6.5), aliases: ['הפוך', 'קפוצ׳ינו', 'קפוצינו', 'קפה הפוך'] },
+  { id: 'hafuch-large', name: 'הפוך גדול', emoji: '☕', unit: 'כוס', mg: 130, nu: t(180, 9, 14, 9.5), aliases: ['קפוצ׳ינו גדול', 'קפוצינו גדול'] },
+  { id: 'espresso', name: 'אספרסו', emoji: '⚡', unit: 'שוט', mg: 65, nu: t(2), aliases: ['אספרסו קצר', 'שוט'] },
+  { id: 'espresso-double', name: 'אספרסו כפול', emoji: '⚡', unit: 'כוס', mg: 130, nu: t(4), aliases: ['דאבל', 'לונגו'] },
+  { id: 'capsule', name: 'קפסולה', emoji: '💊', unit: 'קפסולה', mg: 65, nu: t(2), aliases: ['נספרסו', 'קפה מכונה'], approx: true },
+  { id: 'instant', name: 'נס קפה', emoji: '🥄', unit: 'כוס', mg: 65, nu: t(4), aliases: ['קפה נמס', 'נסקפה'] },
+  { id: 'filter', name: 'קפה פילטר', emoji: '☕', unit: 'כוס', mg: 100, nu: t(2), aliases: ['פילטר', 'קפה מסונן'] },
+  { id: 'black', name: 'קפה שחור / טורקי', emoji: '🫖', unit: 'כוס', mg: 80, nu: t(2), aliases: ['קפה שחור', 'קפה טורקי', 'שחור', 'טורקי', 'קפה בוץ'], approx: true, warn: AVOID },
+  { id: 'iced', name: 'קפה קר', emoji: '🧊', unit: 'כוס', mg: 100, nu: t(120, 4, 18, 3), aliases: ['אייס קפה', 'אייס', 'קפה קר'], approx: true },
+  { id: 'decaf', name: 'קפה נטול קפאין', emoji: '🌙', unit: 'כוס', mg: 3, nu: t(2), aliases: ['נטול', 'דקף'] },
+  { id: 'tea-black', name: 'תה שחור', emoji: '🍵', unit: 'כוס', mg: 50, nu: t(2), aliases: ['תה'] },
+  { id: 'tea-green', name: 'תה ירוק', emoji: '🍵', unit: 'כוס', mg: 30, nu: t(2) },
+  { id: 'cola', name: 'קולה', emoji: '🥤', unit: 'פחית', mg: 33, nu: t(139, 0, 35), aliases: ['קוקה קולה', 'פחית קולה'] },
+  { id: 'zero-glass', name: 'כוס זירו', emoji: '🥤', unit: 'כוס', mg: 25, nu: t(1), aliases: ['זירו', 'קולה זירו'] },
+  { id: 'zero-can', name: 'פחית זירו', emoji: '🥫', unit: 'פחית', mg: 33, nu: t(1) },
+  { id: 'diet-cola', name: 'פחית דיאט קולה', emoji: '🥫', unit: 'פחית', mg: 43, nu: t(1), aliases: ['דיאט קולה', 'קולה דיאט'] },
+  { id: 'energy', name: 'משקה אנרגיה', emoji: '🔋', unit: 'פחית', mg: 80, nu: t(112, 0, 27), aliases: ['רד בול', 'אקס אל', 'XL'], warn: AVOID },
+  { id: 'dark-choc', name: 'שוקולד מריר (50 ג׳)', emoji: '🍫', unit: 'חצי טבלה', mg: 40, nu: t(300, 4, 23, 21), aliases: ['שוקולד מריר'] },
+  { id: 'shoko', name: 'שוקו', emoji: '🥛', unit: 'כוס', mg: 5, nu: t(180, 8, 27, 5), aliases: ['שוקו חם', 'שוקו קר'], approx: true },
+];
+
+const BY_ID = new Map(DRINKS.map((d) => [d.id, d]));
+export const drinkById = (id: string): Drink | null => BY_ID.get(id) ?? null;
+
+const norm = (s: string) => s.replace(/['`׳]/g, '׳').replace(/[^\p{L}\p{N}׳ ]/gu, ' ').replace(/\s+/g, ' ').trim().toLowerCase();
+/** `stem` as whole words in `text` ("שוקו" is not in "שוקולד"). */
+const has = (text: string, stem: string) => ` ${text} `.includes(` ${stem} `);
+
+/** The drink a free text names (MCP, search): the longest name or alias the text contains. */
+export function matchDrink(text: string): Drink | null {
+  const q = norm(text);
+  if (!q) return null;
+  // First the longest name the text holds ("הפוך גדול" in "2 הפוך גדול"); else the
+  // shortest name holding the text ("הפוך" → הפוך קטן, not הפוך גדול).
+  let inQ: { d: Drink; len: number } | null = null;
+  let ofQ: { d: Drink; len: number } | null = null;
+  for (const d of DRINKS) {
+    for (const n of [d.name, ...(d.aliases ?? [])].map(norm)) {
+      if (has(q, n) && (!inQ || n.length > inQ.len)) inQ = { d, len: n.length };
+      else if (q.length >= 3 && n.includes(q) && (!ofQ || n.length < ofQ.len)) ofQ = { d, len: n.length };
+    }
+  }
+  return (inQ ?? ofQ)?.d ?? null;
+}
+
+/** mg per 100 g/ml for catalog and MoH names. The longest stem wins; null = no caffeine known. */
+const RULES: [string, number][] = [
+  ['נטול קפאין', 1], ['דקף', 1],
+  ['קולה זירו', 10], ['קוקה קולה', 10], ['קולה', 10], ['פפסי מקס', 10], ['פפסי', 10],
+  ['דיאט קולה', 13], ['קולה דיאט', 13], ['קוקה קולה דיאט', 13],
+  ['משקה אנרגיה', 32], ['רד בול', 32], ['אקס אל', 32],
+  ['תה קר', 10], ['אייס טי', 10], ['נסטי', 10],
+  ['קולד ברו', 43], ['תרכיז קפה', 130],
+  ['קפה קר', 25], ['אייס קפה', 25], ['קפה הפוך', 30], ['אספרסו', 212],
+  ['תה ירוק', 12], ['תה שחור', 20],
+  ['שוקולד מריר', 80], ['שוקו', 2],
+];
+
+export function cafPer100(name: string): number | null {
+  const n = norm(name);
+  let best: [string, number] | null = null;
+  for (const r of RULES) if (has(n, r[0]) && (!best || r[0].length > best[0].length)) best = r;
+  return best ? best[1] : null;
+}
+
+/** About 150 ml of 3% milk in a cappuccino or an iced coffee. */
+const MILK = t(100, 5, 7.5, 5.5);
+
+type OrderLike = Pick<CoffeeDrinkConfig, 'drink' | 'milk' | 'sugar' | 'source' | 'capsule' | 'vanillaPumps' | 'caramelPumps'>;
+
+/** A coffee order as a drink entry: Tomer's machine = one capsule; a café = its own drink. */
+export function orderDrink(o: OrderLike): { drink: Drink; mg: number; nu: Totals } {
+  const machine = o.source === 'tomer-coffee';
+  const id = machine ? 'capsule'
+    : o.drink === 'espresso' ? 'espresso'
+      : o.drink === 'lungo' ? 'espresso-double'
+        : o.drink === 'iced-coffee' ? 'iced' : 'hafuch-small';
+  const drink = drinkById(id) as Drink;
+  const milky = o.drink === 'cappuccino' || o.drink === 'iced-coffee';
+  // A café's milky drink already counts its milk; take it off when ordered without.
+  const base = machine || !milky ? drink.nu : o.milk === 'none' ? t(2) : drink.nu;
+  const milk = machine && milky && o.milk !== 'none' ? MILK : t(0);
+  const sugar = o.sugar === 'none' ? 0 : Number(o.sugar);
+  const pumps = (o.vanillaPumps || 0) + (o.caramelPumps || 0);
+  const r1 = (v: number) => Math.round(v * 10) / 10;
+  const nu = {
+    kcal: Math.round(base.kcal + milk.kcal + 16 * sugar + 20 * pumps),
+    p: r1(base.p + milk.p),
+    c: r1(base.c + milk.c + 4 * sugar + 5 * pumps),
+    f: r1(base.f + milk.f),
+  };
+  return { drink, mg: drink.mg, nu };
+}
+
+export const CAF_WARN = 150;
+export const DEFAULT_CAF_LIMIT = 200;
+
+/** green → amber from 150 mg (MoH links more than 150 to risks) → red over the limit. */
+export const cafLevel = (mg: number, limit: number): 'ok' | 'warn' | 'over' =>
+  mg > limit ? 'over' : mg >= Math.min(CAF_WARN, limit) ? 'warn' : 'ok';
