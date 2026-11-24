@@ -12,7 +12,7 @@ export interface Size { fruit: string; emoji: string; cm: number; g: number }
 const S = (fruit: string, emoji: string, cm: number, g: number): Size => ({ fruit, emoji, cm, g });
 
 const SIZES: Record<number, Size> = {
-  4: S('ראש סיכה', '📍', 0.1, 0),
+  4: S('גרגר פרג', '🌱', 0.1, 0),
   5: S('גרגר שומשום', '🌱', 0.2, 0),
   6: S('גרגר אורז', '🍚', 0.5, 0),
   7: S('אוכמנייה', '🫐', 1, 1),
