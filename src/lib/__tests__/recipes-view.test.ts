@@ -54,3 +54,21 @@ test('pantry', () => {
   assert.ok(!isPantry('שמנת מתוקה'));
   assert.ok(!isPantry('קמח מלא'));
 });
+
+import { filterRecipes, tagsOf } from '../recipes/filter.ts';
+import type { RecipeSummary } from '../recipes/types.ts';
+
+const card = (o: Partial<RecipeSummary>): RecipeSummary => ({
+  id: 'x', owner: 'a', name: '', servings: 2, tags: [], prepMin: null, cookMin: null, photo: null, shared: null,
+  updatedAt: '', kcal: null, partial: false, ingredientNames: [], ...o,
+});
+const book = [
+  card({ id: '1', name: 'עוגת שוקולד', tags: ['עוגות', 'מתוק'], ingredientNames: ['קמח לבן', 'שוקולד מריר'] }),
+  card({ id: '2', name: 'שקשוקה', tags: ['בוקר'], ingredientNames: ['ביצים', 'עגבניות'] }),
+  card({ id: '3', name: 'עוגיות', tags: ['עוגות'], ingredientNames: ['קמח מלא'] }),
+];
+test('filter by ingredient name', () => assert.deepEqual(filterRecipes(book, 'קמח', []).map((r) => r.id), ['1', '3']));
+test('filter by name, extra spaces', () => assert.deepEqual(filterRecipes(book, '  שקשוקה ', []).map((r) => r.id), ['2']));
+test('filter by two tags needs both', () => assert.deepEqual(filterRecipes(book, '', ['עוגות', 'מתוק']).map((r) => r.id), ['1']));
+test('empty filter keeps all', () => assert.equal(filterRecipes(book, '', []).length, 3));
+test('tagsOf by frequency then alpha', () => assert.deepEqual(tagsOf(book), ['עוגות', 'בוקר', 'מתוק']));

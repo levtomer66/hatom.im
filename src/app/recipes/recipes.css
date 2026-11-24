@@ -1,0 +1,28 @@
+/* /recipes — wears /shopping's tokens and controls and calories' sheets; rc- for what's its own. */
+
+.rc-head { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.75rem; }
+.rc-title { flex: 1; margin: 0; font-size: 1.5rem; font-weight: 700; }
+.rc-head-btn { display: inline-flex; align-items: center; gap: 0.4rem; }
+
+.rc-tabs { display: flex; gap: 0.25rem; padding: 0.25rem; margin-bottom: 0.75rem; border-radius: var(--sh-r-ctl); background: var(--sh-surface); }
+.rc-tab { flex: 1; min-height: 40px; border: none; border-radius: 8px; background: transparent; font: inherit; font-weight: 600; color: var(--sh-muted); cursor: pointer; }
+.rc-tab.is-on { background: var(--sh-bg); color: var(--sh-ink); box-shadow: 0 1px 3px rgb(0 0 0 / 0.12); }
+
+.rc-search { margin-bottom: 0.75rem; }
+.rc-chips { display: flex; gap: 0.5rem; overflow-x: auto; padding-bottom: 0.25rem; margin-bottom: 0.75rem; scrollbar-width: none; }
+.rc-empty { margin: 2rem 0; text-align: center; color: var(--sh-muted); }
+
+.rc-grid { display: grid; grid-template-columns: 1fr; gap: 0.75rem; }
+@media (min-width: 520px) { .rc-grid { grid-template-columns: 1fr 1fr; } }
+.rc-card { display: flex; gap: 0.75rem; align-items: center; min-height: 84px; padding: 0.5rem; border-radius: var(--sh-r-group); background: var(--sh-surface); color: inherit; text-decoration: none; }
+.rc-card:hover { filter: brightness(0.98); }
+.rc-card.is-loading { background: linear-gradient(90deg, var(--sh-surface), var(--sh-line), var(--sh-surface)); background-size: 200% 100%; animation: rc-shine 1.2s infinite; }
+@keyframes rc-shine { to { background-position: -200% 0; } }
+.rc-card-photo { flex: none; width: 72px; height: 72px; border-radius: var(--sh-r-ctl); object-fit: cover; }
+.rc-card-blank { display: grid; place-items: center; background: var(--sh-accent-soft); color: var(--sh-accent); font-size: 1.75rem; font-weight: 700; }
+.rc-card-body { display: flex; flex-direction: column; gap: 0.25rem; min-width: 0; }
+.rc-card-name { font-size: 1.0625rem; line-height: 1.3; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.rc-card-meta { display: flex; flex-wrap: wrap; gap: 0.25rem 0.75rem; font-size: 0.8125rem; color: var(--sh-muted); }
+
+.rc-import-steps { margin: 0 0 0.75rem; padding-inline-start: 1.25rem; line-height: 1.7; }
+.rc-import-prompt { display: block; margin: 0.75rem 0; padding: 0.75rem; border-radius: var(--sh-r-ctl); background: var(--sh-surface); font-family: inherit; font-size: 0.9375rem; }
