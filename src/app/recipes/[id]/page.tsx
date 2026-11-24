@@ -16,7 +16,7 @@ import RecipeView from '../RecipeView';
 import * as api from '../api';
 
 export default function RecipePage() {
-  return <Suspense fallback={<main className="sh-page rc-page" />}><RecipeScreen /></Suspense>;
+  return <Suspense fallback={<main className="sh-page cal-page rc-page" />}><RecipeScreen /></Suspense>;
 }
 
 function RecipeScreen() {
@@ -53,13 +53,13 @@ function RecipeScreen() {
 
   if (error) {
     return (
-      <main className="sh-page rc-page">
-        <Link href="/recipes" className="rc-back"><FaChevronRight aria-hidden /> לכל המתכונים</Link>
+      <main className="sh-page cal-page rc-page">
+        <Link href="/recipes" className="sh-btn sh-btn--ghost cal-back rc-back"><FaChevronRight aria-hidden /> כל המתכונים</Link>
         <p className="cal-error" role="alert">{error.msg}</p>
       </main>
     );
   }
-  if (!recipe || !session) return <main className="sh-page rc-page"><div className="rc-photo is-loading" /></main>;
+  if (!recipe || !session) return <main className="sh-page cal-page rc-page"><div className="rc-photo is-loading" /></main>;
 
   const mine = recipe.owner === me;
   const editing = mine && search.get('edit') === '1';
@@ -67,8 +67,8 @@ function RecipeScreen() {
   const shownServings = servings ?? recipe.servings;
 
   return (
-    <main className="sh-page rc-page">
-      <Link href="/recipes" className="rc-back"><FaChevronRight aria-hidden /> לכל המתכונים</Link>
+    <main className="sh-page cal-page rc-page">
+      <Link href="/recipes" className="sh-btn sh-btn--ghost cal-back rc-back"><FaChevronRight aria-hidden /> כל המתכונים</Link>
       {editing
         ? <RecipeEditor recipe={recipe} can={can} onChanged={setRecipe} onDone={() => go('')} toast={setToast} />
         : <RecipeView recipe={recipe} me={me} can={can} servings={shownServings} setServings={setServings}

@@ -22,6 +22,7 @@ several independent features under separate routes:
 | `/calendar`        | Milestones calendar: birthdays, anniversaries, one-off events (permission `calendar`). Mongo `calendarEvents`; date math in `src/lib/calendar.ts`. |
 | `/shopping`        | Grocery price comparison across chains (permission `shopping`). Per-household My items + one list in Mongo `shoppingHome`; price data written by a local ingest job. |
 | `/calories`        | Private food diary against a daily calorie goal (permission `calories`). Reuses the shopping catalog, nutrition and scanner; MoH generic foods in Mongo `caloriesFoods`. |
+| `/recipes`         | Per-person recipe book with a shared feed (permission `recipes`). Mongo `recipes`; sends ingredients to the shopping list, logs servings to /calories, imports through MCP. |
 
 Default branch is `main`. Pushes to `main` auto-deploy to Production via
 Vercel's GitHub integration. There is no separate `master` branch.
@@ -501,6 +502,31 @@ Identity = Gmail address. Two roles:
 - `src/lib/calories/*.ts` (except `moh-cli.ts`) is import-free for `node --test`;
   route glue is in `src/app/api/calories/_shared.ts`. The page wears
   `shopping.css` (`sh-page`) plus `calories.css`.
+
+### Recipes (`/recipes`)
+
+- Spec: `docs/superpowers/specs/2026-11-24-recipes-design.md`. One doc per recipe
+  in `recipes`, owned by an email; `shared: {at}` puts it on the feed, where anyone
+  with `recipes` reads it and "שמור אצלי" copies it (own photo blob, `copiedFrom`).
+  Only the owner writes; reads of an unshared recipe 404 (`canRead`).
+- **Not a calories meal**: `caloriesMeals` is untouched. The link is one calories
+  ref kind, `recipe`: "רשום מנה" (`/api/recipes/[id]/log`) and recipe hits in the
+  calories search write ordinary frozen entries. Nutrition per serving is derived
+  from linked lines on read (`perServing`), never stored.
+- An ingredient keeps its typed `text`; `parseLine` (Hebrew fractions and number
+  words, `units.ts`) fills qty/unit/name and `toGrams` estimates grams. `qty: null`
+  lines ("לפי הטעם") never make nutrition `partial`. `link` = nutrition (MoH food or
+  product, per 100 g frozen); `key` = the product to buy when it isn't the link.
+- 🛒 adds to the household **list only, never My items** (unlike calories' 🛒).
+  Pantry names and products already listed start unticked (`matchDefaults`).
+- Edit mode autosaves three field groups as separate PATCHes that `$set` only
+  their keys, so a fast ingredient edit and step edit can't overwrite each other.
+- **Import is MCP-only** (no Claude API key in the app): `recipes_save`'s
+  description carries the Israeli conversion rules; the server auto-links lines
+  (`autolink.ts`, marked `auto` → "לבדוק" on the page) and copies `image_url` to
+  Blob. Tools in `src/lib/recipes/mcp-tools.ts`.
+- `src/lib/recipes/*.ts` are import-free for `node --test`, except `server.ts`,
+  `products.ts`, `match-server.ts`, `autolink.ts` and `mcp-tools.ts`.
 
 ### MCP server + OAuth (`/api/mcp`)
 

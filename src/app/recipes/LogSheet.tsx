@@ -4,6 +4,7 @@
 // meal (the hour's meal picked). The entry's values are frozen there.
 
 import { useState } from 'react';
+import { FaMinus, FaPlus } from 'react-icons/fa';
 import { defaultMeal, MEALS, MEAL_NAMES, scaleTotals, type Meal, type Totals } from '@/lib/calories/calories';
 import type { Recipe } from '@/lib/recipes/types';
 import Sheet from '../calories/Sheet';
@@ -39,9 +40,9 @@ export default function LogSheet({ recipe, perServing, onDone }: { recipe: Recip
       </div>
       <div className="rc-log-row">
         <span className="sh-stepper" aria-label="מנות">
-          <button type="button" onClick={() => setQty((q) => Math.min(20, q + 0.5))} aria-label="עוד חצי מנה">+</button>
+          <button type="button" onClick={() => setQty((q) => Math.min(20, q + 0.5))} aria-label="עוד חצי מנה"><FaPlus /></button>
           <span className="sh-qty" aria-live="polite">{qty}</span>
-          <button type="button" onClick={() => setQty((q) => Math.max(0.5, q - 0.5))} disabled={qty <= 0.5} aria-label="פחות חצי מנה">−</button>
+          <button type="button" onClick={() => setQty((q) => Math.max(0.5, q - 0.5))} disabled={qty <= 0.5} aria-label="פחות חצי מנה"><FaMinus /></button>
         </span>
         <span>{qty === 1 ? 'מנה' : 'מנות'} · <b>{t.kcal.toLocaleString('he-IL')}</b> קק״ל</span>
       </div>

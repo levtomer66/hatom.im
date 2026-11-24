@@ -91,18 +91,18 @@ export default function RecipeView({ recipe, me, can, servings, setServings, onE
       </p>
       {recipe.tags.length ? <p className="rc-tags">{recipe.tags.map((t) => <span key={t} className="sh-chip">{t}</span>)}</p> : null}
 
-      <div className="rc-actions">
-        {can.shop ? <button type="button" className="sh-btn rc-act" onClick={() => setSheet('list')}><FaShoppingCart aria-hidden /> לרשימה</button> : null}
-        <button type="button" className="sh-btn rc-act" onClick={onCook} disabled={!steps.length}><FaUtensils aria-hidden /> בישול</button>
-        {can.calories ? <button type="button" className="sh-btn rc-act" disabled={!totals} title={totals ? undefined : 'אין מצרכים מקושרים'} onClick={() => setSheet('log')}><FaFire aria-hidden /> רשום מנה</button> : null}
-        <button type="button" className="sh-btn rc-act" onClick={() => void share()}><FaShareAlt aria-hidden /> שתף</button>
+      <div className="cal-actions rc-actions">
+        {can.shop ? <button type="button" className="sh-btn sh-home-btn" onClick={() => setSheet('list')}><FaShoppingCart aria-hidden /> לרשימה</button> : null}
+        <button type="button" className="sh-btn sh-home-btn" onClick={onCook} disabled={!steps.length}><FaUtensils aria-hidden /> בישול</button>
+        {can.calories ? <button type="button" className="sh-btn sh-home-btn" disabled={!totals} title={totals ? undefined : 'אין מצרכים מקושרים'} onClick={() => setSheet('log')}><FaFire aria-hidden /> רשום מנה</button> : null}
+        <button type="button" className="sh-btn sh-home-btn" onClick={() => void share()}><FaShareAlt aria-hidden /> שתף</button>
         {mine
           ? <button type="button" className="sh-icon-btn rc-more" aria-label="עוד" onClick={() => setSheet('more')}><FaEllipsisH /></button>
-          : <button type="button" className="sh-btn sh-btn--primary rc-act" disabled={busy} onClick={() => void saveCopy()}><FaBookmark aria-hidden /> שמור אצלי</button>}
+          : <button type="button" className="sh-btn sh-home-btn" disabled={busy} onClick={() => void saveCopy()}><FaBookmark aria-hidden /> שמור אצלי</button>}
       </div>
 
-      <section className="rc-section">
-        <header className="rc-section-head">
+      <section className="sh-card cal-meal rc-section">
+        <header className="cal-meal-head">
           <h2>מצרכים</h2>
           <ServingsStepper value={servings} onChange={setServings} />
         </header>
@@ -119,20 +119,20 @@ export default function RecipeView({ recipe, me, can, servings, setServings, onE
         ) : <p className="cal-muted">עוד אין מצרכים.</p>}
       </section>
 
-      <section className="rc-section">
-        <h2>אופן הכנה</h2>
+      <section className="sh-card cal-meal rc-section">
+        <header className="cal-meal-head"><h2>אופן הכנה</h2></header>
         {steps.length ? <ol className="rc-steps">{steps.map((s, n) => <li key={n}>{s}</li>)}</ol> : <p className="cal-muted">עוד אין שלבים.</p>}
       </section>
 
       {totals ? (
-        <section className="rc-section">
-          <h2>ערכים למנה <small className="cal-muted">{totals.kcal.toLocaleString('he-IL')} קק״ל</small></h2>
+        <section className="sh-card cal-meal rc-section">
+          <header className="cal-meal-head"><h2>ערכים למנה</h2><span className="cal-entry-kcal">{totals.kcal.toLocaleString('he-IL')} קק״ל</span></header>
           <Macros t={totals} />
           {partial ? <p className="cal-muted rc-partial">חלקי — {unlinked === 1 ? 'מצרך אחד לא מקושר' : `${unlinked} מצרכים לא מקושרים`}</p> : null}
         </section>
       ) : null}
 
-      {recipe.notes.trim() ? <section className="rc-section"><h2>הערות</h2><p className="rc-notes">{recipe.notes}</p></section> : null}
+      {recipe.notes.trim() ? <section className="sh-card cal-meal rc-section"><header className="cal-meal-head"><h2>הערות</h2></header><p className="rc-notes">{recipe.notes}</p></section> : null}
 
       {sheet === 'list' ? <ToListSheet recipe={recipe} servings={servings} mine={mine} onDone={(m) => { setSheet(null); if (m) toast(m); }} /> : null}
       {sheet === 'log' && totals ? <LogSheet recipe={recipe} perServing={totals} onDone={(m) => { setSheet(null); if (m) toast(m); }} /> : null}

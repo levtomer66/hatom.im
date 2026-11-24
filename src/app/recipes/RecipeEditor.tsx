@@ -59,6 +59,7 @@ export default function RecipeEditor({ recipe, can, onChanged, onDone, toast }: 
   const [tagText, setTagText] = useState('');
   const [linking, setLinking] = useState<Ingredient | null>(null);
   const [focusId, setFocusId] = useState<string | null>(null);
+  const [focusStep, setFocusStep] = useState<number | null>(null);
   /** Lines whose grams were set by hand (or by a link's amount): typing the text no longer re-estimates them. */
   const gramsSet = useRef(new Set(recipe.ingredients.filter((i) => i.link).map((i) => i.id)));
   const rowRefs = useRef(new Map<string, HTMLInputElement>());
@@ -79,6 +80,12 @@ export default function RecipeEditor({ recipe, can, onChanged, onDone, toast }: 
     rowRefs.current.get(focusId)?.focus();
     setFocusId(null);
   }, [focusId, ings]);
+
+  useEffect(() => {
+    if (focusStep === null) return;
+    stepRefs.current[focusStep]?.focus();
+    setFocusStep(null);
+  }, [focusStep, steps]);
 
   const done = async () => {
     await Promise.all([a.flush(), b.flush(), c.flush()]);
@@ -164,23 +171,23 @@ export default function RecipeEditor({ recipe, can, onChanged, onDone, toast }: 
         </div>
       </div>
 
-      <label className="rc-field">
+      <label className="cal-field rc-field">
         <span>שם</span>
         <input className="rc-input rc-input-name" value={details.name} maxLength={120} onChange={(e) => setDetails({ ...details, name: e.target.value })} />
       </label>
       <div className="rc-field-row">
-        <label className="rc-field"><span>מנות</span>
+        <label className="cal-field rc-field"><span>מנות</span>
           <input className="rc-input" type="number" inputMode="numeric" min={1} max={100} value={details.servings} onChange={(e) => setDetails({ ...details, servings: e.target.value })} />
         </label>
-        <label className="rc-field"><span>הכנה (דק׳)</span>
+        <label className="cal-field rc-field"><span>הכנה (דק׳)</span>
           <input className="rc-input" type="number" inputMode="numeric" min={0} max={1440} value={details.prepMin} onChange={(e) => setDetails({ ...details, prepMin: e.target.value })} />
         </label>
-        <label className="rc-field"><span>בישול (דק׳)</span>
+        <label className="cal-field rc-field"><span>בישול (דק׳)</span>
           <input className="rc-input" type="number" inputMode="numeric" min={0} max={1440} value={details.cookMin} onChange={(e) => setDetails({ ...details, cookMin: e.target.value })} />
         </label>
       </div>
 
-      <div className="rc-field">
+      <div className="cal-field rc-field">
         <span>תגיות</span>
         <div className="rc-chips rc-chips-wrap">
           {details.tags.map((t) => (
@@ -194,8 +201,8 @@ export default function RecipeEditor({ recipe, can, onChanged, onDone, toast }: 
         </div>
       </div>
 
-      <section className="rc-section">
-        <h2>מצרכים</h2>
+      <section className="sh-card cal-meal rc-section">
+        <header className="cal-meal-head"><h2>מצרכים</h2></header>
         <p className="cal-muted rc-hint">שורה לכל מצרך, עם כמות ויחידה. 🔗 מקשר לערכים תזונתיים ולמוצר לקנייה.</p>
         <ul className="rc-edit-ings">
           {ings.map((i, n) => (
@@ -214,8 +221,8 @@ export default function RecipeEditor({ recipe, can, onChanged, onDone, toast }: 
         {ings.length < 60 ? <button type="button" className="sh-btn sh-btn--ghost" onClick={() => addLine()}><FaPlus aria-hidden /> מצרך</button> : null}
       </section>
 
-      <section className="rc-section">
-        <h2>אופן הכנה</h2>
+      <section className="sh-card cal-meal rc-section">
+        <header className="cal-meal-head"><h2>אופן הכנה</h2></header>
         <ol className="rc-edit-steps">
           {steps.map((s, n) => (
             <li key={n} className="rc-edit-step">
@@ -230,13 +237,13 @@ export default function RecipeEditor({ recipe, can, onChanged, onDone, toast }: 
           ))}
         </ol>
         {steps.length < 40 ? (
-          <button type="button" className="sh-btn sh-btn--ghost" onClick={() => { setSteps((l) => [...l, '']); window.setTimeout(() => stepRefs.current[steps.length]?.focus(), 0); }}>
+          <button type="button" className="sh-btn sh-btn--ghost" onClick={() => { setSteps((l) => [...l, '']); setFocusStep(steps.length); }}>
             <FaPlus aria-hidden /> שלב
           </button>
         ) : null}
       </section>
 
-      <label className="rc-field">
+      <label className="cal-field rc-field">
         <span>הערות</span>
         <textarea className="rc-input" rows={3} maxLength={2000} value={details.notes} onChange={(e) => setDetails({ ...details, notes: e.target.value })} />
       </label>

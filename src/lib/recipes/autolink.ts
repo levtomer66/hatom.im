@@ -26,8 +26,9 @@ async function bestFood(name: string): Promise<FoodDoc | null> {
     const terms = searchPatterns(q);
     if (!terms.length) continue;
     const foods = await searchFoods(terms);
-    const [best] = rankHits(foods.map((f) => ({ f, name: f.n, stores: 0 })), terms);
-    if (best) return best.f;
+    // Of the best few, the plainest (shortest name): "פסטה, יבשה" over a brand's gluten-free pasta.
+    const top = rankHits(foods.map((f) => ({ f, name: f.n, stores: 0 })), terms).slice(0, 5);
+    if (top.length) return top.reduce((a, b) => (b.f.n.length < a.f.n.length ? b : a)).f;
   }
   return null;
 }

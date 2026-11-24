@@ -28,8 +28,10 @@ const IngredientRow = forwardRef<HTMLInputElement, {
           onChange={(e) => onText(e.target.value)} enterKeyHint="next"
           onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); onEnter(); } }} />
         <button type="button" className={`sh-icon-btn ${ing.link ? 'is-on' : ''}`} aria-label={ing.link ? 'החלפת קישור' : 'קישור לערכים תזונתיים'} onClick={onLink}><FaLink /></button>
-        <button type="button" className="sh-icon-btn" aria-label="למעלה" disabled={first} onClick={() => onMove(-1)}><FaArrowUp /></button>
-        <button type="button" className="sh-icon-btn" aria-label="למטה" disabled={last} onClick={() => onMove(1)}><FaArrowDown /></button>
+        <span className="rc-edit-step-btns rc-move">
+          <button type="button" className="sh-icon-btn" aria-label="למעלה" disabled={first} onClick={() => onMove(-1)}><FaArrowUp /></button>
+          <button type="button" className="sh-icon-btn" aria-label="למטה" disabled={last} onClick={() => onMove(1)}><FaArrowDown /></button>
+        </span>
         <button type="button" className="sh-icon-btn" aria-label="מחיקת מצרך" onClick={onRemove}><FaTimes /></button>
       </div>
       {linkedTo ? (
