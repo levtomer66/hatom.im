@@ -12,7 +12,8 @@ export const MEAL_NAMES: Record<Meal, string> = { breakfast: 'בוקר', lunch: 
 
 /** kcal and grams of protein, carbohydrates and fat. */
 export interface Totals { kcal: number; p: number; c: number; f: number }
-export interface Ref { kind: 'product' | 'food' | 'meal' | 'quick'; key: string | null }
+/** What an entry was logged from; 'recipe' is a /recipes recipe, one serving per unit. */
+export interface Ref { kind: 'product' | 'food' | 'meal' | 'quick' | 'recipe'; key: string | null }
 /** A unit of measure and its weight in grams ("יחידה בינונית", 50). A quick entry's is 0. */
 export interface Unit { name: string; g: number }
 
@@ -191,7 +192,7 @@ export function parseTotals(v: unknown): Totals | null {
 }
 
 function parseRef(v: unknown): Ref | null {
-  if (!isObj(v) || !['product', 'food', 'meal', 'quick'].includes(v.kind as string)) return null;
+  if (!isObj(v) || !['product', 'food', 'meal', 'quick', 'recipe'].includes(v.kind as string)) return null;
   const kind = v.kind as Ref['kind'];
   if (kind === 'quick') return { kind, key: null };
   return typeof v.key === 'string' && v.key.length > 0 && v.key.length <= 60 ? { kind, key: v.key } : null;
@@ -368,7 +369,7 @@ export function parseMeal(v: unknown): Result<{ name: string; portions: number; 
     const ref = parseRef(it.ref);
     const iname = cleanName(it.name);
     const nu = parseTotals(it.nu);
-    if (!ref || ref.kind === 'meal' || !iname || !nu || !isNum(it.grams) || it.grams <= 0 || it.grams > MAX_GRAMS) return fail('מרכיב לא תקין');
+    if (!ref || ref.kind === 'meal' || ref.kind === 'recipe' || !iname || !nu || !isNum(it.grams) || it.grams <= 0 || it.grams > MAX_GRAMS) return fail('מרכיב לא תקין');
     items.push({ ref, name: iname, grams: it.grams, nu });
   }
   return { ok: true, value: { name, portions, items } };

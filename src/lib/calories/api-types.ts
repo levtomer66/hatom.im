@@ -53,7 +53,7 @@ export interface FoodHit {
   /** The full label per 100 g (ml) — sugars, fibre, sodium… — for the product view; products and MoH foods. */
   label?: Nutrition;
   units: Unit[];
-  source: 'moh' | 'off' | 'manual' | 'meal';
+  source: 'moh' | 'off' | 'manual' | 'meal' | 'recipe';
   maker?: string;
 }
 
