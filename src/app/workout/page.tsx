@@ -60,6 +60,8 @@ import { isCreatedWorkout } from '@/lib/workout-offline';
 import { kgToMeters, formatMeters } from '@/lib/workout-car';
 import { v4 as uuidv4 } from 'uuid';
 import { buildSupersetGroups, supersetLabel } from '@/lib/superset';
+import { hasPermission } from '@/lib/permissions';
+import { GainTileLoader } from '../pregnancy/GainTile';
 
 export default function WorkoutsPage() {
   const router = useRouter();
@@ -765,6 +767,8 @@ export default function WorkoutsPage() {
         {!activeWorkout ? (
           // No active workout - show start button
           <div style={{ textAlign: 'center', paddingTop: '40px' }}>
+            {/* A pregnant owner's weight gain (docs/superpowers/specs/2026-11-24-pregnancy-design.md); nothing for anyone else. */}
+            {hasPermission(session, 'pregnancy') ? <div style={{ marginTop: '-28px', marginBottom: '16px' }}><GainTileLoader key={bodyweightKg ?? 'none'} /></div> : null}
             <div style={{ fontSize: '64px', marginBottom: '24px' }}>🏋️</div>
             <h2 style={{ fontSize: '24px', fontWeight: 700, marginBottom: '8px' }}>
               {t('workout.ready_title')}

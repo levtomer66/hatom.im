@@ -69,7 +69,7 @@ export interface Settings {
 export interface WeighIn { d: string; kg: number }
 
 export interface MealItem { ref: Ref; name: string; grams: number; nu: Totals; caf?: number }
-export interface MealDoc { id: string; name: string; portions: number; items: MealItem[]; per: Totals }
+export interface MealDoc { id: string; name: string; portions: number; items: MealItem[]; per: Totals; /** Caffeine per portion, mg (items' `caf`). */ cafPer?: number }
 
 export type Result<T> = { ok: true; value: T } | { ok: false; error: string };
 

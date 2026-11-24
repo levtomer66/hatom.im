@@ -2,11 +2,14 @@
 // turning catalog items, MoH foods and home-made meals into FoodHits.
 
 import { NextRequest, NextResponse } from 'next/server';
+import { requireFeatureCaller, type FeatureCaller } from '@/lib/api-caller';
+import { pregnantOwner } from '@/models/Pregnancy';
 import { toTotals, unitsFor } from '@/lib/calories/calories';
 import type { FoodDoc } from '@/lib/calories/moh';
 import type { FoodHit, ProductResponse } from '@/lib/calories/api-types';
 import { isLiquid, nutritionOf, packGrams, type Nutrition } from '@/lib/shopping/nutrition';
 import type { ItemDoc } from '@/lib/shopping/snapshot';
+import type { Drink } from '@/lib/pregnancy/drinks';
 
 export async function readJson(request: NextRequest): Promise<unknown | NextResponse> {
   try {
@@ -53,3 +56,28 @@ export const foodHit = (f: FoodDoc): FoodHit => ({
 });
 
 export { mealHit } from '@/lib/calories/calories';
+
+/** A built-in drink to log: one unit (its ml), its caffeine per unit. */
+export const drinkHit = (d: Drink): FoodHit => ({
+  ref: { kind: 'drink', key: d.id },
+  name: d.name,
+  img: null,
+  per100: null,
+  per: d.nu,
+  units: [{ name: d.unit, g: d.g }],
+  source: 'drink',
+  caf: d.mg,
+});
+
+/**
+ * The diary's gate: the `calories` permission, or a pregnant owner (`pregnancy` +
+ * an active pregnancy of her own) — /pregnancy logs to her diary without
+ * `calories` being granted separately (docs/superpowers/specs/2026-11-24-pregnancy-design.md § Access).
+ */
+export async function requireDiaryCaller(request: NextRequest): Promise<FeatureCaller | NextResponse> {
+  const caller = await requireFeatureCaller(request, 'calories');
+  if (!(caller instanceof NextResponse) || caller.status !== 403) return caller;
+  const preg = await requireFeatureCaller(request, 'pregnancy');
+  if (preg instanceof NextResponse) return caller;
+  return (await pregnantOwner(preg.userEmail)) ? preg : caller;
+}

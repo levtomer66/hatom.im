@@ -1,13 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireFeatureCaller } from '@/lib/api-caller';
 import { isDate, MAX_BURNED } from '@/lib/calories/calories';
 import { setBurned } from '@/models/Calories';
-import { bad, readJson, serverError } from '../_shared';
+import { bad, readJson, serverError, requireDiaryCaller } from '../_shared';
 
 // PUT { date, workoutId, kcal } — corrects a workout's estimated burn on that day
 // (kcal null goes back to the estimate). The workout itself is never written.
 export async function PUT(request: NextRequest) {
-  const caller = await requireFeatureCaller(request, 'calories');
+  const caller = await requireDiaryCaller(request);
   if (caller instanceof NextResponse) return caller;
   const body = await readJson(request);
   if (body instanceof NextResponse) return body;

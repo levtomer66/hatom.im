@@ -1,14 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireFeatureCaller } from '@/lib/api-caller';
 import { isDate, kgOk } from '@/lib/calories/calories';
 import { addWeighIn } from '@/models/Calories';
 import { setBodyweight } from '@/models/WorkoutUserSettings';
-import { bad, readJson, serverError } from '../_shared';
+import { bad, readJson, serverError, requireDiaryCaller } from '../_shared';
 
 // PUT { date, kg } — the body weight, shared with the workout app (its
 // workoutUserSettings.bodyweightKg is the one current value), plus that day's weigh-in.
 export async function PUT(request: NextRequest) {
-  const caller = await requireFeatureCaller(request, 'calories');
+  const caller = await requireDiaryCaller(request);
   if (caller instanceof NextResponse) return caller;
   const body = await readJson(request);
   if (body instanceof NextResponse) return body;

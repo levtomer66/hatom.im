@@ -1,0 +1,25 @@
+/* The weight-gain tile (GainTile.tsx): self-contained, so /workout can show it too. */
+.pg-gain { --pg-g-ok: #2f7d4f; --pg-g-off: #b26200; margin: 12px 0; border: 1px solid #e6dff0; border-radius: 14px; background: #fbf8ff; color: #241a33; direction: rtl; text-align: start; font-family: inherit; }
+.pg-gain-head { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 48px; padding: 10px 14px; border: 0; background: none; color: inherit; font: inherit; text-align: start; cursor: pointer; }
+.pg-gain-title { flex: 1; font-weight: 600; }
+.pg-gain-num { font-weight: 700; font-size: 1.0625rem; }
+.pg-gain-verdict { padding: 2px 8px; border-radius: 999px; font-size: 0.8125rem; background: #e3f3e8; color: var(--pg-g-ok); }
+.pg-gain.is-over .pg-gain-verdict, .pg-gain.is-under .pg-gain-verdict { background: #fff1dc; color: var(--pg-g-off); }
+.pg-gain-body { padding: 0 14px 12px; }
+.pg-gain-range { margin: 0 0 8px; font-size: 0.875rem; color: #5d5470; }
+.pg-gain-chart { display: block; width: 100%; height: auto; }
+.pg-gain-band { fill: #d9f0e0; }
+.pg-gain-tri { stroke: #d8d0e4; stroke-dasharray: 3 3; }
+.pg-gain-line { fill: none; stroke: #7b4bc4; stroke-width: 2; }
+.pg-gain-dot { fill: #7b4bc4; }
+.pg-gain-credit { margin: 6px 0 0; font-size: 0.75rem; color: #7a7088; }
+@media (prefers-color-scheme: dark) {
+  .pg-gain { border-color: #3a3048; background: #1d1726; color: #f1ecf8; }
+  .pg-gain-range, .pg-gain-credit { color: #b3a9c2; }
+  .pg-gain-band { fill: #1f3a2a; }
+  .pg-gain-tri { stroke: #3a3048; }
+  .pg-gain-line { stroke: #b896f0; }
+  .pg-gain-dot { fill: #b896f0; }
+  .pg-gain-verdict { background: #1f3a2a; color: #8fd6a8; }
+  .pg-gain.is-over .pg-gain-verdict, .pg-gain.is-under .pg-gain-verdict { background: #3d2a10; color: #f2c14e; }
+}

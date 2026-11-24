@@ -12,6 +12,8 @@ import type { FoodHit } from '@/lib/calories/api-types';
 import { Thumb } from '../shopping/ui';
 import Macros from './Macros';
 import NutritionFacts from './NutritionFacts';
+import { WarnChip } from './pregnant';
+import { cafPer100, drinkById } from '@/lib/pregnancy/drinks';
 
 /** The data.gov.il licence asks for the source by name. */
 export const MOH_CREDIT = <>מקור: משרד הבריאות, מאגר התזונה הלאומי (<bdi>data.gov.il</bdi>)</>;
@@ -29,7 +31,7 @@ function startOf(hit: FoodHit, initial?: { unit: Unit; qty: number }): { unit: U
     const same = hit.units.find((u) => u.name === initial.unit.name);
     if (same) return { unit: same, qty: initial.qty };
   }
-  return defaultAmount(hit.units, hit.source === 'meal');
+  return defaultAmount(hit.units, hit.source === 'meal' || hit.source === 'drink');
 }
 
 export function totalsFor(hit: FoodHit, unit: Unit, qty: number): Totals | null {
@@ -55,6 +57,9 @@ export default function AmountStep(props: Props) {
   const [typed, setTyped] = useState<string | null>(null);
   const t = totalsFor(hit, unit, qty);
   const valid = qty > 0 && unit.g * qty <= 5000 && !!t;
+  // What the server will set: a drink's per-unit mg, else the name's rule (per 100 g/ml).
+  const per = hit.source === 'drink' ? null : cafPer100(hit.name);
+  const caf = hit.source === 'drink' ? Math.round((hit.caf ?? 0) * qty) : per === null ? 0 : Math.round((per * unit.g * qty) / 100);
 
   const pick = (u: Unit) => {
     setUnit(u);
@@ -77,14 +82,14 @@ export default function AmountStep(props: Props) {
       <div className="cal-amount-head">
         <Thumb src={hit.img} size={56} />
         <div>
-          <p className="cal-amount-name">{hit.name}</p>
+          <p className="cal-amount-name">{hit.name} <WarnChip name={hit.name} text={hit.ref.kind === 'drink' && hit.ref.key ? drinkById(hit.ref.key)?.warn : undefined} /></p>
           {hit.maker ? <p className="cal-muted">{hit.maker}</p> : null}
         </div>
       </div>
       <div className="cal-chips" role="radiogroup" aria-label="יחידה">
         {hit.units.map((u) => (
           <button key={u.name} type="button" role="radio" aria-checked={u === unit} className={`sh-chip ${u.name === unit.name ? 'is-on' : ''}`} onClick={() => pick(u)}>
-            {u.name}{!isGrams(u) && hit.source !== 'meal' ? <small>{fmtQty(u.g)} ג׳</small> : null}
+            {u.name}{!isGrams(u) && hit.source !== 'meal' && hit.source !== 'drink' ? <small>{fmtQty(u.g)} ג׳</small> : null}
           </button>
         ))}
       </div>
@@ -105,6 +110,7 @@ export default function AmountStep(props: Props) {
         </p>
       </div>
       {t ? <Macros t={t} /> : null}
+      {caf ? <p className="cal-caf">☕ {caf} מ״ג קפאין{hit.ref.kind === 'drink' && hit.ref.key && drinkById(hit.ref.key)?.approx ? ' (בערך)' : ''}</p> : null}
       {unit.g * qty > 5000 ? <p className="cal-error">עד 5,000 גרם ברישום אחד</p> : null}
       <button type="button" className="sh-btn sh-btn--primary cal-wide" disabled={!valid || busy} onClick={submit}>
         {props.mode === 'log' ? (busy ? 'מוסיף…' : 'הוספה') : 'הוספה למתכון'}

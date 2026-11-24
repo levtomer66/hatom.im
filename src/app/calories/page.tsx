@@ -27,6 +27,8 @@ import Weight from './Weight';
 import WeekBars from './WeekBars';
 import Workouts, { BurnedSheet, StepsSheet } from './Workouts';
 import * as api from './api';
+import { PregnantProvider, WarnChip } from './pregnant';
+import { GainTileLoader } from '../pregnancy/GainTile';
 
 const pad = (n: number) => String(n).padStart(2, '0');
 const localToday = () => {
@@ -189,6 +191,7 @@ export default function CaloriesPage() {
   const currentMeal: Meal = nowMeal ?? 'snack';
 
   return (
+    <PregnantProvider value={!!shown?.preg}>
     <main className="sh-page cal-page">
       <header className="cal-head">
         <button type="button" className="sh-icon-btn" aria-label="היום הקודם" onClick={() => setDate(shift(date, -1))}><FaChevronRight /></button>
@@ -203,7 +206,7 @@ export default function CaloriesPage() {
         <section className="sh-card cal-welcome">
           <h2>כמה קלוריות ביום?</h2>
           <p className="cal-muted">כמה פרטים, ונמליץ על יעד קלוריות וחלבון לפי המטרה. אפשר לשנות בכל רגע ב־⚙.</p>
-          <GoalForm settings={null} kg={shown.weight.kg} cta="להתחיל" onSave={saveSettings} />
+          <GoalForm settings={null} kg={shown.weight.kg} cta="להתחיל" preg={shown.preg} onSave={saveSettings} />
         </section>
       ) : null}
 
@@ -236,7 +239,7 @@ export default function CaloriesPage() {
                       <SwipeRow key={e.id} className="cal-entry" label="מחיקה" onRemove={() => void remove(e)}>
                         <button type="button" className="cal-entry-btn" onClick={() => setSheet({ kind: 'edit', entry: e })}>
                           <Thumb src={e.img} size={36} />
-                          <span className="cal-entry-name">{e.name}<small>{amountText(e.unit, e.qty)}</small></span>
+                          <span className="cal-entry-name">{e.name} <WarnChip name={e.name} /><small>{amountText(e.unit, e.qty)}{e.caf ? <span className="cal-entry-caf"> · ☕ {e.caf} מ״ג</span> : null}</small></span>
                           <span className="cal-entry-kcal">{e.nu.kcal.toLocaleString('he-IL')}</span>
                         </button>
                       </SwipeRow>
@@ -258,6 +261,7 @@ export default function CaloriesPage() {
           })}
           <Workouts rows={shown.burned} steps={shown.steps} onPick={(row) => setSheet({ kind: 'burned', row })} onSteps={() => setSheet({ kind: 'steps' })} />
           <Weight key={date} kg={shown.weight.kg} log={shown.weight.log} date={date} onSave={saveWeight} />
+          {shown.preg ? <GainTileLoader key={`gain${shown.weight.kg}`} /> : null}
           <WeekBars week={shown.week} goal={settings.goal ?? DEFAULT_GOAL} shown={date} onPick={setDate} />
         </>
       ) : null}
@@ -279,7 +283,7 @@ export default function CaloriesPage() {
           }} />
       ) : null}
       {sheet?.kind === 'settings' ? (
-        <SettingsSheet settings={settings} kg={shown?.weight.kg ?? null} onSave={saveSettings} onClose={() => setSheet(null)} />
+        <SettingsSheet settings={settings} kg={shown?.weight.kg ?? null} preg={shown?.preg} onSave={saveSettings} onClose={() => setSheet(null)} />
       ) : null}
       {sheet?.kind === 'meals' ? <MealsSheet onLog={(picked) => setSheet({ kind: 'add', meal: currentMeal, picked })} onClose={() => setSheet(null)} /> : null}
 
@@ -311,5 +315,6 @@ export default function CaloriesPage() {
 
       {toast ? <div className="sh-toast" role="status">{toast}</div> : null}
     </main>
+    </PregnantProvider>
   );
 }

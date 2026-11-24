@@ -39,8 +39,11 @@ test('todayStrip: today\'s events, reminders, tomorrow only with remindBefore, w
   assert.ok(kinds.includes('reminder:r1'));
   assert.ok(kinds.includes('window:nt'));
   assert.deepEqual(kinds.slice(0, 2), ['event:a', 'reminder:r1']);
+  // Still open in week 12 (the window runs to 13+6), gone once booked or past it.
   const later = todayStrip({ edd: EDD, events: [], reminders: [], dismissed: [] }, dateOfDay(EDD, 84));
-  assert.ok(!later.some((s) => s.id === 'nt'));
+  assert.ok(later.some((s) => s.id === 'nt'));
+  const after = todayStrip({ edd: EDD, events: [], reminders: [], dismissed: [] }, dateOfDay(EDD, 98));
+  assert.ok(!after.some((s) => s.id === 'nt'));
 });
 
 test('markDone toggles and keeps only the last 14 days', () => {

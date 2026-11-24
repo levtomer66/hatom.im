@@ -35,7 +35,7 @@ function bearerCredential(value: string): string | null {
   return isApiKeyFormat(credential) ? credential : null;
 }
 
-async function hasCurrentPermission(
+export async function hasCurrentPermission(
   email: string,
   permission: PermissionKey
 ): Promise<boolean> {

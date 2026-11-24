@@ -65,7 +65,7 @@ export interface StripItem { kind: 'event' | 'tomorrow' | 'reminder' | 'window';
 
 const byTime = (a: PEvent, b: PEvent) => (a.time ?? '99').localeCompare(b.time ?? '99');
 
-/** Today's events (by time), today's reminders, tomorrow's events with remindBefore, windows opening this week. */
+/** Today's events (by time), today's reminders, tomorrow's events with remindBefore, open windows this week falls in. */
 export function todayStrip(p: CalendarPart, today: string): StripItem[] {
   const tomorrow = addDays(today, 1);
   const week = Math.floor(dayOfPregnancy(p.edd, today) / 7);
@@ -73,7 +73,7 @@ export function todayStrip(p: CalendarPart, today: string): StripItem[] {
     ...p.events.filter((e) => e.date === today).sort(byTime).map((e): StripItem => ({ kind: 'event', id: e.id, text: e.title, time: e.time })),
     ...p.reminders.filter((r) => dueOn(r, today)).map((r): StripItem => ({ kind: 'reminder', id: r.id, text: r.text, done: r.done.includes(today) })),
     ...p.events.filter((e) => e.date === tomorrow && e.remindBefore).sort(byTime).map((e): StripItem => ({ kind: 'tomorrow', id: e.id, text: e.title, time: e.time })),
-    ...openSuggestions(p.events, p.dismissed).filter((s) => s.from === week).map((s): StripItem => ({ kind: 'window', id: s.id, text: s.name })),
+    ...openSuggestions(p.events, p.dismissed).filter((s) => s.from <= week && s.to >= week).map((s): StripItem => ({ kind: 'window', id: s.id, text: s.name })),
   ];
 }
 

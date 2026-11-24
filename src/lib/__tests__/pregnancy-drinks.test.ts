@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { cafLevel, cafPer100, drinkById, DRINKS, matchDrink, orderDrink } from '../pregnancy/drinks.ts';
+import { cafLevel, cafPer100, drinkById, DRINKS, entryCaf, itemCaf, matchDrink, orderDrink } from '../pregnancy/drinks.ts';
 import { foodWarning } from '../pregnancy/safety.ts';
 
 const order = (o: Record<string, unknown> = {}) => ({
@@ -59,9 +59,25 @@ test('cafLevel thresholds', () => {
 
 test('foodWarning: pregnancy stems', () => {
   assert.ok(foodWarning('סושי סלמון'));
-  assert.ok(foodWarning('בירה שחורה'));
+  assert.ok(foodWarning('בירה גולדסטאר'));
+  assert.equal(foodWarning('בירה שחורה מאלט'), null);
+  assert.equal(foodWarning('אורז להכנת סושי'), null);
+  assert.equal(foodWarning('סושי מגבות אריזת שישייה'), null);
+  assert.equal(foodWarning('סושי עוף 80 גרם'), null);
+  assert.equal(foodWarning('חומץ יין אדום'), null);
+  assert.ok(foodWarning('סושי סלמון 8 יח׳'));
   assert.ok(foodWarning('כבד עוף'));
   assert.ok(foodWarning('גבינת ברי'));
   assert.equal(foodWarning('גבינה צהובה'), null);
   assert.equal(foodWarning('סלט ירקות'), null);
+});
+
+test('entryCaf: drinks, products by name, meals per portion, quick none', () => {
+  assert.equal(entryCaf({ ref: { kind: 'drink', key: 'hafuch-large' }, name: 'x', unit: { g: 350 }, qty: 2 }), 260);
+  assert.equal(entryCaf({ ref: { kind: 'product', key: '1' }, name: 'קוקה קולה זירו', unit: { g: 1 }, qty: 500 }), 50);
+  assert.equal(entryCaf({ ref: { kind: 'product', key: '1' }, name: 'לחם', unit: { g: 1 }, qty: 50 }), undefined);
+  assert.equal(entryCaf({ ref: { kind: 'meal', key: 'm' }, name: 'x', unit: { g: 300 }, qty: 2 }, 40), 80);
+  assert.equal(entryCaf({ ref: { kind: 'quick', key: null }, name: 'קולה', unit: { g: 0 }, qty: 1 }), undefined);
+  assert.equal(itemCaf({ ref: { kind: 'drink', key: 'espresso' }, name: 'x', grams: 60 }), 130);
+  assert.ok(DRINKS.every((d) => d.g > 0));
 });

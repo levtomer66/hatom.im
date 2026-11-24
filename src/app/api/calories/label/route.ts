@@ -1,14 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireFeatureCaller } from '@/lib/api-caller';
 import { parseLabel, toTotals } from '@/lib/calories/calories';
 import { getItems } from '@/models/ShoppingCatalog';
 import { setLabel } from '@/models/Calories';
-import { bad, readJson, serverError } from '../_shared';
+import { bad, readJson, serverError, requireDiaryCaller } from '../_shared';
 
 // PUT { key, nu } — values per 100 g typed from a package, for a catalog
 // product that has none. Saved per barcode, for everyone.
 export async function PUT(request: NextRequest) {
-  const caller = await requireFeatureCaller(request, 'calories');
+  const caller = await requireDiaryCaller(request);
   if (caller instanceof NextResponse) return caller;
   const body = await readJson(request);
   if (body instanceof NextResponse) return body;

@@ -49,12 +49,12 @@ export async function getDays(email: string, dates: string[]): Promise<Record<st
   return out;
 }
 
-/** false when the day already holds MAX_ENTRIES. */
-export async function addEntry(email: string, date: string, entry: Entry): Promise<boolean> {
+/** false when the day already holds MAX_ENTRIES, or (`once`) an entry with this id. */
+export async function addEntry(email: string, date: string, entry: Entry, once = false): Promise<boolean> {
   try {
     const res = await (await days()).updateOne(
       // No MAX_ENTRIES-th entry yet ($expr isn't allowed in an upsert's filter).
-      { _id: dayId(email, date), [`entries.${MAX_ENTRIES - 1}`]: { $exists: false } },
+      { _id: dayId(email, date), [`entries.${MAX_ENTRIES - 1}`]: { $exists: false }, ...(once ? { 'entries.id': { $ne: entry.id } } : {}) },
       { $push: { entries: entry }, $set: { updatedAt: new Date().toISOString() } },
       { upsert: true },
     );
@@ -152,7 +152,10 @@ export async function addRecent(email: string, r: Recent): Promise<void> {
 
 // ── home-made meals ──
 
-const toMeal = (d: MealDocument): MealDoc => ({ id: d._id.toHexString(), name: d.name, portions: d.portions, items: d.items, per: d.per });
+const toMeal = (d: MealDocument): MealDoc => {
+  const caf = d.items.reduce((a, i) => a + (i.caf ?? 0), 0);
+  return { id: d._id.toHexString(), name: d.name, portions: d.portions, items: d.items, per: d.per, ...(caf ? { cafPer: Math.round(caf / d.portions) } : {}) };
+};
 const oid = (id: string) => (ObjectId.isValid(id) && id.length === 24 ? new ObjectId(id) : null);
 
 export async function listMeals(email: string): Promise<MealDoc[]> {

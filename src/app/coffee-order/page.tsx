@@ -28,6 +28,8 @@ import {
   defaultDrinkConfig,
   isBaristaEmail,
 } from '@/types/coffee-order';
+import { cafLevel, orderDrink } from '@/lib/pregnancy/drinks';
+import type { MeResponse } from '@/lib/pregnancy/pregnancy';
 import './coffee-order.css';
 
 // Emoji that rain on a successful order.
@@ -114,6 +116,17 @@ export default function CoffeeOrderPage() {
   const canRead =
     status === 'authenticated' && hasPermission(session, 'coffee-order');
 
+  // A pregnant owner sees today's caffeine with this coffee added (/pregnancy).
+  const [me, setMe] = useState<MeResponse | null>(null);
+  const canPregnancy = status === 'authenticated' && hasPermission(session, 'pregnancy');
+  useEffect(() => {
+    if (!canPregnancy) return;
+    const d = new Date();
+    const today = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    fetch(`/api/pregnancy/me?today=${today}`).then((r) => (r.ok ? r.json() : null)).then(setMe).catch(() => setMe(null));
+  }, [canPregnancy]);
+  const thisMg = useMemo(() => orderDrink(config).mg, [config]);
+
   useEffect(() => {
     if (!canRead) return;
     let cancelled = false;
@@ -172,6 +185,8 @@ export default function CoffeeOrderPage() {
       const created = (await res.json()) as CoffeeOrder;
       setOrders((prev) => [created, ...prev]);
       setPlaced(created);
+      // Logged to her diary by the server; count it here too.
+      setMe((m) => (m ? { ...m, cafToday: m.cafToday + orderDrink(created).mg } : m));
       fireBeans();
     } catch (err) {
       console.error(err);
@@ -518,6 +533,12 @@ export default function CoffeeOrderPage() {
               )}
 
               {error && <div className="coffee-error">{error}</div>}
+
+              {me && (
+                <p className={`coffee-caf is-${cafLevel(me.cafToday + thisMg, me.limit)}`}>
+                  ☕ אחרי הקפה: <b>{me.cafToday + thisMg}</b> / {me.limit} מ״ג קפאין היום
+                </p>
+              )}
 
               <div className="coffee-form-actions">
                 <button

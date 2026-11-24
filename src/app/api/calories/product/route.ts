@@ -1,15 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireFeatureCaller } from '@/lib/api-caller';
 import { candidates } from '@/lib/shopping/service';
 import { getItems } from '@/models/ShoppingCatalog';
 import { getFood, getLabel } from '@/models/Calories';
-import { bad, foodHit, productHit, serverError } from '../_shared';
+import { bad, foodHit, productHit, serverError, requireDiaryCaller } from '../_shared';
 
 // GET ?key=<item key or scanned barcode> — one product to log. A barcode is
 // tried as-is and without leading zeros. 404 when the catalog has no such item.
 // GET ?food=<MoH id> — one Ministry of Health food (an entry's values, for its edit sheet).
 export async function GET(request: NextRequest) {
-  const caller = await requireFeatureCaller(request, 'calories');
+  const caller = await requireDiaryCaller(request);
   if (caller instanceof NextResponse) return caller;
   const food = request.nextUrl.searchParams.get('food');
   if (food !== null) {

@@ -22,6 +22,7 @@ several independent features under separate routes:
 | `/calendar`        | Milestones calendar: birthdays, anniversaries, one-off events (permission `calendar`). Mongo `calendarEvents`; date math in `src/lib/calendar.ts`. |
 | `/shopping`        | Grocery price comparison across chains (permission `shopping`). Per-household My items + one list in Mongo `shoppingHome`; price data written by a local ingest job. |
 | `/calories`        | Private food diary against a daily calorie goal (permission `calories`). Reuses the shopping catalog, nutrition and scanner; MoH generic foods in Mongo `caloriesFoods`. |
+| `/pregnancy`       | Pregnancy tracker (permission `pregnancy`): week+day hero, 40 week cubes with events and in-page reminders, caffeine counter. Mongo `pregnancies`; drinks are calories diary entries. |
 
 Default branch is `main`. Pushes to `main` auto-deploy to Production via
 Vercel's GitHub integration. There is no separate `master` branch.
@@ -508,6 +509,35 @@ Identity = Gmail address. Two roles:
 - `src/lib/calories/*.ts` (except `moh-cli.ts`) is import-free for `node --test`;
   route glue is in `src/app/api/calories/_shared.ts`. The page wears
   `shopping.css` (`sh-page`) plus `calories.css`.
+
+### Pregnancy (`/pregnancy`)
+
+- Spec: `docs/superpowers/specs/2026-11-24-pregnancy-design.md`. One small doc per
+  pregnancy in `pregnancies` (events, reminders, scans embedded); a person is in at
+  most one *active* one (partial unique index on `members`). The creator is the
+  pregnant **owner**; others join only by her invite. "הלידה הייתה" sets
+  `status: 'ended'` (kept, hidden).
+- **Caffeine is the calories diary's own**: `Entry.caf` (mg, frozen like `nu`,
+  rescaled from `base.caf`), `Ref.kind: 'drink'` for the built-in `DRINKS`
+  (`src/lib/pregnancy/drinks.ts`, each mg with its source). The **server** sets
+  `caf` on every write (`entryCaf`: drink table, `cafPer100` name rules, a meal's
+  items); only a quick entry's typed mg is taken from the client. No copies — a
+  drink deleted on either page is gone from both.
+- The calories routes take `requireDiaryCaller` (calories, **or** a pregnant
+  owner), so /pregnancy needs no `calories` grant. Members see only her caffeine
+  rows (`GET /api/pregnancy`), never her diary.
+- **Coffee orders** (web, API key, MCP `order_coffee`) of a pregnant owner log one
+  entry `order-<orderId>` via `logCoffeeOrder` in `after()` (idempotent `addEntry(…, once)`),
+  on the Israel day/meal of the order or its scheduled time.
+- Suggested MoH events are constants (`SUGGESTIONS` in `schedule.ts`), never
+  copied into the doc: booking one makes an event with `kind: <id>`; deleting it
+  brings the suggestion back; `dismissed` hides it.
+- Owner-only extras elsewhere: ⚠ food chips (`foodWarning`, via `PregnantProvider`
+  in `src/app/calories/pregnant.tsx`), the trimester's +kcal in `recommend(…, extra)`,
+  and `GainTileLoader` (`/api/pregnancy/me`, IOM 2009 bands) on /calories and /workout.
+- Stage pictures are hot-linked Wikimedia Commons files with credit (`stages.ts`);
+  no specimen photos. Scans go to Vercel Blob (`pregnancy/<id>/<week>-…jpg`), URL only.
+- `src/lib/pregnancy/*.ts` is import-free for `node --test`, except `mcp-tools.ts`.
 
 ### MCP server + OAuth (`/api/mcp`)
 

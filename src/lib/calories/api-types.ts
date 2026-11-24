@@ -19,6 +19,8 @@ export interface DayResponse {
   weight: { kg: number | null; log: WeighIn[] };
   /** The recommendation from the profile and the shared weight; null without them. */
   rec: { goal: number; proteinGoal: number } | null;
+  /** The caller is a pregnant owner (docs/superpowers/specs/2026-11-24-pregnancy-design.md): her day of pregnancy and the goal's extra. */
+  preg: { day: number; extra: number; trimester: 1 | 2 | 3 } | null;
 }
 
 export interface StepsRow {
@@ -53,11 +55,13 @@ export interface FoodHit {
   /** The full label per 100 g (ml) — sugars, fibre, sodium… — for the product view; products and MoH foods. */
   label?: Nutrition;
   units: Unit[];
-  source: 'moh' | 'off' | 'manual' | 'meal';
+  source: 'moh' | 'off' | 'manual' | 'meal' | 'drink';
+  /** A built-in drink's caffeine per unit, mg. */
+  caf?: number;
   maker?: string;
 }
 
-export interface SearchResponse { meals: FoodHit[]; foods: FoodHit[]; products: FoodHit[] }
+export interface SearchResponse { meals: FoodHit[]; foods: FoodHit[]; products: FoodHit[]; drinks?: FoodHit[] }
 
 export type ProductResponse = FoodHit & { key: string; w: boolean; liquid: boolean };
 

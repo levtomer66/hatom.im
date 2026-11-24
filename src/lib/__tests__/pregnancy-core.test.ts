@@ -68,3 +68,23 @@ test('canInvite', () => {
   assert.equal(canInvite(p, 'b@x.com').ok, false);
   assert.equal(canInvite(p, 'c@x.com').ok, true);
 });
+
+test('sizeFor and sizeText', async () => {
+  const { sizeFor, sizeText } = await import('../pregnancy/sizes.ts');
+  assert.equal(sizeFor(3), null);
+  assert.equal(sizeFor(16)?.fruit, 'אבוקדו');
+  assert.equal(sizeFor(41)?.fruit, sizeFor(40)?.fruit);
+  for (let w = 4; w <= 40; w++) assert.ok(sizeFor(w), `week ${w}`);
+  assert.equal(sizeText(sizeFor(16)!), '11.6 ס״מ · 100 ג׳');
+  assert.equal(sizeText(sizeFor(4)!), '1 מ״מ · פחות מגרם');
+  assert.equal(sizeText(sizeFor(28)!), '37.6 ס״מ · 1 ק״ג');
+});
+
+test('stageFor: the nearest picture', async () => {
+  const { stageFor, STAGES } = await import('../pregnancy/stages.ts');
+  assert.ok(STAGES.length >= 10);
+  assert.equal(stageFor(12)?.week, 12);
+  assert.equal(stageFor(16)?.week, 17);
+  assert.equal(stageFor(2)?.week, STAGES[0].week);
+  assert.ok(STAGES.every((s) => s.img.startsWith('https://upload.wikimedia.org/') && s.author && s.license));
+});

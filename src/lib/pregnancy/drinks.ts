@@ -26,6 +26,8 @@ export interface Drink {
   emoji: string;
   /** One serving: כוס, פחית, שוט, קפסולה… */
   unit: string;
+  /** One unit's ml (g for chocolate): the entry's unit weight. */
+  g: number;
   /** Caffeine per unit, mg. */
   mg: number;
   /** Per unit. */
@@ -42,25 +44,25 @@ const t = (kcal: number, p = 0, c = 0, f = 0): Totals => ({ kcal, p, c, f });
 const AVOID = 'משרד הבריאות ממליץ להימנע בהריון';
 
 export const DRINKS: readonly Drink[] = [
-  { id: 'hafuch-small', name: 'הפוך קטן', emoji: '☕', unit: 'כוס', mg: 65, nu: t(120, 6, 9, 6.5), aliases: ['הפוך', 'קפוצ׳ינו', 'קפוצינו', 'קפה הפוך'] },
-  { id: 'hafuch-large', name: 'הפוך גדול', emoji: '☕', unit: 'כוס', mg: 130, nu: t(180, 9, 14, 9.5), aliases: ['קפוצ׳ינו גדול', 'קפוצינו גדול'] },
-  { id: 'espresso', name: 'אספרסו', emoji: '⚡', unit: 'שוט', mg: 65, nu: t(2), aliases: ['אספרסו קצר', 'שוט'] },
-  { id: 'espresso-double', name: 'אספרסו כפול', emoji: '⚡', unit: 'כוס', mg: 130, nu: t(4), aliases: ['דאבל', 'לונגו'] },
-  { id: 'capsule', name: 'קפסולה', emoji: '💊', unit: 'קפסולה', mg: 65, nu: t(2), aliases: ['נספרסו', 'קפה מכונה'], approx: true },
-  { id: 'instant', name: 'נס קפה', emoji: '🥄', unit: 'כוס', mg: 65, nu: t(4), aliases: ['קפה נמס', 'נסקפה'] },
-  { id: 'filter', name: 'קפה פילטר', emoji: '☕', unit: 'כוס', mg: 100, nu: t(2), aliases: ['פילטר', 'קפה מסונן'] },
-  { id: 'black', name: 'קפה שחור / טורקי', emoji: '🫖', unit: 'כוס', mg: 80, nu: t(2), aliases: ['קפה שחור', 'קפה טורקי', 'שחור', 'טורקי', 'קפה בוץ'], approx: true, warn: AVOID },
-  { id: 'iced', name: 'קפה קר', emoji: '🧊', unit: 'כוס', mg: 100, nu: t(120, 4, 18, 3), aliases: ['אייס קפה', 'אייס', 'קפה קר'], approx: true },
-  { id: 'decaf', name: 'קפה נטול קפאין', emoji: '🌙', unit: 'כוס', mg: 3, nu: t(2), aliases: ['נטול', 'דקף'] },
-  { id: 'tea-black', name: 'תה שחור', emoji: '🍵', unit: 'כוס', mg: 50, nu: t(2), aliases: ['תה'] },
-  { id: 'tea-green', name: 'תה ירוק', emoji: '🍵', unit: 'כוס', mg: 30, nu: t(2) },
-  { id: 'cola', name: 'קולה', emoji: '🥤', unit: 'פחית', mg: 33, nu: t(139, 0, 35), aliases: ['קוקה קולה', 'פחית קולה'] },
-  { id: 'zero-glass', name: 'כוס זירו', emoji: '🥤', unit: 'כוס', mg: 25, nu: t(1), aliases: ['זירו', 'קולה זירו'] },
-  { id: 'zero-can', name: 'פחית זירו', emoji: '🥫', unit: 'פחית', mg: 33, nu: t(1) },
-  { id: 'diet-cola', name: 'פחית דיאט קולה', emoji: '🥫', unit: 'פחית', mg: 43, nu: t(1), aliases: ['דיאט קולה', 'קולה דיאט'] },
-  { id: 'energy', name: 'משקה אנרגיה', emoji: '🔋', unit: 'פחית', mg: 80, nu: t(112, 0, 27), aliases: ['רד בול', 'אקס אל', 'XL'], warn: AVOID },
-  { id: 'dark-choc', name: 'שוקולד מריר (50 ג׳)', emoji: '🍫', unit: 'חצי טבלה', mg: 40, nu: t(300, 4, 23, 21), aliases: ['שוקולד מריר'] },
-  { id: 'shoko', name: 'שוקו', emoji: '🥛', unit: 'כוס', mg: 5, nu: t(180, 8, 27, 5), aliases: ['שוקו חם', 'שוקו קר'], approx: true },
+  { id: 'hafuch-small', name: 'הפוך קטן', emoji: '☕', unit: 'כוס', g: 240, mg: 65, nu: t(120, 6, 9, 6.5), aliases: ['הפוך', 'קפוצ׳ינו', 'קפוצינו', 'קפה הפוך'] },
+  { id: 'hafuch-large', name: 'הפוך גדול', emoji: '☕', unit: 'כוס', g: 350, mg: 130, nu: t(180, 9, 14, 9.5), aliases: ['קפוצ׳ינו גדול', 'קפוצינו גדול'] },
+  { id: 'espresso', name: 'אספרסו', emoji: '⚡', unit: 'שוט', g: 30, mg: 65, nu: t(2), aliases: ['אספרסו קצר', 'שוט'] },
+  { id: 'espresso-double', name: 'אספרסו כפול', emoji: '⚡', unit: 'כוס', g: 60, mg: 130, nu: t(4), aliases: ['דאבל', 'לונגו'] },
+  { id: 'capsule', name: 'קפסולה', emoji: '💊', unit: 'קפסולה', g: 40, mg: 65, nu: t(2), aliases: ['נספרסו', 'קפה מכונה'], approx: true },
+  { id: 'instant', name: 'נס קפה', emoji: '🥄', unit: 'כוס', g: 250, mg: 65, nu: t(4), aliases: ['קפה נמס', 'נסקפה'] },
+  { id: 'filter', name: 'קפה פילטר', emoji: '☕', unit: 'כוס', g: 250, mg: 100, nu: t(2), aliases: ['פילטר', 'קפה מסונן'] },
+  { id: 'black', name: 'קפה שחור / טורקי', emoji: '🫖', unit: 'כוס', g: 150, mg: 80, nu: t(2), aliases: ['קפה שחור', 'קפה טורקי', 'שחור', 'טורקי', 'קפה בוץ'], approx: true, warn: AVOID },
+  { id: 'iced', name: 'קפה קר', emoji: '🧊', unit: 'כוס', g: 300, mg: 100, nu: t(120, 4, 18, 3), aliases: ['אייס קפה', 'אייס', 'קפה קר'], approx: true },
+  { id: 'decaf', name: 'קפה נטול קפאין', emoji: '🌙', unit: 'כוס', g: 250, mg: 3, nu: t(2), aliases: ['נטול', 'דקף'] },
+  { id: 'tea-black', name: 'תה שחור', emoji: '🍵', unit: 'כוס', g: 250, mg: 50, nu: t(2), aliases: ['תה'] },
+  { id: 'tea-green', name: 'תה ירוק', emoji: '🍵', unit: 'כוס', g: 250, mg: 30, nu: t(2) },
+  { id: 'cola', name: 'קולה', emoji: '🥤', unit: 'פחית', g: 330, mg: 33, nu: t(139, 0, 35), aliases: ['קוקה קולה', 'פחית קולה'] },
+  { id: 'zero-glass', name: 'כוס זירו', emoji: '🥤', unit: 'כוס', g: 250, mg: 25, nu: t(1), aliases: ['זירו', 'קולה זירו'] },
+  { id: 'zero-can', name: 'פחית זירו', emoji: '🥫', unit: 'פחית', g: 330, mg: 33, nu: t(1) },
+  { id: 'diet-cola', name: 'פחית דיאט קולה', emoji: '🥫', unit: 'פחית', g: 330, mg: 43, nu: t(1), aliases: ['דיאט קולה', 'קולה דיאט'] },
+  { id: 'energy', name: 'משקה אנרגיה', emoji: '🔋', unit: 'פחית', g: 250, mg: 80, nu: t(112, 0, 27), aliases: ['רד בול', 'אקס אל', 'XL'], warn: AVOID },
+  { id: 'dark-choc', name: 'שוקולד מריר (50 ג׳)', emoji: '🍫', unit: 'חצי טבלה', g: 50, mg: 40, nu: t(300, 4, 23, 21), aliases: ['שוקולד מריר'] },
+  { id: 'shoko', name: 'שוקו', emoji: '🥛', unit: 'כוס', g: 250, mg: 5, nu: t(180, 8, 27, 5), aliases: ['שוקו חם', 'שוקו קר'], approx: true },
 ];
 
 const BY_ID = new Map(DRINKS.map((d) => [d.id, d]));
@@ -142,3 +144,47 @@ export const DEFAULT_CAF_LIMIT = 200;
 /** green → amber from 150 mg (MoH links more than 150 to risks) → red over the limit. */
 export const cafLevel = (mg: number, limit: number): 'ok' | 'warn' | 'over' =>
   mg > limit ? 'over' : mg >= Math.min(CAF_WARN, limit) ? 'warn' : 'ok';
+
+/**
+ * An entry's caffeine, set by the server when it's logged (spec § Caffeine): a
+ * drink from the table × qty; a product or MoH food by its name's rule × grams;
+ * a home-made meal from its items (`mealPerPortion`, mg per portion) × qty.
+ */
+export function entryCaf(e: { ref: { kind: string; key: string | null }; name: string; unit: { g: number }; qty: number }, mealPerPortion?: number | null): number | undefined {
+  if (e.ref.kind === 'drink') {
+    const d = e.ref.key ? drinkById(e.ref.key) : null;
+    return d ? Math.round(d.mg * e.qty) : undefined;
+  }
+  if (e.ref.kind === 'meal') return mealPerPortion ? Math.round(mealPerPortion * e.qty) : undefined;
+  if (e.ref.kind === 'product' || e.ref.kind === 'food') {
+    const per = cafPer100(e.name);
+    return per === null ? undefined : Math.round((per * e.unit.g * e.qty) / 100);
+  }
+  return undefined;
+}
+
+/** A home-made meal's ingredient: its caffeine for `grams`. */
+export function itemCaf(i: { ref: { kind: string; key: string | null }; name: string; grams: number }): number | undefined {
+  if (i.ref.kind === 'drink') {
+    const d = i.ref.key ? drinkById(i.ref.key) : null;
+    return d ? Math.round((d.mg * i.grams) / d.g) : undefined;
+  }
+  const per = cafPer100(i.name);
+  return per === null ? undefined : Math.round((per * i.grams) / 100);
+}
+
+/** A home-made meal's items with their caffeine (set when the meal is saved). */
+export const withCaf = <T extends { ref: { kind: string; key: string | null }; name: string; grams: number; caf?: number }>(items: T[]): T[] =>
+  items.map((i) => {
+    const { caf: _c, ...rest } = i;
+    void _c;
+    const caf = itemCaf(i);
+    return (caf ? { ...rest, caf } : rest) as T;
+  });
+
+/** Built-in drinks a search box text names: by name or alias, either way round. */
+export function drinksMatching(q: string): Drink[] {
+  const n = norm(q);
+  if (n.length < 2) return [];
+  return DRINKS.filter((d) => [d.name, ...(d.aliases ?? [])].map(norm).some((x) => x.includes(n) || (n.length >= 3 && n.includes(x))));
+}

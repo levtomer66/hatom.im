@@ -24,6 +24,8 @@ export interface Pregnancy {
   edd: string;
   dating: Dating;
   preKg: number | null;
+  /** Asked at setup when her calories profile has no height (the profile's wins). */
+  heightCm: number | null;
   cafLimit: number;
   events: PEvent[];
   reminders: Reminder[];
@@ -81,7 +83,7 @@ export function parseSetup(v: unknown, today: string): Result<{ dating: Dating; 
   return { ok: true, value: { ...dt.value, preKg: preKg === null ? null : Math.round(preKg * 10) / 10, heightCm: heightCm === null ? null : Math.round(heightCm) } };
 }
 
-export type Patch = Partial<{ dating: Dating; edd: string; preKg: number | null; cafLimit: number }>;
+export type Patch = Partial<{ dating: Dating; edd: string; preKg: number | null; heightCm: number | null; cafLimit: number }>;
 
 export function parsePatch(v: unknown, today: string): Result<Patch> {
   if (!isObj(v)) return fail('פרטים לא תקינים');
@@ -94,6 +96,10 @@ export function parsePatch(v: unknown, today: string): Result<Patch> {
   if (v.preKg !== undefined) {
     if (v.preKg !== null && !kgOk(v.preKg)) return fail('משקל בין 30 ל־250 ק״ג');
     out.preKg = v.preKg === null ? null : Math.round((v.preKg as number) * 10) / 10;
+  }
+  if (v.heightCm !== undefined) {
+    if (v.heightCm !== null && !heightOk(v.heightCm)) return fail('גובה בין 120 ל־230 ס״מ');
+    out.heightCm = v.heightCm === null ? null : Math.round(v.heightCm as number);
   }
   if (v.cafLimit !== undefined) {
     if (typeof v.cafLimit !== 'number' || !Number.isInteger(v.cafLimit) || v.cafLimit < 50 || v.cafLimit > 400) return fail('מגבלה בין 50 ל־400 מ״ג');
