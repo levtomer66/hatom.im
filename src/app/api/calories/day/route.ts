@@ -4,11 +4,10 @@ import { isDate, kgOk, parseEntry, parseTotals, recommend, stepsBurn, sumTotals,
 import type { BurnedRow, DayResponse, StepsRow } from '@/lib/calories/api-types';
 import { addEntry, addRecent, addWeighIn, getDayActivity, getDays, getMeal, getUser, getWorkouts } from '@/models/Calories';
 import { getUserSettings } from '@/models/WorkoutUserSettings';
-import { hasCurrentPermission } from '@/lib/api-caller';
 import { dayOfPregnancy, trimester } from '@/lib/pregnancy/dates';
 import { entryCaf } from '@/lib/pregnancy/drinks';
 import { extraKcal } from '@/lib/pregnancy/pregnancy';
-import { pregnantOwner } from '@/models/Pregnancy';
+import { activePregnantOwner } from '@/lib/pregnancy-diary';
 import { bad, readJson, serverError, requireDiaryCaller } from '../_shared';
 
 // GET ?date=YYYY-MM-DD[&today=YYYY-MM-DD] — the caller's entries that day, goals,
@@ -97,8 +96,7 @@ export async function POST(request: NextRequest) {
 
 /** A pregnant owner's day of pregnancy and her goal's extra; null for anyone else. */
 async function pregFor(email: string, date: string): Promise<DayResponse['preg']> {
-  if (!(await hasCurrentPermission(email, 'pregnancy'))) return null;
-  const p = await pregnantOwner(email);
+  const p = await activePregnantOwner(email);
   if (!p) return null;
   const day = dayOfPregnancy(p.edd, date);
   return { day, extra: day >= 0 ? extraKcal(day) : 0, trimester: trimester(day) };

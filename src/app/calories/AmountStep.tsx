@@ -13,7 +13,7 @@ import { Thumb } from '../shopping/ui';
 import Macros from './Macros';
 import NutritionFacts from './NutritionFacts';
 import { WarnChip } from './pregnant';
-import { cafPer100, drinkById } from '@/lib/pregnancy/drinks';
+import { cafPer100, drinkOfRef } from '@/lib/pregnancy/drinks';
 
 /** The data.gov.il licence asks for the source by name. */
 export const MOH_CREDIT = <>מקור: משרד הבריאות, מאגר התזונה הלאומי (<bdi>data.gov.il</bdi>)</>;
@@ -82,7 +82,7 @@ export default function AmountStep(props: Props) {
       <div className="cal-amount-head">
         <Thumb src={hit.img} size={56} />
         <div>
-          <p className="cal-amount-name">{hit.name} <WarnChip name={hit.name} text={hit.ref.kind === 'drink' && hit.ref.key ? drinkById(hit.ref.key)?.warn : undefined} /></p>
+          <p className="cal-amount-name">{hit.name} <WarnChip name={hit.name} text={drinkOfRef(hit.ref)?.warn} /></p>
           {hit.maker ? <p className="cal-muted">{hit.maker}</p> : null}
         </div>
       </div>
@@ -110,7 +110,7 @@ export default function AmountStep(props: Props) {
         </p>
       </div>
       {t ? <Macros t={t} /> : null}
-      {caf ? <p className="cal-caf">☕ {caf} מ״ג קפאין{hit.ref.kind === 'drink' && hit.ref.key && drinkById(hit.ref.key)?.approx ? ' (בערך)' : ''}</p> : null}
+      {caf ? <p className="cal-caf">☕ {caf} מ״ג קפאין{drinkOfRef(hit.ref)?.approx ? ' (בערך)' : ''}</p> : null}
       {unit.g * qty > 5000 ? <p className="cal-error">עד 5,000 גרם ברישום אחד</p> : null}
       <button type="button" className="sh-btn sh-btn--primary cal-wide" disabled={!valid || busy} onClick={submit}>
         {props.mode === 'log' ? (busy ? 'מוסיף…' : 'הוספה') : 'הוספה למתכון'}

@@ -2,19 +2,18 @@
 // the gate, the owner's caffeine and calories for a day, the weight-gain view,
 // and logging a built-in drink into her calories diary.
 
-import { randomUUID } from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { requireFeatureCaller, hasCurrentPermission, type FeatureCaller } from '@/lib/api-caller';
-import { dayCaf, kgOk, recommend, sumTotals, DEFAULT_GOAL, MAX_ENTRIES, type Entry, type Meal } from '@/lib/calories/calories';
+import { dayCaf, kgOk, recommend, sumTotals, DEFAULT_GOAL, MAX_ENTRIES, type Entry } from '@/lib/calories/calories';
 import { dayOfPregnancy } from '@/lib/pregnancy/dates';
-import { drinkById, type Drink } from '@/lib/pregnancy/drinks';
 import { bandLine, gainBand, gainVerdict } from '@/lib/pregnancy/gain';
-import { extraKcal, forViewer, type CafRow, type GainView, type Pregnancy, type PregnancyState } from '@/lib/pregnancy/pregnancy';
-import { addEntry, addRecent, getDays, getUser } from '@/models/Calories';
+import { cafRow, extraKcal, forViewer, memberCafRow, type CafRow, type GainView, type Pregnancy, type PregnancyState } from '@/lib/pregnancy/pregnancy';
+import { getDays, getUser } from '@/models/Calories';
 import { invitesFor, pregnancyFor } from '@/models/Pregnancy';
 import { getUserSettings } from '@/models/WorkoutUserSettings';
 
 export { bad, readJson, serverError } from '../calories/_shared';
+export { drinkEntry, logEntry } from '@/lib/pregnancy-diary';
 
 export type Gate = { caller: FeatureCaller; p: Pregnancy | null };
 
@@ -27,15 +26,9 @@ export async function requirePregnancyCaller(request: NextRequest): Promise<Gate
 export const isOwner = (p: Pregnancy | null, email: string): p is Pregnancy => !!p && p.owner === email;
 
 /** A doc on its way to `email`: members never get her weight or height. */
-export const pOut = (p: Pregnancy | null, email: string): Pregnancy | null => (p ? forViewer(p, email) : null);
+export const toViewer = (p: Pregnancy | null, email: string): Pregnancy | null => (p ? forViewer(p, email) : null);
 
-/** The emoji a caffeine row shows: the drink's own, else ☕. */
-const emojiOf = (e: Entry) => (e.ref.kind === 'drink' && e.ref.key ? drinkById(e.ref.key)?.emoji : null) ?? '☕';
-
-export const cafRows = (entries: Entry[]): CafRow[] =>
-  entries.filter((e) => (e.caf ?? 0) > 0).map((e) => ({
-    id: e.id, name: e.name, emoji: emojiOf(e), mg: e.caf as number, at: e.at, meal: e.meal, qty: e.qty, unit: e.unit.name,
-  }));
+export const cafRows = (entries: Entry[]): CafRow[] => entries.filter((e) => (e.caf ?? 0) > 0).map(cafRow);
 
 /** The owner's goal for the day as /calories computes it, with the trimester's extra while following. */
 export async function goalFor(email: string, day: number, year: number): Promise<number> {
@@ -67,37 +60,23 @@ export async function stateFor(email: string, p: Pregnancy | null, date: string,
   const canCoffee = await hasCurrentPermission(email, 'coffee-order');
   if (!p) {
     const user = await getUser(email);
-    return { role: 'none', p: null, invites: await invitesFor(email), caf: null, kcal: null, gain: null, canCoffee, heightCm: user.settings?.profile?.heightCm ?? null };
+    return { role: 'none', p: null, invites: await invitesFor(email), caf: null, kcal: null, gain: null, canCoffee, heightCm: user.settings?.profile?.heightCm ?? null, lastKg: user.weighIns.at(-1)?.kg ?? null };
   }
   const owner = p.owner === email;
   const entries = (await getDays(p.owner, [date]))[date] ?? [];
   const caf = { mg: dayCaf(entries), limit: p.cafLimit, rows: cafRows(entries) };
-  if (!owner) return { role: 'member', p: forViewer(p, email), invites: [], caf, kcal: null, gain: null, canCoffee, heightCm: null };
+  if (!owner) {
+    // Members: name, emoji, mg and time only — not her meals, amounts or entry ids.
+    const rows = caf.rows.map(memberCafRow);
+    return { role: 'member', p: toViewer(p, email), invites: [], caf: { ...caf, rows }, kcal: null, gain: null, canCoffee, heightCm: null, lastKg: null };
+  }
   const day = dayOfPregnancy(p.edd, date);
   const [goal, gain, user] = await Promise.all([goalFor(email, day, Number(date.slice(0, 4))), gainFor(p, today), getUser(email)]);
   return {
     role: 'owner', p, invites: [], caf,
     kcal: { eaten: sumTotals(entries.map((e) => e.nu)).kcal, goal },
-    gain, canCoffee, heightCm: user.settings?.profile?.heightCm ?? p.heightCm,
+    gain, canCoffee, heightCm: user.settings?.profile?.heightCm ?? p.heightCm, lastKg: null,
   };
-}
-
-/** A built-in drink as a diary entry: `qty` units, caffeine and totals frozen. */
-export function drinkEntry(d: Drink, qty: number, meal: Meal, extra: Partial<Entry> = {}): Entry {
-  const r1 = (v: number) => Math.round(v * 10) / 10;
-  const nu = { kcal: Math.round(d.nu.kcal * qty), p: r1(d.nu.p * qty), c: r1(d.nu.c * qty), f: r1(d.nu.f * qty) };
-  const caf = Math.round(d.mg * qty);
-  return {
-    id: randomUUID(), meal, name: d.name, img: null, ref: { kind: 'drink', key: d.id }, unit: { name: d.unit, g: d.g }, qty, nu, caf,
-    base: { qty, nu, caf }, at: new Date().toISOString(), ...extra,
-  };
-}
-
-/** Logs it and remembers it among her recent foods. false when the day is full. */
-export async function logEntry(email: string, date: string, e: Entry, per?: Entry['nu']): Promise<boolean> {
-  if (!(await addEntry(email, date, e))) return false;
-  await addRecent(email, { ref: e.ref, name: e.name, img: e.img, unit: e.unit, qty: e.qty, per100: null, ...(per ? { per } : {}) });
-  return true;
 }
 
 export const FULL_DAY = `אפשר עד ${MAX_ENTRIES} רישומים ביום`;

@@ -68,6 +68,10 @@ export const DRINKS: readonly Drink[] = [
 const BY_ID = new Map(DRINKS.map((d) => [d.id, d]));
 export const drinkById = (id: string): Drink | null => BY_ID.get(id) ?? null;
 
+/** The built-in drink an entry or a search hit refers to; null for anything else. */
+export const drinkOfRef = (ref: { kind: string; key: string | null }): Drink | null =>
+  ref.kind === 'drink' && ref.key ? drinkById(ref.key) : null;
+
 const norm = (s: string) => s.replace(/['`׳]/g, '׳').replace(/[^\p{L}\p{N}׳ ]/gu, ' ').replace(/\s+/g, ' ').trim().toLowerCase();
 /** `stem` as whole words in `text` ("שוקו" is not in "שוקולד"). */
 const has = (text: string, stem: string) => ` ${text} `.includes(` ${stem} `);

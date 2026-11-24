@@ -6,7 +6,7 @@ import { dayCaf, defaultMeal } from '@/lib/calories/calories';
 import { dayOfPregnancy, heDate, israelHour, israelToday, TRIMESTER_NAMES, trimester, weekDay, PREGNANCY_DAYS } from '@/lib/pregnancy/dates';
 import { matchDrink, DRINKS } from '@/lib/pregnancy/drinks';
 import { todayStrip } from '@/lib/pregnancy/schedule';
-import { drinkEntry, logEntry } from '@/app/api/pregnancy/_shared';
+import { drinkEntry, logEntry } from '@/lib/pregnancy-diary';
 import { getDays } from '@/models/Calories';
 import { pregnancyFor } from '@/models/Pregnancy';
 

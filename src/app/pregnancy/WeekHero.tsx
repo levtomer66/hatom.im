@@ -99,9 +99,9 @@ export function StageSheet({ p, week, onChange, onClose }: { p: Pregnancy; week:
       {stage ? (
         <figure className="pg-stage-fig">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={stage.img} alt={`איור של שלב ההתפתחות בסביבות שבוע ${stage.week}`} loading="lazy" referrerPolicy="no-referrer" />
+          <img src={stage.img} alt={stage.kind === 'us' ? `אולטרסאונד לדוגמה בסביבות שבוע ${stage.week}` : `איור של שלב ההתפתחות בסביבות שבוע ${stage.week}`} loading="lazy" referrerPolicy="no-referrer" />
           <figcaption>
-            {stage.week !== shown ? `איור לשבוע ${stage.week} (הקרוב ביותר) · ` : ''}
+            {stage.kind === 'us' ? 'אולטרסאונד לדוגמה (לא שלנו)' : 'איור'}{stage.week !== shown ? ` לשבוע ${stage.week} (הקרוב ביותר)` : ''} · 
             <a href={stage.page} target="_blank" rel="noopener noreferrer">{stage.author}</a>, {stage.license}, ויקישיתוף
           </figcaption>
         </figure>

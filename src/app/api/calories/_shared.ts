@@ -3,7 +3,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { requireFeatureCaller, type FeatureCaller } from '@/lib/api-caller';
-import { pregnantOwner } from '@/models/Pregnancy';
+import { activePregnantOwner } from '@/lib/pregnancy-diary';
 import { toTotals, unitsFor } from '@/lib/calories/calories';
 import type { FoodDoc } from '@/lib/calories/moh';
 import type { FoodHit, ProductResponse } from '@/lib/calories/api-types';
@@ -73,13 +73,14 @@ export const drinkHit = (d: Drink): FoodHit => ({
  * The diary's gate for what /pregnancy uses (day, day/[id], search, product, label,
  * to-list): the `calories` permission, or a pregnant owner (`pregnancy` + an active
  * pregnancy of her own), so she logs food without `calories` granted separately
- * (docs/superpowers/specs/2026-11-24-pregnancy-design.md § Access). Goals, weight,
- * steps, workouts and home-made meals stay `calories`-only.
+ * (docs/superpowers/specs/2026-11-24-pregnancy-design.md § Access). Changing goals,
+ * weight, steps, workouts and home-made meals stays `calories`-only; the day's GET
+ * reads her own goals and activity alongside the entries.
  */
 export async function requireDiaryCaller(request: NextRequest): Promise<FeatureCaller | NextResponse> {
   const caller = await requireFeatureCaller(request, 'calories');
   if (!(caller instanceof NextResponse) || caller.status !== 403) return caller;
   const preg = await requireFeatureCaller(request, 'pregnancy');
   if (preg instanceof NextResponse) return caller;
-  return (await pregnantOwner(preg.userEmail)) ? preg : caller;
+  return (await activePregnantOwner(preg.userEmail)) ? preg : caller;
 }

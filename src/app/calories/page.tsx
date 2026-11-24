@@ -28,6 +28,7 @@ import WeekBars from './WeekBars';
 import Workouts, { BurnedSheet, StepsSheet } from './Workouts';
 import * as api from './api';
 import { PregnantProvider, WarnChip } from './pregnant';
+import { drinkOfRef } from '@/lib/pregnancy/drinks';
 import { GainTileLoader } from '../pregnancy/GainTile';
 
 const pad = (n: number) => String(n).padStart(2, '0');
@@ -239,7 +240,7 @@ export default function CaloriesPage() {
                       <SwipeRow key={e.id} className="cal-entry" label="מחיקה" onRemove={() => void remove(e)}>
                         <button type="button" className="cal-entry-btn" onClick={() => setSheet({ kind: 'edit', entry: e })}>
                           <Thumb src={e.img} size={36} />
-                          <span className="cal-entry-name">{e.name} <WarnChip name={e.name} /><small>{amountText(e.unit, e.qty)}{e.caf ? <span className="cal-entry-caf"> · ☕ {e.caf} מ״ג</span> : null}</small></span>
+                          <span className="cal-entry-name">{e.name} <WarnChip name={e.name} text={drinkOfRef(e.ref)?.warn} /><small>{amountText(e.unit, e.qty)}{e.caf ? <span className="cal-entry-caf"> · ☕ {e.caf} מ״ג</span> : null}</small></span>
                           <span className="cal-entry-kcal">{e.nu.kcal.toLocaleString('he-IL')}</span>
                         </button>
                       </SwipeRow>

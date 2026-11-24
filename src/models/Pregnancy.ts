@@ -4,7 +4,7 @@ import {
   MAX_EVENTS, MAX_INVITES, MAX_MEMBERS, MAX_REMINDERS,
   type Dating, type Invite, type Patch, type Pregnancy, type Scan,
 } from '@/lib/pregnancy/pregnancy';
-import { markDone, type PEvent, type Reminder, type SuggestionId } from '@/lib/pregnancy/schedule';
+import { doneCutoff, type PEvent, type Reminder, type SuggestionId } from '@/lib/pregnancy/schedule';
 import { DEFAULT_CAF_LIMIT } from '@/lib/pregnancy/drinks';
 
 // Pregnancies (docs/superpowers/specs/2026-11-24-pregnancy-design.md § Data): one
@@ -91,10 +91,17 @@ export const addReminder = (id: string, r: Reminder) =>
 export const updateReminder = (id: string, r: Reminder) => update(id, { 'reminders.id': r.id }, { $set: { 'reminders.$': r } });
 export const deleteReminder = (id: string, rid: string) => update(id, { 'reminders.id': rid }, { $pull: { reminders: { id: rid } } });
 
+/**
+ * Ticks (or unticks) one day atomically — two devices ticking at once both land —
+ * then drops dates older than the 14-day window. The caller checks `date` is in it.
+ */
 export async function setDone(p: Pregnancy, rid: string, date: string, done: boolean, today: string): Promise<Pregnancy | null> {
-  const r = p.reminders.find((x) => x.id === rid);
-  if (!r) return null;
-  return update(p.id, { 'reminders.id': rid }, { $set: { 'reminders.$.done': markDone(r, date, done, today).done } });
+  const ticked = await update(p.id, { 'reminders.id': rid }, done ? { $addToSet: { 'reminders.$.done': date } } : { $pull: { 'reminders.$.done': date } });
+  if (!ticked) return null;
+  const cutoff = doneCutoff(today);
+  const stale = ticked.reminders.find((r) => r.id === rid)?.done.some((d) => d < cutoff);
+  if (!stale) return ticked; // most ticks: one write
+  return (await update(p.id, { 'reminders.id': rid }, { $pull: { 'reminders.$.done': { $lt: cutoff } } })) ?? ticked;
 }
 
 // ── members ──

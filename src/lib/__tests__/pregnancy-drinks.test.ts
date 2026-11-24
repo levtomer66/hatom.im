@@ -67,6 +67,7 @@ test('foodWarning: pregnancy stems', () => {
   assert.equal(foodWarning('חומץ יין אדום'), null);
   assert.ok(foodWarning('סושי סלמון 8 יח׳'));
   assert.ok(foodWarning('כבד עוף'));
+  assert.ok(foodWarning('סטייק חרב'));
   assert.ok(foodWarning('גבינת ברי'));
   assert.equal(foodWarning('גבינה צהובה'), null);
   assert.equal(foodWarning('סלט ירקות'), null);

@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { addDays, dateOfDay } from '../pregnancy/dates.ts';
-import { dueOn, markDone, openSuggestions, SUGGESTIONS, todayStrip, weekMarks, type PEvent, type Reminder } from '../pregnancy/schedule.ts';
+import { dueOn, openSuggestions, SUGGESTIONS, todayStrip, weekMarks, type PEvent, type Reminder } from '../pregnancy/schedule.ts';
 
 const EDD = '2027-06-08'; // day 0 = 2026-09-01 (a Tuesday)
 const ev = (o: Partial<PEvent>): PEvent => ({ id: 'e1', title: 'תור', date: '2026-11-24', kind: 'custom', remindBefore: true, ...o });
@@ -46,12 +46,6 @@ test('todayStrip: today\'s events, reminders, tomorrow only with remindBefore, w
   assert.ok(!after.some((s) => s.id === 'nt'));
 });
 
-test('markDone toggles and keeps only the last 14 days', () => {
-  const r = rem({ done: ['2026-11-01', '2026-11-20'] });
-  const on = markDone(r, '2026-11-24', true, '2026-11-24');
-  assert.deepEqual(on.done, ['2026-11-20', '2026-11-24']);
-  assert.deepEqual(markDone(on, '2026-11-24', false, '2026-11-24').done, ['2026-11-20']);
-});
 
 test('weekMarks counts a week\'s events and its open windows', () => {
   const p = { edd: EDD, events: [ev({ date: dateOfDay(EDD, 80) })], reminders: [], dismissed: [] };
@@ -59,9 +53,12 @@ test('weekMarks counts a week\'s events and its open windows', () => {
   assert.equal(weekMarks(p, 12).events, 0);
 });
 
-test('markDone keeps only dates in the last 14 days, a future one included', () => {
-  const r = rem({ done: [] });
-  assert.deepEqual(markDone(r, '2026-12-30', true, '2026-11-24').done, []);
-  assert.deepEqual(markDone(r, '2026-11-01', true, '2026-11-24').done, []);
-  assert.deepEqual(markDone(r, '2026-11-11', true, '2026-11-24').done, ['2026-11-11']);
+
+test('inDoneWindow and doneCutoff: today and the 13 days before', async () => {
+  const { inDoneWindow, doneCutoff } = await import('../pregnancy/schedule.ts');
+  assert.equal(inDoneWindow('2026-11-24', '2026-11-24'), true);
+  assert.equal(inDoneWindow('2026-11-11', '2026-11-24'), true);
+  assert.equal(inDoneWindow('2026-11-10', '2026-11-24'), false);
+  assert.equal(inDoneWindow('2026-11-25', '2026-11-24'), false);
+  assert.equal(doneCutoff('2026-11-24'), '2026-11-11');
 });

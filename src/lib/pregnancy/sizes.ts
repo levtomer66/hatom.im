@@ -1,8 +1,9 @@
 // The week hero's size line (docs/superpowers/specs/2026-11-24-pregnancy-design.md § The week):
 // a fruit or vegetable common in Israel, with a typical length and weight. Lengths
 // are crown–rump to week 19 and crown–heel from 20 (hence the jump); the values
-// are the commonly published week-by-week averages (Hadlock-based growth charts),
-// rounded — an illustration, not a medical measure. Import-free.
+// follow the UNSW Embryology "Fetal Development – Length – Weight" table (weeks
+// 8–40; Westerway 2000 CRL for 5–7; 4–6 are the usual tracker images), rounded —
+// an illustration, not a medical measure. Import-free.
 
 export interface Size { fruit: string; emoji: string; cm: number; g: number }
 

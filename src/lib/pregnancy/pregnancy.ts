@@ -4,6 +4,7 @@
 
 import { parseInviteEmail } from '../shopping/household.ts';
 import { dayOfPregnancy, eddFrom, isDate, trimester, type DatingMethod } from './dates.ts';
+import { drinkOfRef } from './drinks.ts';
 import { SUGGESTION_IDS, type PEvent, type Reminder, type SuggestionId } from './schedule.ts';
 
 export type Result<T> = { ok: true; value: T } | { ok: false; error: string };
@@ -165,7 +166,19 @@ export const extraKcal = (day: number): 0 | 340 | 450 => ({ 1: 0, 2: 340, 3: 450
 
 // ── what the routes return ──
 
-export interface CafRow { id: string; name: string; emoji: string; mg: number; at: string; meal: string; qty: number; unit: string }
+/** A caffeine row: name, emoji, mg and time; the rest only for the owner (members never get them). */
+export interface CafRow { id: string; name: string; emoji: string; mg: number; at: string; meal?: string; qty?: number; unit?: string; /** A built-in drink's MoH note. */ warn?: string }
+
+type CafEntry = { id: string; name: string; ref: { kind: string; key: string | null }; caf?: number; at: string; meal: string; qty: number; unit: { name: string } };
+
+/** A diary entry with caffeine as the owner's row (the page and the server build it the same way). */
+export const cafRow = (e: CafEntry): CafRow => ({
+  id: e.id, name: e.name, emoji: drinkOfRef(e.ref)?.emoji ?? '☕', mg: e.caf ?? 0, at: e.at, meal: e.meal, qty: e.qty, unit: e.unit.name,
+  ...(drinkOfRef(e.ref)?.warn ? { warn: drinkOfRef(e.ref)?.warn } : {}),
+});
+
+/** What a member sees of it: name, emoji, mg and time. */
+export const memberCafRow = (r: CafRow, i: number): CafRow => ({ id: String(i), name: r.name, emoji: r.emoji, mg: r.mg, at: r.at });
 
 export interface GainView {
   gain: number; lo: number; hi: number; bmi: number;
@@ -189,6 +202,8 @@ export interface PregnancyState {
   canCoffee: boolean;
   /** The owner's height is known (calories profile). */
   heightCm: number | null;
+  /** Before setup: her latest weigh-in, to prefill the pre-pregnancy weight. */
+  lastKg: number | null;
 }
 
 export interface MeResponse { gain: GainView | null; cafToday: number; limit: number; day: number }

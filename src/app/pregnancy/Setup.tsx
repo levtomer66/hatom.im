@@ -48,9 +48,9 @@ function DatingFields({ f, onChange }: { f: DateFields; onChange: (f: DateFields
   );
 }
 
-export function Setup({ today, heightKnown, onDone }: { today: string; heightKnown: boolean; onDone: () => void }) {
+export function Setup({ today, heightKnown, lastKg, onDone }: { today: string; heightKnown: boolean; lastKg: number | null; onDone: () => void }) {
   const [f, setF] = useState<DateFields>(fieldsOf());
-  const [kg, setKg] = useState('');
+  const [kg, setKg] = useState(lastKg !== null ? String(lastKg) : '');
   const [height, setHeight] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);

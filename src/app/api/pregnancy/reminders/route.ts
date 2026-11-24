@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { MAX_REMINDERS, parseReminder } from '@/lib/pregnancy/pregnancy';
 import { addReminder, deleteReminder, updateReminder } from '@/models/Pregnancy';
-import { bad, readJson, requirePregnancyCaller, serverError, pOut } from '../_shared';
+import { bad, readJson, requirePregnancyCaller, serverError, toViewer } from '../_shared';
 
 // Reminders (in-page only): anyone in the pregnancy. Each answers { p }.
 
@@ -16,7 +16,7 @@ export async function POST(request: NextRequest) {
   if (!r.ok) return bad(r.error);
   try {
     const p = await addReminder(gate.p.id, { ...r.value, id: randomUUID(), done: [] });
-    return p ? NextResponse.json({ p: pOut(p, gate.caller.userEmail) }, { status: 201 }) : bad(`אפשר עד ${MAX_REMINDERS} תזכורות`);
+    return p ? NextResponse.json({ p: toViewer(p, gate.caller.userEmail) }, { status: 201 }) : bad(`אפשר עד ${MAX_REMINDERS} תזכורות`);
   } catch (error) {
     return serverError('adding a reminder', error);
   }
@@ -35,7 +35,7 @@ export async function PATCH(request: NextRequest) {
   if (!r.ok) return bad(r.error);
   try {
     const p = await updateReminder(gate.p.id, { ...r.value, id: old.id, done: old.done });
-    return p ? NextResponse.json({ p: pOut(p, gate.caller.userEmail) }) : bad('תזכורת לא נמצאה', 404);
+    return p ? NextResponse.json({ p: toViewer(p, gate.caller.userEmail) }) : bad('תזכורת לא נמצאה', 404);
   } catch (error) {
     return serverError('updating a reminder', error);
   }
@@ -49,7 +49,7 @@ export async function DELETE(request: NextRequest) {
   if (!id) return bad('תזכורת לא נמצאה', 404);
   try {
     const p = await deleteReminder(gate.p.id, id);
-    return p ? NextResponse.json({ p: pOut(p, gate.caller.userEmail) }) : bad('תזכורת לא נמצאה', 404);
+    return p ? NextResponse.json({ p: toViewer(p, gate.caller.userEmail) }) : bad('תזכורת לא נמצאה', 404);
   } catch (error) {
     return serverError('deleting a reminder', error);
   }

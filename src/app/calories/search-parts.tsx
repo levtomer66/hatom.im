@@ -11,7 +11,7 @@ import { Thumb } from '../shopping/ui';
 import { amountText, MOH_CREDIT } from './AmountStep';
 import QuickAdd from './QuickAdd';
 import { WarnChip } from './pregnant';
-import { drinkById } from '@/lib/pregnancy/drinks';
+import { drinkOfRef } from '@/lib/pregnancy/drinks';
 import { myItems, search } from './api';
 
 export type LogFn = (entry: Omit<Entry, 'id' | 'at' | 'meal'>, per100: FoodHit['per100'], per?: FoodHit['per']) => void;
@@ -81,7 +81,7 @@ export function HitGroups({ res, withMeals, loading, onPick }: { res: SearchResp
               <li key={`${h.ref.kind}:${h.ref.key}`}>
                 <button type="button" className="cal-hit" onClick={() => onPick(h)}>
                   <Thumb src={h.img} size={40} />
-                  <span className="cal-hit-name">{h.name} <WarnChip name={h.name} text={h.ref.kind === 'drink' && h.ref.key ? drinkById(h.ref.key)?.warn : undefined} />{h.maker ? <small>{h.maker}</small> : null}</span>
+                  <span className="cal-hit-name">{h.name} <WarnChip name={h.name} text={drinkOfRef(h.ref)?.warn} />{h.maker ? <small>{h.maker}</small> : null}</span>
                   <span className="cal-hit-kcal">
                     {h.source === 'drink' ? <>☕ {h.caf}<small>מ״ג ל{h.units[0]?.name}</small></> : h.per100 ? <>{h.per100.kcal}<small>ל־100 ג׳</small></> : h.per ? <>{h.per.kcal}<small>למנה</small></> : <small>אין ערכים</small>}
                   </span>

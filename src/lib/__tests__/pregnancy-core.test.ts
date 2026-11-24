@@ -98,3 +98,10 @@ test('forViewer hides her body data from members', async () => {
   assert.equal(m.cafLimit, 200);
   assert.equal(forViewer(p, 'a@x.com').preKg, 60);
 });
+
+test('stages say which pictures are ultrasounds', async () => {
+  const { STAGES } = await import('../pregnancy/stages.ts');
+  assert.ok(STAGES.every((s) => s.kind === 'drawing' || s.kind === 'us'));
+  assert.equal(STAGES.find((s) => s.week === 13)?.kind, 'us');
+  assert.equal(STAGES.find((s) => s.week === 36)?.kind, 'drawing');
+});

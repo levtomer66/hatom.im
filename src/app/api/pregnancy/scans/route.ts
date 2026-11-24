@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { del, put } from '@vercel/blob';
 import sharp from 'sharp';
 import { deleteScan, setScan } from '@/models/Pregnancy';
-import { bad, requirePregnancyCaller, serverError, pOut } from '../_shared';
+import { bad, requirePregnancyCaller, serverError, toViewer } from '../_shared';
 
 // A scan per pregnancy week, in Vercel Blob (only its URL in the doc), the
 // trip-journey pattern: resized here to 1600 px, JPEG 0.82, metadata stripped.
@@ -45,7 +45,7 @@ export async function POST(request: NextRequest) {
       return bad('אין הריון פעיל', 404);
     }
     if (r.replaced) await del(r.replaced).catch((e) => console.error('pregnancy: deleting a replaced scan:', e));
-    return NextResponse.json({ p: pOut(r.p, gate.caller.userEmail) }, { status: 201 });
+    return NextResponse.json({ p: toViewer(r.p, gate.caller.userEmail) }, { status: 201 });
   } catch (error) {
     return serverError('uploading a scan', error);
   }
@@ -62,7 +62,7 @@ export async function DELETE(request: NextRequest) {
     const r = await deleteScan(gate.p.id, week);
     if (!r) return bad('אין הריון פעיל', 404);
     if (r.url) await del(r.url).catch((e) => console.error('pregnancy: deleting a scan:', e));
-    return NextResponse.json({ p: pOut(r.p, gate.caller.userEmail) });
+    return NextResponse.json({ p: toViewer(r.p, gate.caller.userEmail) });
   } catch (error) {
     return serverError('deleting a scan', error);
   }

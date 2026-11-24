@@ -9,6 +9,7 @@ import React, { useState } from 'react';
 import { cafLevel, drinkById, DRINKS, CAF_WARN } from '@/lib/pregnancy/drinks';
 import type { CafRow } from '@/lib/pregnancy/pregnancy';
 import { SwipeRow } from '../shopping/ui';
+import { WarnChip } from '../calories/pregnant';
 
 const R = 46;
 const C = 2 * Math.PI * R;
@@ -72,7 +73,7 @@ export function CafRows({ rows, onEdit, onRemove }: { rows: CafRow[]; onEdit?: (
         const inner = (
           <>
             <span className="pg-caf-emoji" aria-hidden>{r.emoji}</span>
-            <span className="cal-entry-name">{r.name}<small>{r.qty !== 1 ? `${r.qty.toLocaleString('he-IL')} × ${r.unit} · ` : ''}{time(r.at)}</small></span>
+            <span className="cal-entry-name">{r.name} <WarnChip name={r.name} text={r.warn} /><small>{r.qty !== undefined && r.qty !== 1 ? `${r.qty.toLocaleString('he-IL')} × ${r.unit} · ` : ''}{time(r.at)}</small></span>
             <span className="cal-entry-kcal">{r.mg}<small> מ״ג</small></span>
           </>
         );

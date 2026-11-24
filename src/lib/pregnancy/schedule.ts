@@ -2,7 +2,7 @@
 // the routine Israeli schedule as suggestions, events, in-page reminders and the
 // "היום" strip. Suggestions are constants, never copied into the doc. Import-free.
 
-import { addDays, dayOfPregnancy, daysBetween, weekdayOf } from './dates.ts';
+import { addDays, dayOfPregnancy, weekdayOf } from './dates.ts';
 
 export type SuggestionId = 'first-visit' | 'heartbeat' | 'nt' | 'early-scan' | 'triple' | 'late-scan' | 'gct' | 'anti-d' | 'tdap' | 'gbs' | 'monitor';
 
@@ -77,12 +77,12 @@ export function todayStrip(p: CalendarPart, today: string): StripItem[] {
   ];
 }
 
-/** Tick (or untick) a reminder for `date`; only dates in the 14 days up to today are kept (a future one never). */
-export function markDone(r: Reminder, date: string, done: boolean, today: string): Reminder {
-  const inWindow = (d: string) => { const n = daysBetween(d, today); return n >= 0 && n < DONE_DAYS; };
-  const kept = r.done.filter((d) => d !== date && inWindow(d));
-  return { ...r, done: (done && inWindow(date) ? [...kept, date] : kept).sort() };
-}
+/** The first date `done` keeps (13 days before today). */
+export const doneCutoff = (today: string): string => addDays(today, -(DONE_DAYS - 1));
+
+/** A tick is for today or one of the 13 days before it. */
+export const inDoneWindow = (date: string, today: string): boolean => date >= doneCutoff(today) && date <= today;
+
 
 /** For a cube's dots: events in that pregnancy week, open suggestions whose window covers it. */
 export function weekMarks(p: CalendarPart, week: number): { events: number; windows: number } {

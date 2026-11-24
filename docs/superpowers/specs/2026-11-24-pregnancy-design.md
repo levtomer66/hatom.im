@@ -185,7 +185,7 @@ anywhere removes it everywhere.
   sheet with the weigh-ins since the pregnancy started against the band (an
   SVG line). It's shown on /pregnancy, on /calories (beside the weight card) and on
   /workout (the home screen, above the templates), through one read,
-  `GET /api/pregnancy/me`, which answers `{ gain }` or `null`. Weight stays the
+  `GET /api/pregnancy/me`, which answers `{ gain, cafToday, limit, day }` (the last three for /coffee-order's line) or `null`. Weight stays the
   workout app's single value. The weigh-ins are calories' existing log.
 
 ## Data (Atlas M0)

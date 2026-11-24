@@ -16,7 +16,7 @@ import { defaultMeal, rollToday, type Entry, type Meal, type Totals } from '@/li
 import type { DayResponse } from '@/lib/calories/api-types';
 import { dayOfPregnancy } from '@/lib/pregnancy/dates';
 import { drinkById } from '@/lib/pregnancy/drinks';
-import type { CafRow, Pregnancy, PregnancyState } from '@/lib/pregnancy/pregnancy';
+import { cafRow, type Pregnancy, type PregnancyState } from '@/lib/pregnancy/pregnancy';
 import type { PEvent, Suggestion } from '@/lib/pregnancy/schedule';
 import AddSheet from '../calories/AddSheet';
 import EditSheet from '../calories/EditSheet';
@@ -48,10 +48,6 @@ function dateLabel(date: string, today: string) {
   return `יום ${WEEKDAY[new Date(Date.UTC(y, m - 1, d)).getUTCDay()]} ${d}.${m}`;
 }
 
-const rowOf = (e: Entry): CafRow => ({
-  id: e.id, name: e.name, emoji: (e.ref.kind === 'drink' && e.ref.key ? drinkById(e.ref.key)?.emoji : null) ?? '☕',
-  mg: e.caf ?? 0, at: e.at, meal: e.meal, qty: e.qty, unit: e.unit.name,
-});
 
 type SheetState =
   | { kind: 'stage'; week: number }
@@ -132,7 +128,7 @@ export default function PregnancyPage() {
 
   const shownDay = day && day.date === date ? day : null;
   const entries = useMemo(() => shownDay?.entries ?? [], [shownDay]);
-  const ownerRows = useMemo(() => entries.filter((e) => (e.caf ?? 0) > 0).map(rowOf), [entries]);
+  const ownerRows = useMemo(() => entries.filter((e) => (e.caf ?? 0) > 0).map(cafRow), [entries]);
 
   if (!date || !today) return <main className="sh-page cal-page pg-page" />;
   const p = state?.p ?? null;
@@ -191,7 +187,7 @@ export default function PregnancyPage() {
         {state && !p ? (
           <>
             <InviteCards invites={state.invites} onDone={() => void load(date)} />
-            <Setup today={today} heightKnown={state.heightCm !== null} onDone={() => void load(date)} />
+            <Setup today={today} heightKnown={state.heightCm !== null} lastKg={state.lastKg} onDone={() => void load(date)} />
           </>
         ) : null}
 
