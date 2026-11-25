@@ -12,7 +12,7 @@ import { PotArt } from './art';
 import TabBar, { type View } from './TabBar';
 import { filterRecipes, tagsOf } from '@/lib/recipes/filter';
 import type { RecipeSummary } from '@/lib/recipes/types';
-import ImportSheet from './ImportSheet';
+import StartSheet from './StartSheet';
 import ImportsList from './ImportsList';
 import type { ImportRequest } from '@/lib/recipes/imports';
 import RecipeCard from './RecipeCard';
@@ -33,7 +33,7 @@ function Book() {
   const [error, setError] = useState<string | null>(null);
   const [q, setQ] = useState('');
   const [tags, setTags] = useState<string[]>([]);
-  const [importing, setImporting] = useState(false);
+  const [starting, setStarting] = useState(false);
   const [creating, setCreating] = useState(false);
   const [imports, setImports] = useState<ImportRequest[]>([]);
   const open = imports.some((r) => r.status === 'queued' || r.status === 'working');
@@ -77,20 +77,21 @@ function Book() {
     setTags([]);
     router.push(t === 'feed' ? '/recipes?view=feed' : '/recipes', { scroll: false });
   };
-  const start = () => setImporting(true);
+  const start = () => setStarting(true);
 
   const list = lists[tab];
   const shown = useMemo(() => (list ? filterRecipes(list, q, tags) : []), [list, q, tags]);
   const allTags = useMemo(() => (list ? tagsOf(list) : []), [list]);
 
+  // "מאפס": a new empty recipe, opened in the editor (errors show in the sheet).
   const create = async () => {
     setCreating(true);
     try {
       const r = await api.createRecipe();
       router.push(`/recipes/${r.id}?edit=1`);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'לא נוצר');
       setCreating(false);
+      throw e;
     }
   };
 
@@ -136,7 +137,7 @@ function Book() {
 
       <TabBar view={tab} onView={pick} showList={hasPermission(session, 'shopping')} />
 
-      {importing ? <ImportSheet onClose={() => setImporting(false)} onRequested={(r) => { setImporting(false); setImports((l) => [r, ...l]); }} /> : null}
+      {starting ? <StartSheet onClose={() => setStarting(false)} onScratch={create} onQueued={(r) => { setStarting(false); setImports((l) => [r, ...l]); }} /> : null}
     </main>
   );
 }

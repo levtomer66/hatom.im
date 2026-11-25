@@ -177,3 +177,18 @@ textarea.rc-input { resize: vertical; line-height: 1.5; }
 .rc-tab { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-width: 76px; min-height: 52px; padding: 0 0.75rem; border: 0; border-radius: 999px; background: none; color: var(--rc-muted); font: inherit; font-size: 0.75rem; text-decoration: none; cursor: pointer; }
 .rc-tab svg { font-size: 1.125rem; }
 .rc-tab.is-on { background: var(--rc-accent-soft); color: var(--rc-accent); font-weight: 600; }
+
+/* start sheet (spec 2026-11-25 § Start sheet) */
+.rc-app .sh-sheet { background: var(--rc-bg); color: var(--rc-text); border-radius: 28px 28px 0 0; }
+.rc-start .rc-start-art { margin: 0.25rem auto 0; color: var(--rc-muted); }
+.rc-start-title { margin: 0.5rem 0 0.25rem; font-size: 1.625rem; text-align: center; }
+.rc-start-line { margin: 0 0 1.25rem; color: var(--rc-muted); text-align: center; }
+.rc-start-cards { display: grid; gap: 0.75rem; padding-bottom: env(safe-area-inset-bottom); }
+.rc-start-card { display: flex; align-items: center; gap: 1rem; min-height: 84px; padding: 1rem 1.125rem; border: 1px solid var(--rc-line); border-radius: 22px; background: linear-gradient(160deg, var(--rc-raised), color-mix(in srgb, var(--rc-raised) 70%, var(--rc-accent-soft))); color: var(--rc-text); font: inherit; text-align: start; cursor: pointer; }
+.rc-start-card strong { display: block; font-size: 1.25rem; line-height: 1.25; }
+.rc-start-card small { display: block; margin-top: 0.125rem; color: var(--rc-muted); font-size: 0.9375rem; }
+.rc-start-icon { display: grid; place-items: center; flex: none; width: 52px; height: 52px; border-radius: 50%; background: var(--rc-accent-soft); color: var(--rc-accent); font-size: 1.25rem; }
+.rc-start-back { display: inline-flex; align-items: center; gap: 0.375rem; min-height: 44px; padding: 0; border: 0; background: none; color: var(--rc-muted); font: inherit; cursor: pointer; }
+.rc-start-hint { margin: 0.75rem 0 0; text-align: center; font-size: 0.875rem; }
+.rc-app .rc-input { background: var(--rc-field); border-color: transparent; border-radius: 16px; }
+.rc-start > .cal-sheet-title { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
