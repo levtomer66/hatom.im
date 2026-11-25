@@ -11,7 +11,7 @@ export const IDEA_RULES = `Writing from an idea (this request has no link or tex
 - Tags as for imports. When the idea isn't a dish or a drink, fail the request with a short Hebrew reason.`;
 
 export const CONVERSION_RULES = `Conversion rules (Israel):
-- Write the name, ingredients, steps, tags and notes in Hebrew.
+- Write the name, a short description (one line, ≤ 200 chars), ingredients, steps, tags and notes in Hebrew.
 - Amounts in grams / ml, or כוס / כף / כפית (cup = 240 ml, tbsp = 15 ml, tsp = 5 ml); oz → grams (28 g), lb → grams (454 g), a stick of butter = 113 g. Keep "לפי הטעם" lines without an amount.
 - Temperatures in °C (°F → °C, rounded to 5: 350°F → 175°C).
 - Swap US products for what an Israeli supermarket sells: heavy cream → שמנת מתוקה 38%; sour cream → שמנת חמוצה 15%; all-purpose flour → קמח לבן; half-and-half → חצי שמנת מתוקה חצי חלב; buttermilk → לבן או רוויון; cream cheese → גבינת שמנת 30%; kosher salt → מלח גס; baking soda → סודה לשתייה; scallions → בצל ירוק; cilantro → כוסברה; ground beef → בשר בקר טחון; powdered sugar → אבקת סוכר; brown sugar → סוכר חום.
