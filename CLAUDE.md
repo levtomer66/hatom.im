@@ -531,6 +531,15 @@ Identity = Gmail address. Two roles:
   `recipes_save`'s description); improve imports there and in PROMPT.md.
   Auto-linked lines are marked `auto` → "לבדוק"; images are copied to Blob
   through `safeImageUrl` (https, public hosts, 5 MB).
+- **Look and entry** (spec `2026-11-25-recipes-warm-ux-design.md`): /recipes wears its
+  own warm look — `--rc-*` tokens on `.rc-app` (the layout wrapper) remap the
+  shopping/calories tokens their components read; Frank Ruhl Libre for headings
+  (`.rc-serif`); line-art in `art.tsx` (ours, inline SVG). + opens `StartSheet`:
+  an idea, pasted text or a link become an import request (an idea is
+  `prompt`, written by the agent under `IDEA_RULES`); מאפס opens an empty
+  recipe. The book's view is `?view=feed` (back works); the floating `TabBar`
+  shows on the book only. `description` (≤ 200) sits under the name; the
+  editor's link is `sourceUrl` on the wire, `source` in the doc.
 - `src/lib/recipes/*.ts` are import-free for `node --test`, except `server.ts`,
   `products.ts`, `match-server.ts`, `autolink.ts` and `mcp-tools.ts`.
 

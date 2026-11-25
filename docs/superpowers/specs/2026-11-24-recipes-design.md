@@ -1,5 +1,8 @@
 # Recipes (`/recipes`)
 
+> The UI (look, start sheet, tab bar, cover-first editor) and prompt-to-table
+> requests were redesigned on 2026-11-25: `2026-11-25-recipes-warm-ux-design.md`.
+
 A personal recipe book: add, view and share recipes; send their ingredients to
 the shopping list; log a serving to /calories; import recipes from social media
 through Claude (MCP). Asked for by the owner on 2026-11-24; every decision below
