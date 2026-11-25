@@ -12,6 +12,7 @@ import { shareText } from '@/lib/recipes/share';
 import type { Recipe } from '@/lib/recipes/types';
 import Macros from '../calories/Macros';
 import Sheet from '../calories/Sheet';
+import CoverBand from './CoverBand';
 import LogSheet from './LogSheet';
 import ServingsStepper from './ServingsStepper';
 import ToListSheet from './ToListSheet';
@@ -80,8 +81,9 @@ export default function RecipeView({ recipe, me, can, servings, setServings, onE
 
   return (
     <article className="rc-recipe">
-      {recipe.photo ? <img className="rc-photo" src={recipe.photo} alt="" /> : null}
-      <h1 className="rc-name">{recipe.name}</h1>
+      <CoverBand photo={recipe.photo} />
+      <h1 className="rc-name rc-serif">{recipe.name}</h1>
+      {recipe.description ? <p className="rc-desc">{recipe.description}</p> : null}
       <p className="rc-meta">
         {recipe.prepMin ? <span>הכנה {recipe.prepMin} דק׳</span> : null}
         {recipe.cookMin ? <span>בישול {recipe.cookMin} דק׳</span> : null}

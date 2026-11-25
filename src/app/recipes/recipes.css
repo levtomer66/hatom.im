@@ -192,3 +192,22 @@ textarea.rc-input { resize: vertical; line-height: 1.5; }
 .rc-start-hint { margin: 0.75rem 0 0; text-align: center; font-size: 0.875rem; }
 .rc-app .rc-input { background: var(--rc-field); border-color: transparent; border-radius: 16px; }
 .rc-start > .cal-sheet-title { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+
+/* cover band + head fields (spec 2026-11-25 § Create and edit, § Recipe page) */
+.rc-cover { position: relative; overflow: hidden; height: 200px; margin: 0 -1rem 0; background: var(--rc-raised); }
+.rc-cover.is-empty { color: var(--rc-muted); }
+.rc-cover-img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.rc-cover .rc-pattern { position: absolute; inset: 0; }
+.rc-cover.is-busy { opacity: 0.6; }
+.rc-cover-chip { position: absolute; bottom: 36px; inset-inline-start: 50%; transform: translateX(50%); display: inline-flex; align-items: center; gap: 0.5rem; min-height: 40px; padding: 0 1rem; border: 0; border-radius: 999px; background: color-mix(in srgb, var(--rc-bg) 80%, transparent); color: var(--rc-text); font: inherit; font-size: 0.9375rem; cursor: pointer; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
+.rc-cover-remove { inset-inline-start: auto; inset-inline-end: 12px; top: 12px; bottom: auto; transform: none; min-height: 34px; font-size: 0.8125rem; }
+.rc-head-fields { position: relative; z-index: 1; display: grid; gap: 0.625rem; margin: -24px 0 1rem; }
+.rc-app .rc-input-name { min-height: 60px; padding: 0 1.125rem; font-size: 1.5rem; font-weight: 700; background: var(--rc-raised); box-shadow: 0 8px 24px rgb(0 0 0 / 0.18); }
+.rc-input-desc { resize: none; padding: 0.75rem 1.125rem; }
+.rc-link-field { display: flex; align-items: center; gap: 0.75rem; min-height: 52px; padding: 0 1.125rem; border-radius: 16px; background: var(--rc-field); color: var(--rc-muted); }
+.rc-link-field span { color: var(--rc-text); }
+.rc-link-field input { flex: 1; min-width: 0; border: 0; background: none; color: var(--rc-text); font: inherit; font-size: 16px; text-align: left; outline: none; }
+.rc-link-field:has(input[aria-invalid="true"]) { box-shadow: inset 0 0 0 2px var(--rc-accent); }
+.rc-link-field:focus-within { box-shadow: inset 0 0 0 2px var(--rc-muted); }
+.rc-name.rc-serif { margin-top: 1rem; font-size: 1.75rem; }
+.rc-desc { margin: 0 0 0.5rem; color: var(--rc-muted); font-size: 1.0625rem; }

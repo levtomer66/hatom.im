@@ -6,21 +6,22 @@
 // other. "סיום" sends what's still waiting and goes back to the recipe.
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { FaArrowDown, FaArrowUp, FaCamera, FaCheck, FaPlus, FaTimes } from 'react-icons/fa';
+import { FaArrowDown, FaArrowUp, FaCheck, FaPlus, FaTimes, FaLink } from 'react-icons/fa';
 import { newIngredient } from '@/lib/recipes/recipe';
 import { toGrams } from '@/lib/recipes/units';
 import type { Ingredient, Recipe } from '@/lib/recipes/types';
 import { statusText, useAutosave, type SaveStatus } from '../calories/autosave';
+import CoverBand from './CoverBand';
 import IngredientRow from './IngredientRow';
 import LinkPicker, { type Linked } from './LinkPicker';
 import { resizeImage } from './photo';
 import type { Can } from './RecipeView';
 import * as api from './api';
 
-interface Details { name: string; servings: string; prepMin: string; cookMin: string; notes: string; tags: string[] }
+interface Details { name: string; description: string; sourceUrl: string; servings: string; prepMin: string; cookMin: string; notes: string; tags: string[] }
 
 const detailsOf = (r: Recipe): Details => ({
-  name: r.name, servings: String(r.servings), prepMin: r.prepMin === null ? '' : String(r.prepMin),
+  name: r.name, description: r.description ?? '', sourceUrl: r.source?.url ?? '', servings: String(r.servings), prepMin: r.prepMin === null ? '' : String(r.prepMin),
   cookMin: r.cookMin === null ? '' : String(r.cookMin), notes: r.notes, tags: r.tags,
 });
 
@@ -30,13 +31,20 @@ const minutes = (s: string): number | null | undefined => {
   return Number.isInteger(n) && n >= 0 && n <= 1440 ? n : undefined;
 };
 
+/** A link the server will take: empty (clears it) or https. */
+export const linkOk = (s: string): boolean => {
+  const t = s.trim();
+  if (!t) return true;
+  try { return new URL(t).protocol === 'https:'; } catch { return false; }
+};
+
 /** The details as the PATCH sends them, or undefined while a field isn't valid (nothing is sent). */
 function detailsPatch(d: Details) {
   const servings = Number(d.servings);
   const prepMin = minutes(d.prepMin);
   const cookMin = minutes(d.cookMin);
-  if (!d.name.trim() || !Number.isInteger(servings) || servings < 1 || servings > 100 || prepMin === undefined || cookMin === undefined) return undefined;
-  return { name: d.name.trim(), servings, prepMin, cookMin, notes: d.notes, tags: d.tags };
+  if (!d.name.trim() || !Number.isInteger(servings) || servings < 1 || servings > 100 || prepMin === undefined || cookMin === undefined || !linkOk(d.sourceUrl)) return undefined;
+  return { name: d.name.trim(), description: d.description.trim(), sourceUrl: d.sourceUrl.trim(), servings, prepMin, cookMin, notes: d.notes, tags: d.tags };
 }
 
 const newId = () => `i${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
@@ -69,7 +77,8 @@ export default function RecipeEditor({ recipe, can, onChanged, onDone, toast }: 
   // side by side, so a late answer must not roll back another group's newer save.
   const save = (patch: Parameters<typeof api.patchRecipe>[1]) =>
     api.patchRecipe(id, patch).then((r) => {
-      const keys = Object.keys(patch) as (keyof Recipe)[];
+      // sourceUrl comes back as the recipe's source.
+      const keys = Object.keys(patch).map((k) => (k === 'sourceUrl' ? 'source' : k)) as (keyof Recipe)[];
       onChanged((prev) => ({ ...prev, ...Object.fromEntries(keys.map((k) => [k, r[k]])), updatedAt: r.updatedAt }));
       return null;
     }, (e: unknown) => (e instanceof Error ? e.message : 'לא נשמר'));
@@ -167,21 +176,21 @@ export default function RecipeEditor({ recipe, can, onChanged, onDone, toast }: 
         <button type="button" className="sh-btn sh-btn--primary" onClick={() => void done()}><FaCheck aria-hidden /> סיום</button>
       </div>
 
-      <div className="rc-photo-edit">
-        {photo ? <img className="rc-photo" src={photo} alt="" /> : <div className="rc-photo rc-photo-empty" aria-hidden>🍳</div>}
-        <div className="rc-photo-actions">
-          <label className={`sh-btn ${photoBusy ? 'is-busy' : ''}`}>
-            <FaCamera aria-hidden /> {photo ? 'החלפת תמונה' : 'הוספת תמונה'}
-            <input type="file" accept="image/*" hidden disabled={photoBusy} onChange={(e) => { void pickPhoto(e.target.files?.[0]); e.target.value = ''; }} />
-          </label>
-          {photo ? <button type="button" className="sh-btn sh-btn--ghost" disabled={photoBusy} onClick={() => void dropPhoto()}>הסרה</button> : null}
-        </div>
-      </div>
+      <CoverBand photo={photo} busy={photoBusy} onPick={(f) => void pickPhoto(f)} onRemove={() => void dropPhoto()} />
 
-      <label className="cal-field rc-field">
-        <span>שם</span>
-        <input className="rc-input rc-input-name" value={details.name} maxLength={120} onChange={(e) => setDetails({ ...details, name: e.target.value })} />
-      </label>
+      <div className="rc-head-fields">
+        <input className="rc-input rc-input-name rc-serif" value={details.name} maxLength={120} placeholder="שם המתכון" aria-label="שם המתכון"
+          onChange={(e) => setDetails({ ...details, name: e.target.value })} />
+        <textarea className="rc-input rc-input-desc" rows={2} value={details.description} maxLength={200} placeholder="תיאור קצר" aria-label="תיאור קצר"
+          onChange={(e) => setDetails({ ...details, description: e.target.value })} />
+        <label className="rc-link-field">
+          <span>קישור</span>
+          <input type="url" inputMode="url" dir="ltr" value={details.sourceUrl} placeholder="https://…" aria-invalid={!linkOk(details.sourceUrl)}
+            onChange={(e) => setDetails({ ...details, sourceUrl: e.target.value })} />
+          <FaLink aria-hidden />
+        </label>
+        {!linkOk(details.sourceUrl) ? <p className="cal-error">צריך קישור https</p> : null}
+      </div>
       <div className="rc-field-row">
         <label className="cal-field rc-field"><span>מנות</span>
           <input className="rc-input" type="number" inputMode="numeric" min={1} max={100} value={details.servings} onChange={(e) => setDetails({ ...details, servings: e.target.value })} />

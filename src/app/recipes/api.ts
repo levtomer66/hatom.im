@@ -37,7 +37,8 @@ export const listMine = () => call<{ recipes: RecipeSummary[] }>('GET', '').then
 export const listFeed = () => call<{ recipes: RecipeSummary[] }>('GET', '/feed').then((r) => r.recipes);
 export const getRecipe = (id: string) => call<{ recipe: Recipe }>('GET', `/${id}`).then((r) => r.recipe);
 export const createRecipe = (init: RecipePatch = {}) => call<{ recipe: Recipe }>('POST', '', init).then((r) => r.recipe);
-export const patchRecipe = (id: string, patch: RecipePatch) => call<{ recipe: Recipe }>('PATCH', `/${id}`, patch).then((r) => r.recipe);
+/** On the wire the link is `sourceUrl` ('' clears it); the reply carries it as `source`. */
+export const patchRecipe = (id: string, patch: Omit<RecipePatch, 'source'> & { sourceUrl?: string }) => call<{ recipe: Recipe }>('PATCH', `/${id}`, patch).then((r) => r.recipe);
 export const deleteRecipe = (id: string) => call<{ ok: true }>('DELETE', `/${id}`);
 export const copyRecipe = (id: string) => call<{ recipe: Recipe }>('POST', `/${id}/copy`).then((r) => r.recipe);
 
