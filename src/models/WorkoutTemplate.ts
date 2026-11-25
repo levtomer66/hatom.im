@@ -72,9 +72,9 @@ WorkoutTemplateSchema.index({ sharedByOwner: 1, updatedAt: -1 });
 // Transform _id to id in JSON
 WorkoutTemplateSchema.set('toJSON', {
   virtuals: true,
+  versionKey: false,
   transform: (doc, ret) => {
     ret.id = ret._id.toString();
-    delete (ret as { __v?: unknown }).__v;
     return ret;
   },
 });

@@ -134,9 +134,9 @@ WorkoutSchema.index(
 // Transform _id to id in JSON
 WorkoutSchema.set('toJSON', {
   virtuals: true,
+  versionKey: false,
   transform: (doc, ret) => {
     ret.id = ret._id.toString();
-    delete (ret as { __v?: unknown }).__v;
     return ret;
   },
 });

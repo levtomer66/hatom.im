@@ -565,8 +565,11 @@ Identity = Gmail address. Two roles:
   Allow/Deny; protocol errors render a click-through link instead (open
   redirect via dynamic registration otherwise — RFC 9700 §4.11.2). The user
   must also be signed in before any of that renders.
-  It's served with `X-Frame-Options: DENY` (`next.config.js`) because the site
-  CSP has no `frame-ancestors`.
+  It's never framed: `/oauth/*` gets its own copy of the CSP with
+  `frame-ancestors 'none'` (plus `X-Frame-Options: DENY` for old browsers),
+  while the rest of the site sends `'self'` (`csp()` in `next.config.js`).
+  Browsers ignore X-Frame-Options once a CSP has `frame-ancestors`, so the
+  OAuth rule must keep its own full CSP.
 
 ## Quick sanity checks before making changes
 
