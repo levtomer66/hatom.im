@@ -8,7 +8,7 @@ import { LIMITS, type Ingredient, type Link, type Recipe } from './types.ts';
 
 export type Result<T> = { ok: true; value: T } | { ok: false; error: string };
 
-export type RecipePatch = Partial<Pick<Recipe, 'name' | 'servings' | 'ingredients' | 'steps' | 'tags' | 'prepMin' | 'cookMin' | 'notes'>> & { shared?: boolean };
+export type RecipePatch = Partial<Pick<Recipe, 'name' | 'description' | 'source' | 'servings' | 'ingredients' | 'steps' | 'tags' | 'prepMin' | 'cookMin' | 'notes'>> & { shared?: boolean };
 
 const fail = (error: string): { ok: false; error: string } => ({ ok: false, error });
 const isObj = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v);
@@ -72,6 +72,21 @@ export function parseRecipePatch(v: unknown): Result<RecipePatch> {
     if (v.name.trim().length > LIMITS.name) return fail('שם ארוך מדי');
     out.name = v.name.trim();
   }
+  if ('description' in v) {
+    if (typeof v.description !== 'string' || v.description.trim().length > LIMITS.description) return fail('תיאור ארוך מדי');
+    out.description = v.description.trim();
+  }
+  if ('sourceUrl' in v) {
+    const s = typeof v.sourceUrl === 'string' ? v.sourceUrl.trim() : null;
+    if (s === null) return fail('צריך קישור https');
+    if (!s) out.source = null;
+    else {
+      let ok = false;
+      try { ok = new URL(s).protocol === 'https:' && s.length <= 2000; } catch { /* not a URL */ }
+      if (!ok) return fail('צריך קישור https');
+      out.source = { url: s, by: null };
+    }
+  }
   if ('servings' in v) {
     if (!isNum(v.servings) || !Number.isInteger(v.servings) || v.servings < 1 || v.servings > LIMITS.servingsMax) return fail('מספר מנות לא תקין');
     out.servings = v.servings;
@@ -119,7 +134,7 @@ export function newIngredient(text: string, id: string): Ingredient {
 
 export function emptyRecipe(): Omit<Recipe, 'id' | 'owner' | 'createdAt' | 'updatedAt'> {
   return {
-    name: 'מתכון חדש', servings: 2, ingredients: [], steps: [], tags: [], prepMin: null, cookMin: null,
+    name: 'מתכון חדש', description: '', servings: 2, ingredients: [], steps: [], tags: [], prepMin: null, cookMin: null,
     photo: null, notes: '', source: null, shared: null, copiedFrom: null,
   };
 }
@@ -156,7 +171,7 @@ export function parseSaveArgs(args: Record<string, unknown>): Result<{
   if (args.source_url !== undefined && args.source_url !== null && !httpUrl(args.source_url)) return fail('source_url must be an http(s) URL');
   if (args.image_url !== undefined && args.image_url !== null && !httpUrl(args.image_url)) return fail('image_url must be an http(s) URL');
   const patch = parseRecipePatch({
-    name, servings: args.servings, ingredients, steps: args.steps.map((s) => (typeof s === 'string' ? s.trim() : s)),
+    name, description: args.description ?? '', servings: args.servings, ingredients, steps: args.steps.map((s) => (typeof s === 'string' ? s.trim() : s)),
     tags: args.tags ?? [], prepMin: args.prep_min ?? null, cookMin: args.cook_min ?? null, notes: args.notes ?? '',
   });
   if (!patch.ok) {
@@ -164,7 +179,7 @@ export function parseSaveArgs(args: Record<string, unknown>): Result<{
       'מספר מנות לא תקין': 'servings must be a whole number 1–100', 'יותר מדי מצרכים': 'at most 60 ingredients',
       'יותר מדי שלבים': 'at most 40 steps', 'שלב ארוך מדי': 'each step must be a string of at most 1000 characters',
       'תגיות לא תקינות': 'tags: at most 10 strings of 30 characters', 'זמן לא תקין': 'prep_min/cook_min: whole minutes 0–1440',
-      'שם ארוך מדי': 'name: at most 120 characters', 'הערות ארוכות מדי': 'notes: at most 2000 characters',
+      'שם ארוך מדי': 'name: at most 120 characters', 'תיאור ארוך מדי': 'description: at most 200 characters', 'הערות ארוכות מדי': 'notes: at most 2000 characters',
     };
     return fail(map[patch.error] ?? patch.error);
   }

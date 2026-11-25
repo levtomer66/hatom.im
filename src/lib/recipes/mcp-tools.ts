@@ -85,6 +85,7 @@ function requireAgent(caller: ShoppingToolCaller): void {
 
 const RECIPE_PROPS = {
   name: { type: 'string' },
+  description: { type: 'string', description: 'One short line under the name (≤ 200 chars), e.g. "ארוחת ערב קלילה ב-20 דקות".' },
   servings: { type: 'number' },
   ingredients: {
     type: 'array',
@@ -135,6 +136,7 @@ export const RECIPE_TOOLS: ShoppingTool[] = [
       return [
         `${r.name} — ${n} servings${r.ownerName && r.owner !== caller.userEmail ? ` (by ${r.ownerName})` : ''}`,
         `${SITE}/recipes/${r.id}`,
+        r.description ? r.description : '',
         r.tags.length ? `Tags: ${r.tags.join(', ')}` : '',
         r.prepMin || r.cookMin ? `Prep ${r.prepMin ?? 0} min, cook ${r.cookMin ?? 0} min` : '',
         '', 'Ingredients:', ...r.ingredients.map((i) => `- ${scaleLine(i, n / r.servings)}${i.alt ? ` (${i.alt})` : ''}`),

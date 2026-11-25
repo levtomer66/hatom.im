@@ -59,7 +59,7 @@ import { filterRecipes, tagsOf } from '../recipes/filter.ts';
 import type { RecipeSummary } from '../recipes/types.ts';
 
 const card = (o: Partial<RecipeSummary>): RecipeSummary => ({
-  id: 'x', owner: 'a', name: '', servings: 2, tags: [], prepMin: null, cookMin: null, photo: null, shared: null,
+  id: 'x', owner: 'a', name: '', description: '', servings: 2, tags: [], prepMin: null, cookMin: null, photo: null, shared: null,
   updatedAt: '', kcal: null, partial: false, ingredientNames: [], ...o,
 });
 const book = [
@@ -72,3 +72,15 @@ test('filter by name, extra spaces', () => assert.deepEqual(filterRecipes(book, 
 test('filter by two tags needs both', () => assert.deepEqual(filterRecipes(book, '', ['עוגות', 'מתוק']).map((r) => r.id), ['1']));
 test('empty filter keeps all', () => assert.equal(filterRecipes(book, '', []).length, 3));
 test('tagsOf by frequency then alpha', () => assert.deepEqual(tagsOf(book), ['עוגות', 'בוקר', 'מתוק']));
+
+const shareBase = {
+  name: 'עוגה', servings: 4, prepMin: 10, cookMin: 30, notes: '', ingredients: [], steps: [], source: null,
+} as unknown as Recipe;
+test('shareText puts the description under the name', () => {
+  const t = shareText({ ...shareBase, description: 'ארוחת ערב מהירה' }, 4);
+  assert.match(t, /^\*עוגה\*\nארוחת ערב מהירה\n/);
+});
+test('shareText without a description (old docs) has no line for it', () => {
+  assert.match(shareText(shareBase, 4), /^\*עוגה\*\n4 מנות/);
+  assert.doesNotMatch(shareText(shareBase, 4), /undefined/);
+});

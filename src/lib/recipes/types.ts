@@ -42,6 +42,8 @@ export interface Recipe {
   /** The owner's display name (feed). */
   ownerName?: string;
   name: string;
+  /** A short line under the name ('' when none; older docs lack it). */
+  description: string;
   servings: number;
   ingredients: Ingredient[];
   steps: string[];
@@ -58,13 +60,13 @@ export interface Recipe {
 }
 
 /** A card in the book or the feed. */
-export type RecipeSummary = Pick<Recipe, 'id' | 'owner' | 'ownerName' | 'name' | 'servings' | 'tags' | 'prepMin' | 'cookMin' | 'photo' | 'shared' | 'updatedAt'> & {
+export type RecipeSummary = Pick<Recipe, 'id' | 'owner' | 'ownerName' | 'name' | 'description' | 'servings' | 'tags' | 'prepMin' | 'cookMin' | 'photo' | 'shared' | 'updatedAt'> & {
   kcal: number | null;
   partial: boolean;
   ingredientNames: string[];
 };
 
 export const LIMITS = {
-  name: 120, servingsMax: 100, ingredients: 60, ingredientText: 200, steps: 40, stepText: 1000,
+  name: 120, description: 200, servingsMax: 100, ingredients: 60, ingredientText: 200, steps: 40, stepText: 1000,
   tags: 10, tagText: 30, minutes: 1440, notes: 2000,
 } as const;

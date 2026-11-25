@@ -29,13 +29,13 @@ async function col() {
 
 const oid = (id: string): ObjectId | null => (ObjectId.isValid(id) && /^[0-9a-f]{24}$/i.test(id) ? new ObjectId(id) : null);
 
-const toRecipe = ({ _id, ...d }: RecipeDocument): Recipe => ({ ...d, id: _id.toHexString() });
+const toRecipe = ({ _id, ...d }: RecipeDocument): Recipe => ({ ...d, description: d.description ?? '', id: _id.toHexString() });
 
 function toSummary(r: Recipe, withOwner = false): RecipeSummary {
   const { totals, partial } = perServing(r);
   return {
     id: r.id, owner: r.owner, ...(withOwner ? { ownerName: getUserDisplayName(r.owner) } : {}),
-    name: r.name, servings: r.servings, tags: r.tags, prepMin: r.prepMin, cookMin: r.cookMin, photo: r.photo,
+    name: r.name, description: r.description, servings: r.servings, tags: r.tags, prepMin: r.prepMin, cookMin: r.cookMin, photo: r.photo,
     shared: r.shared, updatedAt: r.updatedAt, kcal: totals ? totals.kcal : null, partial,
     ingredientNames: r.ingredients.map((i) => i.name).filter(Boolean),
   };

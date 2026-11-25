@@ -62,3 +62,20 @@ test('canRead', () => {
   assert.equal(canRead(r, 'b@x'), false);
   assert.equal(canRead({ ...r, shared: { at: 'now' } }, 'b@x'), true);
 });
+
+test('description is trimmed and capped at 200', () => {
+  assert.deepEqual(parseRecipePatch({ description: '  קליל  ' }), { ok: true, value: { description: 'קליל' } });
+  assert.equal(parseRecipePatch({ description: 'א'.repeat(201) }).ok, false);
+  assert.equal(parseRecipePatch({ description: 5 }).ok, false);
+});
+test('sourceUrl: https kept, empty clears, http rejected', () => {
+  assert.deepEqual(parseRecipePatch({ sourceUrl: 'https://x.co/a' }), { ok: true, value: { source: { url: 'https://x.co/a', by: null } } });
+  assert.deepEqual(parseRecipePatch({ sourceUrl: '  ' }), { ok: true, value: { source: null } });
+  assert.equal(parseRecipePatch({ sourceUrl: 'http://x.co' }).ok, false);
+  assert.equal(parseRecipePatch({ sourceUrl: 'not a url' }).ok, false);
+});
+test('emptyRecipe has an empty description', () => assert.equal(emptyRecipe().description, ''));
+test('save args carry the description', () => {
+  const r = parseSaveArgs({ name: 'פסטה', servings: 2, ingredients: [], steps: [], description: 'מהיר' });
+  assert.ok(r.ok); assert.equal(r.value.recipe.description, 'מהיר');
+});

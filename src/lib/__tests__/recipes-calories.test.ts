@@ -7,7 +7,7 @@ const ing = (o: Partial<Ingredient>): Ingredient => ({ id: 'a', text: '', qty: n
 const P = { kcal: 200, p: 10, c: 20, f: 5 };
 const link = { ref: { kind: 'food' as const, key: '1' }, name: 'x', img: null, per100: P };
 const recipe = (ings: Ingredient[]): Recipe => ({
-  id: 'r1', owner: 'a@x', name: 'פשטידה', servings: 4, ingredients: ings, steps: [], tags: [], prepMin: null, cookMin: null,
+  id: 'r1', owner: 'a@x', name: 'פשטידה', description: '', servings: 4, ingredients: ings, steps: [], tags: [], prepMin: null, cookMin: null,
   photo: 'https://b/p.jpg', notes: '', source: null, shared: null, copiedFrom: null, createdAt: '', updatedAt: '',
 });
 
