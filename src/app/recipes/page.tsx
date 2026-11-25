@@ -66,6 +66,7 @@ function Book() {
   useEffect(() => {
     let live = true;
     setError(null);
+    setTags([]); // a tag picked in the other view (also when Back switched it) would hide everything here
     (tab === 'mine' ? api.listMine() : api.listFeed())
       .then((list) => { if (live) setLists((l) => ({ ...l, [tab]: list })); })
       .catch((e: unknown) => { if (live) setError(e instanceof Error ? e.message : 'לא נטען'); });
@@ -74,7 +75,6 @@ function Book() {
 
   const pick = (t: Tab) => {
     if (t === tab) return;
-    setTags([]);
     router.push(t === 'feed' ? '/recipes?view=feed' : '/recipes', { scroll: false });
   };
   const start = () => setStarting(true);

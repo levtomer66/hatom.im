@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { copy } from '@vercel/blob';
 import { requireFeatureCaller } from '@/lib/api-caller';
 import { canRead, createRecipe, getRecipe } from '@/models/Recipe';
+import { copyInit } from '@/lib/recipes/recipe';
 import { notFound, serverError } from '../../_shared';
 
 type Ctx = { params: Promise<{ id: string }> };
@@ -25,11 +26,7 @@ export async function POST(request: NextRequest, { params }: Ctx) {
         console.error('recipes: copying a photo:', error);
       }
     }
-    const mine = await createRecipe(caller.userEmail, {
-      name: r.name, servings: r.servings, ingredients: r.ingredients, steps: r.steps, tags: r.tags,
-      prepMin: r.prepMin, cookMin: r.cookMin, notes: r.notes, source: r.source, photo,
-      copiedFrom: { id: r.id, owner: r.owner },
-    });
+    const mine = await createRecipe(caller.userEmail, copyInit(r, photo));
     return NextResponse.json({ recipe: mine }, { status: 201 });
   } catch (error) {
     return serverError('copying a recipe', error);

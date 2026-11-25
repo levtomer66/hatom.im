@@ -139,6 +139,14 @@ export function emptyRecipe(): Omit<Recipe, 'id' | 'owner' | 'createdAt' | 'upda
   };
 }
 
+/** "שמור אצלי": the fields a copy carries (the caller's own photo copy, or none). */
+export function copyInit(r: Recipe, photo: string | null) {
+  return {
+    name: r.name, description: r.description ?? '', servings: r.servings, ingredients: r.ingredients, steps: r.steps, tags: r.tags,
+    prepMin: r.prepMin, cookMin: r.cookMin, notes: r.notes, source: r.source, photo, copiedFrom: { id: r.id, owner: r.owner },
+  };
+}
+
 /** The owner, or anyone while it's on the feed. */
 export const canRead = (r: Pick<Recipe, 'owner' | 'shared'>, email: string): boolean => r.owner === email || !!r.shared;
 

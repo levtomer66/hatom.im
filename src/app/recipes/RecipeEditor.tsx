@@ -11,41 +11,13 @@ import { newIngredient } from '@/lib/recipes/recipe';
 import { toGrams } from '@/lib/recipes/units';
 import type { Ingredient, Recipe } from '@/lib/recipes/types';
 import { statusText, useAutosave, type SaveStatus } from '../calories/autosave';
+import { detailsOf, detailsPatch, linkOk, type Details } from '@/lib/recipes/details';
 import CoverBand from './CoverBand';
 import IngredientRow from './IngredientRow';
 import LinkPicker, { type Linked } from './LinkPicker';
 import { resizeImage } from './photo';
 import type { Can } from './RecipeView';
 import * as api from './api';
-
-interface Details { name: string; description: string; sourceUrl: string; servings: string; prepMin: string; cookMin: string; notes: string; tags: string[] }
-
-const detailsOf = (r: Recipe): Details => ({
-  name: r.name, description: r.description ?? '', sourceUrl: r.source?.url ?? '', servings: String(r.servings), prepMin: r.prepMin === null ? '' : String(r.prepMin),
-  cookMin: r.cookMin === null ? '' : String(r.cookMin), notes: r.notes, tags: r.tags,
-});
-
-const minutes = (s: string): number | null | undefined => {
-  if (!s.trim()) return null;
-  const n = Number(s);
-  return Number.isInteger(n) && n >= 0 && n <= 1440 ? n : undefined;
-};
-
-/** A link the server will take: empty (clears it) or https. */
-export const linkOk = (s: string): boolean => {
-  const t = s.trim();
-  if (!t) return true;
-  try { return new URL(t).protocol === 'https:'; } catch { return false; }
-};
-
-/** The details as the PATCH sends them, or undefined while a field isn't valid (nothing is sent). */
-function detailsPatch(d: Details) {
-  const servings = Number(d.servings);
-  const prepMin = minutes(d.prepMin);
-  const cookMin = minutes(d.cookMin);
-  if (!d.name.trim() || !Number.isInteger(servings) || servings < 1 || servings > 100 || prepMin === undefined || cookMin === undefined || !linkOk(d.sourceUrl)) return undefined;
-  return { name: d.name.trim(), description: d.description.trim(), sourceUrl: d.sourceUrl.trim(), servings, prepMin, cookMin, notes: d.notes, tags: d.tags };
-}
 
 const newId = () => `i${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 
@@ -83,8 +55,10 @@ export default function RecipeEditor({ recipe, can, onChanged, onDone, toast }: 
       return null;
     }, (e: unknown) => (e instanceof Error ? e.message : 'לא נשמר'));
 
-  const initialDetails = useMemo(() => detailsPatch(detailsOf(recipe)), []); // eslint-disable-line react-hooks/exhaustive-deps
-  const a = useAutosave(detailsPatch(details), initialDetails, (v) => save(v));
+  // The link as it was when the editor opened: kept as-is even when it isn't https (an import may have saved http).
+  const [storedUrl] = useState(recipe.source?.url ?? '');
+  const initialDetails = useMemo(() => detailsPatch(detailsOf(recipe), storedUrl), []); // eslint-disable-line react-hooks/exhaustive-deps
+  const a = useAutosave(detailsPatch(details, storedUrl), initialDetails, (v) => save(v));
   const b = useAutosave(ings, recipe.ingredients, (v) => save({ ingredients: v }));
   const c = useAutosave(steps, recipe.steps, (v) => save({ steps: v }));
   const status = combine([a.status, b.status, c.status]);
@@ -185,11 +159,11 @@ export default function RecipeEditor({ recipe, can, onChanged, onDone, toast }: 
           onChange={(e) => setDetails({ ...details, description: e.target.value })} />
         <label className="rc-link-field">
           <span>קישור</span>
-          <input type="url" inputMode="url" dir="ltr" value={details.sourceUrl} placeholder="https://…" aria-invalid={!linkOk(details.sourceUrl)}
+          <input type="url" inputMode="url" dir="ltr" value={details.sourceUrl} placeholder="https://…" aria-invalid={!linkOk(details.sourceUrl, storedUrl)}
             onChange={(e) => setDetails({ ...details, sourceUrl: e.target.value })} />
           <FaLink aria-hidden />
         </label>
-        {!linkOk(details.sourceUrl) ? <p className="cal-error">צריך קישור https</p> : null}
+        {!linkOk(details.sourceUrl, storedUrl) ? <p className="cal-error">צריך קישור https</p> : null}
       </div>
       <div className="rc-field-row">
         <label className="cal-field rc-field"><span>מנות</span>
