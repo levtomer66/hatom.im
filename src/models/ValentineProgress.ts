@@ -25,9 +25,9 @@ const ValentineProgressSchema = new Schema<ValentineProgressDocument>(
 
 ValentineProgressSchema.set('toJSON', {
   virtuals: true,
+  versionKey: false,
   transform(_doc, ret) {
     ret.id = ret._id.toString();
-    delete (ret as { __v?: unknown }).__v;
     return ret;
   },
 });
