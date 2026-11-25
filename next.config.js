@@ -26,13 +26,18 @@ const nextConfig = {
               "font-src 'self' data: https://fonts.gstatic.com",
               "connect-src 'self' https://www.youtube.com https://*.googleapis.com https://*.basemaps.cartocdn.com https://*.tile.openstreetmap.org https://ntfy.sh",
               "media-src 'self' https://www.youtube.com https://*.googlevideo.com",
+              // No page uses <base>; stops an injected one re-pointing relative script URLs.
+              "base-uri 'self'",
+              // Same-origin framing only (no page is embedded elsewhere): clickjacking.
+              "frame-ancestors 'self'",
             ].join('; '),
           },
+          { key: 'X-Content-Type-Options', value: 'nosniff' },
         ],
       },
       {
-        // The site-wide CSP has no frame-ancestors; without this the OAuth
-        // consent page could be framed and its Allow button clickjacked.
+        // The site-wide CSP allows same-origin framing; DENY keeps the OAuth
+        // consent page out of every frame (its Allow button can't be clickjacked).
         source: '/oauth/:path*',
         headers: [{ key: 'X-Frame-Options', value: 'DENY' }],
       },
