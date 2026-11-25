@@ -19,11 +19,11 @@ async function col() {
 }
 
 const oid = (id: string) => (/^[0-9a-f]{24}$/i.test(id) ? new ObjectId(id) : null);
-const view = ({ _id, ...d }: ImportDocument): ImportRequest => ({ ...d, id: _id.toHexString() });
+const view = ({ _id, ...d }: ImportDocument): ImportRequest => ({ ...d, prompt: d.prompt ?? '', id: _id.toHexString() });
 const OPEN = { $in: ['queued', 'working'] as ImportRequest['status'][] };
 
 /** null when the person already has MAX_OPEN open requests. */
-export async function createImport(requester: string, req: { url: string | null; text: string; note: string }): Promise<ImportRequest | null> {
+export async function createImport(requester: string, req: { url: string | null; text: string; prompt: string; note: string }): Promise<ImportRequest | null> {
   const c = await col();
   if ((await c.countDocuments({ requester, status: OPEN })) >= MAX_OPEN) return null;
   const doc: ImportDocument = {

@@ -18,7 +18,7 @@ import { parseSaveArgs } from './recipe';
 import { scaleLine } from './scale';
 import { dropBlob, storeImageFromUrl } from './server';
 import type { Recipe, RecipeSummary } from './types';
-import { CONVERSION_RULES } from './import-rules';
+import { CONVERSION_RULES, IDEA_RULES } from './import-rules';
 import { isOwnerEmail } from '@/types/auth';
 import { claimImport, finishImport, getImport, importQueue } from '@/models/RecipeImport';
 
@@ -200,7 +200,7 @@ export const RECIPE_TOOLS: ShoppingTool[] = [
   },
   {
     name: 'recipes_import_claim',
-    description: 'Import agent only. Takes one request (nobody else will): returns its link and/or pasted text, the requester\'s note, and the conversion rules to follow. Then call recipes_import_complete or recipes_import_fail.',
+    description: 'Import agent only. Takes one request (nobody else will): returns its link and/or pasted text (or an idea to write a recipe from), the requester\'s note, and the conversion rules to follow. Then call recipes_import_complete or recipes_import_fail.',
     inputSchema: { type: 'object', properties: { id: { type: 'string' } }, required: ['id'] },
     handler: async (args, caller) => {
       requireAgent(caller);
@@ -208,10 +208,9 @@ export const RECIPE_TOOLS: ShoppingTool[] = [
       if (!r) throw new Error('Not claimable: unknown id, already taken, or finished.');
       return [
         `Request ${r.id}`,
-        r.url ? `Link: ${r.url}` : 'Link: (none)',
-        r.text ? `Pasted text:\n${r.text}` : 'Pasted text: (none)',
+        ...(r.prompt ? [`Idea to write: ${r.prompt}`] : [r.url ? `Link: ${r.url}` : 'Link: (none)', r.text ? `Pasted text:\n${r.text}` : 'Pasted text: (none)']),
         r.note ? `Requester's note: ${r.note}` : '',
-        '', CONVERSION_RULES,
+        '', ...(r.prompt ? [IDEA_RULES, ''] : []), CONVERSION_RULES,
       ].filter((l) => l !== '').join('\n');
     },
   },

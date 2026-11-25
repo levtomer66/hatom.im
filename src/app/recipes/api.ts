@@ -56,5 +56,5 @@ export const searchProducts = (q: string, signal?: AbortSignal) =>
   call<{ products: ProductLite[] }>('GET', `/products?q=${encodeURIComponent(q)}`, undefined, signal).then((r) => r.products);
 
 export const listImports = () => call<{ imports: ImportRequest[] }>('GET', '/imports').then((r) => r.imports);
-export const requestImport = (req: { url: string; text: string; note: string }) => call<{ import: ImportRequest }>('POST', '/imports', req).then((r) => r.import);
+export const requestImport = (req: { url?: string; text?: string; prompt?: string; note?: string }) => call<{ import: ImportRequest }>('POST', '/imports', req).then((r) => r.import);
 export const dismissImport = (id: string) => call<{ ok: true }>('DELETE', `/imports/${id}`);

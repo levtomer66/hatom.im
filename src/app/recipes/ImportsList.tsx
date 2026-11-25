@@ -8,6 +8,7 @@ import { FaTimes } from 'react-icons/fa';
 import type { ImportRequest } from '@/lib/recipes/imports';
 
 const label = (r: ImportRequest) => {
+  if (r.prompt) return r.prompt.slice(0, 60);
   if (r.url) { try { return new URL(r.url).hostname.replace(/^www\./, ''); } catch { /* fall through */ } }
   return r.text.slice(0, 40) || 'מתכון';
 };

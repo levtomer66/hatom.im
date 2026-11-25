@@ -1,5 +1,5 @@
-// Import requests: a person asks for a link or a caption to be imported; the
-// local import agent claims it, converts it and saves it to their book.
+// Import requests: a person asks for a link or a caption to be imported, or for
+// a recipe written from an idea (a prompt); the cloud import agent claims it, converts it and saves it to their book.
 // Import-free (node --test). Spec: § Import agent.
 
 export type ImportStatus = 'queued' | 'working' | 'done' | 'failed';
@@ -9,6 +9,8 @@ export interface ImportRequest {
   requester: string;
   url: string | null;
   text: string;
+  /** An idea to write a recipe from ('' for link/text requests; older docs lack it). */
+  prompt: string;
   note: string;
   status: ImportStatus;
   recipeId: string | null;
@@ -24,14 +26,22 @@ export const STALE_MS = 30 * 60_000;
 export const MAX_OPEN = 5;
 const MAX_TEXT = 8000;
 const MAX_NOTE = 500;
+const MAX_PROMPT = 500;
 
 type Result<T> = { ok: true; value: T } | { ok: false; error: string };
 
-export function parseImportRequest(v: unknown): Result<{ url: string | null; text: string; note: string }> {
+export function parseImportRequest(v: unknown): Result<{ url: string | null; text: string; prompt: string; note: string }> {
   const o = (v && typeof v === 'object' ? v : {}) as Record<string, unknown>;
   const rawUrl = typeof o.url === 'string' ? o.url.trim() : '';
   const text = typeof o.text === 'string' ? o.text.trim() : '';
   const note = typeof o.note === 'string' ? o.note.trim() : '';
+  const prompt = typeof o.prompt === 'string' ? o.prompt.trim() : '';
+  if (note.length > MAX_NOTE) return { ok: false, error: 'ההערה ארוכה מדי' };
+  if (prompt) {
+    if (rawUrl || text) return { ok: false, error: 'רעיון לבד, בלי קישור או טקסט' };
+    if (prompt.length > MAX_PROMPT) return { ok: false, error: 'הרעיון ארוך מדי' };
+    return { ok: true, value: { url: null, text: '', prompt, note } };
+  }
   let url: string | null = null;
   if (rawUrl) {
     try {
@@ -42,10 +52,9 @@ export function parseImportRequest(v: unknown): Result<{ url: string | null; tex
       return { ok: false, error: 'הקישור לא תקין' };
     }
   }
-  if (!url && !text) return { ok: false, error: 'הדביקו קישור או את טקסט המתכון' };
+  if (!url && !text) return { ok: false, error: 'כתבו רעיון, הדביקו קישור או את טקסט המתכון' };
   if (text.length > MAX_TEXT) return { ok: false, error: 'הטקסט ארוך מדי' };
-  if (note.length > MAX_NOTE) return { ok: false, error: 'ההערה ארוכה מדי' };
-  return { ok: true, value: { url, text, note } };
+  return { ok: true, value: { url, text, prompt: '', note } };
 }
 
 /** An agent may take it: queued, or claimed by a run that never finished. */
