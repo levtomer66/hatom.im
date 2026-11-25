@@ -1,4 +1,52 @@
-/* /recipes — wears /shopping's tokens and controls and calories' sheets; rc- for what's its own. */
+/* /recipes — /shopping's controls and calories' sheets in recipes' own warm look:
+   .rc-app holds the --rc tokens (dark plum by default, cream in light mode) and
+   remaps the --sh tokens those components read. rc- for what's its own. */
+
+.rc-app {
+  --rc-bg: #231a22;
+  --rc-raised: #33272f;
+  --rc-field: #3f3139;
+  --rc-text: #f5ece4;
+  --rc-muted: #b3a3ad;
+  --rc-accent: #e5484d;
+  --rc-accent-soft: #4a2a31;
+  --rc-accent-ink: #ffffff;
+  --rc-line: #4a3a43;
+  --rc-r-card: 20px;
+  min-height: 100dvh;
+  background: var(--rc-bg);
+  color: var(--rc-text);
+}
+@media (prefers-color-scheme: light) {
+  .rc-app {
+    --rc-bg: #fbf6f1;
+    --rc-raised: #ffffff;
+    --rc-field: #f1e8e2;
+    --rc-text: #2a1e27;
+    --rc-muted: #6f5f69;
+    --rc-accent-soft: #fbe3e2;
+    --rc-line: #e6dad3;
+  }
+}
+.rc-app .sh-page {
+  --sh-bg: var(--rc-bg);
+  --sh-surface: var(--rc-raised);
+  --sh-ink: var(--rc-text);
+  --sh-muted: var(--rc-muted);
+  --sh-line: var(--rc-line);
+  --sh-accent: var(--rc-accent);
+  --sh-accent-soft: var(--rc-accent-soft);
+  --sh-action: var(--rc-accent);
+  --sh-action-ink: var(--rc-accent-ink);
+  --sh-r-ctl: 14px;
+  --sh-r-group: var(--rc-r-card);
+  background: var(--rc-bg);
+  color: var(--rc-text);
+}
+body:has(.rc-app) { background: var(--rc-bg); }
+.rc-serif { font-family: var(--rc-serif), serif; font-weight: 700; letter-spacing: -0.01em; }
+.rc-art { display: block; color: var(--rc-muted); }
+
 
 /* the book: chips like calories' ארוחה/צעדים pills; recipes as entry rows in one card */
 .rc-page .sh-home-btn.is-on { border-color: var(--sh-ink); background: var(--sh-ink); color: var(--sh-bg); }
