@@ -3,9 +3,13 @@
 // /recipes: the caller's recipe book and the shared feed
 // (docs/superpowers/specs/2026-11-24-recipes-design.md § Screens).
 
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { FaDownload, FaPlus, FaSearch, FaTimes } from 'react-icons/fa';
+import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { useSession } from 'next-auth/react';
+import { FaPlus, FaSearch, FaTimes } from 'react-icons/fa';
+import { hasPermission } from '@/lib/permissions';
+import { PotArt } from './art';
+import TabBar, { type View } from './TabBar';
 import { filterRecipes, tagsOf } from '@/lib/recipes/filter';
 import type { RecipeSummary } from '@/lib/recipes/types';
 import ImportSheet from './ImportSheet';
@@ -14,12 +18,17 @@ import type { ImportRequest } from '@/lib/recipes/imports';
 import RecipeCard from './RecipeCard';
 import * as api from './api';
 
-type Tab = 'mine' | 'feed';
-const TAB_KEY = 'recipes:tab';
+type Tab = View;
 
 export default function RecipesPage() {
+  return <Suspense fallback={<main className="sh-page cal-page rc-page" />}><Book /></Suspense>;
+}
+
+function Book() {
   const router = useRouter();
-  const [tab, setTab] = useState<Tab>('mine');
+  const { data: session } = useSession();
+  // The view lives in the URL (?view=feed) so the back button returns to שלי.
+  const tab: Tab = useSearchParams().get('view') === 'feed' ? 'feed' : 'mine';
   const [lists, setLists] = useState<Record<Tab, RecipeSummary[] | null>>({ mine: null, feed: null });
   const [error, setError] = useState<string | null>(null);
   const [q, setQ] = useState('');
@@ -55,12 +64,6 @@ export default function RecipesPage() {
   };
 
   useEffect(() => {
-    try {
-      if (localStorage.getItem(TAB_KEY) === 'feed') setTab('feed');
-    } catch { /* private mode */ }
-  }, []);
-
-  useEffect(() => {
     let live = true;
     setError(null);
     (tab === 'mine' ? api.listMine() : api.listFeed())
@@ -70,10 +73,11 @@ export default function RecipesPage() {
   }, [tab]);
 
   const pick = (t: Tab) => {
-    setTab(t);
+    if (t === tab) return;
     setTags([]);
-    try { localStorage.setItem(TAB_KEY, t); } catch { /* private mode */ }
+    router.push(t === 'feed' ? '/recipes?view=feed' : '/recipes', { scroll: false });
   };
+  const start = () => setImporting(true);
 
   const list = lists[tab];
   const shown = useMemo(() => (list ? filterRecipes(list, q, tags) : []), [list, q, tags]);
@@ -92,10 +96,9 @@ export default function RecipesPage() {
 
   return (
     <main className="sh-page cal-page rc-page">
-      <header className="cal-head">
-        <button type="button" className="sh-icon-btn" aria-label="ייבוא מתכון" onClick={() => setImporting(true)}><FaDownload /></button>
-        <h1 className="cal-date">מתכונים</h1>
-        <button type="button" className="sh-icon-btn" aria-label="מתכון חדש" disabled={creating} onClick={() => void create()}><FaPlus /></button>
+      <header className="rc-head">
+        <h1 className="rc-serif rc-title">{tab === 'feed' ? 'פיד' : 'מתכונים'}</h1>
+        <button type="button" className="rc-plus" aria-label="מתכון חדש" disabled={creating} onClick={start}><FaPlus /></button>
       </header>
 
       <label className="sh-search-box rc-search">
@@ -105,11 +108,6 @@ export default function RecipesPage() {
       </label>
 
       <ImportsList imports={imports} onDismiss={dismiss} />
-
-      <div className="cal-actions">
-        <button type="button" className={`sh-btn sh-home-btn ${tab === 'mine' ? 'is-on' : ''}`} aria-pressed={tab === 'mine'} onClick={() => pick('mine')}>שלי</button>
-        <button type="button" className={`sh-btn sh-home-btn ${tab === 'feed' ? 'is-on' : ''}`} aria-pressed={tab === 'feed'} onClick={() => pick('feed')}>פיד</button>
-      </div>
 
       {allTags.length ? (
         <div className="cal-chips is-scroll" aria-label="תגיות">
@@ -123,14 +121,20 @@ export default function RecipesPage() {
       {error ? <p className="cal-error" role="alert">{error}</p> : null}
       {!list && !error ? <div className="cal-ring-card is-loading rc-loading" aria-label="טוען" /> : null}
       {list && !list.length ? (
-        <p className="cal-muted rc-empty">{tab === 'mine' ? 'עוד אין מתכונים. אפשר להתחיל ב״חדש״ או לייבא מהרשת.' : 'אין עדיין מתכונים בפיד. מתכון שתשתפו יופיע כאן.'}</p>
+        <div className="rc-empty-state">
+          <PotArt />
+          <p>{tab === 'mine' ? 'הוסיפו את המתכון הראשון' : 'עוד אין מתכונים בפיד'}</p>
+          {tab === 'mine' ? <button type="button" className="rc-cta" onClick={start}>הוספת מתכון</button> : null}
+        </div>
       ) : null}
-      {list && list.length && !shown.length ? <p className="cal-muted rc-empty">אין מתכון שמתאים לחיפוש.</p> : null}
+      {list && list.length && !shown.length ? <p className="cal-muted rc-empty">לא נמצאו מתכונים</p> : null}
       {shown.length ? (
         <section className="sh-card cal-meal" aria-label={tab === 'mine' ? 'המתכונים שלי' : 'פיד'}>
           <ul className="cal-entries">{shown.map((r) => <RecipeCard key={r.id} r={r} showOwner={tab === 'feed'} />)}</ul>
         </section>
       ) : null}
+
+      <TabBar view={tab} onView={pick} showList={hasPermission(session, 'shopping')} />
 
       {importing ? <ImportSheet onClose={() => setImporting(false)} onRequested={(r) => { setImporting(false); setImports((l) => [r, ...l]); }} /> : null}
     </main>

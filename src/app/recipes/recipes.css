@@ -49,8 +49,6 @@ body:has(.rc-app) { background: var(--rc-bg); }
 
 
 /* the book: chips like calories' ארוחה/צעדים pills; recipes as entry rows in one card */
-.rc-page .sh-home-btn.is-on { border-color: var(--sh-ink); background: var(--sh-ink); color: var(--sh-bg); }
-.rc-page .sh-home-btn.is-on svg { color: inherit; }
 .rc-search { margin-bottom: 0.75rem; }
 .rc-empty { margin: 2rem 0; text-align: center; }
 .rc-loading { min-height: 160px; }
@@ -160,3 +158,22 @@ textarea.rc-input { resize: vertical; line-height: 1.5; }
 .rc-import + .rc-import { border-top: 1px solid var(--sh-line); }
 .rc-import-wait { display: inline-flex; align-items: center; gap: 0.5rem; }
 .rc-import-fail { color: var(--sh-miss); }
+
+/* the book (spec 2026-11-25 § Book) */
+.rc-head { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; padding: 0.75rem 0 0.5rem; }
+.rc-title { margin: 0; font-size: 2rem; line-height: 1.1; }
+.rc-plus { display: grid; place-items: center; flex: none; width: 48px; height: 48px; border: 0; border-radius: 14px; background: var(--rc-accent); color: var(--rc-accent-ink); font-size: 1.25rem; cursor: pointer; box-shadow: 0 6px 18px color-mix(in srgb, var(--rc-accent) 35%, transparent); }
+.rc-plus:disabled { opacity: 0.6; }
+.rc-app .rc-search { border-radius: 16px; background: var(--rc-field); border-color: transparent; min-height: 52px; }
+.rc-app .rc-page .sh-card { background: var(--rc-raised); border-color: transparent; border-radius: var(--rc-r-card); }
+.rc-row-desc { display: block; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.rc-empty-state { display: grid; justify-items: center; gap: 1rem; margin: 3rem 0 2rem; text-align: center; }
+.rc-empty-state p { margin: 0; font-size: 1.125rem; }
+.rc-cta { min-height: 52px; padding: 0 2.5rem; border: 0; border-radius: 16px; background: var(--rc-accent); color: var(--rc-accent-ink); font: inherit; font-size: 1.0625rem; font-weight: 600; cursor: pointer; }
+.rc-page:has(.rc-tabbar) { padding-bottom: calc(96px + env(safe-area-inset-bottom)); }
+
+/* bottom tabs: a floating pill */
+.rc-tabbar { position: fixed; inset-inline: 0; bottom: max(14px, env(safe-area-inset-bottom)); z-index: 30; display: flex; justify-content: center; gap: 0.25rem; width: fit-content; margin: 0 auto; padding: 6px; border: 1px solid var(--rc-line); border-radius: 999px; background: color-mix(in srgb, var(--rc-raised) 92%, transparent); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); box-shadow: 0 10px 30px rgb(0 0 0 / 0.25); }
+.rc-tab { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-width: 76px; min-height: 52px; padding: 0 0.75rem; border: 0; border-radius: 999px; background: none; color: var(--rc-muted); font: inherit; font-size: 0.75rem; text-decoration: none; cursor: pointer; }
+.rc-tab svg { font-size: 1.125rem; }
+.rc-tab.is-on { background: var(--rc-accent-soft); color: var(--rc-accent); font-weight: 600; }

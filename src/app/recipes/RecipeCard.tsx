@@ -13,7 +13,7 @@ export default function RecipeCard({ r, showOwner }: { r: RecipeSummary; showOwn
     <li className="cal-entry">
       <Link href={`/recipes/${r.id}`} className="cal-entry-btn rc-row">
         {r.photo ? <Thumb src={r.photo} size={48} /> : <span className="rc-row-blank" aria-hidden>{r.name.trim().charAt(0) || '🍳'}</span>}
-        <span className="cal-entry-name">{r.name}{meta ? <small>{meta}</small> : null}</span>
+        <span className="cal-entry-name">{r.name}{r.description ? <small className="rc-row-desc">{r.description}</small> : meta ? <small>{meta}</small> : null}</span>
         {r.kcal !== null ? <span className="cal-entry-kcal">{r.partial ? '~' : ''}{r.kcal.toLocaleString('he-IL')}<small className="rc-unit">קק״ל</small></span> : null}
       </Link>
     </li>
