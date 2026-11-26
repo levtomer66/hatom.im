@@ -217,4 +217,4 @@ textarea.rc-input { resize: vertical; line-height: 1.5; }
 /* רשימה tab (ListView): the household shopping list inside the book. */
 .rc-list-line { display: flex; align-items: center; gap: 0.75rem; padding: 0.5rem 0; }
 .rc-list-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.rc-list-go { display: block; margin-top: 1rem; text-align: center; text-decoration: none; }
+.rc-list-go { display: flex; align-items: center; justify-content: center; margin-top: 1rem; text-decoration: none; }
