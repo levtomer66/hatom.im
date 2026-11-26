@@ -67,14 +67,18 @@ export function DrinksRow({ busy, onLog }: { busy: string | null; onLog: (id: st
 /** How much of the tapped drink: half or a whole one. Closing it logs nothing. */
 export function DrinkQtySheet({ id, onPick, onClose }: { id: string; onPick: (qty: number) => void; onClose: () => void }) {
   const d = drinkById(id);
+  const [picked, setPicked] = useState(false);
   if (!d) return null;
+  // One pick per sheet: a fast double tap mustn't log twice before it closes.
+  const pick = (q: number) => { if (picked) return; setPicked(true); onPick(q); };
   const mg = (q: number) => `${d.approx ? '~' : ''}${Math.round(d.mg * q)} מ״ג`;
   return (
-    <Sheet title={`${d.emoji} ${d.name}`} onClose={onClose} className="pg-qty-sheet">
+    <Sheet title={d.name} onClose={onClose} className="pg-qty-sheet">
       {d.warn ? <p className="cal-muted">⚠ {d.warn}</p> : null}
+      <p className="pg-qty-emoji" aria-hidden>{d.emoji}</p>
       <div className="pg-qty">
-        <button type="button" className="pg-qty-btn" onClick={() => onPick(0.5)}><b>חצי</b><span>½ {d.unit}</span><small>{mg(0.5)}</small></button>
-        <button type="button" className="pg-qty-btn" onClick={() => onPick(1)}><b>שלם</b><span>1 {d.unit}</span><small>{mg(1)}</small></button>
+        <button type="button" className="pg-qty-btn" disabled={picked} aria-label={`חצי: ½ × ${d.unit}, ${mg(0.5)}`} onClick={() => pick(0.5)}><b>חצי</b><span>½ {d.unit}</span><small>{mg(0.5)}</small></button>
+        <button type="button" className="pg-qty-btn" disabled={picked} aria-label={`שלם: 1 × ${d.unit}, ${mg(1)}`} onClick={() => pick(1)}><b>שלם</b><span>1 {d.unit}</span><small>{mg(1)}</small></button>
       </div>
     </Sheet>
   );

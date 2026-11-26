@@ -78,4 +78,4 @@ export async function uploadScan(week: number, file: File) {
 }
 export const deleteScan = (week: number) => call<P>('DELETE', `/scans?week=${week}`);
 
-export const logDrink = (id: string, date: string, qty: number, meal?: Meal) => call<{ entry: { id: string } }>('POST', '/drink', { id, date, qty, meal, hour: new Date().getHours() });
+export const logDrink = (id: string, date: string, qty: number, meal?: Meal) => call<{ entry: { id: string; caf?: number } }>('POST', '/drink', { id, date, qty, meal, hour: new Date().getHours() });

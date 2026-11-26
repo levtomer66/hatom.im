@@ -145,7 +145,7 @@ export default function PregnancyPage() {
       const d = drinkById(id);
       await load(date);
       setToast({
-        text: `נרשם: ${qty === 0.5 ? 'חצי ' : ''}${d?.name} · ${Math.round((d?.mg ?? 0) * qty)} מ״ג`,
+        text: `נרשם: ${qty === 0.5 ? 'חצי ' : ''}${d?.name} · ${entry.caf ?? 0} מ״ג`,
         undo: () => { void calApi.deleteEntry(date, entry.id).then(() => load(date)); setToast(null); },
       });
     } catch (e) {

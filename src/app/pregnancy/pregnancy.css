@@ -167,3 +167,4 @@
 .pg-qty-btn:active { transform: scale(0.97); }
 .pg-qty-btn b { font-size: 1.375rem; }
 .pg-qty-btn small { color: var(--sh-muted); }
+.pg-qty-emoji { margin: 0; text-align: center; font-size: 2rem; }

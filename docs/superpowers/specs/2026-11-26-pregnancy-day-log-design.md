@@ -24,7 +24,10 @@ One **day log** per pregnancy per calendar day, every part optional:
   **milestone** (⭐, e.g. "בעיטה ראשונה"). ≤ 20 notes a day.
 
 Mood, symptoms and measurements are about her, whoever types them; the last
-write wins. Anyone in the pregnancy can add, edit or delete any part.
+write wins. Anyone in the pregnancy can add, edit or delete any part, and every
+member sees all of it, health values included: unlike her calories diary (and
+`preKg`/`heightCm`, which `forViewer` hides), the day log is shared on purpose.
+It is not passed through `forViewer`.
 
 ## Logging
 
@@ -39,13 +42,18 @@ write wins. Anyone in the pregnancy can add, edit or delete any part.
 - No save buttons: every field saves through calories' `useAutosave`. A day whose
   parts are all empty is deleted, not kept as an empty doc.
 - Days can be logged up to today, never in the future, and no earlier than the
-  pregnancy's day 0.
+  pregnancy's day 0 (checked against the current EDD when written).
+- Blood pressure is saved only as a pair: while just one of the two fields holds
+  a valid number the client sends nothing for `bp`; clearing both sends `null`.
+  `parseDayPatch` rejects a lone value.
 
 ## History
 
 - **Cubes**: each of the 40 cubes gets a bar along its bottom edge coloured by
   that week's average mood (red → amber → green over 1–5; no bar when no day has
-  a mood) and a small ⭐ when the week has a milestone note. The event and
+  a mood) and a small ⭐ when the week has a milestone note. The cube's label
+  says it in words too ("שבוע 14, מצב רוח 🙂 בממוצע, אבן דרך"), so the colour
+  is never the only carrier. The event and
   suggestion dots stay as they are.
 - **Week sheet**: each day row shows, under its date, the mood face, the symptom
   chips (strength as 1–3 dots), the measurement values and the first line of each
@@ -70,9 +78,12 @@ New collection **`pregnancyDays`**, one small doc per logged day:
 }
 ```
 
-Index `{ pid: 1, date: 1 }`. At most ~300 docs per pregnancy of well under 1 KB.
-No week is stored: the summary groups by the week computed from `date` and the
-current EDD, so re-dating the pregnancy moves the history with it.
+No extra index: every read is a range on `_id` (`'<pid>|'` … `'<pid>|9'`). At
+most ~300 docs per pregnancy of well under 1 KB. No week is stored: the summary
+groups by the week computed from `date` and the current EDD, so re-dating the
+pregnancy moves the history with it. A day that lands before week 1 or after
+week 40 after a re-date has no cube and is left out of the summary; it is kept
+and still shows in the week sheet of its calendar week.
 
 ## API
 
@@ -97,8 +108,8 @@ member):
   `parseNote`, `isEmptyDay`, `weekSummary(days, edd)`, `moodColor(avg)`,
   `prevValues(days, date)`.
 - `src/models/PregnancyDay.ts`: typed functions (`getDays`, `getSummary`,
-  `putDay`, `addNote`, `updateNote`, `deleteNote`, `prevMeasurements`,
-  `deleteDaysOf(pid)` for completeness).
+  `putDay`, `addNote`, `updateNote`, `deleteNote`, `prevMeasurements`). An ended
+  pregnancy keeps its days, as it keeps its doc.
 - `src/app/pregnancy/DayLog.tsx`: `DaySheet` and the compact `DayLogRow` used by
   the week sheet; `Calendar.tsx` gets the cube bar/⭐ and the strip chip.
 - CLAUDE.md's pregnancy section gets one bullet.
