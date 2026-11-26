@@ -60,7 +60,7 @@ export default function ListView() {
           ))}
         </ul>
       </section>
-      <Link href={`${SHOPPING_BASE_PATH}?from=recipes`} className="rc-cta cal-wide rc-list-go">איפה הכי זול?</Link>
+      <Link href={`${SHOPPING_BASE_PATH}?from=recipes`} className="rc-cta cal-wide rc-list-go">מעבר לאפליקציית קניות</Link>
     </>
   );
 }
