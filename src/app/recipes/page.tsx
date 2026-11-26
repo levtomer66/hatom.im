@@ -16,9 +16,11 @@ import StartSheet from './StartSheet';
 import ImportsList from './ImportsList';
 import type { ImportRequest } from '@/lib/recipes/imports';
 import RecipeCard from './RecipeCard';
+import ListView from './ListView';
 import * as api from './api';
 
-type Tab = View;
+type Tab = Exclude<View, 'list'>;
+const VIEWS: Record<View, string> = { mine: '/recipes', feed: '/recipes?view=feed', list: '/recipes?view=list' };
 
 export default function RecipesPage() {
   return <Suspense fallback={<main className="sh-page cal-page rc-page" />}><Book /></Suspense>;
@@ -27,8 +29,10 @@ export default function RecipesPage() {
 function Book() {
   const router = useRouter();
   const { data: session } = useSession();
-  // The view lives in the URL (?view=feed) so the back button returns to שלי.
-  const tab: Tab = useSearchParams().get('view') === 'feed' ? 'feed' : 'mine';
+  // The view lives in the URL (?view=feed / list) so the back button returns to שלי.
+  const param = useSearchParams().get('view');
+  const view: View = param === 'feed' || param === 'list' ? param : 'mine';
+  const tab: Tab = view === 'feed' ? 'feed' : 'mine'; // the recipe list the book view shows
   const [lists, setLists] = useState<Record<Tab, RecipeSummary[] | null>>({ mine: null, feed: null });
   const [error, setError] = useState<string | null>(null);
   const [q, setQ] = useState('');
@@ -73,9 +77,9 @@ function Book() {
     return () => { live = false; };
   }, [tab]);
 
-  const pick = (t: Tab) => {
-    if (t === tab) return;
-    router.push(t === 'feed' ? '/recipes?view=feed' : '/recipes', { scroll: false });
+  const pick = (v: View) => {
+    if (v === view) return;
+    router.push(VIEWS[v], { scroll: false });
   };
   const start = () => setStarting(true);
 
@@ -98,10 +102,11 @@ function Book() {
   return (
     <main className="sh-page cal-page rc-page">
       <header className="rc-head">
-        <h1 className="rc-serif rc-title">{tab === 'feed' ? 'פיד' : 'מתכונים'}</h1>
-        <button type="button" className="rc-plus" aria-label="מתכון חדש" disabled={creating} onClick={start}><FaPlus /></button>
+        <h1 className="rc-serif rc-title">{view === 'list' ? 'רשימת קניות' : view === 'feed' ? 'פיד' : 'מתכונים'}</h1>
+        {view === 'list' ? null : <button type="button" className="rc-plus" aria-label="מתכון חדש" disabled={creating} onClick={start}><FaPlus /></button>}
       </header>
 
+      {view === 'list' ? <ListView /> : <>
       <label className="sh-search-box rc-search">
         <FaSearch aria-hidden />
         <input type="search" value={q} placeholder="חיפוש לפי שם, מצרך או תגית" onChange={(e) => setQ(e.target.value)} />
@@ -134,8 +139,9 @@ function Book() {
           <ul className="cal-entries">{shown.map((r) => <RecipeCard key={r.id} r={r} showOwner={tab === 'feed'} />)}</ul>
         </section>
       ) : null}
+      </>}
 
-      <TabBar view={tab} onView={pick} showList={hasPermission(session, 'shopping')} />
+      <TabBar view={view} onView={pick} showList={hasPermission(session, 'shopping')} />
 
       {starting ? <StartSheet onClose={() => setStarting(false)} onScratch={create} onQueued={(r) => { setStarting(false); setImports((l) => [r, ...l]); }} /> : null}
     </main>

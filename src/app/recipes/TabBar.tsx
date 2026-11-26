@@ -1,13 +1,11 @@
 'use client';
 
-// The book's floating bottom tabs (spec 2026-11-25 § Book): שלי · פיד switch the
-// book's view; רשימה goes to the household shopping list. Book only.
+// The book's floating bottom tabs (spec 2026-11-25 § Book): שלי · פיד · רשימה
+// switch the book's view (רשימה = the household shopping list, ListView). Book only.
 
-import Link from 'next/link';
 import { FaBookOpen, FaClipboardList, FaUsers } from 'react-icons/fa';
-import { SHOPPING_BASE_PATH } from '@/lib/shopping/config';
 
-export type View = 'mine' | 'feed';
+export type View = 'mine' | 'feed' | 'list';
 
 export default function TabBar({ view, onView, showList }: { view: View; onView: (v: View) => void; showList: boolean }) {
   const tab = (v: View, label: string, Icon: typeof FaBookOpen) => (
@@ -19,7 +17,7 @@ export default function TabBar({ view, onView, showList }: { view: View; onView:
     <nav className="rc-tabbar" aria-label="ניווט מתכונים">
       {tab('mine', 'שלי', FaBookOpen)}
       {tab('feed', 'פיד', FaUsers)}
-      {showList ? <Link href={SHOPPING_BASE_PATH} className="rc-tab"><FaClipboardList aria-hidden /><span>רשימה</span></Link> : null}
+      {showList ? tab('list', 'רשימה', FaClipboardList) : null}
     </nav>
   );
 }
