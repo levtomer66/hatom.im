@@ -547,7 +547,7 @@ Identity = Gmail address. Two roles:
   measurements and notes per day in `pregnancyDays` (`_id: "<pid>|YYYY-MM-DD"`, no extra index;
   rules in `daylog.ts`). Every write sets only its own part, and an emptied day is deleted.
   Everyone in the pregnancy sees all of it, health values included (not `forViewer`). History is
-  the cubes’ mood bar/⭐ and the week sheet’s day rows: no charts.
+  the cubes’ mood bar/⭐ and the week sheet’s 7 day cubes (tap one for its day sheet): no charts.
 
 ### MCP server + OAuth (`/api/mcp`)
 

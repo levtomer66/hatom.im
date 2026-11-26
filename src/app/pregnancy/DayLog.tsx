@@ -193,22 +193,3 @@ function NoteRow({ n, me, busy, onSave, onDelete }: { n: DayNote; me: string; bu
     </li>
   );
 }
-
-/** Under a day in the week sheet: mood, symptoms with their strength, measurements, notes' first lines. */
-export function DayLogRow({ day }: { day: DayLog }) {
-  const syms = SYMPTOMS.filter((s) => day.sym?.[s.id]);
-  const ms = MEASURES.filter((m) => day.m?.[m.id] !== undefined);
-  if (!day.mood && !syms.length && !ms.length && !day.notes?.length) return null;
-  return (
-    <div className="pg-daylog">
-      {day.mood ? <span className="pg-daylog-mood" aria-label={`מצב רוח: ${MOOD_NAMES[day.mood - 1]}`}>{MOODS[day.mood - 1]}</span> : null}
-      {syms.map((s) => (
-        <span key={s.id} className="pg-daylog-sym" aria-label={`${s.name}, ${STRENGTH[day.sym![s.id]! - 1]}`}>
-          {s.name} <i aria-hidden>{'•'.repeat(day.sym![s.id]!)}</i>
-        </span>
-      ))}
-      {ms.length ? <span className="pg-daylog-m">{ms.map((m) => `${m.name} ${measureText(m.id, day.m![m.id]!)}`).join(' · ')}</span> : null}
-      {day.notes?.map((n) => <span key={n.id} className="pg-daylog-note">{n.star ? '⭐ ' : ''}{n.text.split('\n')[0]}</span>)}
-    </div>
-  );
-}

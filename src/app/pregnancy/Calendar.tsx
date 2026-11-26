@@ -13,7 +13,6 @@ import { openSuggestions, todayStrip, weekMarks, SUGGESTIONS, type PEvent, type 
 import { moodColor, MOODS, SYMPTOMS, type DayLog, type WeekMark } from '@/lib/pregnancy/daylog';
 import Sheet from '../calories/Sheet';
 import { statusText, useAutosave } from '../calories/autosave';
-import { DayLogRow } from './DayLog';
 import * as api from './api';
 
 const WEEKDAYS = ['א׳', 'ב׳', 'ג׳', 'ד׳', 'ה׳', 'ו׳', 'ש׳'];
@@ -131,6 +130,7 @@ export function WeekSheet({ p, week, today, onP, onEvent, onNew, onDay, onClose 
     void api.getDays(days[0], days[6]).then((r) => { if (live) setLogs(Object.fromEntries(r.days.map((d) => [d.date, d]))); }).catch(() => {});
     return () => { live = false; };
   }, [days[0], days[6]]); // eslint-disable-line react-hooks/exhaustive-deps
+  const weekEvents = p.events.filter((e) => days.includes(e.date)).sort((x, y) => `${x.date} ${x.time ?? ''}`.localeCompare(`${y.date} ${y.time ?? ''}`));
   const open = openSuggestions(p.events, p.dismissed).filter((s) => s.from <= week && s.to >= week);
   const dismissed = SUGGESTIONS.filter((s) => p.dismissed.includes(s.id) && s.from <= week && s.to >= week);
   const [busy, setBusy] = useState(false);
@@ -145,27 +145,36 @@ export function WeekSheet({ p, week, today, onP, onEvent, onNew, onDay, onClose 
         <span>{dm(days[0])}–{dm(days[6])}</span>
         <button type="button" className="sh-icon-btn" aria-label="שבוע הבא" onClick={() => setOffset(offset + 1)}>‹</button>
       </div>
-      <ul className="pg-days">
+      <div className="pg-wdays" role="group" aria-label="ימי השבוע">
         {days.map((date, i) => {
           const day = dayOfPregnancy(p.edd, date);
           const { w, d } = weekDay(day);
-          const evs = p.events.filter((e) => e.date === date).sort((a, b) => (a.time ?? '').localeCompare(b.time ?? ''));
-          const cls = [w === week ? 'is-in' : '', d === 0 ? 'is-turn' : '', date === today ? 'is-today' : '', evs.length ? 'has-ev' : ''].join(' ');
+          const log = logs[date];
+          const evs = p.events.filter((e) => e.date === date);
+          const star = log?.notes?.some((n) => n.star);
+          const cls = [w === week ? 'is-in' : '', date === today ? 'is-today' : '', date > today ? 'is-future' : ''].join(' ');
+          const label = [`${WEEKDAYS[i]} ${heDate(date)}`, day >= 0 ? `שבוע ${w}+${d}` : '', date === today ? 'היום' : '',
+            log?.mood ? `מצב רוח ${MOODS[log.mood - 1]}` : '', star ? 'אבן דרך' : '', evs.length ? `${evs.length === 1 ? 'אירוע אחד' : `${evs.length} אירועים`}` : ''].filter(Boolean).join(', ');
           return (
-            <li key={date} className={`pg-day ${cls}`}>
-              <button type="button" className="pg-day-head" onClick={() => onDay(date, logs[date] ?? null)} aria-label={`יום ${heDate(date)}`}>
-                <span className="pg-day-name">{WEEKDAYS[i]} <small>{dm(date)}</small></span>
-                <span className="pg-day-wd"><bdi dir="ltr">{day >= 0 ? `${w}+${d}` : '—'}</bdi>{d === 0 && day >= 0 ? <small> שבוע חדש</small> : null}{date === today ? <small> היום</small> : null}</span>
-                <FaPlus aria-hidden className="pg-day-add" />
-              </button>
-              {evs.map((e) => (
-                <button key={e.id} type="button" className="pg-ev" onClick={() => onEvent(e)}>📍 {e.title}{e.time ? <small> · {e.time}</small> : null}</button>
-              ))}
-              {logs[date] ? <DayLogRow day={logs[date]} /> : null}
-            </li>
+            <button key={date} type="button" className={`pg-wday ${cls}`} onClick={() => onDay(date, log ?? null)} aria-label={label}>
+              <small aria-hidden>{WEEKDAYS[i]}</small>
+              <b aria-hidden>{Number(date.slice(8))}</b>
+              {star ? <i className="pg-cube-star" aria-hidden>⭐</i> : null}
+              {evs.length ? <span className="pg-cube-marks" aria-hidden><b className="pg-dot" /></span> : null}
+              {log?.mood ? <i className="pg-cube-mood" aria-hidden style={{ background: moodColor(log.mood) }} /> : null}
+            </button>
           );
         })}
-      </ul>
+      </div>
+      {weekEvents.length ? (
+        <ul className="pg-wevents">
+          {weekEvents.map((e) => (
+            <li key={e.id}>
+              <button type="button" className="pg-ev" onClick={() => onEvent(e)}>📍 {e.title}<small> · {WEEKDAYS[days.indexOf(e.date)]} {dm(e.date)}{e.time ? ` · ${e.time}` : ''}</small></button>
+            </li>
+          ))}
+        </ul>
+      ) : <p className="cal-muted pg-wdays-hint">לוחצים על יום כדי לרשום אותו או להוסיף אירוע.</p>}
       {open.length ? (
         <>
           <h3 className="sh-section-title">בדיקות שבדרך כלל עושים עכשיו</h3>
