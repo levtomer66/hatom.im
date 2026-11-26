@@ -255,3 +255,6 @@
 .cal-rec small { color: var(--sh-muted); font-size: 0.8125rem; }
 .cal-rec .cal-link { margin-inline-start: auto; }
 .cal-save-state { min-height: 1.25rem; margin-top: 0.25rem; }
+
+/* ארוחות sheet → /recipes. */
+.cal-recipes-link { display: flex; align-items: center; justify-content: center; gap: 0.5rem; margin-top: 0.5rem; text-decoration: none; }

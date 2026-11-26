@@ -4,10 +4,12 @@
 // (in grams) and a number of portions; "רישום" logs portions of it (the amount
 // sheet), and the search finds it too. The editor saves as you change it
 // (useAutosave): a new meal is created once it has a name and an ingredient, and
-// updated from then on.
+// updated from then on. With the recipes permission the list also links to
+// /recipes (?from=calories, whose header links back).
 
 import React, { useEffect, useRef, useState } from 'react';
-import { FaMinus, FaPlus } from 'react-icons/fa';
+import Link from 'next/link';
+import { FaBookOpen, FaMinus, FaPlus } from 'react-icons/fa';
 import { mealHit, mealPerPortion, MAX_PORTIONS, type MealDoc, type MealItem } from '@/lib/calories/calories';
 import type { FoodHit } from '@/lib/calories/api-types';
 import { SwipeRow } from '../shopping/ui';
@@ -80,7 +82,7 @@ function Editor({ draft: first, onDone, onFlush }: { draft: Draft; onDone: () =>
   );
 }
 
-export default function MealsSheet({ onLog, onClose }: { onLog: (hit: FoodHit) => void; onClose: () => void }) {
+export default function MealsSheet({ onLog, onClose, recipes = false }: { onLog: (hit: FoodHit) => void; onClose: () => void; recipes?: boolean }) {
   const flush = useRef<() => void>(() => {});
   const setFlush = useRef((f: () => void) => { flush.current = f; }).current;
   const [meals, setMeals] = useState<MealDoc[] | null>(null);
@@ -109,6 +111,7 @@ export default function MealsSheet({ onLog, onClose }: { onLog: (hit: FoodHit) =
             ))}
           </ul>
           <button type="button" className="sh-btn sh-btn--primary cal-wide" onClick={() => setEditing({ name: '', portions: 4, items: [] })}>ארוחה חדשה</button>
+          {recipes ? <Link href="/recipes?from=calories" className="sh-btn cal-wide cal-recipes-link"><FaBookOpen aria-hidden /> מעבר לאפליקציית מתכונים</Link> : null}
         </>
       )}
     </Sheet>

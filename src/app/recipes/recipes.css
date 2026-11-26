@@ -218,3 +218,6 @@ textarea.rc-input { resize: vertical; line-height: 1.5; }
 .rc-list-line { display: flex; align-items: center; gap: 0.75rem; padding: 0.5rem 0; }
 .rc-list-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .rc-list-go { display: flex; align-items: center; justify-content: center; margin-top: 1rem; text-decoration: none; }
+
+/* The way back to /calories (/recipes?from=calories). */
+.rc-back-link { display: inline-flex; align-items: center; gap: 0.375rem; padding-top: 0.75rem; color: var(--rc-muted); font-size: 0.875rem; text-decoration: none; }

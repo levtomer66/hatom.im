@@ -6,7 +6,8 @@
 import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
-import { FaPlus, FaSearch, FaTimes } from 'react-icons/fa';
+import Link from 'next/link';
+import { FaArrowRight, FaPlus, FaSearch, FaTimes } from 'react-icons/fa';
 import { hasPermission } from '@/lib/permissions';
 import { PotArt } from './art';
 import TabBar, { type View } from './TabBar';
@@ -38,6 +39,9 @@ function Book() {
   const [q, setQ] = useState('');
   const [tags, setTags] = useState<string[]>([]);
   const [starting, setStarting] = useState(false);
+  /** Came from /calories' ארוחות sheet (?from=calories): the header offers the way back. */
+  const [fromCalories, setFromCalories] = useState(false);
+  useEffect(() => { setFromCalories(new URLSearchParams(window.location.search).get('from') === 'calories'); }, []);
   const [creating, setCreating] = useState(false);
   const [imports, setImports] = useState<ImportRequest[]>([]);
   const open = imports.some((r) => r.status === 'queued' || r.status === 'working');
@@ -101,6 +105,7 @@ function Book() {
 
   return (
     <main className="sh-page cal-page rc-page">
+      {fromCalories ? <Link href="/calories" className="rc-back-link"><FaArrowRight aria-hidden /> חזרה ליומן הקלוריות</Link> : null}
       <header className="rc-head">
         <h1 className="rc-serif rc-title">{view === 'list' ? 'רשימת קניות' : view === 'feed' ? 'פיד' : 'מתכונים'}</h1>
         {view === 'list' ? null : <button type="button" className="rc-plus" aria-label="מתכון חדש" disabled={creating} onClick={start}><FaPlus /></button>}

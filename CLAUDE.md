@@ -539,7 +539,8 @@ Identity = Gmail address. Two roles:
   `prompt`, written by the agent under `IDEA_RULES`); מאפס opens an empty
   recipe. The book's view is `?view=feed` / `?view=list` (back works); the floating
   `TabBar` shows on the book only. רשימה (`ListView`) shows the household list
-  in place; its button opens /shopping?from=recipes, whose header links back. `description` (≤ 200) sits under the name; the
+  in place; its button opens /shopping?from=recipes, whose header links back. /calories' ארוחות sheet links in the same
+  way (/recipes?from=calories, with a link back to the diary). `description` (≤ 200) sits under the name; the
   editor's link is `sourceUrl` on the wire, `source` in the doc.
 - `src/lib/recipes/*.ts` are import-free for `node --test`, except `server.ts`,
   `products.ts`, `match-server.ts`, `autolink.ts` and `mcp-tools.ts`.

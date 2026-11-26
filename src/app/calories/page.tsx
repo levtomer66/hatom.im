@@ -281,7 +281,7 @@ export default function CaloriesPage() {
       {sheet?.kind === 'settings' ? (
         <SettingsSheet settings={settings} kg={shown?.weight.kg ?? null} onSave={saveSettings} onClose={() => setSheet(null)} />
       ) : null}
-      {sheet?.kind === 'meals' ? <MealsSheet onLog={(picked) => setSheet({ kind: 'add', meal: currentMeal, picked })} onClose={() => setSheet(null)} /> : null}
+      {sheet?.kind === 'meals' ? <MealsSheet recipes={hasPermission(session, 'recipes')} onLog={(picked) => setSheet({ kind: 'add', meal: currentMeal, picked })} onClose={() => setSheet(null)} /> : null}
 
       {sheet?.kind === 'burned' ? (
         <BurnedSheet row={sheet.row} onClose={() => setSheet(null)}
