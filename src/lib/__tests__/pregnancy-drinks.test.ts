@@ -94,3 +94,14 @@ test('drinksMatching: whole words, so chocolate is not שוקו', async () => {
   assert.ok(drinksMatching('הפו').some((d) => d.id === 'hafuch-small'), 'a word being typed still matches');
   assert.ok(drinksMatching('הפוך גדול').some((d) => d.id === 'hafuch-large'));
 });
+
+test('Yotvata PRO coffee: 27 mg/100 ml, a 350 ml bottle ≈ 95 mg, half 48', () => {
+  const d = drinkById('yotvata-pro');
+  assert.ok(d);
+  assert.equal(d.mg, 95);
+  assert.equal(d.g, 350);
+  assert.equal(matchDrink('יטבתה פרו')?.id, 'yotvata-pro');
+  assert.equal(entryCaf({ ref: { kind: 'drink', key: 'yotvata-pro' }, name: '', unit: { g: 350 }, qty: 0.5 }), 48);
+  assert.equal(cafPer100('יטבתה משקה חלבון פרו קפה'), 27);
+  assert.equal(cafPer100('משקה קפה עם חלבון חלב PRO'), 27);
+});

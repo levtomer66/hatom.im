@@ -42,7 +42,7 @@ export function CaffeineHero({ mg, limit, readOnly, ownerName }: { mg: number; l
   );
 }
 
-const QUICK = ['hafuch-small', 'hafuch-large', 'espresso', 'lungo', 'zero-glass', 'zero-striped', 'tea-black', 'cola'];
+const QUICK = ['hafuch-small', 'hafuch-large', 'espresso', 'lungo', 'zero-glass', 'zero-striped', 'tea-black', 'cola', 'yotvata-pro'];
 
 export function DrinksRow({ busy, onLog }: { busy: string | null; onLog: (id: string) => void }) {
   const [all, setAll] = useState(false);

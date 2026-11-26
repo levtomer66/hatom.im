@@ -11,6 +11,8 @@
 //   glass (280 ml) 28 mg, the striped glass (340 ml) 34 mg.
 // - הפוך קטן 60 / הפוך גדול (a double shot) 120 / לונגו 65: the owner's figures.
 // - Energy drinks: Red Bull / EFSA, 32 mg/100 ml.
+// - Yotvata PRO coffee (350 ml, 130 kcal, 25 g protein on the bottle): 27 mg/100 ml
+//   per Open Food Facts (two barcodes) and FoodsDictionary, checked 2026-11-26 → ~95 mg.
 // - Dark chocolate ≥70%: USDA, ~80 mg/100 g.
 // - Nespresso capsules: Nespresso publishes only ranges (40–130, mostly 50–100);
 //   65 is an approximation, shown as "בערך".
@@ -65,6 +67,7 @@ export const DRINKS: readonly Drink[] = [
   { id: 'zero-can', name: 'פחית זירו', emoji: '🥫', unit: 'פחית', g: 330, mg: 33, nu: t(1) },
   { id: 'diet-cola', name: 'פחית דיאט קולה', emoji: '🥫', unit: 'פחית', g: 330, mg: 43, nu: t(1), aliases: ['דיאט קולה', 'קולה דיאט'] },
   { id: 'energy', name: 'משקה אנרגיה', emoji: '🔋', unit: 'פחית', g: 250, mg: 80, nu: t(112, 0, 27), aliases: ['רד בול', 'אקס אל', 'XL'], warn: AVOID },
+  { id: 'yotvata-pro', name: 'יטבתה PRO קפה', emoji: '💪', unit: 'בקבוק', g: 350, mg: 95, nu: t(130, 25, 7, 0), aliases: ['פרו קפה', 'יטבתה פרו', 'משקה חלבון קפה', 'PRO'] },
   { id: 'dark-choc', name: 'שוקולד מריר (50 ג׳)', emoji: '🍫', unit: 'חצי טבלה', g: 50, mg: 40, nu: t(300, 4, 23, 21), aliases: ['שוקולד מריר'] },
   { id: 'shoko', name: 'שוקו', emoji: '🥛', unit: 'כוס', g: 250, mg: 5, nu: t(180, 8, 27, 5), aliases: ['שוקו חם', 'שוקו קר'], approx: true },
 ];
@@ -104,7 +107,7 @@ const RULES: [string, number][] = [
   ['דיאט קולה', 13], ['קולה דיאט', 13], ['קוקה קולה דיאט', 13],
   ['משקה אנרגיה', 32], ['רד בול', 32], ['אקס אל', 32],
   ['תה קר', 10], ['אייס טי', 10], ['נסטי', 10],
-  ['קולד ברו', 43], ['תרכיז קפה', 130],
+  ['קולד ברו', 43], ['פרו קפה', 27], ['קפה עם חלבון', 27], ['תרכיז קפה', 130],
   ['קפה קר', 25], ['אייס קפה', 25], ['קפה הפוך', 30], ['אספרסו', 212],
   ['תה ירוק', 12], ['תה שחור', 20],
   ['שוקולד מריר', 80], ['שוקו', 2],
