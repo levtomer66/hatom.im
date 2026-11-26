@@ -3,6 +3,7 @@ import { after } from 'next/server';
 import { requirePagePermission } from '@/lib/auth-helpers';
 import { requireFeatureCaller } from '@/lib/api-caller';
 import { notifyCoffeeOrder } from '@/lib/coffee-notify';
+import { logCoffeeOrder } from '@/lib/coffee-caffeine';
 import { getCoffeeOrdersForUser, createCoffeeOrder } from '@/models/CoffeeOrder';
 import { getCoffeeFavoriteByName } from '@/models/CoffeeFavorite';
 import {
@@ -89,6 +90,7 @@ export async function POST(request: NextRequest) {
         ...dto,
       });
       after(() => notifyCoffeeOrder(order));
+      after(() => logCoffeeOrder(order));
       return NextResponse.json(order, { status: 201 });
     } catch (error) {
       console.error('Error creating coffee order (api-key):', error);
@@ -174,6 +176,7 @@ export async function POST(request: NextRequest) {
     });
 
     after(() => notifyCoffeeOrder(order));
+    after(() => logCoffeeOrder(order));
     return NextResponse.json(order, { status: 201 });
   } catch (error) {
     console.error('Error creating coffee order:', error);

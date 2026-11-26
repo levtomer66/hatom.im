@@ -165,6 +165,23 @@ const DICT = {
   'picker.add_selected_one':        { en: 'exercise',                                       he: 'תרגיל' },
   'picker.add_selected_many':       { en: 'exercises',                                      he: 'תרגילים' },
   'picker.create_custom':           { en: '+ New custom exercise',                          he: '+ תרגיל מותאם אישית' },
+  'picker.tab.machines':            { en: 'Machines',                                       he: 'מכונות' },
+  'picker.tab.all':                 { en: 'All exercises',                                  he: 'כל התרגילים' },
+  'picker.back_to_machines':        { en: '← All machines',                                 he: '→ כל המכונות' },
+  'picker.tab.bars':                { en: 'Bars',                                           he: 'מוטות' },
+  'picker.back_to_bars':            { en: '← All bars',                                     he: '→ כל המוטות' },
+  'picker.bars.cable':              { en: 'Cable attachments',                              he: 'ידיות ומוטות לכבל' },
+  'picker.bars.free':               { en: 'Free bars',                                      he: 'מוטות חופשיים' },
+  'picker.machine_count':           { en: 'exercises',                                      he: 'תרגילים' },
+  'picker.search_hint':             { en: 'Try “pulldwn”, “פולי”, “chest”…',                he: 'נסו ״פולי״, ״חזה״, ״pulldown״…' },
+  'gym.label':                      { en: 'Gym',                                            he: 'חדר כושר' },
+  'howto.title':                    { en: 'How to do it',                                   he: 'איך מבצעים' },
+  'howto.loading':                  { en: 'Loading…',                                       he: 'טוען…' },
+  'howto.none':                     { en: 'No how-to for this exercise yet',                he: 'אין עדיין הדגמה לתרגיל הזה' },
+  'howto.flip_note':                { en: 'Start and end position',                         he: 'תנוחת התחלה וסיום' },
+  'howto.source':                   { en: 'Animation: ExerciseDB',                          he: 'אנימציה: ExerciseDB' },
+  'howto.steps_en_only':            { en: 'Steps',                                          he: 'שלבים (באנגלית)' },
+  'card.progress_chart':            { en: 'Progress chart',                                 he: 'גרף התקדמות' },
 
   // Custom exercise form (user-added exercises)
   'customex.title':                 { en: 'Add Custom Exercise',                            he: 'הוספת תרגיל מותאם אישית' },
@@ -192,6 +209,20 @@ const DICT = {
   'customex.remove':                { en: 'Remove exercise',                                he: 'הסר תרגיל' },
   'customex.restore':               { en: 'Restore',                                        he: 'שחזר' },
   'customex.retired_badge':         { en: 'Removed',                                        he: 'הוסר' },
+  'customex.replace':               { en: 'Replace with a built-in exercise',               he: 'החלפה בתרגיל מהמאגר' },
+  'customex.replace_title':         { en: 'Replace with a built-in exercise',               he: 'החלפה בתרגיל מהמאגר' },
+  'customex.replace_intro':         { en: 'Pick the built-in exercise this is. Your whole history for it moves there.', he: 'בחר את התרגיל מהמאגר שזה בעצם הוא. כל ההיסטוריה שלו תעבור אליו.' },
+  'customex.replace_suggested':     { en: 'Looks like',                                     he: 'נראה כמו' },
+  'customex.replace_none':          { en: 'No close match found by name.',                  he: 'לא נמצא תרגיל דומה לפי השם.' },
+  'customex.replace_other':         { en: 'Choose another exercise…',                       he: 'בחר תרגיל אחר…' },
+  'customex.replace_picker_title':  { en: 'Choose the built-in exercise',                   he: 'בחר תרגיל מהמאגר' },
+  'customex.replace_confirm_title': { en: 'Move the history?',                              he: 'להעביר את ההיסטוריה?' },
+  'customex.replace_counts':        { en: '{w} and {t} will use the built-in exercise. Personal bests are recalculated, and the custom exercise is removed.', he: '{w} ו-{t} יעברו לתרגיל מהמאגר. השיאים יחושבו מחדש, והתרגיל המותאם יוסר.' },
+  'customex.replace_warning':       { en: "This can't be undone.",                          he: 'אי אפשר לבטל את זה.' },
+  'customex.replace_do':            { en: 'Replace',                                        he: 'החלף' },
+  'customex.replace_busy':          { en: 'Moving history…',                                he: 'מעביר היסטוריה…' },
+  'customex.replace_error':         { en: 'Replacing failed. Nothing was lost; try again.', he: 'ההחלפה נכשלה. שום דבר לא אבד, נסה שוב.' },
+  'customex.replaced_by':           { en: 'Replaced by',                                    he: 'הוחלף ב' },
   'customex.remove_confirm':        { en: 'Remove this custom exercise? It stays in your past workouts but is hidden from the lists.', he: 'להסיר את התרגיל המותאם? הוא יישאר באימונים הקודמים אך יוסתר מהרשימות.' },
 
   // Template editor
@@ -259,6 +290,8 @@ const DICT = {
   'count.exercise_many':            { en: 'exercises',                                      he: 'תרגילים' },
   'count.workout_one':              { en: 'workout',                                        he: 'אימון' },
   'count.workout_many':             { en: 'workouts',                                       he: 'אימונים' },
+  'count.template_one':             { en: 'template',                                       he: 'תבנית' },
+  'count.template_many':            { en: 'templates',                                      he: 'תבניות' },
 
   // Exercises page
   'exercises.title':                { en: 'Exercises',                                      he: 'תרגילים' },
@@ -397,6 +430,10 @@ export function exerciseCount(n: number, language: Language): string {
 
 export function workoutCount(n: number, language: Language): string {
   return countPhrase(n, 'count.workout_one', 'count.workout_many', language);
+}
+
+export function templateCount(n: number, language: Language): string {
+  return countPhrase(n, 'count.template_one', 'count.template_many', language);
 }
 
 // Template / workout names are user-authored strings stored in the DB. When a

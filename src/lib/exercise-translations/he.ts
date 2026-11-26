@@ -216,4 +216,18 @@ export const HE_EXERCISE_TRANSLATIONS: ExerciseTranslations = {
   'barbell-wrist-curl':           { name: 'כפיפת שורש כף יד מוט',     description: 'כפיפת שורשי כף היד עם מוט בישיבה' },
   'dumbbell-wrist-curl':          { name: 'כפיפת שורש כף יד משקולות', description: 'כפיפת שורשי כף היד עם משקולות' },
   'reverse-wrist-curl':           { name: 'כפיפת שורש הפוכה',          description: 'יישור שורש כף היד למיישרי האמה' },
+
+  // ---- MACHINES (Matrix Aura / Magnum) ----
+  'machine-lateral-raise':        { name: 'הרחקת כתפיים במכונה',       description: 'הרחקת כתפיים בישיבה במכונה ייעודית' },
+  'seated-dip-machine':           { name: 'מקבילים בישיבה',            description: 'לחיצת טרייספס בישיבה במכונת מקבילים' },
+  'machine-triceps-extension':    { name: 'פשיטת מרפקים במכונה',       description: 'פשיטת מרפקים בישיבה במכונת טרייספס' },
+  'rotary-torso':                 { name: 'סיבובי גו במכונה',          description: 'סיבוב הגו בישיבה מול המשקל, לשני הצדדים' },
+  'seated-calf-raise':            { name: 'הרמת עקבים בישיבה',         description: 'הרמת עקבים בישיבה, ברכיים מתחת לכרית' },
+  'back-extension':               { name: 'פשיטת גב בספסל',            description: 'כפיפה ויישור מהירכיים על ספסל פשיטת גב 45°, רגליים נעולות' },
+  'machine-back-extension':       { name: 'פשיטת גב במכונה',           description: 'פשיטת גב תחתון בישיבה מול הכרית' },
+  'decline-crunch':               { name: 'כפיפות בטן בשיפוע שלילי',   description: 'כפיפות בטן או בטן מלאה על ספסל בטן משופע, רגליים נעולות' },
+  'dumbbell-preacher-curl':       { name: 'כפיפת מרפק בסקוט עם משקולת', description: 'כפיפת מרפק ביד אחת עם משקולת מעל כרית סקוט' },
+  'trap-bar-deadlift':            { name: 'מתה במוט טראפ',             description: 'מתה בעמידה בתוך מוט משושה (טראפ), אחיזה ניטרלית' },
+  'straight-bar-pushdown':        { name: 'פשיטת מרפקים במוט ישר',     description: 'פשיטת מרפקים בפולי עליון עם מוט ישר קצר' },
+  'cable-curl':                   { name: 'כפיפת מרפקים בכבל',         description: 'כפיפת מרפקים בעמידה עם מוט ישר מהפולי התחתון' },
 };

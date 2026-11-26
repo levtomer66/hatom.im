@@ -23,6 +23,7 @@ import {
   FaShoppingCart,
   FaAppleAlt,
   FaUtensils,
+  FaBaby,
   FaUserShield,
   FaChartLine,
   FaSignOutAlt,
@@ -65,6 +66,7 @@ const allNavItems: NavItem[] = [
   { href: '/shopping',                 label: 'כיף לי בסופר', icon: FaShoppingCart, visibility: { permission: 'shopping'    } },
   { href: '/calories',                 label: 'קלוריות',       icon: FaAppleAlt,     visibility: { permission: 'calories'    } },
   { href: '/recipes',                  label: 'מתכונים',       icon: FaUtensils,     visibility: { permission: 'recipes'     } },
+  { href: '/pregnancy',                label: 'הריון',         icon: FaBaby,         visibility: { permission: 'pregnancy'   } },
   { href: '/admin/allowlist',          label: 'הרשאות',        icon: FaUserShield, visibility: 'owner' },
   { href: '/admin/workout-activity',    label: 'פעילות אימונים', icon: FaChartLine,  visibility: 'owner' },
 ];

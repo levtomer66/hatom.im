@@ -16,6 +16,8 @@ import BottomNav from '@/components/workout/BottomNav';
 import ExerciseExternalLinks from '@/components/workout/ExerciseExternalLinks';
 import ExerciseProgressChart from '@/components/workout/ExerciseProgressChart';
 import ExercisePhoto from '@/components/workout/ExercisePhoto';
+import HowToModal from '@/components/workout/HowToModal';
+import ReplaceCustomExercise from '@/components/workout/ReplaceCustomExercise';
 import { ExerciseHistoryEntry, PersonalBest, ExerciseDefinition } from '@/types/workout';
 import { getExerciseById, EXERCISE_LIBRARY } from '@/data/exercise-library';
 import { setNumber } from '@/lib/workout-unilateral';
@@ -29,6 +31,7 @@ export default function ExerciseDetailPage() {
   const { unit } = useWorkoutUnit();
   const { customExercises, loaded: customsLoaded, ensureLoaded, setRetired } = useCustomExercises();
   const [retiring, setRetiring] = useState(false);
+  const [showHowTo, setShowHowTo] = useState(false);
   const t = useT();
   const unitSuffix = getUnitSuffix(unit, language);
 
@@ -202,18 +205,33 @@ export default function ExerciseDetailPage() {
         {/* Exercise header card */}
         <div className="workout-card" style={{ marginBottom: '24px' }}>
           <div style={{ display: 'flex', gap: '16px', alignItems: 'flex-start' }}>
-            <ExercisePhoto
-              src={exercise.defaultPhoto}
-              /* decorative: the <h2> name beside it is the accessible name,
-                 so alt="" (default) avoids a duplicate announcement. */
-              style={{
-                width: '80px',
-                height: '80px',
-                borderRadius: '12px',
-                fontSize: '32px',
-                flexShrink: 0,
-              }}
-            />
+            {/* PROTOTYPE: tap the photo for the how-to. */}
+            <button
+              type="button"
+              onClick={() => setShowHowTo(true)}
+              aria-label={t('howto.title')}
+              style={{ position: 'relative', padding: 0, border: 0, background: 'none', cursor: 'pointer', flexShrink: 0 }}
+            >
+              <ExercisePhoto
+                src={exercise.defaultPhoto}
+                style={{
+                  width: '80px',
+                  height: '80px',
+                  borderRadius: '12px',
+                  fontSize: '32px',
+                  flexShrink: 0,
+                }}
+              />
+              <span className="howto-play-badge" aria-hidden="true">▶</span>
+            </button>
+            {showHowTo && (
+              <HowToModal
+                exerciseId={exercise.id}
+                title={localized.name}
+                photo={exercise.defaultPhoto}
+                onClose={() => setShowHowTo(false)}
+              />
+            )}
             <div style={{ flex: 1 }}>
               <h2 style={{ fontSize: '20px', fontWeight: 700, marginBottom: '8px' }}>
                 {localized.name}
@@ -271,6 +289,11 @@ export default function ExerciseDetailPage() {
                     }}>
                       {t('customex.retired_badge')}
                     </span>
+                    {exercise.replacedBy && getExerciseById(exercise.replacedBy) ? (
+                      <a href={`/workout/exercises/${exercise.replacedBy}`} style={{ fontSize: '13px', color: 'var(--workout-blue)' }}>
+                        {t('customex.replaced_by')} {resolveExerciseName(exercise.replacedBy)} →
+                      </a>
+                    ) : (
                     <button
                       className="workout-btn workout-btn-secondary"
                       style={{ padding: '6px 12px', fontSize: '12px', opacity: retiring ? 0.5 : 1 }}
@@ -279,22 +302,32 @@ export default function ExerciseDetailPage() {
                     >
                       {t('customex.restore')}
                     </button>
+                    )}
                   </div>
                 ) : (
-                  <button
-                    className="workout-btn workout-btn-secondary"
-                    style={{
-                      padding: '6px 12px',
-                      fontSize: '12px',
-                      marginBottom: '12px',
-                      color: 'var(--workout-red)',
-                      opacity: retiring ? 0.5 : 1,
-                    }}
-                    onClick={() => toggleRetired(true)}
-                    disabled={retiring}
-                  >
-                    🗑 {t('customex.remove')}
-                  </button>
+                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '12px' }}>
+                    <ReplaceCustomExercise
+                      custom={exercise}
+                      onReplaced={(targetId) => {
+                        setRetired(exercise.id, true);
+                        // Full load: templates, PBs and history are all re-read.
+                        window.location.assign(`/workout/exercises/${targetId}`);
+                      }}
+                    />
+                    <button
+                      className="workout-btn workout-btn-secondary"
+                      style={{
+                        padding: '6px 12px',
+                        fontSize: '12px',
+                        color: 'var(--workout-red)',
+                        opacity: retiring ? 0.5 : 1,
+                      }}
+                      onClick={() => toggleRetired(true)}
+                      disabled={retiring}
+                    >
+                      🗑 {t('customex.remove')}
+                    </button>
+                  </div>
                 )
               )}
               {pb && (

@@ -36,7 +36,7 @@ function bearerCredential(value: string): string | null {
 }
 
 /** The person's live permission (owners hold every one). */
-export async function hasFeaturePermission(
+export async function hasCurrentPermission(
   email: string,
   permission: PermissionKey
 ): Promise<boolean> {
@@ -56,7 +56,7 @@ export async function requireFeatureCaller(
 
     const owner = await getApiKeyOwner(apiKey);
     if (!owner || !owner.apiKey) return unauthorized();
-    if (!(await hasFeaturePermission(owner.userEmail, permission))) {
+    if (!(await hasCurrentPermission(owner.userEmail, permission))) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
     return {

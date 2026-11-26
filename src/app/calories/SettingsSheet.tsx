@@ -31,8 +31,10 @@ function Chips<T extends string | number>({ label, value, options, onPick }: { l
   );
 }
 
-export function GoalForm({ settings, kg: kgNow, onSave, cta, autosave, onFlush }: {
+export function GoalForm({ settings, kg: kgNow, onSave, cta, autosave, onFlush, preg }: {
   settings: Settings | null; kg: number | null; onSave: SaveGoals; cta?: string; autosave?: boolean; onFlush?: (flush: () => void) => void;
+  /** A pregnant owner: the trimester's extra kcal the recommendation includes (docs/superpowers/specs/2026-11-24-pregnancy-design.md). */
+  preg?: { extra: number; trimester: 1 | 2 | 3 } | null;
 }) {
   const p = settings?.profile;
   const [aim, setAim] = useState<Aim>(settings?.aim ?? 'keep');
@@ -52,7 +54,7 @@ export function GoalForm({ settings, kg: kgNow, onSave, cta, autosave, onFlush }
     ? { sex, activity, birthYear: Math.round(Number(birthYear)), heightCm: Math.round(Number(height)) }
     : undefined;
   const year = new Date().getFullYear();
-  const rec = profile && profile.birthYear > 1900 && profile.heightCm > 0 ? recommend(profile, aim, kgOk(kgNum) ? kgNum : null, year) : null;
+  const rec = profile && profile.birthYear > 1900 && profile.heightCm > 0 ? recommend(profile, aim, kgOk(kgNum) ? kgNum : null, year, preg?.extra ?? 0) : null;
   /** The first edit of a goal: both fields start from the recommendation they were showing. */
   const unfollow = () => {
     if (follow && rec) { setGoal(String(rec.goal)); setProtein(String(rec.proteinGoal)); }
@@ -104,6 +106,7 @@ export function GoalForm({ settings, kg: kgNow, onSave, cta, autosave, onFlush }
       {rec ? (
         <p className="cal-rec">
           ההמלצה: <b>{n(rec.goal)}</b> קק״ל · <b>{rec.proteinGoal}</b> ג׳ חלבון
+          {preg?.extra ? <small className="cal-preg-extra">כולל +{preg.extra} ל{preg.trimester === 2 ? 'שליש שני' : 'שליש שלישי'}</small> : null}
           {!follow ? <button type="button" className="cal-link" onClick={() => setFollow(true)}>לפי ההמלצה</button> : <small>מתעדכן עם המשקל</small>}
         </p>
       ) : <p className="cal-muted cal-note">מלאו את הפרטים שלמעלה כדי לקבל המלצה.</p>}
@@ -127,13 +130,13 @@ export function GoalForm({ settings, kg: kgNow, onSave, cta, autosave, onFlush }
   );
 }
 
-export default function SettingsSheet({ settings, kg, onSave, onClose }: {
-  settings: Settings | null; kg: number | null; onSave: SaveGoals; onClose: () => void;
+export default function SettingsSheet({ settings, kg, onSave, onClose, preg }: {
+  settings: Settings | null; kg: number | null; onSave: SaveGoals; onClose: () => void; preg?: { extra: number; trimester: 1 | 2 | 3 } | null;
 }) {
   const flush = useRef<() => void>(() => {});
   return (
     <Sheet title="מטרה ויעדים" onClose={() => { flush.current(); onClose(); }}>
-      <GoalForm settings={settings} kg={kg} autosave onSave={onSave} onFlush={(f) => { flush.current = f; }} />
+      <GoalForm settings={settings} kg={kg} autosave preg={preg} onSave={onSave} onFlush={(f) => { flush.current = f; }} />
     </Sheet>
   );
 }

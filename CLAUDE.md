@@ -23,6 +23,7 @@ several independent features under separate routes:
 | `/shopping`        | Grocery price comparison across chains (permission `shopping`). Per-household My items + one list in Mongo `shoppingHome`; price data written by a local ingest job. |
 | `/calories`        | Private food diary against a daily calorie goal (permission `calories`). Reuses the shopping catalog, nutrition and scanner; MoH generic foods in Mongo `caloriesFoods`. |
 | `/recipes`         | Per-person recipe book with a shared feed (permission `recipes`). Mongo `recipes`; sends ingredients to the shopping list, logs servings to /calories, imports through MCP. |
+| `/pregnancy`       | Pregnancy tracker (permission `pregnancy`): week+day hero, 40 week cubes with events and in-page reminders, caffeine counter. Mongo `pregnancies`; drinks are calories diary entries. |
 
 Default branch is `main`. Pushes to `main` auto-deploy to Production via
 Vercel's GitHub integration. There is no separate `master` branch.
@@ -177,6 +178,13 @@ Identity = Gmail address. Two roles:
   freestyle marker (template-started workouts always carry a templateId).
   On completion the summary offers "save as template" via
   `templateExercisesFromWorkout()`; saving renames + links the workout.
+- **Gyms + machine grid**: the picker shows the current gym's machines
+  (catalog `GYM_MACHINES` in `src/data/gym-machines.ts`). The gyms
+  themselves are `src/data/gyms.ts`, written by the **local-only backoffice**
+  at `/admin/gyms` (dev server on localhost + owner; 404 anywhere else) —
+  save there, then commit the file. Validation/rendering in
+  `src/lib/gym-config.ts`. The workout service worker caches `/_next`
+  chunks site-wide: unregister it if a dev page runs stale client code.
 - **The Moving Car** (feed): derived purely from the sum of all feed posts'
   `stats.totalVolumeKg` by `computeCarState()` in `src/lib/workout-car.ts`
   (1 000 kg = 1 m; level 1 = 50 m, ×1.25 per level). Nothing is stored —
@@ -544,6 +552,44 @@ Identity = Gmail address. Two roles:
   editor's link is `sourceUrl` on the wire, `source` in the doc.
 - `src/lib/recipes/*.ts` are import-free for `node --test`, except `server.ts`,
   `products.ts`, `match-server.ts`, `autolink.ts` and `mcp-tools.ts`.
+### Pregnancy (`/pregnancy`)
+
+- Spec: `docs/superpowers/specs/2026-11-24-pregnancy-design.md`. One small doc per
+  pregnancy in `pregnancies` (events, reminders, scans embedded); a person is in at
+  most one *active* one (partial unique index on `members`). The creator is the
+  pregnant **owner**; others join only by her invite. "הלידה הייתה" sets
+  `status: 'ended'` (kept, hidden).
+- **Caffeine is the calories diary's own**: `Entry.caf` (mg, frozen like `nu`,
+  rescaled from `base.caf`), `Ref.kind: 'drink'` for the built-in `DRINKS`
+  (`src/lib/pregnancy/drinks.ts`, each mg with its source). The **server** sets
+  `caf` on every write (`entryCaf`: drink table, `cafPer100` name rules, a meal's
+  items); only a quick entry's typed mg is taken from the client. No copies — a
+  drink deleted on either page is gone from both.
+- The calories routes /pregnancy uses (day, day/[id], search, product, label,
+  to-list) take `requireDiaryCaller` (calories, **or** a pregnant owner), so she
+  logs food without a `calories` grant; goals, weight, steps, workouts and meals
+  stay `calories`-only. Members see only her caffeine rows (`GET /api/pregnancy`),
+  never her diary, and every doc they get goes through `forViewer` (no `preKg`/`heightCm`).
+  Meals saved before caffeine existed show none until re-saved.
+- Scans are shrunk on the phone (2000 px, JPEG 0.85) before upload: a Vercel
+  function body tops out near 4.5 MB.
+- **Coffee orders** (web, API key, MCP `order_coffee`) of a pregnant owner log one
+  entry `order-<orderId>` via `logCoffeeOrder` in `after()` (idempotent `addEntry(…, once)`),
+  on the Israel day/meal of the order or its scheduled time.
+- Suggested MoH events are constants (`SUGGESTIONS` in `schedule.ts`), never
+  copied into the doc: booking one makes an event with `kind: <id>`; deleting it
+  brings the suggestion back; `dismissed` hides it.
+- Owner-only extras elsewhere: ⚠ food chips (`foodWarning`, via `PregnantProvider`
+  in `src/app/calories/pregnant.tsx`), the trimester's +kcal in `recommend(…, extra)`,
+  and `GainTileLoader` (`/api/pregnancy/me`, IOM 2009 bands) on /calories and /workout.
+- Stage pictures are hot-linked Wikimedia Commons files with credit (`stages.ts`);
+  no specimen photos. Scans go to Vercel Blob (`pregnancy/<id>/<week>-…jpg`), URL only.
+- `src/lib/pregnancy/*.ts` is import-free for `node --test`, except `mcp-tools.ts`.
+- **Day log** (`docs/superpowers/specs/2026-11-26-pregnancy-day-log-design.md`): mood, symptoms,
+  measurements and notes per day in `pregnancyDays` (`_id: "<pid>|YYYY-MM-DD"`, no extra index;
+  rules in `daylog.ts`). Every write sets only its own part, and an emptied day is deleted.
+  Everyone in the pregnancy sees all of it, health values included (not `forViewer`). History is
+  the cubes’ mood bar/⭐ and the week sheet’s day rows: no charts.
 
 ### MCP server + OAuth (`/api/mcp`)
 
@@ -566,8 +612,11 @@ Identity = Gmail address. Two roles:
   Allow/Deny; protocol errors render a click-through link instead (open
   redirect via dynamic registration otherwise — RFC 9700 §4.11.2). The user
   must also be signed in before any of that renders.
-  It's served with `X-Frame-Options: DENY` (`next.config.js`) because the site
-  CSP has no `frame-ancestors`.
+  It's never framed: `/oauth/*` gets its own copy of the CSP with
+  `frame-ancestors 'none'` (plus `X-Frame-Options: DENY` for old browsers),
+  while the rest of the site sends `'self'` (`csp()` in `next.config.js`).
+  Browsers ignore X-Frame-Options once a CSP has `frame-ancestors`, so the
+  OAuth rule must keep its own full CSP.
 
 ## Quick sanity checks before making changes
 

@@ -258,3 +258,10 @@
 
 /* ארוחות sheet → /recipes. */
 .cal-recipes-link { display: flex; align-items: center; justify-content: center; gap: 0.5rem; margin-top: 0.5rem; text-decoration: none; }
+/* Pregnancy extras (docs/superpowers/specs/2026-11-24-pregnancy-design.md): ⚠ food chips, caffeine lines. */
+.cal-warn { position: relative; display: inline-flex; align-items: center; justify-content: center; min-width: 1.4em; padding: 0 0.25em; border-radius: 6px; background: #fff3cd; color: #8a5a00; font-size: 0.8125rem; cursor: help; vertical-align: middle; }
+.cal-warn-why { display: none; position: absolute; inset-inline-start: 0; top: 120%; z-index: 5; width: max-content; max-width: 220px; padding: 6px 8px; border-radius: 8px; background: #3b2a00; color: #fff; font-size: 0.75rem; line-height: 1.35; white-space: normal; }
+.cal-warn:hover .cal-warn-why, .cal-warn:focus .cal-warn-why, .cal-warn.is-open .cal-warn-why { display: block; }
+.cal-caf { margin: 0.25rem 0 0; font-size: 0.875rem; color: var(--sh-muted); }
+.cal-entry-caf { color: #7a4b16; }
+.cal-preg-extra { display: block; margin-top: 2px; color: #7b4bc4; }

@@ -20,6 +20,9 @@ export interface CustomExerciseDocument extends Document {
   // Soft-delete: hidden from pickers/browse but still resolves names in
   // history. Never hard-deleted, so past workouts/templates never orphan.
   retired: boolean;
+  // Set when the user replaced this custom with a built-in exercise: the
+  // library id their history was moved to (see workout-custom-replace.ts).
+  replacedBy?: string | null;
   createdAt: Date;
 }
 
@@ -65,6 +68,10 @@ const CustomExerciseSchema = new Schema<CustomExerciseDocument>({
   retired: {
     type: Boolean,
     default: false,
+  },
+  replacedBy: {
+    type: String,
+    default: null,
   },
 }, {
   timestamps: { createdAt: 'createdAt' },

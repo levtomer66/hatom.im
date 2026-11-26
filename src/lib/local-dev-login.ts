@@ -25,3 +25,12 @@ export function localDevLoginEmail(): string {
 export function safeNextPath(next: string | null): string {
   return next && next.startsWith('/') && !next.startsWith('//') && !next.startsWith('/\\') ? next : '/';
 }
+
+/**
+ * Local-only tools (the gym backoffice): a `next dev` server reached on
+ * localhost. Unlike local login it doesn't need LOCAL_DEV_LOGIN, so it also
+ * works on plain `npm run dev` with a Google sign-in.
+ */
+export function localDevServer(host: string | null): boolean {
+  return process.env.NODE_ENV === 'development' && LOCAL_HOST.test(host ?? '');
+}

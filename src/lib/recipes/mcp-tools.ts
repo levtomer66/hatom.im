@@ -4,7 +4,7 @@
 // The model does the reading and converting; recipes_save's description holds
 // the rules (Hebrew, Israeli units and products). Server-only.
 
-import { hasFeaturePermission } from '@/lib/api-caller';
+import { hasCurrentPermission } from '@/lib/api-caller';
 import { normalizeQty } from '@/lib/shopping/home';
 import { getItems } from '@/models/ShoppingCatalog';
 import { addLines } from '@/models/ShoppingHome';
@@ -168,7 +168,7 @@ export const RECIPE_TOOLS: ShoppingTool[] = [
       required: ['id'],
     },
     handler: async (args, caller) => {
-      if (!(await hasFeaturePermission(caller.userEmail, 'shopping'))) throw new Error("You don't have the \"shopping\" permission.");
+      if (!(await hasCurrentPermission(caller.userEmail, 'shopping'))) throw new Error("You don't have the \"shopping\" permission.");
       const r = await readable(str(args, 'id'), caller);
       const n = typeof args.servings === 'number' && args.servings >= 1 && args.servings <= 100 ? Math.round(args.servings) : r.servings;
       const { lines, householdId } = await buildMatch(r, caller.userEmail, n);

@@ -13,9 +13,11 @@ import { isOwnerEmail } from '@/types/auth';
 import type { PermissionKey } from '@/types/permissions';
 import { SHOPPING_TOOLS } from '@/lib/shopping/mcp-tools';
 import { RECIPE_TOOLS } from '@/lib/recipes/mcp-tools';
+import { PREGNANCY_TOOLS } from '@/lib/pregnancy/mcp-tools';
 import { createCoffeeOrder } from '@/models/CoffeeOrder';
 import { getCoffeeFavoritesForUser, getCoffeeFavoriteByName } from '@/models/CoffeeFavorite';
 import { orderDtoFromFavorite, defaultDrinkConfig, drinkSummary } from '@/types/coffee-order';
+import { logCoffeeOrder } from '@/lib/coffee-caffeine';
 import { notifyCoffeeOrder } from '@/lib/coffee-notify';
 import { createPageIncident } from '@/lib/pagerduty';
 import { parsePageRequest } from '@/types/paging';
@@ -116,6 +118,7 @@ const TOOLS: McpTool[] = [
         ...dto,
       });
       after(() => notifyCoffeeOrder(order));
+      after(() => logCoffeeOrder(order));
       return `Ordered: ${drinkSummary(order)}`;
     },
   },
@@ -314,6 +317,8 @@ const TOOLS: McpTool[] = [
   // Groceries: search, prices, lists and store comparison (src/lib/shopping/mcp-tools.ts).
   ...SHOPPING_TOOLS.map((t): McpTool => ({ ...t, permission: 'shopping' })),
   ...RECIPE_TOOLS.map((t): McpTool => ({ ...t, permission: 'recipes' })),
+  // Pregnancy: the week and today's caffeine; log a drink (src/lib/pregnancy/mcp-tools.ts).
+  ...PREGNANCY_TOOLS.map((t): McpTool => ({ ...t, permission: 'pregnancy' })),
 ];
 
 const TOOL_BY_NAME = new Map(TOOLS.map((t) => [t.name, t]));

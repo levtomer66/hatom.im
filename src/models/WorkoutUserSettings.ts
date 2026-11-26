@@ -85,3 +85,18 @@ export async function setExerciseLoadPref(
   );
   return toSettings(doc);
 }
+
+// Moves a gear preference from one exercise to another in one write (used when
+// a custom exercise is replaced by a built-in). `set`/`unset` come from
+// moveLoadPref in src/lib/workout-replace-exercise.ts.
+export async function applyExerciseLoadMove(
+  userId: string,
+  move: { set: Record<string, ExerciseLoadPref>; unset: string[] },
+): Promise<void> {
+  const col = await getCollection();
+  const update: UpdateFilter<WorkoutUserSettingsDocument> = {};
+  const set = Object.fromEntries(Object.entries(move.set).map(([id, pref]) => [`exerciseLoad.${id}`, pref]));
+  if (Object.keys(set).length) update.$set = set;
+  if (move.unset.length) update.$unset = Object.fromEntries(move.unset.map((id) => [`exerciseLoad.${id}`, '']));
+  await col.updateOne({ userId }, update);
+}

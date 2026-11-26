@@ -5,6 +5,7 @@ import { WorkoutTemplate, ExerciseDefinition } from '@/types/workout';
 import { useWorkoutLanguage } from '@/context/WorkoutLanguageContext';
 import { useT, exerciseCount, getLocalizedTemplateName } from '@/lib/workout-i18n';
 import { getLocalizedExercise } from '@/lib/exercise-translations';
+import GymSwitch from './GymSwitch';
 
 // localStorage key for the last-used tab. Per Imp 12 — persists across
 // modal opens and page reloads so the user lands back where they were
@@ -104,6 +105,11 @@ export default function TemplateSelector({
           <button className="workout-modal-close" onClick={onClose} aria-label={t('generic.close')}>
             ✕
           </button>
+        </div>
+
+        {/* PROTOTYPE: which gym this workout is at — drives the machine grid. */}
+        <div style={{ padding: '0 16px' }}>
+          <GymSwitch />
         </div>
 
         {/* Tabs */}

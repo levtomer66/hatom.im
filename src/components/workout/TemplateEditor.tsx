@@ -38,6 +38,7 @@ import { useWorkoutLanguage } from '@/context/WorkoutLanguageContext';
 import { useT, getCategoryLabel } from '@/lib/workout-i18n';
 import ExercisePicker from './ExercisePicker';
 import ExercisePhoto from './ExercisePhoto';
+import HowToModal from './HowToModal';
 import { supersetLabel } from '@/lib/superset';
 
 // Muscle group filter IDs (labels come from getCategoryLabel at render time).
@@ -195,6 +196,8 @@ export default function TemplateEditor({
   const { language } = useWorkoutLanguage();
   const t = useT();
   const [showAddForm, setShowAddForm] = useState(false);
+  // PROTOTYPE: tapping a photo in the add list plays the how-to.
+  const [howTo, setHowTo] = useState<ExerciseDefinition | null>(null);
   const [name, setName] = useState('');
   const [selectedExercises, setSelectedExercises] = useState<TemplateExercise[]>([]);
   const [search, setSearch] = useState('');
@@ -622,18 +625,25 @@ export default function TemplateEditor({
                         flexShrink: 0,
                       }}
                     >
-                      <ExercisePhoto
-                        className="exercise-picker-photo"
-                        src={exercise.defaultPhoto}
-                        /* decorative: name shown beside it; alt="" default */
-                        objectFit="contain"
-                        style={{
-                          width: '40px',
-                          height: '40px',
-                          flexShrink: 0,
-                          backgroundColor: 'var(--workout-bg-card)',
-                        }}
-                      />
+                      <button
+                        type="button"
+                        className="howto-thumb"
+                        aria-label={t('howto.title')}
+                        onClick={(e) => { e.stopPropagation(); setHowTo(exercise); }}
+                      >
+                        <ExercisePhoto
+                          className="exercise-picker-photo"
+                          src={exercise.defaultPhoto}
+                          objectFit={exercise.defaultPhoto?.startsWith('/workout/exercises/') ? 'cover' : 'contain'}
+                          style={{
+                            width: '40px',
+                            height: '40px',
+                            flexShrink: 0,
+                            backgroundColor: 'var(--workout-bg-card)',
+                          }}
+                        />
+                        <span className="howto-play-badge" aria-hidden="true">▶</span>
+                      </button>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <span className="exercise-picker-name" style={{ fontSize: '14px' }}>
                           {listName}
@@ -676,6 +686,16 @@ export default function TemplateEditor({
     {/* Rendered as a sibling (not nested inside the overlay above) so that
         clicks on the picker's own overlay don't bubble up and close the
         template editor underneath. */}
+    {/* PROTOTYPE: how-to for a photo tapped in the add list (sibling, like the pickers). */}
+    {howTo && (
+      <HowToModal
+        exerciseId={howTo.id}
+        title={getLocalizedExercise(howTo, language).name}
+        photo={howTo.defaultPhoto}
+        onClose={() => setHowTo(null)}
+      />
+    )}
+
     {replaceRowIndex !== null && (
       <ExercisePicker
         isOpen={true}

@@ -10,11 +10,13 @@ import type { FoodHit, SearchResponse } from '@/lib/calories/api-types';
 import { Thumb } from '../shopping/ui';
 import { amountText, MOH_CREDIT } from './AmountStep';
 import QuickAdd from './QuickAdd';
+import { WarnChip } from './pregnant';
+import { drinkOfRef } from '@/lib/pregnancy/drinks';
 import { myItems, search } from './api';
 
 export type LogFn = (entry: Omit<Entry, 'id' | 'at' | 'meal'>, per100: FoodHit['per100'], per?: FoodHit['per']) => void;
 
-export const EMPTY: SearchResponse = { meals: [], foods: [], products: [] };
+export const EMPTY: SearchResponse = { meals: [], foods: [], products: [], drinks: [] };
 
 /** A recent food's totals at its last amount; null when it can't be priced (a product nobody has typed yet). */
 export function recentTotals(r: Recent) {
@@ -63,6 +65,7 @@ export function useMyItems(canShop: boolean) {
 
 export function HitGroups({ res, withMeals, loading, onPick }: { res: SearchResponse; withMeals: boolean; loading: boolean; onPick: (h: FoodHit) => void }) {
   const groups: { title: string; hits: FoodHit[] }[] = [
+    { title: 'משקאות', hits: res.drinks ?? [] },
     { title: 'הארוחות שלי', hits: withMeals ? res.meals : [] },
     { title: 'מזון כללי', hits: res.foods },
     { title: 'מוצרים', hits: res.products },
@@ -78,9 +81,9 @@ export function HitGroups({ res, withMeals, loading, onPick }: { res: SearchResp
               <li key={`${h.ref.kind}:${h.ref.key}`}>
                 <button type="button" className="cal-hit" onClick={() => onPick(h)}>
                   <Thumb src={h.img} size={40} />
-                  <span className="cal-hit-name">{h.name}{h.maker ? <small>{h.maker}</small> : null}</span>
+                  <span className="cal-hit-name">{h.name} <WarnChip name={h.name} text={drinkOfRef(h.ref)?.warn} />{h.maker ? <small>{h.maker}</small> : null}</span>
                   <span className="cal-hit-kcal">
-                    {h.per100 ? <>{h.per100.kcal}<small>ל־100 ג׳</small></> : h.per ? <>{h.per.kcal}<small>למנה</small></> : <small>אין ערכים</small>}
+                    {h.source === 'drink' ? <>☕ {h.caf}<small>מ״ג ל{h.units[0]?.name}</small></> : h.per100 ? <>{h.per100.kcal}<small>ל־100 ג׳</small></> : h.per ? <>{h.per.kcal}<small>למנה</small></> : <small>אין ערכים</small>}
                   </span>
                 </button>
               </li>

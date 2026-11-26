@@ -544,3 +544,8 @@
 .coffee-board-link:hover {
   background: #f3e3cd;
 }
+
+/* A pregnant owner's caffeine today with this coffee (docs/superpowers/specs/2026-11-24-pregnancy-design.md). */
+.coffee-caf { margin: 0.5rem 0; padding: 0.5rem 0.75rem; border-radius: 10px; background: #eef8ee; color: #245c2a; font-size: 0.9375rem; }
+.coffee-caf.is-warn { background: #fff4dc; color: #7a4b00; }
+.coffee-caf.is-over { background: #fde8e8; color: #8f1d1d; }

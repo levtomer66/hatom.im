@@ -1,15 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireFeatureCaller } from '@/lib/api-caller';
 import { isDate, MAX_GRAMS, MEALS, type Meal } from '@/lib/calories/calories';
 import { deleteEntry, updateEntry } from '@/models/Calories';
-import { bad, readJson, serverError } from '../../_shared';
+import { bad, readJson, serverError, requireDiaryCaller } from '../../_shared';
 
 type Ctx = { params: Promise<{ id: string }> };
 
 // PATCH { date, meal?, qty? } — moves an entry or changes its amount; the
 // frozen totals scale with the quantity (never re-read from the catalog).
 export async function PATCH(request: NextRequest, { params }: Ctx) {
-  const caller = await requireFeatureCaller(request, 'calories');
+  const caller = await requireDiaryCaller(request);
   if (caller instanceof NextResponse) return caller;
   const { id } = await params;
   const body = await readJson(request);
@@ -30,7 +29,7 @@ export async function PATCH(request: NextRequest, { params }: Ctx) {
 
 // DELETE ?date= — removes an entry.
 export async function DELETE(request: NextRequest, { params }: Ctx) {
-  const caller = await requireFeatureCaller(request, 'calories');
+  const caller = await requireDiaryCaller(request);
   if (caller instanceof NextResponse) return caller;
   const { id } = await params;
   const date = request.nextUrl.searchParams.get('date');

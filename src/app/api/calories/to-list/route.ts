@@ -2,13 +2,13 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireFeatureCaller } from '@/lib/api-caller';
 import { getItems } from '@/models/ShoppingCatalog';
 import { addLines, ensureMyItems, householdFor } from '@/models/ShoppingHome';
-import { bad, readJson, serverError } from '../_shared';
+import { bad, readJson, serverError, requireDiaryCaller } from '../_shared';
 
 // POST { key } — 🛒: one unit (1 kg when weighed) of a logged product onto the
 // caller's household shopping list, and into My items as search does.
 // Needs the shopping permission as well as calories.
 export async function POST(request: NextRequest) {
-  const caller = await requireFeatureCaller(request, 'calories');
+  const caller = await requireDiaryCaller(request);
   if (caller instanceof NextResponse) return caller;
   const shopper = await requireFeatureCaller(request, 'shopping');
   if (shopper instanceof NextResponse) return shopper;

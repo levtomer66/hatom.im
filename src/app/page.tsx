@@ -5,7 +5,7 @@ import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import { motion } from 'framer-motion';
 import { signIn, useSession } from 'next-auth/react';
-import { FaDog, FaCoffee, FaMugHot, FaVideo, FaDumbbell, FaRing, FaPlane, FaSpa, FaHeart, FaBell, FaSignInAlt, FaTasks, FaBirthdayCake, FaTshirt, FaCalendarAlt, FaShoppingCart, FaAppleAlt, FaUtensils } from 'react-icons/fa';
+import { FaDog, FaCoffee, FaMugHot, FaVideo, FaDumbbell, FaRing, FaPlane, FaSpa, FaHeart, FaBell, FaSignInAlt, FaTasks, FaBirthdayCake, FaTshirt, FaCalendarAlt, FaShoppingCart, FaAppleAlt, FaUtensils, FaBaby } from 'react-icons/fa';
 import type { IconType } from 'react-icons';
 import Navbar from '@/components/Navbar';
 import { hasPermission } from '@/lib/permissions';
@@ -42,6 +42,7 @@ const allFeatures: Feature[] = [
   { icon: FaShoppingCart, title: 'כיף לי בסופר', description: 'רשימת קניות ואיפה הכי זול לקנות אותה',   href: '/shopping',                 linkText: 'לרשימה',             permission: 'shopping'    },
   { icon: FaAppleAlt, title: 'מחשבון קלוריות',  description: 'מה אכלתי היום ומה נשאר',                   href: '/calories',                 linkText: 'ליומן',              permission: 'calories'    },
   { icon: FaUtensils, title: 'מתכונים',         description: 'ספר המתכונים שלנו',                        href: '/recipes',                  linkText: 'לספר',               permission: 'recipes'     },
+  { icon: FaBaby,     title: 'מעקב הריון',       description: 'שבוע, תורים וקפאין',                       href: '/pregnancy',                linkText: 'לדף',                permission: 'pregnancy'   },
 ];
 
 const containerVariants = {

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireFeatureCaller } from '@/lib/api-caller';
+import { withCaf } from '@/lib/pregnancy/drinks';
 import { parseMeal } from '@/lib/calories/calories';
 import { createMeal, listMeals } from '@/models/Calories';
 import { bad, readJson, serverError } from '../_shared';
@@ -24,6 +25,7 @@ export async function POST(request: NextRequest) {
   if (body instanceof NextResponse) return body;
   const m = parseMeal(body);
   if (!m.ok) return bad(m.error);
+  m.value.items = withCaf(m.value.items);
   try {
     if ((await listMeals(caller.userEmail)).length >= MAX_MEALS) return bad(`אפשר עד ${MAX_MEALS} ארוחות`);
     return NextResponse.json({ meal: await createMeal(caller.userEmail, m.value) }, { status: 201 });

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireFeatureCaller } from '@/lib/api-caller';
+import { withCaf } from '@/lib/pregnancy/drinks';
 import { parseMeal } from '@/lib/calories/calories';
 import { deleteMeal, updateMeal } from '@/models/Calories';
 import { bad, readJson, serverError } from '../../_shared';
@@ -15,6 +16,7 @@ export async function PATCH(request: NextRequest, { params }: Ctx) {
   if (body instanceof NextResponse) return body;
   const m = parseMeal(body);
   if (!m.ok) return bad(m.error);
+  m.value.items = withCaf(m.value.items);
   try {
     const meal = await updateMeal(caller.userEmail, id, m.value);
     return meal ? NextResponse.json({ meal }) : bad('הארוחה לא נמצאה', 404);
