@@ -160,3 +160,40 @@
 .pg-invite-form input { flex: 1; min-width: 0; min-height: var(--sh-tap); padding: 0 10px; border: 1px solid var(--sh-line); border-radius: var(--sh-r-ctl); background: var(--sh-bg); color: inherit; font: inherit; direction: ltr; text-align: start; }
 .pg-end { margin-top: 18px; }
 .pg-undo { color: inherit; text-decoration: underline; }
+
+/* Half or whole, after tapping a drink chip. */
+.pg-qty { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 8px; }
+.pg-qty-btn { display: flex; flex-direction: column; align-items: center; gap: 4px; min-height: 112px; padding: 16px 8px; border: 1px solid var(--sh-line); border-radius: var(--sh-r-ctl); background: var(--sh-bg); color: inherit; font: inherit; cursor: pointer; }
+.pg-qty-btn:active { transform: scale(0.97); }
+.pg-qty-btn b { font-size: 1.375rem; }
+.pg-qty-btn small { color: var(--sh-muted); }
+.pg-qty-emoji { margin: 0; text-align: center; font-size: 2rem; }
+
+/* The day log (docs/superpowers/specs/2026-11-26-pregnancy-day-log-design.md). */
+.pg-daysheet-wd { margin: -4px 0 4px; }
+.pg-moods { display: flex; justify-content: space-between; gap: 6px; }
+.pg-mood { flex: 1; min-height: 52px; border: 1px solid var(--sh-line); border-radius: var(--sh-r-ctl); background: var(--sh-bg); font-size: 1.625rem; cursor: pointer; filter: grayscale(0.6); opacity: 0.75; }
+.pg-mood.is-on { border-color: var(--pg-accent); background: color-mix(in srgb, var(--pg-accent) 18%, var(--sh-bg)); filter: none; opacity: 1; }
+.pg-syms { display: flex; flex-wrap: wrap; gap: 6px; }
+.pg-hint { margin: 4px 0 0; font-size: 0.75rem; }
+.pg-measure .cal-field { margin-bottom: 0; }
+.pg-bp { display: flex; align-items: center; gap: 6px; }
+.pg-bp input { flex: 1; min-width: 0; }
+.pg-prev { margin: 2px 0 6px; font-size: 0.75rem; }
+.pg-notes { list-style: none; margin: 0 0 8px; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.pg-note { display: flex; align-items: flex-start; gap: 6px; }
+.pg-note-body { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.pg-note-body textarea, .pg-note-new textarea { width: 100%; resize: vertical; font: inherit; color: inherit; background: var(--sh-bg); border: 1px solid var(--sh-line); border-radius: 8px; padding: 6px 8px; }
+.pg-note-new { display: flex; align-items: flex-start; gap: 6px; }
+.pg-note-new textarea { flex: 1; min-width: 0; }
+.pg-star[aria-pressed="true"], .pg-note.is-star .pg-star { color: #f5b301; }
+.pg-add-ev { margin-top: 6px; }
+.pg-daylog { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; padding: 2px 0 4px; font-size: 0.8125rem; }
+.pg-daylog-mood { font-size: 1.125rem; }
+.pg-daylog-sym { padding: 1px 6px; border-radius: 999px; background: var(--sh-surface); }
+.pg-daylog-sym i { font-style: normal; color: var(--pg-accent); letter-spacing: -1px; }
+.pg-daylog-m { color: var(--sh-muted); font-variant-numeric: tabular-nums; }
+.pg-daylog-note { flex-basis: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pg-howday { margin: 4px 0 8px; }
+.pg-cube-mood { position: absolute; inset-inline: 4px; bottom: 3px; height: 4px; border-radius: 2px; z-index: 1; }
+.pg-cube-star { position: absolute; top: 1px; inset-inline-start: 2px; font-size: 0.5625rem; font-style: normal; line-height: 1; z-index: 1; }
