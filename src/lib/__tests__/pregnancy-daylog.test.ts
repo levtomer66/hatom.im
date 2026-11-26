@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { bpValue, dayAllowed, isEmptyDay, measureText, moodColor, parseDayPatch, parseNote, prevValues, trendText, weekSummary } from '../pregnancy/daylog.ts';
+import { bpValue, dayAllowed, measuresFrom, isEmptyDay, measureText, moodColor, parseDayPatch, parseNote, prevValues, trendText, weekSummary } from '../pregnancy/daylog.ts';
 
 const EDD = '2027-06-08'; // day 0 = 2026-09-01
 
@@ -83,4 +83,13 @@ test('bpValue: a pair only when both fields hold numbers', () => {
   assert.equal(bpValue('', '80'), undefined);
   assert.equal(bpValue('12a', '80'), undefined);
   assert.equal(bpValue(' ', ''), null);
+});
+
+test('measuresFrom: a half-typed bp keeps the saved one and never blocks the other measures', () => {
+  const f = { sys: '120', dia: '', sugar: '95', belly: '', fhr: '' };
+  assert.deepEqual(measuresFrom(f), { sugar: 95 });
+  assert.deepEqual(measuresFrom(f, { bp: [118, 76] }), { bp: [118, 76], sugar: 95 });
+  assert.deepEqual(measuresFrom({ sys: '120', dia: '80', sugar: '', belly: '', fhr: '' }), { bp: [120, 80] });
+  assert.equal(measuresFrom({ sys: '', dia: '', sugar: '', belly: '', fhr: '' }), null);
+  assert.equal(measuresFrom({ sys: '', dia: '', sugar: '9x', belly: '', fhr: '' }), undefined);
 });

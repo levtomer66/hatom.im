@@ -6,12 +6,12 @@
 // the pregnancy writes. Each part saves on its own (useAutosave), so two people
 // editing one day don't undo each other.
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { FaPlus, FaStar, FaRegStar, FaTrash } from 'react-icons/fa';
 import { dayOfPregnancy, heDate, weekDay } from '@/lib/pregnancy/dates';
 import {
-  bpValue, dayAllowed, measureText, trendText, MAX_NOTE_TEXT, MEASURES, MOODS, STRENGTH, SYMPTOMS,
-  type DayLog, type DayNote, type MeasureId, type Measures, type Mood, type PrevValues, type Strength, type SymptomId,
+  bpValue, dayAllowed, measuresFrom, measureText, trendText, MAX_NOTE_TEXT, MEASURES, MOODS, STRENGTH, SYMPTOMS,
+  type DayLog, type DayNote, type MeasureFields, type Measures, type Mood, type PrevValues, type Strength, type SymptomId,
 } from '@/lib/pregnancy/daylog';
 import type { Pregnancy } from '@/lib/pregnancy/pregnancy';
 import type { PEvent } from '@/lib/pregnancy/schedule';
@@ -24,25 +24,10 @@ const err = (e: unknown) => (e instanceof Error ? e.message : 'לא נשמר');
 const wd = (edd: string, date: string) => { const { w, d } = weekDay(dayOfPregnancy(edd, date)); return `${w}+${d}`; };
 const who = (email: string, me: string) => (email === me ? 'אני' : email.split('@')[0]);
 
-type MeasureFields = Record<Exclude<MeasureId, 'bp'>, string> & { sys: string; dia: string };
 const fieldsOf = (m?: Measures): MeasureFields => ({
   sys: m?.bp ? String(m.bp[0]) : '', dia: m?.bp ? String(m.bp[1]) : '',
   sugar: m?.sugar !== undefined ? String(m.sugar) : '', belly: m?.belly !== undefined ? String(m.belly) : '', fhr: m?.fhr !== undefined ? String(m.fhr) : '',
 });
-/** What the fields hold as measurements; undefined while any field is half-typed or not a number. */
-function measuresOf(f: MeasureFields): Measures | null | undefined {
-  const out: Measures = {};
-  const bp = bpValue(f.sys, f.dia);
-  if (bp === undefined) return undefined;
-  if (bp) out.bp = bp;
-  for (const id of ['sugar', 'belly', 'fhr'] as const) {
-    if (!f[id].trim()) continue;
-    const n = Number(f[id]);
-    if (!Number.isFinite(n)) return undefined;
-    out[id] = n;
-  }
-  return Object.keys(out).length ? out : null;
-}
 
 export function DaySheet({ p, date, today, me, day, onEvent, onNew, onSaved, onClose }: {
   p: Pregnancy; date: string; today: string; me: string; day: DayLog | null;
@@ -58,16 +43,25 @@ export function DaySheet({ p, date, today, me, day, onEvent, onNew, onSaved, onC
 
   useEffect(() => { void api.getPrev(date).then((r) => setPrev(r.prev)).catch(() => {}); }, [date]);
 
+  // The last saved measurements: a half-typed blood pressure keeps the saved pair (measuresFrom).
+  const savedM = useRef<Measures | undefined>(day?.m);
   const put = useCallback(async (patch: Parameters<typeof api.putDay>[1]): Promise<string | null> => {
-    try { onSaved((await api.putDay(date, patch, today)).day); setError(null); return null; } catch (e) { setError(err(e)); return err(e); }
+    try {
+      const saved = (await api.putDay(date, patch, today)).day;
+      if ('m' in patch) savedM.current = saved?.m;
+      onSaved(saved); setError(null); return null;
+    } catch (e) { setError(err(e)); return err(e); }
   }, [date, today, onSaved]);
 
   const moodSave = useAutosave<{ mood: Mood | null }>({ mood }, { mood: day?.mood ?? null }, put, 300);
   const symSave = useAutosave<{ sym: typeof sym | null }>({ sym: Object.keys(sym).length ? sym : null }, { sym: day?.sym && Object.keys(day.sym).length ? day.sym : null }, put, 500);
-  const wantedM = measuresOf(mf);
+  const wantedM = measuresFrom(mf, savedM.current);
+  const bpHalf = bpValue(mf.sys, mf.dia) === undefined;
   const mSave = useAutosave<{ m: Measures | null }>(wantedM === undefined ? undefined : { m: wantedM }, { m: day?.m && Object.keys(day.m).length ? day.m : null }, put);
 
-  const close = () => { void moodSave.flush(); void symSave.flush(); void mSave.flush(); onClose(); };
+  // Leaving the sheet any way (closing, or for an event) sends what's still waiting.
+  const leave = (go: () => void) => { void moodSave.flush(); void symSave.flush(); void mSave.flush(); go(); };
+  const close = () => leave(onClose);
   const status: SaveStatus = [moodSave.status, symSave.status, mSave.status].includes('saving') ? 'saving'
     : [moodSave.status, symSave.status, mSave.status].includes('saved') ? 'saved' : 'idle';
 
@@ -136,11 +130,12 @@ export function DaySheet({ p, date, today, me, day, onEvent, onNew, onSaved, onC
                       <span aria-hidden>/</span>
                       <input inputMode="numeric" aria-label="לחץ דם תחתון" placeholder="תחתון" value={mf.dia} onChange={(e) => setMf({ ...mf, dia: e.target.value })} />
                     </div>
+                    {bpHalf ? <small className="pg-bp-half" role="status">{mf.sys.trim() ? 'חסר ערך תחתון' : 'חסר ערך עליון'} – לחץ הדם יישמר כששניהם מלאים</small> : null}
                   </div>
                 ) : (
                   <label className="cal-field">
                     <span>{def.name} <small>({def.unit})</small></span>
-                    <input inputMode="numeric" value={mf[def.id]} onChange={(e) => setMf({ ...mf, [def.id]: e.target.value })} />
+                    <input inputMode="numeric" aria-label={def.name} value={mf[def.id]} onChange={(e) => setMf({ ...mf, [def.id]: e.target.value })} />
                   </label>
                 )}
                 {pv ? (
@@ -173,9 +168,9 @@ export function DaySheet({ p, date, today, me, day, onEvent, onNew, onSaved, onC
 
       <h3 className="sh-section-title">אירועים</h3>
       {events.map((e) => (
-        <button key={e.id} type="button" className="pg-ev" onClick={() => onEvent(e)}>📍 {e.title}{e.time ? <small> · {e.time}</small> : null}</button>
+        <button key={e.id} type="button" className="pg-ev" onClick={() => leave(() => onEvent(e))}>📍 {e.title}{e.time ? <small> · {e.time}</small> : null}</button>
       ))}
-      <button type="button" className="sh-chip pg-add-ev" onClick={() => onNew(date)}><FaPlus aria-hidden /> אירוע</button>
+      <button type="button" className="sh-chip pg-add-ev" onClick={() => leave(() => onNew(date))}><FaPlus aria-hidden /> אירוע</button>
 
       {error ? <p className="cal-error" role="alert">{error}</p> : null}
       <p className="cal-muted cal-save-state" aria-live="polite">{statusText(status)}</p>

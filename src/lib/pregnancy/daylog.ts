@@ -180,3 +180,24 @@ export function bpValue(sys: string, dia: string): [number, number] | null | und
   const b = Number(dia);
   return sys.trim() && dia.trim() && Number.isFinite(a) && Number.isFinite(b) ? [a, b] : undefined;
 }
+
+export interface MeasureFields { sys: string; dia: string; sugar: string; belly: string; fhr: string }
+
+/**
+ * The day sheet's measurement fields as the `m` part to save: null when all are empty,
+ * undefined while a non-bp field isn't a number. A half-typed blood pressure never blocks
+ * the others: the saved pair (if any) is kept until both halves are typed.
+ */
+export function measuresFrom(f: MeasureFields, saved?: Measures): Measures | null | undefined {
+  const out: Measures = {};
+  const bp = bpValue(f.sys, f.dia);
+  if (bp) out.bp = bp;
+  else if (bp === undefined && saved?.bp) out.bp = saved.bp;
+  for (const id of ['sugar', 'belly', 'fhr'] as const) {
+    if (!f[id].trim()) continue;
+    const n = Number(f[id]);
+    if (!Number.isFinite(n)) return undefined;
+    out[id] = n;
+  }
+  return Object.keys(out).length ? out : null;
+}
