@@ -5,13 +5,15 @@
 // event and reminder editors. Editors save as you change them (useAutosave):
 // a new event or reminder is created by its first valid save.
 
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { FaBell, FaPlus } from 'react-icons/fa';
 import { addDays, calendarWeek, dateOfDay, dayOfPregnancy, heDate, weekDay } from '@/lib/pregnancy/dates';
 import type { Pregnancy } from '@/lib/pregnancy/pregnancy';
 import { openSuggestions, todayStrip, weekMarks, SUGGESTIONS, type PEvent, type Reminder, type Suggestion } from '@/lib/pregnancy/schedule';
+import { moodColor, MOODS, SYMPTOMS, type DayLog, type WeekMark } from '@/lib/pregnancy/daylog';
 import Sheet from '../calories/Sheet';
 import { statusText, useAutosave } from '../calories/autosave';
+import { DayLogRow } from './DayLog';
 import * as api from './api';
 
 const WEEKDAYS = ['א׳', 'ב׳', 'ג׳', 'ד׳', 'ה׳', 'ו׳', 'ש׳'];
@@ -22,8 +24,16 @@ type OnP = (p: Pregnancy) => void;
 
 // ── the "היום" strip ──
 
-export function TodayStrip({ p, today, onP, onEvent, onReminders, onWeek }: {
-  p: Pregnancy; today: string; onP: OnP; onEvent: (e: PEvent) => void; onReminders: () => void; onWeek: (w: number) => void;
+/** "איך היום?" or, once today has a log, "🙂 · 2 תסמינים". */
+function howToday(d: DayLog | null): string {
+  if (!d) return 'איך היום?';
+  const n = SYMPTOMS.filter((s) => d.sym?.[s.id]).length;
+  const parts = [d.mood ? MOODS[d.mood - 1] : '', n === 1 ? 'תסמין אחד' : n ? `${n} תסמינים` : '', !d.mood && !n ? 'נרשם היום' : ''].filter(Boolean);
+  return parts.join(' · ');
+}
+
+export function TodayStrip({ p, today, todayLog, onP, onEvent, onReminders, onWeek, onDay }: {
+  p: Pregnancy; today: string; todayLog: DayLog | null; onP: OnP; onEvent: (e: PEvent) => void; onReminders: () => void; onWeek: (w: number) => void; onDay: () => void;
 }) {
   const items = todayStrip(p, today);
   const [busy, setBusy] = useState<string | null>(null);
@@ -38,6 +48,7 @@ export function TodayStrip({ p, today, onP, onEvent, onReminders, onWeek }: {
         <h2>היום</h2>
         <button type="button" className="cal-link" onClick={onReminders}><FaBell aria-hidden /> תזכורות</button>
       </header>
+      <button type="button" className={`sh-chip pg-howday${todayLog ? ' is-on' : ''}`} onClick={onDay}>{howToday(todayLog)}</button>
       {items.length ? (
         <ul className="pg-strip">
           {items.map((it) => {
@@ -73,21 +84,25 @@ export function TodayStrip({ p, today, onP, onEvent, onReminders, onWeek }: {
 
 // ── 40 cubes ──
 
-export function WeekCubes({ p, today, onWeek }: { p: Pregnancy; today: string; onWeek: (w: number) => void }) {
+export function WeekCubes({ p, today, summary, onWeek }: { p: Pregnancy; today: string; summary: Record<number, WeekMark>; onWeek: (w: number) => void }) {
   const now = weekDay(dayOfPregnancy(p.edd, today)).w;
   const weeks = Array.from({ length: 40 }, (_, i) => i + 1);
   return (
     <section className="sh-card pg-cubes-card" aria-label="שבועות ההריון">
-      <header className="cal-meal-head"><h2>40 שבועות</h2><span className="cal-muted">נקודה = תור · עיגול = חלון לבדיקה</span></header>
+      <header className="cal-meal-head"><h2>40 שבועות</h2><span className="cal-muted">נקודה = תור · עיגול = חלון לבדיקה · פס = מצב רוח · ⭐ = אבן דרך</span></header>
       <div className="pg-cubes" role="list">
         {weeks.map((w) => {
           const m = weekMarks(p, w);
+          const log = summary[w];
+          const moodText = log?.mood ? `, מצב רוח ${MOODS[Math.round(log.mood) - 1]} בממוצע` : '';
           const tri = w < 14 ? 1 : w < 28 ? 2 : 3;
           const state = w < now ? 'is-past' : w === now ? 'is-now' : '';
           return (
             <button key={w} type="button" role="listitem" className={`pg-cube t${tri} ${state}`} aria-current={w === now ? 'date' : undefined}
-              aria-label={`שבוע ${w}${m.events ? `, ${m.events} אירועים` : ''}${m.windows ? `, ${m.windows} בדיקות לקבוע` : ''}`} onClick={() => onWeek(w)}>
+              aria-label={`שבוע ${w}${m.events ? `, ${m.events} אירועים` : ''}${m.windows ? `, ${m.windows} בדיקות לקבוע` : ''}${moodText}${log?.star ? ', אבן דרך' : ''}`} onClick={() => onWeek(w)}>
               <span>{w}</span>
+              {log?.star ? <i className="pg-cube-star" aria-hidden>⭐</i> : null}
+              {log?.mood ? <i className="pg-cube-mood" aria-hidden style={{ background: moodColor(log.mood) }} /> : null}
               <i className="pg-cube-marks" aria-hidden>
                 {m.events ? <b className="pg-dot" /> : null}
                 {m.windows ? <b className="pg-dot is-hollow" /> : null}
@@ -102,14 +117,20 @@ export function WeekCubes({ p, today, onWeek }: { p: Pregnancy; today: string; o
 
 // ── one week: Sunday to Saturday ──
 
-export function WeekSheet({ p, week, today, onP, onEvent, onNew, onClose }: {
+export function WeekSheet({ p, week, today, onP, onEvent, onNew, onDay, onClose }: {
   p: Pregnancy; week: number; today: string; onP: OnP;
-  onEvent: (e: PEvent) => void; onNew: (date: string, s?: Suggestion) => void; onClose: () => void;
+  onEvent: (e: PEvent) => void; onNew: (date: string, s?: Suggestion) => void; onDay: (date: string, day: DayLog | null) => void; onClose: () => void;
 }) {
   // The Sunday–Saturday week holding the middle of the pregnancy week (most of its days); ‹ › for the rest.
   const first = dateOfDay(p.edd, week * 7 + 3);
   const [offset, setOffset] = useState(0);
   const days = calendarWeek(addDays(first, offset * 7));
+  const [logs, setLogs] = useState<Record<string, DayLog>>({});
+  useEffect(() => {
+    let live = true;
+    void api.getDays(days[0], days[6]).then((r) => { if (live) setLogs(Object.fromEntries(r.days.map((d) => [d.date, d]))); }).catch(() => {});
+    return () => { live = false; };
+  }, [days[0], days[6]]); // eslint-disable-line react-hooks/exhaustive-deps
   const open = openSuggestions(p.events, p.dismissed).filter((s) => s.from <= week && s.to >= week);
   const dismissed = SUGGESTIONS.filter((s) => p.dismissed.includes(s.id) && s.from <= week && s.to >= week);
   const [busy, setBusy] = useState(false);
@@ -132,7 +153,7 @@ export function WeekSheet({ p, week, today, onP, onEvent, onNew, onClose }: {
           const cls = [w === week ? 'is-in' : '', d === 0 ? 'is-turn' : '', date === today ? 'is-today' : '', evs.length ? 'has-ev' : ''].join(' ');
           return (
             <li key={date} className={`pg-day ${cls}`}>
-              <button type="button" className="pg-day-head" onClick={() => onNew(date)} aria-label={`הוספת אירוע ב־${heDate(date)}`}>
+              <button type="button" className="pg-day-head" onClick={() => onDay(date, logs[date] ?? null)} aria-label={`יום ${heDate(date)}`}>
                 <span className="pg-day-name">{WEEKDAYS[i]} <small>{dm(date)}</small></span>
                 <span className="pg-day-wd"><bdi dir="ltr">{day >= 0 ? `${w}+${d}` : '—'}</bdi>{d === 0 && day >= 0 ? <small> שבוע חדש</small> : null}{date === today ? <small> היום</small> : null}</span>
                 <FaPlus aria-hidden className="pg-day-add" />
@@ -140,6 +161,7 @@ export function WeekSheet({ p, week, today, onP, onEvent, onNew, onClose }: {
               {evs.map((e) => (
                 <button key={e.id} type="button" className="pg-ev" onClick={() => onEvent(e)}>📍 {e.title}{e.time ? <small> · {e.time}</small> : null}</button>
               ))}
+              {logs[date] ? <DayLogRow day={logs[date]} /> : null}
             </li>
           );
         })}

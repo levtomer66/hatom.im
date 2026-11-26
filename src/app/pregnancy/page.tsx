@@ -26,6 +26,8 @@ import * as calApi from '../calories/api';
 import { PregnantProvider } from '../calories/pregnant';
 import { CafRows, CaffeineHero, DrinkQtySheet, DrinksRow } from './Caffeine';
 import { EventSheet, RemindersSheet, TodayStrip, WeekCubes, WeekSheet } from './Calendar';
+import { DaySheet } from './DayLog';
+import type { DayLog, WeekMark } from '@/lib/pregnancy/daylog';
 import GainTile from './GainTile';
 import { InviteCards, SettingsSheet, Setup } from './Setup';
 import WeekHero, { StageSheet } from './WeekHero';
@@ -56,6 +58,7 @@ type SheetState =
   | { kind: 'reminders' }
   | { kind: 'settings' }
   | { kind: 'drink'; id: string }
+  | { kind: 'day'; date: string; day: DayLog | null }
   | { kind: 'add'; meal: Meal; picked?: Picked }
   | { kind: 'edit'; entry: Entry }
   | null;
@@ -73,6 +76,8 @@ export default function PregnancyPage() {
   const [sheet, setSheet] = useState<SheetState>(null);
   const [toast, setToast] = useState<{ text: string; undo?: () => void } | null>(null);
   const [busyDrink, setBusyDrink] = useState<string | null>(null);
+  const [summary, setSummary] = useState<Record<number, WeekMark>>({});
+  const [todayLog, setTodayLog] = useState<DayLog | null>(null);
 
   const dateRef = useRef<string | null>(null);
   dateRef.current = date;
@@ -105,6 +110,20 @@ export default function PregnancyPage() {
     };
   }, []);
 
+  // The day log: the cubes' summary and today's log (for the strip's chip).
+  const loadLog = useCallback(async (t: string) => {
+    try {
+      const [sum, days] = await Promise.all([api.getDaySummary(), api.getDays(t, t)]);
+      setSummary(sum.weeks);
+      setTodayLog(days.days[0] ?? null);
+    } catch { /* the cubes just show no moods */ }
+  }, []);
+  const onDaySaved = useCallback((d: DayLog | null) => {
+    const t = todayRef.current;
+    if (t) void loadLog(t);
+    else if (d === null) setTodayLog(null);
+  }, [loadLog]);
+
   const load = useCallback(async (d: string) => {
     const t = todayRef.current ?? d;
     try {
@@ -113,10 +132,11 @@ export default function PregnancyPage() {
       setState(s);
       setDay(s.role === 'owner' ? await calApi.getDay(d, t) : null);
       setLoadError(null);
+      if (s.p) void loadLog(t);
     } catch (e) {
       if (dateRef.current === d) setLoadError(e instanceof Error ? e.message : 'לא נטען');
     }
-  }, []);
+  }, [loadLog]);
   useEffect(() => { if (date) void load(date); }, [date, load]);
 
   useEffect(() => {
@@ -197,7 +217,7 @@ export default function PregnancyPage() {
           <>
             <WeekHero p={p} day={todayDay} onOpen={(week) => setSheet({ kind: 'stage', week })} />
             {date === today ? (
-              <TodayStrip p={p} today={today} onP={onP} onEvent={(event) => setSheet({ kind: 'event', event })}
+              <TodayStrip p={p} today={today} todayLog={todayLog} onDay={() => setSheet({ kind: 'day', date: today, day: todayLog })} onP={onP} onEvent={(event) => setSheet({ kind: 'event', event })}
                 onReminders={() => setSheet({ kind: 'reminders' })} onWeek={(week) => setSheet({ kind: 'week', week })} />
             ) : null}
 
@@ -224,7 +244,7 @@ export default function PregnancyPage() {
             ) : null}
 
             {state.gain ? <GainTile gain={state.gain} /> : null}
-            <WeekCubes p={p} today={today} onWeek={(week) => setSheet({ kind: 'week', week })} />
+            <WeekCubes p={p} today={today} summary={summary} onWeek={(week) => setSheet({ kind: 'week', week })} />
           </>
         ) : null}
 
@@ -232,7 +252,12 @@ export default function PregnancyPage() {
         {sheet?.kind === 'week' && p ? (
           <WeekSheet p={p} week={sheet.week} today={today} onP={onP} onClose={() => setSheet(null)}
             onEvent={(event) => setSheet({ kind: 'event', event })}
-            onNew={(d, suggestion) => setSheet({ kind: 'event', date: d, suggestion })} />
+            onNew={(d, suggestion) => setSheet({ kind: 'event', date: d, suggestion })}
+            onDay={(d, log) => setSheet({ kind: 'day', date: d, day: log })} />
+        ) : null}
+        {sheet?.kind === 'day' && p ? (
+          <DaySheet p={p} date={sheet.date} today={today} me={me} day={sheet.day} onSaved={onDaySaved} onClose={() => setSheet(null)}
+            onEvent={(event) => setSheet({ kind: 'event', event })} onNew={(d) => setSheet({ kind: 'event', date: d })} />
         ) : null}
         {sheet?.kind === 'event' && p ? <EventSheet p={p} event={sheet.event} date={sheet.date} suggestion={sheet.suggestion} onP={onP} onClose={() => setSheet(null)} /> : null}
         {sheet?.kind === 'drink' ? <DrinkQtySheet id={sheet.id} onPick={(qty) => void logDrink(sheet.id, qty)} onClose={() => setSheet(null)} /> : null}

@@ -543,6 +543,11 @@ Identity = Gmail address. Two roles:
 - Stage pictures are hot-linked Wikimedia Commons files with credit (`stages.ts`);
   no specimen photos. Scans go to Vercel Blob (`pregnancy/<id>/<week>-…jpg`), URL only.
 - `src/lib/pregnancy/*.ts` is import-free for `node --test`, except `mcp-tools.ts`.
+- **Day log** (`docs/superpowers/specs/2026-11-26-pregnancy-day-log-design.md`): mood, symptoms,
+  measurements and notes per day in `pregnancyDays` (`_id: "<pid>|YYYY-MM-DD"`, no extra index;
+  rules in `daylog.ts`). Every write sets only its own part, and an emptied day is deleted.
+  Everyone in the pregnancy sees all of it, health values included (not `forViewer`). History is
+  the cubes’ mood bar/⭐ and the week sheet’s day rows: no charts.
 
 ### MCP server + OAuth (`/api/mcp`)
 

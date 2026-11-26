@@ -194,3 +194,6 @@
 .pg-daylog-sym i { font-style: normal; color: var(--pg-accent); letter-spacing: -1px; }
 .pg-daylog-m { color: var(--sh-muted); font-variant-numeric: tabular-nums; }
 .pg-daylog-note { flex-basis: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pg-howday { margin: 4px 0 8px; }
+.pg-cube-mood { position: absolute; inset-inline: 4px; bottom: 3px; height: 4px; border-radius: 2px; z-index: 1; }
+.pg-cube-star { position: absolute; top: 1px; inset-inline-start: 2px; font-size: 0.5625rem; font-style: normal; line-height: 1; z-index: 1; }

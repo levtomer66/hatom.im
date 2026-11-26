@@ -146,7 +146,7 @@ export function DaySheet({ p, date, today, me, day, onEvent, onNew, onSaved, onC
                 {pv ? (
                   <p className="cal-muted pg-prev">
                     קודם {measureText(def.id, pv.value)} ב־<bdi dir="ltr">{wd(p.edd, pv.date)}</bdi>
-                    {now ? <> · {trendText(def.id, now, pv.value)}</> : null}
+                    {now ? <> · <bdi dir="ltr">{trendText(def.id, now, pv.value)}</bdi></> : null}
                   </p>
                 ) : null}
               </div>
