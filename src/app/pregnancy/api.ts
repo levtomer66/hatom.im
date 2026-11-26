@@ -3,6 +3,7 @@
 import type { Meal } from '@/lib/calories/calories';
 import type { Pregnancy, PregnancyState } from '@/lib/pregnancy/pregnancy';
 import type { PEvent, Reminder, SuggestionId } from '@/lib/pregnancy/schedule';
+import type { DayLog, DayPatch, PrevValues, WeekMark } from '@/lib/pregnancy/daylog';
 import { ApiError } from '../calories/api';
 
 export { ApiError };
@@ -79,3 +80,13 @@ export async function uploadScan(week: number, file: File) {
 export const deleteScan = (week: number) => call<P>('DELETE', `/scans?week=${week}`);
 
 export const logDrink = (id: string, date: string, qty: number, meal?: Meal) => call<{ entry: { id: string; caf?: number } }>('POST', '/drink', { id, date, qty, meal, hour: new Date().getHours() });
+
+// The day log (docs/superpowers/specs/2026-11-26-pregnancy-day-log-design.md).
+type D = { day: DayLog | null };
+export const getDaySummary = () => call<{ weeks: Record<number, WeekMark> }>('GET', '/days?summary=1');
+export const getDays = (from: string, to: string) => call<{ days: DayLog[] }>('GET', `/days?from=${from}&to=${to}`);
+export const getPrev = (date: string) => call<{ prev: PrevValues }>('GET', `/days?prev=${date}`);
+export const putDay = (date: string, patch: DayPatch, today: string) => call<D>('PUT', `/days/${date}`, { ...patch, today });
+export const addNote = (date: string, text: string, star: boolean, today: string) => call<D>('POST', `/days/${date}/notes`, { text, star, today });
+export const editNote = (date: string, id: string, text: string, star: boolean) => call<D>('PATCH', `/days/${date}/notes`, { id, text, star });
+export const deleteNote = (date: string, id: string) => call<D>('DELETE', `/days/${date}/notes?id=${encodeURIComponent(id)}`);
