@@ -24,7 +24,7 @@ import type { Picked } from '../calories/FoodPicker';
 import SearchBar from '../calories/SearchBar';
 import * as calApi from '../calories/api';
 import { PregnantProvider } from '../calories/pregnant';
-import { CafRows, CaffeineHero, DrinksRow } from './Caffeine';
+import { CafRows, CaffeineHero, DrinkQtySheet, DrinksRow } from './Caffeine';
 import { EventSheet, RemindersSheet, TodayStrip, WeekCubes, WeekSheet } from './Calendar';
 import GainTile from './GainTile';
 import { InviteCards, SettingsSheet, Setup } from './Setup';
@@ -55,6 +55,7 @@ type SheetState =
   | { kind: 'event'; event?: PEvent; date?: string; suggestion?: Suggestion }
   | { kind: 'reminders' }
   | { kind: 'settings' }
+  | { kind: 'drink'; id: string }
   | { kind: 'add'; meal: Meal; picked?: Picked }
   | { kind: 'edit'; entry: Entry }
   | null;
@@ -136,14 +137,15 @@ export default function PregnancyPage() {
   const meal: Meal = date === today ? defaultMeal(new Date().getHours()) : 'snack';
   const mg = owner ? ownerRows.reduce((a, r) => a + r.mg, 0) : state?.caf?.mg ?? 0;
 
-  const logDrink = async (id: string) => {
+  const logDrink = async (id: string, qty: number) => {
+    setSheet(null);
     setBusyDrink(id);
     try {
-      const { entry } = await api.logDrink(id, date, meal);
+      const { entry } = await api.logDrink(id, date, qty, meal);
       const d = drinkById(id);
       await load(date);
       setToast({
-        text: `נרשם: ${d?.name} · ${d?.mg} מ״ג`,
+        text: `נרשם: ${qty === 0.5 ? 'חצי ' : ''}${d?.name} · ${Math.round((d?.mg ?? 0) * qty)} מ״ג`,
         undo: () => { void calApi.deleteEntry(date, entry.id).then(() => load(date)); setToast(null); },
       });
     } catch (e) {
@@ -200,7 +202,7 @@ export default function PregnancyPage() {
             ) : null}
 
             <CaffeineHero mg={mg} limit={p.cafLimit} readOnly={!owner} ownerName={owner ? undefined : p.owner.split('@')[0]} />
-            {owner ? <DrinksRow busy={busyDrink} onLog={(id) => void logDrink(id)} /> : null}
+            {owner ? <DrinksRow busy={busyDrink} onLog={(id) => setSheet({ kind: 'drink', id })} /> : null}
             {owner
               ? <CafRows rows={ownerRows} onRemove={(id) => void removeEntry(id)} onEdit={(id) => { const e = entries.find((x) => x.id === id); if (e) setSheet({ kind: 'edit', entry: e }); }} />
               : <CafRows rows={state.caf?.rows ?? []} />}
@@ -233,6 +235,7 @@ export default function PregnancyPage() {
             onNew={(d, suggestion) => setSheet({ kind: 'event', date: d, suggestion })} />
         ) : null}
         {sheet?.kind === 'event' && p ? <EventSheet p={p} event={sheet.event} date={sheet.date} suggestion={sheet.suggestion} onP={onP} onClose={() => setSheet(null)} /> : null}
+        {sheet?.kind === 'drink' ? <DrinkQtySheet id={sheet.id} onPick={(qty) => void logDrink(sheet.id, qty)} onClose={() => setSheet(null)} /> : null}
         {sheet?.kind === 'reminders' && p ? <RemindersSheet p={p} today={today} onP={onP} onClose={() => setSheet(null)} /> : null}
         {sheet?.kind === 'settings' && p ? (
           <SettingsSheet p={p} me={me} today={today} heightFromProfile={!!shownDay?.settings?.profile?.heightCm} onP={onP} onClose={() => { setSheet(null); void load(date); }}

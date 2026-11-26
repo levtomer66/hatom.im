@@ -160,3 +160,10 @@
 .pg-invite-form input { flex: 1; min-width: 0; min-height: var(--sh-tap); padding: 0 10px; border: 1px solid var(--sh-line); border-radius: var(--sh-r-ctl); background: var(--sh-bg); color: inherit; font: inherit; direction: ltr; text-align: start; }
 .pg-end { margin-top: 18px; }
 .pg-undo { color: inherit; text-decoration: underline; }
+
+/* Half or whole, after tapping a drink chip. */
+.pg-qty { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 8px; }
+.pg-qty-btn { display: flex; flex-direction: column; align-items: center; gap: 4px; min-height: 112px; padding: 16px 8px; border: 1px solid var(--sh-line); border-radius: var(--sh-r-ctl); background: var(--sh-bg); color: inherit; font: inherit; cursor: pointer; }
+.pg-qty-btn:active { transform: scale(0.97); }
+.pg-qty-btn b { font-size: 1.375rem; }
+.pg-qty-btn small { color: var(--sh-muted); }
