@@ -172,3 +172,11 @@ export function trendText(_id: MeasureId, now: MeasureValue, prev: MeasureValue)
   const b = Array.isArray(prev) ? prev[0] : prev;
   return a === b ? 'ללא שינוי' : a > b ? `↑${a - b}` : `↓${b - a}`;
 }
+
+/** Blood pressure from its two fields: a pair, null when both are empty, undefined while only one is filled or either isn't a number. */
+export function bpValue(sys: string, dia: string): [number, number] | null | undefined {
+  if (!sys.trim() && !dia.trim()) return null;
+  const a = Number(sys);
+  const b = Number(dia);
+  return sys.trim() && dia.trim() && Number.isFinite(a) && Number.isFinite(b) ? [a, b] : undefined;
+}

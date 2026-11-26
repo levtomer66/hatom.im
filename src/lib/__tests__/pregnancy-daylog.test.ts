@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { dayAllowed, isEmptyDay, measureText, moodColor, parseDayPatch, parseNote, prevValues, trendText, weekSummary } from '../pregnancy/daylog.ts';
+import { bpValue, dayAllowed, isEmptyDay, measureText, moodColor, parseDayPatch, parseNote, prevValues, trendText, weekSummary } from '../pregnancy/daylog.ts';
 
 const EDD = '2027-06-08'; // day 0 = 2026-09-01
 
@@ -75,4 +75,12 @@ test('moodColor runs red to green', () => {
   assert.equal(moodColor(1), 'hsl(0 70% 50%)');
   assert.equal(moodColor(5), 'hsl(120 70% 50%)');
   assert.equal(moodColor(3), 'hsl(60 70% 50%)');
+});
+
+test('bpValue: a pair only when both fields hold numbers', () => {
+  assert.deepEqual(bpValue('120', '80'), [120, 80]);
+  assert.equal(bpValue('120', ''), undefined);
+  assert.equal(bpValue('', '80'), undefined);
+  assert.equal(bpValue('12a', '80'), undefined);
+  assert.equal(bpValue(' ', ''), null);
 });
