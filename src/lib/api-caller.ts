@@ -35,6 +35,7 @@ function bearerCredential(value: string): string | null {
   return isApiKeyFormat(credential) ? credential : null;
 }
 
+/** The person's live permission (owners hold every one). */
 export async function hasCurrentPermission(
   email: string,
   permission: PermissionKey

@@ -275,6 +275,15 @@ test('stepsOk: whole steps, 0–100,000', () => {
   assert.ok(!stepsOk(-1) && !stepsOk(100_001) && !stepsOk(1.5) && !stepsOk('9000'));
 });
 
+test('parseEntry accepts a recipe serving; parseMeal refuses a recipe as an ingredient', () => {
+  const e = { meal: 'dinner', name: 'שקשוקה', img: null, ref: { kind: 'recipe', key: 'abc123' }, unit: { name: 'מנה', g: 300 }, qty: 1, nu: { kcal: 320, p: 18, c: 12, f: 22 } };
+  const r = parseEntry(e);
+  assert.ok(r.ok);
+  assert.deepEqual(r.value.ref, { kind: 'recipe', key: 'abc123' });
+  const item = { ref: { kind: 'recipe', key: 'abc123' }, name: 'x', grams: 100, nu: { kcal: 1, p: 0, c: 0, f: 0 } };
+  assert.equal(parseMeal({ name: 'ארוחה', portions: 1, items: [item] }).ok, false);
+});
+
 // ── caffeine (docs/superpowers/specs/2026-11-24-pregnancy-design.md) ──
 
 test('rescaleEntry scales caffeine from the logged amount', () => {

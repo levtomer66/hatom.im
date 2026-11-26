@@ -1442,3 +1442,6 @@ body:has(.sh-page) { background: #ffffff; }
 .sh-place-row { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; padding: 0.5rem 0; border-bottom: 1px solid var(--sh-line, rgba(127,127,127,0.2)); }
 .sh-place-label { flex: 1 1 12rem; min-width: 0; }
 .sh-place-note { margin: 0.75rem 0 0; font-size: 0.75rem; color: var(--sh-muted); }
+
+/* The way back to /recipes' רשימה tab (/shopping?from=recipes). */
+.sh-back-link { display: inline-flex; align-items: center; gap: 0.375rem; margin-bottom: 0.75rem; color: var(--sh-muted); font-size: 0.875rem; text-decoration: none; }

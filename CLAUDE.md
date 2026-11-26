@@ -22,6 +22,7 @@ several independent features under separate routes:
 | `/calendar`        | Milestones calendar: birthdays, anniversaries, one-off events (permission `calendar`). Mongo `calendarEvents`; date math in `src/lib/calendar.ts`. |
 | `/shopping`        | Grocery price comparison across chains (permission `shopping`). Per-household My items + one list in Mongo `shoppingHome`; price data written by a local ingest job. |
 | `/calories`        | Private food diary against a daily calorie goal (permission `calories`). Reuses the shopping catalog, nutrition and scanner; MoH generic foods in Mongo `caloriesFoods`. |
+| `/recipes`         | Per-person recipe book with a shared feed (permission `recipes`). Mongo `recipes`; sends ingredients to the shopping list, logs servings to /calories, imports through MCP. |
 | `/pregnancy`       | Pregnancy tracker (permission `pregnancy`): week+day hero, 40 week cubes with events and in-page reminders, caffeine counter. Mongo `pregnancies`; drinks are calories diary entries. |
 
 Default branch is `main`. Pushes to `main` auto-deploy to Production via
@@ -510,6 +511,47 @@ Identity = Gmail address. Two roles:
   route glue is in `src/app/api/calories/_shared.ts`. The page wears
   `shopping.css` (`sh-page`) plus `calories.css`.
 
+### Recipes (`/recipes`)
+
+- Spec: `docs/superpowers/specs/2026-11-24-recipes-design.md`. One doc per recipe
+  in `recipes`, owned by an email; `shared: {at}` puts it on the feed, where anyone
+  with `recipes` reads it and "שמור אצלי" copies it (own photo blob, `copiedFrom`).
+  Only the owner writes; reads of an unshared recipe 404 (`canRead`).
+- **Not a calories meal**: `caloriesMeals` is untouched. The link is one calories
+  ref kind, `recipe`: "רשום מנה" (`/api/recipes/[id]/log`) and recipe hits in the
+  calories search write ordinary frozen entries. Nutrition per serving is derived
+  from linked lines on read (`perServing`), never stored.
+- An ingredient keeps its typed `text`; `parseLine` (Hebrew fractions and number
+  words, `units.ts`) fills qty/unit/name and `toGrams` estimates grams. `qty: null`
+  lines ("לפי הטעם") never make nutrition `partial`. `link` = nutrition (MoH food or
+  product, per 100 g frozen); `key` = the product to buy when it isn't the link.
+- 🛒 adds to the household **list only, never My items** (unlike calories' 🛒).
+  Pantry names and products already listed start unticked (`matchDefaults`).
+- Edit mode autosaves three field groups as separate PATCHes that `$set` only
+  their keys, so a fast ingredient edit and step edit can't overwrite each other.
+- **Import** (spec § Import agent): the page queues a request in `recipeImports`
+  and pings ntfy topic `RECIPES_IMPORT_TOPIC` with **only the request id** (public
+  ntfy.sh). The agent is a cloud Claude Code session the owner starts and leaves
+  looping (`agents/recipe-import/PROMPT.md`: a pass, then a curl long-poll on the
+  topic, forever) with the owner-only MCP tools `recipes_import_{queue,claim,
+  complete,fail}`, which save into the *requester's* book. No Claude API key in
+  the app. Conversion rules have one source, `import-rules.ts` (also in
+  `recipes_save`'s description); improve imports there and in PROMPT.md.
+  Auto-linked lines are marked `auto` → "לבדוק"; images are copied to Blob
+  through `safeImageUrl` (https, public hosts, 5 MB).
+- **Look and entry** (spec `2026-11-25-recipes-warm-ux-design.md`): /recipes wears its
+  own warm look — `--rc-*` tokens on `.rc-app` (the layout wrapper) remap the
+  shopping/calories tokens their components read; Frank Ruhl Libre for headings
+  (`.rc-serif`); line-art in `art.tsx` (ours, inline SVG). + opens `StartSheet`:
+  an idea, pasted text or a link become an import request (an idea is
+  `prompt`, written by the agent under `IDEA_RULES`); מאפס opens an empty
+  recipe. The book's view is `?view=feed` / `?view=list` (back works); the floating
+  `TabBar` shows on the book only. רשימה (`ListView`) shows the household list
+  in place; its button opens /shopping?from=recipes, whose header links back. /calories' ארוחות sheet links in the same
+  way (/recipes?from=calories, with a link back to the diary). `description` (≤ 200) sits under the name; the
+  editor's link is `sourceUrl` on the wire, `source` in the doc.
+- `src/lib/recipes/*.ts` are import-free for `node --test`, except `server.ts`,
+  `products.ts`, `match-server.ts`, `autolink.ts` and `mcp-tools.ts`.
 ### Pregnancy (`/pregnancy`)
 
 - Spec: `docs/superpowers/specs/2026-11-24-pregnancy-design.md`. One small doc per

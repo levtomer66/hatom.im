@@ -31,7 +31,7 @@ function startOf(hit: FoodHit, initial?: { unit: Unit; qty: number }): { unit: U
     const same = hit.units.find((u) => u.name === initial.unit.name);
     if (same) return { unit: same, qty: initial.qty };
   }
-  return defaultAmount(hit.units, hit.source === 'meal' || hit.source === 'drink');
+  return defaultAmount(hit.units, hit.source === 'meal' || hit.source === 'recipe' || hit.source === 'drink');
 }
 
 export function totalsFor(hit: FoodHit, unit: Unit, qty: number): Totals | null {
@@ -89,7 +89,7 @@ export default function AmountStep(props: Props) {
       <div className="cal-chips" role="radiogroup" aria-label="יחידה">
         {hit.units.map((u) => (
           <button key={u.name} type="button" role="radio" aria-checked={u === unit} className={`sh-chip ${u.name === unit.name ? 'is-on' : ''}`} onClick={() => pick(u)}>
-            {u.name}{!isGrams(u) && hit.source !== 'meal' && hit.source !== 'drink' ? <small>{fmtQty(u.g)} ג׳</small> : null}
+            {u.name}{!isGrams(u) && hit.source !== 'meal' && hit.source !== 'recipe' && hit.source !== 'drink' ? <small>{fmtQty(u.g)} ג׳</small> : null}
           </button>
         ))}
       </div>

@@ -12,6 +12,7 @@ import { getAuthorizedEmailEntry } from '@/models/AuthorizedEmail';
 import { isOwnerEmail } from '@/types/auth';
 import type { PermissionKey } from '@/types/permissions';
 import { SHOPPING_TOOLS } from '@/lib/shopping/mcp-tools';
+import { RECIPE_TOOLS } from '@/lib/recipes/mcp-tools';
 import { PREGNANCY_TOOLS } from '@/lib/pregnancy/mcp-tools';
 import { createCoffeeOrder } from '@/models/CoffeeOrder';
 import { getCoffeeFavoritesForUser, getCoffeeFavoriteByName } from '@/models/CoffeeFavorite';
@@ -315,6 +316,7 @@ const TOOLS: McpTool[] = [
   },
   // Groceries: search, prices, lists and store comparison (src/lib/shopping/mcp-tools.ts).
   ...SHOPPING_TOOLS.map((t): McpTool => ({ ...t, permission: 'shopping' })),
+  ...RECIPE_TOOLS.map((t): McpTool => ({ ...t, permission: 'recipes' })),
   // Pregnancy: the week and today's caffeine; log a drink (src/lib/pregnancy/mcp-tools.ts).
   ...PREGNANCY_TOOLS.map((t): McpTool => ({ ...t, permission: 'pregnancy' })),
 ];

@@ -55,7 +55,7 @@ export interface FoodHit {
   /** The full label per 100 g (ml) — sugars, fibre, sodium… — for the product view; products and MoH foods. */
   label?: Nutrition;
   units: Unit[];
-  source: 'moh' | 'off' | 'manual' | 'meal' | 'drink';
+  source: 'moh' | 'off' | 'manual' | 'meal' | 'recipe' | 'drink';
   /** A built-in drink's caffeine per unit, mg. */
   caf?: number;
   maker?: string;

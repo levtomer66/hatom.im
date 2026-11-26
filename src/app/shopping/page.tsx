@@ -30,6 +30,7 @@ import { FaMinus, FaPlus, FaTrash, FaSearch, FaChevronDown, FaTimes, FaCheck, Fa
 import { storeQueryWords } from '@/lib/shopping/here';
 import { LuRefrigerator } from 'react-icons/lu';
 import dynamic from 'next/dynamic';
+import Link from 'next/link';
 import Navbar from '@/components/Navbar';
 import { RADII_KM, distanceM, walkMinutes, walkOrder, type Centre } from '@/lib/shopping/near';
 import { distanceLabel } from '@/lib/shopping/here';
@@ -127,6 +128,9 @@ const OpenProduct = createContext<((key: string) => void) | null>(null);
 const SEARCH_PHRASES = ['חיפוש מוצר או ברקוד', 'חלב 3%', 'במבה', 'קפה טורקי', 'לחם מלא', 'עגבניות שרי', 'שוקולד פרה'];
 
 export default function ShoppingPage() {
+  /** Came from /recipes' רשימה tab (?from=recipes): the header offers the way back. */
+  const [fromRecipes, setFromRecipes] = useState(false);
+  useEffect(() => { setFromRecipes(new URLSearchParams(window.location.search).get('from') === 'recipes'); }, []);
   /** The household's My items and its one shopping list (null until loaded). */
   const [home, setHome] = useState<HomeView | null>(null);
   /** The "מה חסר?" sheet. */
@@ -621,6 +625,7 @@ export default function ShoppingPage() {
       <OpenProduct.Provider value={openProduct}>
       <main className="sh-page">
         <header className="sh-home-head">
+          {fromRecipes ? <Link href="/recipes?view=list" className="sh-back-link"><FaArrowRight aria-hidden /> חזרה למתכונים</Link> : null}
           <h1 className="sh-logo">כיף לי <span>בסופר</span></h1>
         </header>
         {incoming.map((inv) => <InviteCard key={inv.id} invite={inv} onAnswer={(accept) => answerInvite(inv.id, accept)} />)}
